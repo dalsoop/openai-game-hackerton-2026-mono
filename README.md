@@ -48,11 +48,13 @@ npm run dev
 
 ## 초대 멤버
 
-| 이름 | 연락 | 역할 가정 |
-|---|---|---|
-| 윤정한 | (owner) | 레포·인프라 |
-| 이현진 (Figix) | 1202hyunjin@naver.com | 조작감·감성 |
-| 박진혁 (크리엘) | pjhk579700@gmail.com | 구현·핫로드 워크플로 |
+| 이름 | GitHub | 연락 | 역할 가정 |
+|---|---|---|---|
+| 윤정한 | [@dalsoop](https://github.com/dalsoop) | (owner) | 레포·인프라 |
+| 이현진 (Figix) | [@Figix](https://github.com/Figix) | 1202hyunjin@naver.com | 조작감·감성 |
+| 박진혁 (크리엘) | *(GH username 대기)* | pjhk579700@gmail.com | 구현·핫로드 워크플로 |
+
+레포: https://github.com/dalsoop/wasd-co-op-racing-mono (private)
 
 ## 라이선스
 
