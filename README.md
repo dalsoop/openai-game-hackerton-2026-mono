@@ -57,7 +57,7 @@ npm run dev
 |---|---|---|---|
 | 윤정한 | [@dalsoop](https://github.com/dalsoop) | (owner) | 레포·인프라 |
 | 이현진 (Figix) | [@Figix](https://github.com/Figix) | 1202hyunjin@naver.com | 조작감·감성 |
-| 박진혁 (크리엘) | *(GH username 대기)* | pjhk579700@gmail.com | 구현·핫로드 워크플로 |
+| 박진혁 (크리엘) | [@criel2019](https://github.com/criel2019) | pjhk579700@gmail.com | 구현·핫로드 워크플로 |
 
 레포: https://github.com/dalsoop/openai-game-hackerton-2026-mono
 
