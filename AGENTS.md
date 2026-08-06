@@ -24,6 +24,12 @@
 - `npm run build` 가 깨지면 머지하지 말 것.
 - 레포 밖(다른 mono) 수정 금지.
 
+## 브랜치 보호
+
+- `main` 직접 푸시·머지 **금지** (repository ruleset `protect-main`).
+- 변경은 `feat/*` · `fix/*` 브랜치 → **PR** → 승인 1명 → 머지.
+- force-push / main 삭제 불가. 관리자도 bypass 없음.
+
 ## 로컬 루프
 
 ```bash
