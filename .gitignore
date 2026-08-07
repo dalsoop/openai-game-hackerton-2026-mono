@@ -11,3 +11,10 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 logs/
+
+# Godot
+.godot/
+*.translation
+export_credentials.cfg
+# Godot web export output (built artifact — regenerate with export)
+apps/godot-*/web/
