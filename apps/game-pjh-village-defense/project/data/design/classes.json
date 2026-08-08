@@ -1,0 +1,122 @@
+[
+  {
+    "id": "guardian",
+    "name": "수호자",
+    "hp": 1450,
+    "speed": 220,
+    "attack": 58,
+    "range": 105,
+    "interval": 0.72,
+    "skills": [
+      "도발 9s",
+      "방패벽 16s",
+      "대지충격 13s"
+    ],
+    "role": "전선 고정"
+  },
+  {
+    "id": "berserker",
+    "name": "광전사",
+    "hp": 1050,
+    "speed": 270,
+    "attack": 92,
+    "range": 95,
+    "interval": 0.58,
+    "skills": [
+      "도약 8s",
+      "처형 11s",
+      "광분 18s"
+    ],
+    "role": "막타·단일 화력"
+  },
+  {
+    "id": "ranger",
+    "name": "사냥꾼",
+    "hp": 760,
+    "speed": 275,
+    "attack": 72,
+    "range": 420,
+    "interval": 0.65,
+    "skills": [
+      "관통사격 7s",
+      "덫 12s",
+      "연사 17s"
+    ],
+    "role": "원거리 라인 정리"
+  },
+  {
+    "id": "mage",
+    "name": "마법사",
+    "hp": 680,
+    "speed": 250,
+    "attack": 66,
+    "range": 350,
+    "interval": 0.78,
+    "skills": [
+      "폭발구 6s",
+      "스테이시스 필드 22s",
+      "점멸 10s"
+    ],
+    "role": "필수급 군중 제어"
+  },
+  {
+    "id": "priest",
+    "name": "사제",
+    "hp": 820,
+    "speed": 255,
+    "attack": 38,
+    "range": 320,
+    "interval": 0.82,
+    "skills": [
+      "치유 7s",
+      "보호막 13s",
+      "전투부활 45s"
+    ],
+    "role": "회복·복구"
+  },
+  {
+    "id": "engineer",
+    "name": "기술자",
+    "hp": 850,
+    "speed": 245,
+    "attack": 50,
+    "range": 300,
+    "interval": 0.74,
+    "skills": [
+      "포탑 12s",
+      "바리케이드 10s",
+      "과충전 20s"
+    ],
+    "role": "거점 구축"
+  },
+  {
+    "id": "lancer",
+    "name": "창기병",
+    "hp": 1100,
+    "speed": 285,
+    "attack": 76,
+    "range": 145,
+    "interval": 0.68,
+    "skills": [
+      "돌진 8s",
+      "회전베기 9s",
+      "전투깃발 19s"
+    ],
+    "role": "기동·광역"
+  },
+  {
+    "id": "summoner",
+    "name": "소환술사",
+    "hp": 720,
+    "speed": 240,
+    "attack": 45,
+    "range": 320,
+    "interval": 0.82,
+    "skills": [
+      "소환 8s",
+      "희생폭발 12s",
+      "군단강화 20s"
+    ],
+    "role": "분산 화력"
+  }
+]

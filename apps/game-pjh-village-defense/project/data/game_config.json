@@ -1,0 +1,35 @@
+{
+  "package": "village_defense",
+  "display_name": "신 마을 지키기",
+  "godot_version": "4.7.1",
+  "package_version": "1.0.0",
+  "simulation": {
+    "tick_rate": 60,
+    "fixed_dt": 0.016666666666666666,
+    "default_seed": 44001,
+    "authoritative_physics": "custom_game_world",
+    "godot_physics_authoritative": false
+  },
+  "match": {
+    "human_count": 1,
+    "cpu_count": 5,
+    "controls": "WASD 이동 · 마우스 조준 · 좌클릭 기본공격 · Q 주스킬 · E 스테이시스 · U 강화 · R 재시작",
+    "prototype_goal": "4라인·12웨이브·6영웅·킬 진화·업그레이드·CPU 역할 이동·최종 보스가 작동하는 회색상자"
+  },
+  "game": {
+    "player_count": 6,
+    "wave_count": 12,
+    "village_hp": 1000,
+    "success_rule": "clear_final_boss_before_village_destroyed",
+    "starter_features": [
+      "four_lanes",
+      "projectiles",
+      "last_hit_credit",
+      "evolution",
+      "upgrade",
+      "stasis_affects_allies",
+      "cpu_rotation",
+      "boss"
+    ]
+  }
+}

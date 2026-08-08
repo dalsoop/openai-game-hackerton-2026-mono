@@ -1,0 +1,140 @@
+{
+  "vanguard": [
+    {
+      "id": "taunt",
+      "key": "KeyQ",
+      "name": "도발",
+      "cooldown": 9,
+      "effect": "반경 260 적을 3초 고정, 방패 내구 8 회복."
+    },
+    {
+      "id": "shield_charge",
+      "key": "KeyW",
+      "name": "방패돌진",
+      "cooldown": 11,
+      "effect": "320유닛 돌진, 경로 적 밀침·95 피해."
+    },
+    {
+      "id": "last_wall",
+      "key": "KeyE",
+      "name": "최후방벽",
+      "cooldown": 30,
+      "effect": "6초 받는 피해 50%, 뒤 아군 피해 25% 감소."
+    }
+  ],
+  "rifleman": [
+    {
+      "id": "burst",
+      "key": "KeyQ",
+      "name": "점사",
+      "cooldown": 5,
+      "effect": "탄약 6, 0.45초간 3발 각 82 피해."
+    },
+    {
+      "id": "grenade",
+      "key": "KeyW",
+      "name": "수류탄",
+      "cooldown": 10,
+      "effect": "탄약 8, 반경 150에 165 피해."
+    },
+    {
+      "id": "suppress",
+      "key": "KeyE",
+      "name": "제압사격",
+      "cooldown": 20,
+      "effect": "탄약 20, 5초 원뿔 지속사격·적 속도 35% 감소."
+    }
+  ],
+  "controller": [
+    {
+      "id": "freeze_round",
+      "key": "KeyQ",
+      "name": "빙결탄",
+      "cooldown": 7,
+      "effect": "열 +18, 반경 125 적 2초 55% 둔화."
+    },
+    {
+      "id": "mine",
+      "key": "KeyW",
+      "name": "지뢰",
+      "cooldown": 11,
+      "effect": "열 +12, 30초 지뢰, 반경 130에 150 피해."
+    },
+    {
+      "id": "artillery_mark",
+      "key": "KeyE",
+      "name": "포격표식",
+      "cooldown": 24,
+      "effect": "열 +35, 1.5초 후 반경 210에 420 피해."
+    }
+  ],
+  "quartermaster": [
+    {
+      "id": "ammo_drop",
+      "key": "KeyQ",
+      "name": "탄약 긴급투하",
+      "cooldown": 18,
+      "effect": "비용 22, 1.2초 후 지정 전선에 탄약 28. 물리 배송 없음."
+    },
+    {
+      "id": "priority_route",
+      "key": "KeyW",
+      "name": "우선 수송로",
+      "cooldown": 20,
+      "effect": "8초 해당 경로 배송 속도 45%, 받는 피해 25% 감소."
+    },
+    {
+      "id": "production_rush",
+      "key": "KeyE",
+      "name": "생산가속",
+      "cooldown": 32,
+      "effect": "10초 생산시간 40% 단축, 비용 15% 증가."
+    }
+  ],
+  "medic": [
+    {
+      "id": "heal_pack",
+      "key": "KeyQ",
+      "name": "치료팩",
+      "cooldown": 8,
+      "effect": "비용 18, 사거리 360 아군 체력 180 즉시 회복."
+    },
+    {
+      "id": "combat_revive",
+      "key": "KeyW",
+      "name": "전투부활",
+      "cooldown": 45,
+      "effect": "비용 45, 사거리 140에서 1.4초 채널 후 병사 부활."
+    },
+    {
+      "id": "morale",
+      "key": "KeyE",
+      "name": "사기주입",
+      "cooldown": 25,
+      "effect": "8초 대상 라인 병사 이동·공격 15%, 받는 회복 20% 증가."
+    }
+  ],
+  "engineer_support": [
+    {
+      "id": "barricade",
+      "key": "KeyQ",
+      "name": "바리케이드",
+      "cooldown": 12,
+      "effect": "비용 20, 체력 760 바리케이드. 라인당 최대 3."
+    },
+    {
+      "id": "repair_drone",
+      "key": "KeyW",
+      "name": "수리드론",
+      "cooldown": 16,
+      "effect": "비용 18, 8초간 초당 75 구조물 수리."
+    },
+    {
+      "id": "temp_turret",
+      "key": "KeyE",
+      "name": "임시포탑",
+      "cooldown": 28,
+      "effect": "비용 42, 35초 포탑, 초당 95 피해."
+    }
+  ]
+}

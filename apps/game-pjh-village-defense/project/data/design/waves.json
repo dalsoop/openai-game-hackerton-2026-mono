@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "name": "떠보기",
+    "duration": 110,
+    "spawns": 480,
+    "boss": null,
+    "mechanic": "두 개 라인만 사용"
+  },
+  {
+    "id": 2,
+    "name": "네 갈래",
+    "duration": 125,
+    "spawns": 620,
+    "boss": null,
+    "mechanic": "4개 라인 개방"
+  },
+  {
+    "id": 3,
+    "name": "갑주병",
+    "duration": 135,
+    "spawns": 720,
+    "boss": "갑주대장",
+    "mechanic": "방어가 높은 적, 후방 딜러 필요"
+  },
+  {
+    "id": 4,
+    "name": "질주 떼",
+    "duration": 130,
+    "spawns": 820,
+    "boss": null,
+    "mechanic": "빠른 적, 덫·감속 가치 상승"
+  },
+  {
+    "id": 5,
+    "name": "공성차",
+    "duration": 150,
+    "spawns": 900,
+    "boss": "공성차",
+    "mechanic": "마을 원거리 포격"
+  },
+  {
+    "id": 6,
+    "name": "흡혈 밤",
+    "duration": 145,
+    "spawns": 950,
+    "boss": null,
+    "mechanic": "영웅에게 준 피해로 회복"
+  },
+  {
+    "id": 7,
+    "name": "분열체",
+    "duration": 155,
+    "spawns": 1050,
+    "boss": "분열여왕",
+    "mechanic": "사망 시 소형 2기 분열"
+  },
+  {
+    "id": 8,
+    "name": "침묵 안개",
+    "duration": 150,
+    "spawns": 1020,
+    "boss": null,
+    "mechanic": "주기적 스킬 봉인 구역"
+  },
+  {
+    "id": 9,
+    "name": "네 장군",
+    "duration": 170,
+    "spawns": 1150,
+    "boss": "장군 4기",
+    "mechanic": "동시 다발 미니보스"
+  },
+  {
+    "id": 10,
+    "name": "끝없는 물결",
+    "duration": 180,
+    "spawns": 1300,
+    "boss": null,
+    "mechanic": "휴식 없는 지속 스폰"
+  },
+  {
+    "id": 11,
+    "name": "성문 파괴자",
+    "duration": 180,
+    "spawns": 1180,
+    "boss": "파괴자",
+    "mechanic": "성문 우선 공격"
+  },
+  {
+    "id": 12,
+    "name": "마을의 밤",
+    "duration": 240,
+    "spawns": 1450,
+    "boss": "최종 군주 3페이즈",
+    "mechanic": "스테이시스 차단이 필요한 전멸기"
+  }
+]

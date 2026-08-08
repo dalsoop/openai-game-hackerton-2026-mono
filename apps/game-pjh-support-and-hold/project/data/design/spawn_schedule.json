@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "sourceStatus": "프로토타입 고정",
+  "controller": {
+    "tickHz": 4,
+    "budgetAccrual": "budgetPerMinute / 60 / tickHz",
+    "selection": "weighted random among enemies whose cost <= budget; deterministic RNG stream phase:<id>:lane:<lane>",
+    "unspentBudgetCap": 18,
+    "laneRule": "baseLaneWeights + objectivePressure + spawnDebt; clamp each lane 0.18..0.48 unless scripted assault"
+  },
+  "phases": [
+    {
+      "id": 1,
+      "segments": [
+        {
+          "fromSec": 0,
+          "toSec": 120,
+          "budgetPerMinute": 92,
+          "ratios": {
+            "drone": 0.7,
+            "runner": 0.3
+          },
+          "laneWeights": {
+            "north": 0.34,
+            "center": 0.32,
+            "south": 0.34
+          }
+        },
+        {
+          "fromSec": 120,
+          "toSec": 300,
+          "budgetPerMinute": 126,
+          "ratios": {
+            "drone": 0.52,
+            "runner": 0.23,
+            "brute": 0.15,
+            "spitter": 0.1
+          }
+        },
+        {
+          "fromSec": 300,
+          "toSec": 480,
+          "budgetPerMinute": 158,
+          "ratios": {
+            "drone": 0.38,
+            "runner": 0.2,
+            "brute": 0.2,
+            "spitter": 0.14,
+            "saboteur": 0.08
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "segments": [
+        {
+          "fromSec": 0,
+          "toSec": 150,
+          "budgetPerMinute": 142,
+          "ratios": {
+            "drone": 0.44,
+            "runner": 0.18,
+            "brute": 0.18,
+            "spitter": 0.12,
+            "saboteur": 0.08
+          },
+          "script": "north_south_ambush_at_checkpoints"
+        },
+        {
+          "fromSec": 150,
+          "toSec": 360,
+          "budgetPerMinute": 176,
+          "ratios": {
+            "drone": 0.34,
+            "runner": 0.16,
+            "brute": 0.2,
+            "spitter": 0.15,
+            "saboteur": 0.1,
+            "burrower": 0.05
+          }
+        },
+        {
+          "fromSec": 360,
+          "toSec": 540,
+          "budgetPerMinute": 205,
+          "ratios": {
+            "drone": 0.28,
+            "runner": 0.15,
+            "brute": 0.21,
+            "spitter": 0.15,
+            "saboteur": 0.12,
+            "burrower": 0.05,
+            "acid_beast": 0.04
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "segments": [
+        {
+          "fromSec": 0,
+          "toSec": 180,
+          "budgetPerMinute": 185,
+          "ratios": {
+            "drone": 0.32,
+            "runner": 0.14,
+            "brute": 0.2,
+            "spitter": 0.14,
+            "saboteur": 0.08,
+            "acid_beast": 0.07,
+            "burrower": 0.05
+          }
+        },
+        {
+          "fromSec": 180,
+          "toSec": 420,
+          "budgetPerMinute": 224,
+          "ratios": {
+            "drone": 0.25,
+            "runner": 0.12,
+            "brute": 0.2,
+            "spitter": 0.15,
+            "saboteur": 0.09,
+            "acid_beast": 0.1,
+            "burrower": 0.05,
+            "hive_guard": 0.04
+          }
+        },
+        {
+          "fromSec": 420,
+          "toSec": 600,
+          "budgetPerMinute": 258,
+          "ratios": {
+            "drone": 0.2,
+            "runner": 0.11,
+            "brute": 0.19,
+            "spitter": 0.14,
+            "saboteur": 0.1,
+            "acid_beast": 0.12,
+            "burrower": 0.06,
+            "hive_guard": 0.08
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "segments": [
+        {
+          "fromSec": 0,
+          "toSec": 160,
+          "budgetPerMinute": 238,
+          "ratios": {
+            "drone": 0.22,
+            "runner": 0.1,
+            "brute": 0.18,
+            "spitter": 0.15,
+            "saboteur": 0.09,
+            "acid_beast": 0.12,
+            "hive_guard": 0.08,
+            "tentacle": 0.06
+          }
+        },
+        {
+          "fromSec": 160,
+          "toSec": 360,
+          "budgetPerMinute": 286,
+          "ratios": {
+            "drone": 0.16,
+            "runner": 0.09,
+            "brute": 0.17,
+            "spitter": 0.15,
+            "saboteur": 0.1,
+            "acid_beast": 0.14,
+            "hive_guard": 0.11,
+            "tentacle": 0.08
+          },
+          "script": "acid_bombardment_40s"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "segments": [
+        {
+          "fromSec": 0,
+          "toSec": 210,
+          "budgetPerMinute": 255,
+          "ratios": {
+            "drone": 0.2,
+            "runner": 0.1,
+            "brute": 0.18,
+            "spitter": 0.15,
+            "saboteur": 0.08,
+            "acid_beast": 0.12,
+            "hive_guard": 0.1,
+            "tentacle": 0.07
+          }
+        },
+        {
+          "fromSec": 210,
+          "toSec": 420,
+          "budgetPerMinute": 315,
+          "ratios": {
+            "drone": 0.14,
+            "runner": 0.08,
+            "brute": 0.16,
+            "spitter": 0.14,
+            "saboteur": 0.1,
+            "acid_beast": 0.14,
+            "hive_guard": 0.14,
+            "tentacle": 0.1
+          },
+          "script": "core_enrage"
+        }
+      ]
+    }
+  ],
+  "boss": {
+    "id": "hive_core",
+    "hp": 180000,
+    "phaseThreshold": 0.55,
+    "pulseEverySec": 32,
+    "pulseWindupSec": 2.6,
+    "pulseFailureLimit": 3
+  }
+}

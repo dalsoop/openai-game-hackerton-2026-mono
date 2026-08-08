@@ -1,0 +1,86 @@
+[
+  {
+    "id": "grunt",
+    "name": "잡병",
+    "hp": 120,
+    "speed": 105,
+    "damage": 18,
+    "interval": 1.0,
+    "priority": "nearest_gate",
+    "cost": 1
+  },
+  {
+    "id": "runner",
+    "name": "질주병",
+    "hp": 72,
+    "speed": 175,
+    "damage": 14,
+    "interval": 0.7,
+    "priority": "chief",
+    "cost": 1
+  },
+  {
+    "id": "armored",
+    "name": "갑주병",
+    "hp": 420,
+    "speed": 72,
+    "damage": 38,
+    "interval": 1.25,
+    "priority": "gate",
+    "cost": 3
+  },
+  {
+    "id": "archer",
+    "name": "궁수",
+    "hp": 140,
+    "speed": 90,
+    "damage": 24,
+    "interval": 1.1,
+    "range": 340,
+    "priority": "hero_then_gate",
+    "cost": 2
+  },
+  {
+    "id": "splitter",
+    "name": "분열체",
+    "hp": 190,
+    "speed": 100,
+    "damage": 17,
+    "interval": 0.9,
+    "priority": "gate",
+    "cost": 2
+  },
+  {
+    "id": "silencer",
+    "name": "침묵술사",
+    "hp": 230,
+    "speed": 88,
+    "damage": 16,
+    "interval": 1.2,
+    "range": 280,
+    "priority": "hero",
+    "cost": 3
+  },
+  {
+    "id": "siege",
+    "name": "공성수",
+    "hp": 760,
+    "speed": 52,
+    "damage": 95,
+    "interval": 2.2,
+    "range": 520,
+    "priority": "chief",
+    "cost": 6
+  },
+  {
+    "id": "healer",
+    "name": "치유사",
+    "hp": 260,
+    "speed": 78,
+    "damage": 8,
+    "interval": 1.2,
+    "range": 260,
+    "priority": "ally",
+    "cost": 4
+  }
+]

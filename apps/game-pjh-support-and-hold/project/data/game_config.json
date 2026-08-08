@@ -1,0 +1,36 @@
+{
+  "package": "support_and_hold",
+  "display_name": "지원하며 버티기",
+  "godot_version": "4.7.1",
+  "package_version": "1.0.0",
+  "simulation": {
+    "tick_rate": 60,
+    "fixed_dt": 0.016666666666666666,
+    "default_seed": 55001,
+    "authoritative_physics": "custom_game_world",
+    "godot_physics_authoritative": false
+  },
+  "match": {
+    "human_count": 1,
+    "cpu_count": 5,
+    "controls": "1~6 조작 전환 · WASD 이동 · 좌클릭 사격/보급 지정 · Q 수류탄/품목 변경 · F 탄약요청 · E 치료요청 · Space 장벽요청 · R 재시작",
+    "prototype_goal": "3개 병사·3개 보급 역할, 3라인, 생산·배송·요청·라인 이탈·5페이즈 Hive 공략이 작동하는 회색상자"
+  },
+  "game": {
+    "player_count": 6,
+    "soldiers": 3,
+    "suppliers": 3,
+    "phase_count": 5,
+    "success_rule": "destroy_hive_before_base_destroyed",
+    "starter_features": [
+      "role_switch",
+      "ammo",
+      "requests",
+      "physical_delivery",
+      "delivery_destruction",
+      "healing",
+      "barrier",
+      "hive_push"
+    ]
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "game": "village_defense",
+  "seeds": [
+    {
+      "seed": 44001,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44098,
+      "label": "lane_collapse",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44195,
+      "label": "last_hit_race",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44292,
+      "label": "stasis_trouble",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44389,
+      "label": "boss_breach",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44486,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44583,
+      "label": "lane_collapse",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44680,
+      "label": "last_hit_race",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44777,
+      "label": "stasis_trouble",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44874,
+      "label": "boss_breach",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 44971,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45068,
+      "label": "lane_collapse",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45165,
+      "label": "last_hit_race",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45262,
+      "label": "stasis_trouble",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45359,
+      "label": "boss_breach",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45456,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45553,
+      "label": "lane_collapse",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45650,
+      "label": "last_hit_race",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45747,
+      "label": "stasis_trouble",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45844,
+      "label": "boss_breach",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 45941,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 46038,
+      "label": "lane_collapse",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 46135,
+      "label": "last_hit_race",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 46232,
+      "label": "stasis_trouble",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 46329,
+      "label": "boss_breach",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    }
+  ]
+}

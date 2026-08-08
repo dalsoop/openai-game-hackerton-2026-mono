@@ -1,0 +1,305 @@
+{
+  "game": "collect_eight",
+  "seeds": [
+    {
+      "seed": 33001,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33098,
+      "label": "carrier_chase",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33195,
+      "label": "multi_intercept",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33292,
+      "label": "seven_point_drama",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33389,
+      "label": "long_stalemate",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33486,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33583,
+      "label": "carrier_chase",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33680,
+      "label": "multi_intercept",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33777,
+      "label": "seven_point_drama",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33874,
+      "label": "long_stalemate",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 33971,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34068,
+      "label": "carrier_chase",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34165,
+      "label": "multi_intercept",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34262,
+      "label": "seven_point_drama",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34359,
+      "label": "long_stalemate",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34456,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34553,
+      "label": "carrier_chase",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34650,
+      "label": "multi_intercept",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34747,
+      "label": "seven_point_drama",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34844,
+      "label": "long_stalemate",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 34941,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 35038,
+      "label": "carrier_chase",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 35135,
+      "label": "multi_intercept",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 35232,
+      "label": "seven_point_drama",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 35329,
+      "label": "long_stalemate",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    }
+  ]
+}

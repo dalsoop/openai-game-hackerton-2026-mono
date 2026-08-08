@@ -1,0 +1,31 @@
+{
+  "world": [
+    3000,
+    1800
+  ],
+  "lanes": [
+    "north",
+    "center",
+    "south"
+  ],
+  "hq": {
+    "hp": 12000,
+    "armor": 20
+  },
+  "frontMarkers": {
+    "hp": 3200,
+    "count": 3
+  },
+  "supplyPassivePerSec": {
+    "quartermaster": 5.0,
+    "medic": 4.8,
+    "engineer_support": 4.6
+  },
+  "soldierDownedSec": 10,
+  "supportRespawnSec": 8,
+  "maxShipmentQueuePerSupport": 3,
+  "targetSessionMin": [
+    38,
+    55
+  ]
+}
