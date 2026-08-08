@@ -1,0 +1,35 @@
+{
+  "package": "collect_eight",
+  "display_name": "8원 모으기",
+  "godot_version": "4.7.1",
+  "package_version": "1.0.0",
+  "simulation": {
+    "tick_rate": 60,
+    "fixed_dt": 0.016666666666666666,
+    "default_seed": 33001,
+    "authoritative_physics": "custom_game_world",
+    "godot_physics_authoritative": false
+  },
+  "match": {
+    "human_count": 1,
+    "cpu_count": 5,
+    "controls": "WASD 이동 · Space 대시/몸통박치기 · E 채취·줍기·예치 · R 재시작",
+    "prototype_goal": "6인 경쟁, 중앙 광물, 소유권 경합, 드롭·줍기·은행 예치·세 경로·CPU 가로막기가 작동하는 회색상자"
+  },
+  "game": {
+    "player_count": 6,
+    "target_value": 8,
+    "single_active_mineral": true,
+    "success_rule": "carry_mineral_to_own_bank",
+    "starter_features": [
+      "channel_pickup",
+      "carry",
+      "dash",
+      "body_check",
+      "drop",
+      "recovery",
+      "chase",
+      "intercept"
+    ]
+  }
+}

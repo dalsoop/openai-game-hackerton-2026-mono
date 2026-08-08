@@ -1,0 +1,305 @@
+{
+  "game": "support_and_hold",
+  "seeds": [
+    {
+      "seed": 55001,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55098,
+      "label": "ammo_crisis",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55195,
+      "label": "delivery_destroyed",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55292,
+      "label": "supplier_down",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55389,
+      "label": "hive_push",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55486,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55583,
+      "label": "ammo_crisis",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55680,
+      "label": "delivery_destroyed",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55777,
+      "label": "supplier_down",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55874,
+      "label": "hive_push",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 55971,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56068,
+      "label": "ammo_crisis",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56165,
+      "label": "delivery_destroyed",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56262,
+      "label": "supplier_down",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56359,
+      "label": "hive_push",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56456,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56553,
+      "label": "ammo_crisis",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56650,
+      "label": "delivery_destroyed",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56747,
+      "label": "supplier_down",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56844,
+      "label": "hive_push",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 56941,
+      "label": "baseline",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 57038,
+      "label": "ammo_crisis",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 57135,
+      "label": "delivery_destroyed",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 57232,
+      "label": "supplier_down",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    },
+    {
+      "seed": 57329,
+      "label": "hive_push",
+      "max_ticks": 120000,
+      "required_invariants": [
+        "no_nan",
+        "no_duplicate_id",
+        "result_stable",
+        "cpu_fairness_audit"
+      ],
+      "expected_result": "record_after_first_godot_run"
+    }
+  ]
+}

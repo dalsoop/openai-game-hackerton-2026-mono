@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "sourceStatus": "프로토타입 고정",
+  "allocationRule": "count = floor(totalSpawns*ratio); remaining units assigned by descending fractional part, then enemy id",
+  "spawnRule": "budget accrues continuously; lane selection uses documented line weights; boss times are seconds from wave start",
+  "waves": [
+    {
+      "id": 1,
+      "activeLanes": [
+        "north",
+        "south"
+      ],
+      "ratios": {
+        "grunt": 0.78,
+        "runner": 0.22
+      },
+      "bosses": []
+    },
+    {
+      "id": 2,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.62,
+        "runner": 0.22,
+        "archer": 0.12,
+        "healer": 0.04
+      },
+      "bosses": []
+    },
+    {
+      "id": 3,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.38,
+        "armored": 0.32,
+        "archer": 0.18,
+        "healer": 0.12
+      },
+      "bosses": [
+        {
+          "id": "armor_captain",
+          "timeSec": 92,
+          "lane": "weakestGate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "runner": 0.52,
+        "grunt": 0.26,
+        "archer": 0.14,
+        "healer": 0.08
+      },
+      "bosses": []
+    },
+    {
+      "id": 5,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.42,
+        "siege": 0.16,
+        "armored": 0.18,
+        "archer": 0.16,
+        "healer": 0.08
+      },
+      "bosses": [
+        {
+          "id": "siege_engine",
+          "timeSec": 105,
+          "lane": "highestHeroDensity"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.38,
+        "runner": 0.24,
+        "archer": 0.18,
+        "healer": 0.12,
+        "armored": 0.08
+      },
+      "modifiers": [
+        "enemy_lifesteal_0.18"
+      ],
+      "bosses": []
+    },
+    {
+      "id": 7,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "splitter": 0.46,
+        "grunt": 0.24,
+        "runner": 0.12,
+        "archer": 0.1,
+        "healer": 0.08
+      },
+      "bosses": [
+        {
+          "id": "split_queen",
+          "timeSec": 112,
+          "lane": "randomSeeded"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.35,
+        "silencer": 0.23,
+        "runner": 0.16,
+        "armored": 0.12,
+        "archer": 0.1,
+        "healer": 0.04
+      },
+      "modifiers": [
+        "silence_fog_cycle_18s_4s"
+      ],
+      "bosses": []
+    },
+    {
+      "id": 9,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.34,
+        "armored": 0.2,
+        "archer": 0.15,
+        "runner": 0.13,
+        "silencer": 0.1,
+        "healer": 0.08
+      },
+      "bosses": [
+        {
+          "id": "north_general",
+          "timeSec": 105,
+          "lane": "north"
+        },
+        {
+          "id": "east_general",
+          "timeSec": 105,
+          "lane": "east"
+        },
+        {
+          "id": "south_general",
+          "timeSec": 105,
+          "lane": "south"
+        },
+        {
+          "id": "west_general",
+          "timeSec": 105,
+          "lane": "west"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.3,
+        "runner": 0.22,
+        "armored": 0.16,
+        "archer": 0.13,
+        "splitter": 0.1,
+        "healer": 0.05,
+        "silencer": 0.04
+      },
+      "modifiers": [
+        "no_spawn_breaks"
+      ],
+      "bosses": []
+    },
+    {
+      "id": 11,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.27,
+        "siege": 0.2,
+        "armored": 0.2,
+        "runner": 0.12,
+        "archer": 0.1,
+        "healer": 0.07,
+        "silencer": 0.04
+      },
+      "bosses": [
+        {
+          "id": "gate_destroyer",
+          "timeSec": 118,
+          "lane": "lowestGateHp"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "activeLanes": [
+        "north",
+        "east",
+        "south",
+        "west"
+      ],
+      "ratios": {
+        "grunt": 0.24,
+        "runner": 0.17,
+        "armored": 0.16,
+        "archer": 0.13,
+        "splitter": 0.1,
+        "silencer": 0.08,
+        "siege": 0.07,
+        "healer": 0.05
+      },
+      "bosses": [
+        {
+          "id": "final_lord",
+          "timeSec": 72,
+          "lane": "north"
+        }
+      ]
+    }
+  ]
+}

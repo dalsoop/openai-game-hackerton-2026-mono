@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "외곽 참호",
+    "targetSec": 480,
+    "objective": "3개 전선 표식 중 2개 이상 유지",
+    "failure": "모든 표식 상실 후 30초 내 복구 실패"
+  },
+  {
+    "id": 2,
+    "name": "보급로 개통",
+    "targetSec": 540,
+    "objective": "수송차량을 전진기지까지 호위",
+    "failure": "수송차량 파괴 후 재건 자원 부족"
+  },
+  {
+    "id": 3,
+    "name": "산란장 역공",
+    "targetSec": 600,
+    "objective": "3개 산란장을 파괴하고 적 Hive 진입로 개방",
+    "failure": "본부 체력 0 또는 전 병사 동시 전투불능 10초"
+  },
+  {
+    "id": 4,
+    "name": "Hive 외피",
+    "targetSec": 360,
+    "objective": "보호막 발생기 3개 파괴",
+    "failure": "본부 체력 0"
+  },
+  {
+    "id": 5,
+    "name": "Hive 핵",
+    "targetSec": 420,
+    "objective": "폭주 핵 파괴",
+    "failure": "전멸기 3회 누적 또는 본부 체력 0"
+  }
+]

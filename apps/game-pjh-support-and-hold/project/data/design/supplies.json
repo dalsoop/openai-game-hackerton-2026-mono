@@ -1,0 +1,72 @@
+[
+  {
+    "id": "ammo_crate",
+    "name": "탄약 상자",
+    "producer": "quartermaster",
+    "cost": 28,
+    "buildSec": 3.0,
+    "travelSpeed": 240,
+    "hp": 180,
+    "effect": "소총병 탄약 60, 제압병 중화기 열 -45, 선봉병 방패 내구 20."
+  },
+  {
+    "id": "med_kit",
+    "name": "의료 상자",
+    "producer": "medic",
+    "cost": 30,
+    "buildSec": 3.4,
+    "travelSpeed": 250,
+    "hp": 160,
+    "effect": "대상 병사 체력 420 회복, 8초 재생 160."
+  },
+  {
+    "id": "repair_parts",
+    "name": "수리 부품",
+    "producer": "engineer_support",
+    "cost": 26,
+    "buildSec": 3.2,
+    "travelSpeed": 220,
+    "hp": 220,
+    "effect": "바리케이드/포탑/수송차량 체력 520 회복."
+  },
+  {
+    "id": "mixed_emergency",
+    "name": "혼합 긴급 상자",
+    "producer": "any_support",
+    "cost": 55,
+    "buildSec": 5.5,
+    "travelSpeed": 270,
+    "hp": 140,
+    "effect": "체력 220, 탄약 30, 방패 12, 열 -20. 효율은 낮지만 어떤 전선도 살린다."
+  },
+  {
+    "id": "reinforcement",
+    "name": "증원 분대",
+    "producer": "quartermaster",
+    "cost": 70,
+    "buildSec": 7.5,
+    "travelSpeed": 190,
+    "hp": 420,
+    "effect": "해당 라인에 35초 민병대 4기."
+  },
+  {
+    "id": "revive_drone",
+    "name": "구조 드론",
+    "producer": "medic",
+    "cost": 65,
+    "buildSec": 4.5,
+    "travelSpeed": 300,
+    "hp": 120,
+    "effect": "전투불능 병사 부활 채널 2.2초. 피격 시 중단."
+  },
+  {
+    "id": "turret_pack",
+    "name": "포탑 키트",
+    "producer": "engineer_support",
+    "cost": 62,
+    "buildSec": 6.0,
+    "travelSpeed": 190,
+    "hp": 260,
+    "effect": "전선에 45초 임시 포탑 설치."
+  }
+]

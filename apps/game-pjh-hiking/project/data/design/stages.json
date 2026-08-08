@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "name": "완만한 비탈",
+    "world": [
+      1600,
+      3000
+    ],
+    "corridorWidth": 1180,
+    "boulderSpeed": 215,
+    "waveInterval": 2.85,
+    "features": [
+      "넓은 입문 구간",
+      "두 개의 큰 휴식턱",
+      "한 방향 낙석"
+    ]
+  },
+  {
+    "id": 2,
+    "name": "굽은 협곡",
+    "world": [
+      1600,
+      3200
+    ],
+    "corridorWidth": 980,
+    "boulderSpeed": 238,
+    "waveInterval": 2.65,
+    "features": [
+      "S자 통로",
+      "시야를 가리는 절벽",
+      "좌우 교대 낙석"
+    ]
+  },
+  {
+    "id": 3,
+    "name": "세 개의 목",
+    "world": [
+      1600,
+      3300
+    ],
+    "corridorWidth": 820,
+    "boulderSpeed": 258,
+    "waveInterval": 2.45,
+    "features": [
+      "좁은 목 3개",
+      "우회로 2개",
+      "벽 파괴 충격파"
+    ]
+  },
+  {
+    "id": 4,
+    "name": "갈라진 능선",
+    "world": [
+      1800,
+      3400
+    ],
+    "corridorWidth": 1040,
+    "boulderSpeed": 276,
+    "waveInterval": 2.25,
+    "features": [
+      "두 갈래 후 합류",
+      "횡풍",
+      "합류 지점 밀집"
+    ]
+  },
+  {
+    "id": 5,
+    "name": "마지막 눈사태",
+    "world": [
+      1800,
+      3800
+    ],
+    "corridorWidth": 900,
+    "boulderSpeed": 300,
+    "waveInterval": 2.05,
+    "features": [
+      "가속 구간",
+      "연속 눈사태",
+      "정상 직전 무벽 지대"
+    ]
+  }
+]

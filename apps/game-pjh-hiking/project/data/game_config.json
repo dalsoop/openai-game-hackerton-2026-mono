@@ -1,0 +1,34 @@
+{
+  "package": "mount_impossible",
+  "display_name": "등산하기",
+  "godot_version": "4.7.1",
+  "package_version": "1.0.0",
+  "simulation": {
+    "tick_rate": 60,
+    "fixed_dt": 0.016666666666666666,
+    "default_seed": 11001,
+    "authoritative_physics": "custom_game_world",
+    "godot_physics_authoritative": false
+  },
+  "match": {
+    "human_count": 1,
+    "cpu_count": 5,
+    "controls": "WASD 이동 · Space 벽 · Q 폭탄 · E 감속망 · G 구조 · R 재시작",
+    "prototype_goal": "5개 스테이지, 낙석·벽·사망 깃발·구조·CPU 협동 사고가 모두 작동하는 회색상자"
+  },
+  "game": {
+    "stage_count": 5,
+    "player_speed": 310.0,
+    "player_radius": 22.0,
+    "success_rule": "any_living_player_reaches_summit",
+    "starter_features": [
+      "boulders",
+      "player_walls",
+      "bomb",
+      "slow_web",
+      "death_flag",
+      "revive",
+      "stage_advance"
+    ]
+  }
+}
