@@ -90,13 +90,26 @@ fn install_korean_font(ctx: &egui::Context) {
 impl App {
     fn new(ctx: &egui::Context) -> Self {
         install_korean_font(ctx);
-        // 실행 위치: apps/app-yjh-all-games-starter → 부모가 apps/
-        let apps_dir = std::env::current_dir()
-            .ok()
-            .and_then(|d| {
-                d.ancestors()
-                    .find(|a| a.file_name().is_some_and(|n| n == "apps"))
-                    .map(Path::to_path_buf)
+        // apps/ 탐색: cwd·실행파일 경로의 조상 중 "apps" 이름 디렉터리,
+        // 없으면 각 조상의 apps/ 하위 디렉터리 (레포 루트에서 실행하는 경우)
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Ok(d) = std::env::current_dir() {
+            candidates.push(d);
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            candidates.push(exe);
+        }
+        let apps_dir = candidates
+            .iter()
+            .flat_map(|c| c.ancestors())
+            .find_map(|a| {
+                if a.file_name().is_some_and(|n| n == "apps") {
+                    Some(a.to_path_buf())
+                } else if a.join("apps").is_dir() {
+                    Some(a.join("apps"))
+                } else {
+                    None
+                }
             })
             .unwrap_or_else(|| PathBuf::from("."));
         Self {
