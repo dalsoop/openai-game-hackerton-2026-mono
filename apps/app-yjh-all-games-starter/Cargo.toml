@@ -5,6 +5,13 @@ edition = "2021"
 
 [dependencies]
 eframe = "0.31"
+rfd = "0.15"
 
 [profile.release]
 opt-level = 2
+
+[package.metadata.bundle]
+name = "all-games-starter"
+identifier = "com.dalsoop.app-yjh-all-games-starter"
+short_description = "openai-game-hackerton-2026-mono 전 게임 바로 체험 런처"
+copyright = "dalsoop"
