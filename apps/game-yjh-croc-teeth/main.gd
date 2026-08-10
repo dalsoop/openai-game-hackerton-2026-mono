@@ -371,6 +371,13 @@ func _update_camera(_delta: float) -> void:
 		off = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), 0) * shake * 0.25
 	camera.position = cam_base + off
 
+
+func _pname(id: int) -> String:
+	# 피어 id 를 좌석 순번(P1..Pn)으로 — 전 클라 동일 계산
+	var ids: Array = snap["players"].keys()
+	ids.sort()
+	return "P%d" % (ids.find(id) + 1)
+
 func _update_hud() -> void:
 	var my_id := multiplayer.get_unique_id()
 	var ps: Dictionary = snap["players"]
@@ -378,13 +385,13 @@ func _update_hud() -> void:
 	if ps.size() < 2:
 		lines = "친구 접속 대기중... (%d/2, 파티게임)" % ps.size()
 	elif snap["bite"] > 0.0:
-		var who := "내가" if snap["victim"] == my_id else "P%d 가" % snap["victim"]
+		var who := "내가" if snap["victim"] == my_id else "%s 가" % _pname(snap["victim"])
 		lines = "덥썩! %s 물렸다!  잠시 후 다음 라운드" % who
 	elif snap["turn"] == my_id:
 		lines = "내 차례! 이빨을 눌러라"
 	else:
-		lines = "P%d 차례 대기중" % snap["turn"]
+		lines = "%s 차례 대기중" % _pname(snap["turn"])
 	lines += "\n물린 횟수 —"
 	for id in ps:
-		lines += "  P%d: %d%s" % [id, ps[id][0], " (나)" if id == my_id else ""]
+		lines += "  %s: %d%s" % [_pname(id), ps[id][0], " (나)" if id == my_id else ""]
 	hud.text = lines
