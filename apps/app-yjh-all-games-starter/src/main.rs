@@ -26,6 +26,7 @@ struct App {
     apps_dir: PathBuf,
     running: Vec<Running>,
     error: Option<String>,
+    selected_author: Option<String>, // None = 전체
 }
 
 fn find_godot() -> Option<PathBuf> {
@@ -118,6 +119,7 @@ impl App {
             apps_dir,
             running: Vec::new(),
             error: None,
+            selected_author: None,
         }
     }
 
@@ -189,12 +191,49 @@ impl eframe::App for App {
             ui.add_space(4.0);
         });
 
+        // 사이드바: 접두사(game-{작성자})별 필터
+        egui::SidePanel::left("sidebar")
+            .resizable(false)
+            .default_width(150.0)
+            .show(ctx, |ui| {
+                ui.add_space(8.0);
+                ui.strong("작성자");
+                ui.separator();
+                let total = self.games.len();
+                if ui
+                    .selectable_label(self.selected_author.is_none(), format!("전체 ({total})"))
+                    .clicked()
+                {
+                    self.selected_author = None;
+                }
+                let mut authors: Vec<String> =
+                    self.games.iter().map(|g| g.author.clone()).collect();
+                authors.dedup();
+                for author in authors {
+                    let count = self.games.iter().filter(|g| g.author == author).count();
+                    let selected = self.selected_author.as_deref() == Some(author.as_str());
+                    if ui
+                        .selectable_label(selected, format!("game-{author} ({count})"))
+                        .clicked()
+                    {
+                        self.selected_author = Some(author);
+                    }
+                }
+            });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut actions: Vec<(usize, &'static str)> = Vec::new();
                 // 접두사(game-{작성자})별 그룹 — 스캔 결과가 id 정렬이므로 순회하며 헤더만 갈아끼움
                 let mut current_author: Option<&str> = None;
                 for (i, game) in self.games.iter().enumerate() {
+                    if self
+                        .selected_author
+                        .as_deref()
+                        .is_some_and(|a| a != game.author)
+                    {
+                        continue;
+                    }
                     if current_author != Some(game.author.as_str()) {
                         current_author = Some(game.author.as_str());
                         let count = self.games.iter().filter(|g| g.author == game.author).count();
