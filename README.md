@@ -17,7 +17,9 @@ openai-game-hackerton-2026-mono/
 ├── AGENTS.md                 # 에이전트·사람 공통 규칙
 ├── README.md
 ├── apps/
-│   └── web-game/             # Vite + TypeScript 캔버스 게임 (핫 리로드)
+│   ├── game-pjh-*/           # 박진혁 Godot 게임 5종
+│   ├── game-yjh-*/           # 윤정한 Godot 게임 5종 (싱글 2 + 멀티 3)
+│   └── app-yjh-all-games-starter/  # 전 게임 바로 체험 런처 (Rust+egui)
 ├── docs/
 │   ├── DESIGN.md             # 제품·조작·튜닝 설계
 │   └── FEEL-TUNING.md        # 조작감 조율 플레이북
@@ -27,23 +29,15 @@ openai-game-hackerton-2026-mono/
 ## 빠른 시작
 
 ```bash
-cd apps/web-game
-npm install
-npm run dev
-# → http://localhost:5173  핫 리로드
+# 전 게임 런처 (Rust 툴체인 + Godot 4 필요)
+cd apps/app-yjh-all-games-starter && cargo run
+
+# 개별 게임 직접 실행
+godot --path apps/game-yjh-slither          # yjh (project.godot 루트)
+godot --path apps/game-pjh-hiking/project   # pjh (project/ 하위)
 ```
 
-배포(GitHub Pages): https://dalsoop.github.io/openai-game-hackerton-2026-mono/
-
-### 조작 (기본)
-
-| 플레이어 | 키 | 역할 |
-|---|---|---|
-| P1 | `W` `A` `S` `D` | 가속·좌·후진·우 |
-| P2 | `↑` `←` `↓` `→` | 동일 |
-
-개발 중 **햄버거(☰)** 로 관성·마찰·조향 등 실시간 조율.  
-최종 빌드(`npm run build`)에서는 튜닝 UI 제거.
+각 게임 조작·모드는 앱별 `README.md` 참조.
 
 ## 협업
 
