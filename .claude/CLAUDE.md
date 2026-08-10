@@ -16,6 +16,7 @@
 | `game-yjh-paper-multi` | paper.io 영토전 | 멀티 (서버 권위) | ws :9102 | 방향키/WASD |
 | `game-yjh-slither` | 지렁이키우기 | 멀티 + AI 5 상주 | ws :9103 | 마우스, 클릭/스페이스 부스트 |
 | `game-yjh-dodge` | 총알 생존 (누적 총알, 최장 생존 승) | 멀티 (라운드제) | ws :9104 | 방향키/WASD |
+| `game-yjh-croc-teeth` | 악어 이빨 룰렛 3D (지뢰 이빨 물리면 패배) | 멀티 (턴제, 2인+) | ws :9105 | 마우스 클릭 |
 
 ## 아키텍처 불변
 
@@ -36,5 +37,6 @@ godot --headless --export-release "Web" web/index.html   # 웹 export → 정적
 
 ## 주의
 
-- 레포 제품 불변(AGENTS.md): 파티게임 지향 — yjh 게임 4종은 전부 멀티(서버 권위).
+- 레포 제품 불변(AGENTS.md): 파티게임 지향 — yjh 게임 5종은 전부 멀티(서버 권위).
+- 3D 게임(croc-teeth)은 루트 Node3D + 코드로 씬 구성 — 별도 에셋 파일 없음.
 - `game-pjh-*` (다른 작성자) 디렉터리는 수정하지 않는다.
