@@ -179,7 +179,16 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut actions: Vec<(usize, &'static str)> = Vec::new();
+                // 접두사(game-{작성자})별 그룹 — 스캔 결과가 id 정렬이므로 순회하며 헤더만 갈아끼움
+                let mut current_author: Option<&str> = None;
                 for (i, game) in self.games.iter().enumerate() {
+                    if current_author != Some(game.author.as_str()) {
+                        current_author = Some(game.author.as_str());
+                        let count = self.games.iter().filter(|g| g.author == game.author).count();
+                        ui.add_space(8.0);
+                        ui.heading(format!("game-{} · {}종", game.author, count));
+                        ui.separator();
+                    }
                     ui.group(|ui| {
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
