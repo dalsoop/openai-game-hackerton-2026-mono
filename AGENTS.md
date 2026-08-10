@@ -31,3 +31,8 @@ cd apps/web-game && npm run dev
 ```
 
 브라우저에서 바로 키 입력·튜닝 확인.
+
+## 브랜치 규칙
+
+작업 브랜치는 **`jeongright-{이름}`** 으로 만든다 (예: `jeongright-godot-web-games`).
+`{이름}`은 kebab-case 로 작업 내용이 드러나게 짓는다. main 직접 커밋 금지, PR 로 머지.
