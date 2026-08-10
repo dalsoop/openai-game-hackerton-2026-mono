@@ -12,11 +12,10 @@
 
 | 앱 | 장르 | 모드 | 포트 | 조작 |
 |---|---|---|---|---|
-| `game-yjh-dodge` | 낙하물 피하기 | 싱글 (파이프라인 검증용) | — | ←→/AD, Enter 재시작 |
-| `game-yjh-slither` | slither.io 지렁이 | 싱글 + AI 9 | — | 마우스, 클릭/스페이스 부스트 |
 | `game-yjh-agar-multi` | agar.io | 멀티 (서버 권위) | ws :9101 | 마우스 |
 | `game-yjh-paper-multi` | paper.io 영토전 | 멀티 (서버 권위) | ws :9102 | 방향키/WASD |
-| `game-yjh-slither-multi` | 지렁이 멀티 | 멀티 + AI 5 상주 | ws :9103 | 마우스, 부스트 |
+| `game-yjh-slither` | 지렁이키우기 | 멀티 + AI 5 상주 | ws :9103 | 마우스, 클릭/스페이스 부스트 |
+| `game-yjh-dodge` | 총알 생존 (누적 총알, 최장 생존 승) | 멀티 (라운드제) | ws :9104 | 방향키/WASD |
 
 ## 아키텍처 불변
 
@@ -37,6 +36,5 @@ godot --headless --export-release "Web" web/index.html   # 웹 export → 정적
 
 ## 주의
 
-- 레포 제품 불변(AGENTS.md): 파티게임 지향 — 싱글 게임(`dodge`, `slither`)은
-  파이프라인 검증·프로토타입 용도이며 최종 엔트리는 멀티 게임.
+- 레포 제품 불변(AGENTS.md): 파티게임 지향 — yjh 게임 4종은 전부 멀티(서버 권위).
 - `game-pjh-*` (다른 작성자) 디렉터리는 수정하지 않는다.
