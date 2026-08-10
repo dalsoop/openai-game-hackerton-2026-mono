@@ -29,6 +29,44 @@ struct App {
     selected_author: Option<String>, // None = 전체
 }
 
+/// 사용자가 고른 apps/ 경로 저장 파일 (.app 번들을 레포 밖에서 딸깍 실행하는 경우 대비)
+fn config_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    Some(PathBuf::from(home).join(".app-yjh-all-games-starter"))
+}
+
+fn load_saved_apps_dir() -> Option<PathBuf> {
+    let saved = std::fs::read_to_string(config_path()?).ok()?;
+    let dir = PathBuf::from(saved.trim());
+    dir.is_dir().then_some(dir)
+}
+
+fn save_apps_dir(dir: &Path) {
+    if let Some(cfg) = config_path() {
+        let _ = std::fs::write(cfg, dir.display().to_string());
+    }
+}
+
+/// cwd·실행파일 경로의 조상에서 apps/ 를 찾는다 (레포 안 어디서 실행해도 동작)
+fn detect_apps_dir() -> Option<PathBuf> {
+    let starts = [std::env::current_dir().ok(), std::env::current_exe().ok()];
+    starts
+        .iter()
+        .flatten()
+        .flat_map(|s| s.ancestors())
+        .map(|a| normalize_apps_dir(a.to_path_buf()))
+        .find(|d| d.file_name().is_some_and(|n| n == "apps") && d.is_dir())
+}
+
+/// 레포 루트를 골랐으면 apps/ 하위로 정규화
+fn normalize_apps_dir(picked: PathBuf) -> PathBuf {
+    if picked.file_name().is_some_and(|n| n == "apps") {
+        return picked;
+    }
+    let nested = picked.join("apps");
+    if nested.is_dir() { nested } else { picked }
+}
+
 fn find_godot() -> Option<PathBuf> {
     // PATH 의 godot / godot4 → mac 표준 앱 번들 순으로 탐색
     for name in ["godot", "godot4"] {
@@ -91,27 +129,8 @@ fn install_korean_font(ctx: &egui::Context) {
 impl App {
     fn new(ctx: &egui::Context) -> Self {
         install_korean_font(ctx);
-        // apps/ 탐색: cwd·실행파일 경로의 조상 중 "apps" 이름 디렉터리,
-        // 없으면 각 조상의 apps/ 하위 디렉터리 (레포 루트에서 실행하는 경우)
-        let mut candidates: Vec<PathBuf> = Vec::new();
-        if let Ok(d) = std::env::current_dir() {
-            candidates.push(d);
-        }
-        if let Ok(exe) = std::env::current_exe() {
-            candidates.push(exe);
-        }
-        let apps_dir = candidates
-            .iter()
-            .flat_map(|c| c.ancestors())
-            .find_map(|a| {
-                if a.file_name().is_some_and(|n| n == "apps") {
-                    Some(a.to_path_buf())
-                } else if a.join("apps").is_dir() {
-                    Some(a.join("apps"))
-                } else {
-                    None
-                }
-            })
+        let apps_dir = load_saved_apps_dir()
+            .or_else(detect_apps_dir)
             .unwrap_or_else(|| PathBuf::from("."));
         Self {
             games: scan_games(&apps_dir),
@@ -121,6 +140,21 @@ impl App {
             error: None,
             selected_author: None,
         }
+    }
+
+    /// 폴더 선택 다이얼로그 → apps/ 정규화 → 재스캔·저장
+    fn choose_apps_dir(&mut self) {
+        let Some(picked) = rfd::FileDialog::new()
+            .set_title("모노레포의 apps 폴더를 선택하세요")
+            .pick_folder()
+        else {
+            return;
+        };
+        let dir = normalize_apps_dir(picked);
+        self.games = scan_games(&dir);
+        save_apps_dir(&dir);
+        self.apps_dir = dir;
+        self.selected_author = None;
     }
 
     fn launch(&mut self, game_idx: usize, role: &'static str) {
@@ -166,6 +200,9 @@ impl eframe::App for App {
             ui.heading("all-games-starter — 게임 바로 체험");
             ui.horizontal(|ui| {
                 ui.label(format!("apps: {}", self.apps_dir.display()));
+                if ui.button("폴더 변경").clicked() {
+                    self.choose_apps_dir();
+                }
                 ui.separator();
                 match &self.godot {
                     Some(p) => ui.label(format!("godot: {}", p.display())),
