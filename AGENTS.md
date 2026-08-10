@@ -7,7 +7,7 @@
 
 1. **싱글 플레이 없음** — 친구(로컬 2인+) 없으면 레이스 시작 불가. 파티게임.
 2. **조작감이 제품** — 관성을 쉽게 만들지 말 것. 튜닝 UI로 수치를 올리되 기본값은 "빡셈".
-3. **웹 우선** — `apps/web-game` Vite 핫 리로드. 네이티브 앱은 후순위.
+3. **웹 우선** — Godot 웹 export(`godot --headless --export-release "Web"`)로 브라우저 실행 가능하게 유지.
 4. **튜닝 패널은 개발 전용** — `import.meta.env.DEV` 일 때만 햄버거 조율 UI.
 
 ## 모노레포 규칙
@@ -21,16 +21,16 @@
 
 - 새 기능 전 `docs/DESIGN.md` 와 충돌하는지 확인.
 - 조작감 파라미터를 바꾸면 `docs/FEEL-TUNING.md` 에 한 줄 기록.
-- `npm run build` 가 깨지면 머지하지 말 것.
+- 빌드가 깨지면 머지하지 말 것 (Godot: 프로젝트 로드 확인 · Rust: `cargo build`).
 - 레포 밖(다른 mono) 수정 금지.
 
 ## 로컬 루프
 
 ```bash
-cd apps/web-game && npm run dev
+cd apps/app-yjh-all-games-starter && cargo run   # 런처에서 전 게임 바로 실행
 ```
 
-브라우저에서 바로 키 입력·튜닝 확인.
+개별 게임은 `godot --path apps/<게임>` (pjh 는 `…/project`).
 
 ## 브랜치 규칙
 
