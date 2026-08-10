@@ -1,4 +1,4 @@
-# godot-dodge
+# game-yjh-dodge
 
 떨어지는 블록 피하기 (싱글, GDScript 파이프라인 검증용).
 ←→/AD 이동 · Enter 재시작.
