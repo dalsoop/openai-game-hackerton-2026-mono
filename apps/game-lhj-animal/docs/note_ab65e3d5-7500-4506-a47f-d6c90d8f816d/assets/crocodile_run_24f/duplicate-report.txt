@@ -1,0 +1,6 @@
+animal=crocodile
+frames=24
+pair_count=276
+exact_duplicates=0
+near_duplicates=0
+minimum_margin=17

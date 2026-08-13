@@ -1,0 +1,7 @@
+animal=beaver
+frames=24
+pair_count=276
+exact_duplicates=0
+near_duplicates=1
+minimum_margin=9
+near 22-24 h=18 mad=0.019919

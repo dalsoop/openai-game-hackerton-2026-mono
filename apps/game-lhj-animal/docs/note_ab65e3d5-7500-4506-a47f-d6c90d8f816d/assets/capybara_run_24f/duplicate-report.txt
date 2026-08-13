@@ -1,0 +1,25 @@
+Capybara 24-frame duplicate analysis
+method: normalized alpha silhouette, 32x32 aHash + 64x64 alpha MAD
+exact_duplicates=0
+near_duplicates=6
+closest_pairs:
+05-19: hamming=16, alpha_mad=0.0287
+10-16: hamming=18, alpha_mad=0.0199
+14-22: hamming=19, alpha_mad=0.0220
+05-14: hamming=19, alpha_mad=0.0223
+07-19: hamming=19, alpha_mad=0.0239
+13-18: hamming=19, alpha_mad=0.0241
+03-04: hamming=21, alpha_mad=0.0261
+18-20: hamming=21, alpha_mad=0.0278
+05-06: hamming=22, alpha_mad=0.0235
+13-20: hamming=22, alpha_mad=0.0253
+08-18: hamming=23, alpha_mad=0.0267
+14-19: hamming=23, alpha_mad=0.0267
+21-22: hamming=24, alpha_mad=0.0220
+02-09: hamming=25, alpha_mad=0.0247
+07-21: hamming=25, alpha_mad=0.0266
+06-09: hamming=25, alpha_mad=0.0269
+10-17: hamming=25, alpha_mad=0.0271
+05-07: hamming=25, alpha_mad=0.0281
+01-04: hamming=25, alpha_mad=0.0286
+03-06: hamming=25, alpha_mad=0.0296
