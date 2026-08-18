@@ -16,6 +16,7 @@ openai-game-hackerton-2026-mono/
 ├── AGENTS.md                 # 에이전트·사람 공통 규칙
 ├── README.md
 ├── apps/
+│   ├── app-yjh-all-games-starter/  # apps/game-* 런처 (Rust+egui)
 │   ├── game-pjh-gang-up/     # 박진혁 Godot 다굴 배틀로얄
 │   └── web-game/             # Vite + TypeScript 로컬 협동 레이싱
 ├── docs/
@@ -27,6 +28,9 @@ openai-game-hackerton-2026-mono/
 ## 빠른 시작
 
 ```bash
+# 런처 (남은 game-* 자동 스캔)
+cd apps/app-yjh-all-games-starter && cargo run
+
 # 다굴 (Godot 4.7.1)
 godot --path apps/game-pjh-gang-up/project
 

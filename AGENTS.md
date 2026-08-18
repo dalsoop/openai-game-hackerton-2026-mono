@@ -27,6 +27,7 @@
 ## 로컬 루프
 
 ```bash
+cd apps/app-yjh-all-games-starter && cargo run
 cd apps/web-game && npm run dev
 godot --path apps/game-pjh-gang-up/project
 ```
