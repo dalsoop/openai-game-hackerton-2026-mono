@@ -5,10 +5,10 @@
 
 ## 제품 불변
 
-1. **싱글 플레이 없음** — 친구(로컬 2인+) 없으면 레이스 시작 불가. 파티게임.
-2. **조작감이 제품** — 관성을 쉽게 만들지 말 것. 튜닝 UI로 수치를 올리되 기본값은 "빡셈".
-3. **웹 우선** — Godot 웹 export(`godot --headless --export-release "Web"`)로 브라우저 실행 가능하게 유지.
-4. **튜닝 패널은 개발 전용** — `import.meta.env.DEV` 일 때만 햄버거 조율 UI.
+1. **싱글 플레이 없음** — 파티게임. gang-up은 인간+CPU 개인전.
+2. **조작감이 제품** — 관성을 쉽게 만들지 말 것. 기본값은 "빡셈".
+3. **Godot 엔트리** — `apps/game-pjh-gang-up`. 런처는 `apps/app-yjh-all-games-starter`.
+4. **튜닝 패널은 개발 전용** — 개발 빌드에서만 조율 UI.
 
 ## 모노레포 규칙
 
@@ -27,10 +27,9 @@
 ## 로컬 루프
 
 ```bash
-cd apps/app-yjh-all-games-starter && cargo run   # 런처에서 전 게임 바로 실행
+cd apps/app-yjh-all-games-starter && cargo run
+godot --path apps/game-pjh-gang-up/project
 ```
-
-개별 게임은 `godot --path apps/<게임>` (pjh 는 `…/project`).
 
 ## 브랜치 규칙
 

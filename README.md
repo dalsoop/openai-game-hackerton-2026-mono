@@ -3,12 +3,11 @@
 > **OpenAI 게임 해커톤** 제출용 파티게임 모노레포.  
 > 형제 레포: [`ax-hackerton-2026-mono`](https://github.com/dalsoop/ax-hackerton-2026-mono) (AX 해커톤).
 
-로컬 협동 **관성 레이싱** 파티 미니게임.  
-친구와 한 키보드로 달리는 초갈 감성 — **싱글 플레이 없음** (파티 전제).
+제출 엔트리는 Godot **다굴(gang-up)** 이다. 런처로 바로 실행한다.
 
 ## 제품 한 줄
 
-> 관성이 빡센 조작감 + 로컬 협동만 되는 짧은 레이스. 혼자서는 못 함. OpenAI 게임 해커톤 엔트리.
+> 6인 개인전 다굴 배틀로얄. 인간 1 + CPU, 자기장·맵이 있는 파티 전제.
 
 ## 레포 구조 (`ax-hackerton-2026-mono` 스타일)
 
@@ -17,9 +16,8 @@ openai-game-hackerton-2026-mono/
 ├── AGENTS.md                 # 에이전트·사람 공통 규칙
 ├── README.md
 ├── apps/
-│   ├── game-pjh-*/           # 박진혁 Godot 게임 5종
-│   ├── game-yjh-*/           # 윤정한 Godot 게임 5종 (싱글 2 + 멀티 3)
-│   └── app-yjh-all-games-starter/  # 전 게임 바로 체험 런처 (Rust+egui)
+│   ├── app-yjh-all-games-starter/  # apps/game-* 런처 (Rust+egui)
+│   └── game-pjh-gang-up/     # 박진혁 Godot 다굴 배틀로얄
 ├── docs/
 │   ├── DESIGN.md             # 제품·조작·튜닝 설계
 │   └── FEEL-TUNING.md        # 조작감 조율 플레이북
@@ -29,15 +27,14 @@ openai-game-hackerton-2026-mono/
 ## 빠른 시작
 
 ```bash
-# 전 게임 런처 (Rust 툴체인 + Godot 4 필요)
+# 런처 (남은 game-* 자동 스캔)
 cd apps/app-yjh-all-games-starter && cargo run
 
-# 개별 게임 직접 실행
-godot --path apps/game-yjh-slither          # yjh (project.godot 루트)
-godot --path apps/game-pjh-hiking/project   # pjh (project/ 하위)
+# 다굴 직접 실행 (Godot 4.7.1)
+godot --path apps/game-pjh-gang-up/project
 ```
 
-각 게임 조작·모드는 앱별 `README.md` 참조.
+조작·모드는 `apps/game-pjh-gang-up/README.md` 참조.
 
 ## 협업
 
