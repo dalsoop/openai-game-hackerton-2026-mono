@@ -14,13 +14,13 @@
     "human_count": 1,
     "cpu_count": 5,
     "controls": "WASD 이동 · 마우스 조준 · 좌클릭 공격 · Q 주능력 · E 보조능력 · R 재시작",
-    "prototype_goal": "6인 개인전, 각자 코어, 랜덤 조합, 위협도·현상금·CPU 정치·배신이 작동하는 회색상자"
+    "prototype_goal": "6인 개인전, 자기장, 사망 시 탈락, 랜덤 조합, 위협도·현상금·CPU 정치·배신이 작동하는 회색상자"
   },
   "game": {
     "player_count": 6,
-    "arena_radius": 410.0,
+    "arena_radius": 1652.0,
     "core_hp": 650.0,
-    "success_rule": "last_core_alive",
+    "success_rule": "last_survivor_alive",
     "starter_features": [
       "random_archetype",
       "random_ability",

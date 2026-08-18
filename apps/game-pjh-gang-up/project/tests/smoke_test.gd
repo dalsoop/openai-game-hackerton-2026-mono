@@ -62,7 +62,7 @@ func _init() -> void:
         var angle := float(i) * 0.013
         var command := {
             "move":Vector2(cos(angle), sin(angle)),
-            "aim":Vector2(1100.0,650.0),
+            "aim":Vector2(1960.0,1190.0),
             "primary":true,
             "equipment":i % 150 == 0,
             "ultimate":true
@@ -132,7 +132,7 @@ func _init() -> void:
         return
     var ghost_world = WorldScript.new(223)
     for i in range(180):
-        ghost_world.step_tick({"move":Vector2.ZERO, "aim":Vector2(1100.0, 650.0), "primary":false, "equipment":false, "ultimate":false}, 1.0 / 60.0)
+        ghost_world.step_tick({"move":Vector2.ZERO, "aim":Vector2(1960.0, 1190.0), "primary":false, "equipment":false, "ultimate":false}, 1.0 / 60.0)
     var equipment_ids: Dictionary = {}
     var normal_signatures: Dictionary = {}
     var skill_names: Dictionary = {}
@@ -573,15 +573,15 @@ func _init() -> void:
         quit(1)
         return
     var combo_count := 1
-    while bool(combo_world.heroes[1]["alive"]) and combo_count < 3:
+    while bool(combo_world.heroes[1]["alive"]) and combo_count < 5:
         combo_world._update_timers(1.2)
         combo_count += 1
         for hit in range(4):
             combo_world._damage_hero(0, 1, 50.0, &"normal", 0.0, 22.0, Vector2(combo_world.heroes[0]["pos"]), "COMBO TEST", &"hit_spark", hit == 3)
             if not bool(combo_world.heroes[1]["alive"]):
                 break
-    if bool(combo_world.heroes[1]["alive"]) or combo_count < 2 or combo_count > 3:
-        push_error("career did not fall within the two-to-three combo target")
+    if bool(combo_world.heroes[1]["alive"]) or combo_count < 4 or combo_count > 5:
+        push_error("career did not fall within the four-to-five combo target")
         quit(1)
         return
     var streak_world = WorldScript.new(233)
@@ -596,6 +596,7 @@ func _init() -> void:
         quit(1)
         return
     streak_world.heroes[1]["alive"] = true
+    streak_world.heroes[1]["eliminated"] = false
     streak_world.heroes[1]["hp"] = float(streak_world.heroes[1]["max_hp"])
     streak_world._down_hero(0, 1)
     if int(streak_world.heroes[0]["kill_streak"]) != 2 or streak_world.streak_callout_ticks <= 0 or streak_world.streak_callout_shutdown:
@@ -649,8 +650,8 @@ func _init() -> void:
         push_error("downed hero did not create a visible knockout trajectory")
         quit(1)
         return
-    if absf(float(respawn_world.heroes[1]["respawn"]) - 10.0) > 0.001:
-        push_error("downed hero did not receive the ten-second punish window")
+    if bool(respawn_world.heroes[1]["alive"]) or not bool(respawn_world.heroes[1]["eliminated"]):
+        push_error("downed hero was not eliminated")
         quit(1)
         return
     respawn_world.knockouts[0]["finished"] = true
@@ -666,14 +667,9 @@ func _init() -> void:
         push_error("knockout trajectory remained after its fade completed")
         quit(1)
         return
-    respawn_world._update_timers(9.0)
-    if bool(respawn_world.heroes[1]["alive"]):
-        push_error("downed hero respawned before the punish window ended")
-        quit(1)
-        return
-    respawn_world._update_timers(1.1)
-    if not bool(respawn_world.heroes[1]["alive"]):
-        push_error("downed hero did not return after the punish window")
+    respawn_world._update_timers(11.0)
+    if bool(respawn_world.heroes[1]["alive"]) or not bool(respawn_world.heroes[1]["eliminated"]):
+        push_error("eliminated hero returned after death")
         quit(1)
         return
     var ranking := respawn_world.leaderboard()
@@ -687,8 +683,12 @@ func _init() -> void:
             quit(1)
             return
     var cover_world = WorldScript.new(224)
-    cover_world.heroes[0]["pos"] = Vector2(1000.0, 650.0)
-    cover_world.heroes[1]["pos"] = Vector2(1200.0, 650.0)
+    cover_world.heroes[0]["equipment"] = _equipment_by_id(cover_world, "rail")
+    cover_world.heroes[0]["fire_cd"] = 0.0
+    cover_world.heroes[0]["normal_step"] = 0
+    cover_world.heroes[0]["normal_chain_time"] = 0.0
+    cover_world.heroes[0]["pos"] = Vector2(850.0, 700.0)
+    cover_world.heroes[1]["pos"] = Vector2(1120.0, 700.0)
     var protected_hp := float(cover_world.heroes[1]["hp"])
     cover_world._try_normal_attack(0, Vector2.RIGHT)
     for frame in range(20):
@@ -709,8 +709,9 @@ func _init() -> void:
     finish_world.impact_ticks = 8
     finish_world._add_effect(&"hit_spark", Vector2(400.0, 400.0), 60.0, 0.50, Color.WHITE)
     finish_world._spawn_projectile(0, Vector2.RIGHT, 1.0, 200.0, 4.0, 1.0, &"normal")
-    for finish_slot in range(1, finish_world.cores.size()):
-        finish_world.cores[finish_slot]["alive"] = false
+    for finish_slot in range(1, finish_world.heroes.size()):
+        finish_world.heroes[finish_slot]["alive"] = false
+        finish_world.heroes[finish_slot]["eliminated"] = true
     finish_world._check_end()
     if finish_world.result == &"playing" or not finish_world.projectiles.is_empty():
         push_error("match finish did not clear unresolved combat clutter")
@@ -727,6 +728,44 @@ func _init() -> void:
     finish_world.step_tick({}, 0.18)
     if not finish_world.heroes[0]["launch_trail"].is_empty():
         push_error("post-match launch trajectory did not finish fading")
+        quit(1)
+        return
+    var house_world = WorldScript.new(541)
+    house_world.heroes[1]["cc_time"] = 1.0
+    house_world.cores[1]["hp"] = 5.0
+    house_world._damage_core(0, 1, 50.0)
+    if bool(house_world.cores[1]["alive"]):
+        push_error("exposed house could not be destroyed")
+        quit(1)
+        return
+    if not bool(house_world.heroes[1]["alive"]) or bool(house_world.heroes[1]["eliminated"]) or house_world.result != &"playing":
+        push_error("destroying a house eliminated its owner")
+        quit(1)
+        return
+    var zone_world = WorldScript.new(542)
+    zone_world.start_countdown = 0.0
+    if absf(float(zone_world.safe_zone_radius) - float(zone_world.SAFE_ZONE_INITIAL_RADIUS)) > 0.01:
+        push_error("safe zone did not start at its initial radius")
+        quit(1)
+        return
+    zone_world.heroes[1]["pos"] = Vector2(40.0, 40.0)
+    var zone_hp := float(zone_world.heroes[1]["hp"])
+    zone_world._update_safe_zone(0.50)
+    if float(zone_world.heroes[1]["hp"]) >= zone_hp:
+        push_error("safe-zone exterior did not apply continuous damage")
+        quit(1)
+        return
+    zone_world.heroes[1]["pos"] = Vector2(zone_world.safe_zone_center)
+    zone_hp = float(zone_world.heroes[1]["hp"])
+    zone_world._update_safe_zone(0.50)
+    if absf(float(zone_world.heroes[1]["hp"]) - zone_hp) > 0.001:
+        push_error("safe-zone interior kept dealing damage")
+        quit(1)
+        return
+    var radius_before := float(zone_world.safe_zone_radius)
+    zone_world._update_safe_zone(12.2)
+    if float(zone_world.safe_zone_radius) >= radius_before - 0.5 and not bool(zone_world.safe_zone_shrinking):
+        push_error("safe zone did not begin shrinking after its hold phase")
         quit(1)
         return
     print("SMOKE_OK ", JSON.stringify(world.summary()))

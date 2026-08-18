@@ -130,6 +130,7 @@ func _draw() -> void:
         draw_line(Vector2(x, world.ARENA_MARGIN), Vector2(x, world.ARENA_SIZE.y - world.ARENA_MARGIN), Color(0.30, 0.34, 0.41, 0.10), 1.0)
     for y in range(100, int(world.ARENA_SIZE.y), 100):
         draw_line(Vector2(world.ARENA_MARGIN, y), Vector2(world.ARENA_SIZE.x - world.ARENA_MARGIN, y), Color(0.30, 0.34, 0.41, 0.10), 1.0)
+    _draw_safe_zone()
     for cover in world.covers:
         var rect: Rect2 = cover["rect"]
         draw_rect(rect, Color("#333c4b"))
@@ -160,18 +161,9 @@ func _draw() -> void:
         var slot := int(core["slot"])
         var pos: Vector2 = core["pos"]
         var color: Color = Color(colors[slot])
-        draw_circle(pos, 38.0, Color(color, 0.28) if bool(core["alive"]) else Color(0.15, 0.15, 0.15, 1.0))
-        draw_arc(pos, 38.0, 0.0, TAU, 32, color if bool(core["alive"]) else Color.DIM_GRAY, 5.0)
-        var ratio := maxf(0.0, float(core["hp"]) / float(core["max_hp"]))
-        draw_arc(pos, 46.0, -PI * 0.5, -PI * 0.5 + TAU * ratio, 32, Color("#6ef3a5"), 5.0)
-        if bool(core["alive"]):
-            var exposed: bool = world._core_exposed(slot)
-            if exposed:
-                draw_arc(pos, 54.0, 0.0, TAU, 36, Color("#ff7b72"), 4.0)
-            else:
-                draw_circle(pos, 55.0, Color(0.25, 0.76, 1.0, 0.12))
-                draw_arc(pos, 55.0, 0.0, TAU, 36, Color("#63d8ff"), 4.0)
-        draw_string(ThemeDB.fallback_font, pos + Vector2(-7.0, 6.0), str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color.WHITE)
+        draw_circle(pos, 22.0, Color(color, 0.10))
+        draw_arc(pos, 22.0, 0.0, TAU, 24, Color(color, 0.28), 2.0)
+        draw_string(ThemeDB.fallback_font, pos + Vector2(-18.0, 5.0), "P%d" % (slot + 1), HORIZONTAL_ALIGNMENT_CENTER, 36.0, 11, Color(color, 0.55))
     for mine in world.deployables:
         var mine_pos: Vector2 = mine["pos"]
         var mine_owner := int(mine["owner"])
@@ -470,9 +462,6 @@ func _draw() -> void:
     for hero in world.heroes:
         var slot := int(hero["slot"])
         if not bool(hero["alive"]):
-            if not bool(hero["eliminated"]):
-                var core_pos: Vector2 = world.cores[slot]["pos"]
-                draw_string(ThemeDB.fallback_font, core_pos + Vector2(-80.0, -72.0), "RESPAWN %.1f" % float(hero["respawn"]), HORIZONTAL_ALIGNMENT_CENTER, 160.0, 18, Color("#ff8d93"))
             continue
         var pos: Vector2 = hero["pos"]
         var launch_trail_opacity := clampf(float(hero.get("launch_trail_fade", 0.0)) / 0.34, 0.0, 1.0)
@@ -535,3 +524,20 @@ func _draw() -> void:
                 draw_string(ThemeDB.fallback_font, pos + Vector2(30.0, -21.0), "ULT", HORIZONTAL_ALIGNMENT_CENTER, 32.0, 10, Color.WHITE)
         draw_string(ThemeDB.fallback_font, pos + Vector2(-8.0, 7.0), str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.BLACK)
         draw_string(ThemeDB.fallback_font, pos + Vector2(-88.0, 50.0), "P%d  %s · %s" % [slot + 1, hero["equipment"]["character_name"], hero["equipment"]["name"]], HORIZONTAL_ALIGNMENT_CENTER, 176.0, 12, Color.WHITE)
+
+func _draw_safe_zone() -> void:
+    var center: Vector2 = world.safe_zone_center
+    var radius: float = maxf(8.0, float(world.safe_zone_radius))
+    var target_radius: float = maxf(8.0, float(world.safe_zone_target_radius))
+    var outer := maxf(world.ARENA_SIZE.x, world.ARENA_SIZE.y)
+    var mid := (radius + outer) * 0.5
+    var width := maxf(12.0, outer - radius)
+    draw_arc(center, mid, 0.0, TAU, 96, Color(0.62, 0.05, 0.12, 0.34), width)
+    draw_circle(center, radius, Color(0.18, 0.92, 0.58, 0.045))
+    var ring := Color("#ff4f68") if bool(world.safe_zone_shrinking) else Color("#70e7ff")
+    var pulse := 6.0 + (2.0 if bool(world.safe_zone_shrinking) else 0.0) + sin(float(world.tick) * 0.12) * 1.2
+    draw_arc(center, radius, 0.0, TAU, 96, ring, pulse)
+    if bool(world.safe_zone_shrinking) or absf(target_radius - radius) > 4.0:
+        draw_arc(center, target_radius, 0.0, TAU, 72, Color("#ffd166", 0.62), 3.0)
+    var label := "SHRINKING" if bool(world.safe_zone_shrinking) else "SAFE ZONE"
+    draw_string(ThemeDB.fallback_font, center + Vector2(-90.0, -radius - 18.0), "%s  %d" % [label, roundi(radius)], HORIZONTAL_ALIGNMENT_CENTER, 180.0, 14, Color(ring, 0.92))
