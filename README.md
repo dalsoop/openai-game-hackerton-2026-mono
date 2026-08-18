@@ -3,11 +3,11 @@
 > **OpenAI 게임 해커톤** 제출용 파티게임 모노레포.  
 > 형제 레포: [`ax-hackerton-2026-mono`](https://github.com/dalsoop/ax-hackerton-2026-mono) (AX 해커톤).
 
-제출 엔트리는 두 개다. Godot **다굴(gang-up)** 과 Vite **관성 레이싱(web-game)**.
+제출 엔트리는 Godot **다굴(gang-up)** 이다. 런처로 바로 실행한다.
 
 ## 제품 한 줄
 
-> 다굴: 6인 개인전 배틀로얄. 웹 레이싱: 관성이 빡센 로컬 협동 레이스. 둘 다 파티 전제.
+> 6인 개인전 다굴 배틀로얄. 인간 1 + CPU, 자기장·맵이 있는 파티 전제.
 
 ## 레포 구조 (`ax-hackerton-2026-mono` 스타일)
 
@@ -17,8 +17,7 @@ openai-game-hackerton-2026-mono/
 ├── README.md
 ├── apps/
 │   ├── app-yjh-all-games-starter/  # apps/game-* 런처 (Rust+egui)
-│   ├── game-pjh-gang-up/     # 박진혁 Godot 다굴 배틀로얄
-│   └── web-game/             # Vite + TypeScript 로컬 협동 레이싱
+│   └── game-pjh-gang-up/     # 박진혁 Godot 다굴 배틀로얄
 ├── docs/
 │   ├── DESIGN.md             # 제품·조작·튜닝 설계
 │   └── FEEL-TUNING.md        # 조작감 조율 플레이북
@@ -31,19 +30,11 @@ openai-game-hackerton-2026-mono/
 # 런처 (남은 game-* 자동 스캔)
 cd apps/app-yjh-all-games-starter && cargo run
 
-# 다굴 (Godot 4.7.1)
+# 다굴 직접 실행 (Godot 4.7.1)
 godot --path apps/game-pjh-gang-up/project
-
-# 관성 레이싱 (Node 22)
-cd apps/web-game
-npm install
-npm run dev
-# → http://localhost:5173  핫 리로드
 ```
 
-배포(GitHub Pages, web-game): https://dalsoop.github.io/openai-game-hackerton-2026-mono/
-
-조작·모드는 각 앱 `README.md` 참조.
+조작·모드는 `apps/game-pjh-gang-up/README.md` 참조.
 
 ## 협업
 

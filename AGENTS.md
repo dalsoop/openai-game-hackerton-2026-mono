@@ -5,10 +5,10 @@
 
 ## 제품 불변
 
-1. **싱글 플레이 없음** — 파티게임. web-game은 로컬 2인+ 레이스, gang-up은 인간+CPU 개인전.
-2. **조작감이 제품** — 관성을 쉽게 만들지 말 것. 튜닝 UI로 수치를 올리되 기본값은 "빡셈".
-3. **웹 우선** — `apps/web-game` Vite 핫 리로드. Godot는 `apps/game-pjh-gang-up`.
-4. **튜닝 패널은 개발 전용** — `import.meta.env.DEV` 일 때만 햄버거 조율 UI.
+1. **싱글 플레이 없음** — 파티게임. gang-up은 인간+CPU 개인전.
+2. **조작감이 제품** — 관성을 쉽게 만들지 말 것. 기본값은 "빡셈".
+3. **Godot 엔트리** — `apps/game-pjh-gang-up`. 런처는 `apps/app-yjh-all-games-starter`.
+4. **튜닝 패널은 개발 전용** — 개발 빌드에서만 조율 UI.
 
 ## 모노레포 규칙
 
@@ -21,14 +21,13 @@
 
 - 새 기능 전 `docs/DESIGN.md` 와 충돌하는지 확인.
 - 조작감 파라미터를 바꾸면 `docs/FEEL-TUNING.md` 에 한 줄 기록.
-- 빌드가 깨지면 머지하지 말 것 (`apps/web-game`: `npm run build` · Godot: 프로젝트 로드 확인).
+- 빌드가 깨지면 머지하지 말 것 (Godot: 프로젝트 로드 확인 · Rust: `cargo build`).
 - 레포 밖(다른 mono) 수정 금지.
 
 ## 로컬 루프
 
 ```bash
 cd apps/app-yjh-all-games-starter && cargo run
-cd apps/web-game && npm run dev
 godot --path apps/game-pjh-gang-up/project
 ```
 
