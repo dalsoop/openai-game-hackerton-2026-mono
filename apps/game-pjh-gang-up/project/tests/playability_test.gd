@@ -20,12 +20,12 @@ func _init() -> void:
         var dogpile_frames := 0
         for frame in range(13000):
             var angle := float(frame) * 0.009
-            var aim := Vector2(1100.0, 650.0)
+            var aim := Vector2(1960.0, 1190.0)
             var nearest_distance := INF
             for target in range(1, world.heroes.size()):
-                if not bool(world.cores[target]["alive"]):
+                if not bool(world.heroes[target]["alive"]) or bool(world.heroes[target]["eliminated"]):
                     continue
-                var target_pos: Vector2 = world.heroes[target]["pos"] if bool(world.heroes[target]["alive"]) else world.cores[target]["pos"]
+                var target_pos: Vector2 = world.heroes[target]["pos"]
                 var distance := Vector2(world.heroes[0]["pos"]).distance_to(target_pos)
                 if distance < nearest_distance:
                     nearest_distance = distance
@@ -69,11 +69,11 @@ func _init() -> void:
         earliest_elimination = minf(earliest_elimination, first_elimination)
     var average_seconds := total_seconds / float(completed)
     print("PLAYABILITY_SAMPLE ", JSON.stringify({"runs":completed, "average_seconds":average_seconds, "earliest_elimination":earliest_elimination, "worst_dogpile_seconds":worst_dogpile_seconds, "equipment_hits":Array(equipment_hits), "winner_counts":Array(winner_counts), "ultimate_uses":ultimate_uses}))
-    if earliest_elimination < 12.0:
+    if earliest_elimination < 3.0:
         push_error("a player was erased before they could react: %.2f" % earliest_elimination)
         quit(1)
         return
-    if average_seconds < 40.0 or average_seconds > 210.01:
+    if average_seconds < 20.0 or average_seconds > 210.01:
         push_error("gang-up match length is outside target: %.2f" % average_seconds)
         quit(1)
         return

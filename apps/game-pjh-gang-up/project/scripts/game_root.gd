@@ -198,7 +198,7 @@ func _edge(keycode: int) -> bool:
     return now and not was
 
 func _spectator_valid(slot: int) -> bool:
-    return slot > 0 and slot < world.heroes.size() and bool(world.heroes[slot]["alive"]) and bool(world.cores[slot]["alive"])
+    return slot > 0 and slot < world.heroes.size() and bool(world.heroes[slot]["alive"]) and not bool(world.heroes[slot]["eliminated"])
 
 func _best_spectator() -> int:
     var best := -1
@@ -253,8 +253,10 @@ func _camera_zoom_target() -> float:
     return 1.0
 
 func _camera_target() -> Vector2:
-    if world == null or world.heroes.is_empty():
-        return Vector2(1100.0, 650.0)
+    if world == null:
+        return Vector2(1960.0, 1190.0)
+    if world.heroes.is_empty():
+        return Vector2(world.ARENA_CENTER)
     var focus_slot := 0
     if world.result != &"playing" and world.winner_slot >= 0:
         focus_slot = world.winner_slot

@@ -23,6 +23,7 @@ func _draw() -> void:
     _draw_match_clock()
     _draw_critical(me)
     _draw_ultimate_cinematic()
+    _draw_minimap()
 
 func _draw_match_clock() -> void:
     var remaining: float = maxf(0.0, float(world.MATCH_TIME_LIMIT) - float(world.match_time))
@@ -46,12 +47,12 @@ func _draw_match_result() -> void:
     if world.winner_slot < 0:
         draw_rect(Rect2(430.0, 290.0, 740.0, 260.0), Color(0.02, 0.03, 0.05, 0.98))
         draw_string(ThemeDB.fallback_font, Vector2(470.0, 410.0), "DRAW", HORIZONTAL_ALIGNMENT_CENTER, 660.0, 54, Color.WHITE)
-        draw_string(ThemeDB.fallback_font, Vector2(470.0, 478.0), "NO CORE SURVIVED", HORIZONTAL_ALIGNMENT_CENTER, 660.0, 22, Color("#aebaca"))
+        draw_string(ThemeDB.fallback_font, Vector2(470.0, 478.0), "NO SURVIVORS", HORIZONTAL_ALIGNMENT_CENTER, 660.0, 22, Color("#aebaca"))
         return
     var winner: Dictionary = world.heroes[world.winner_slot]
     var equipment: Dictionary = winner["equipment"]
     var accent: Color = player_colors[world.winner_slot]
-    var reason_title := "HP DECISION WINNER" if world.result_reason == &"time_limit" else "LAST CORE STANDING"
+    var reason_title := "HP DECISION WINNER" if world.result_reason == &"time_limit" else "LAST ONE STANDING"
     draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(0.012, 0.018, 0.028, 0.98))
     draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(accent, 0.92), false, 6.0)
     draw_rect(Rect2(330.0, 154.0, 940.0, 72.0), Color(accent, 0.17))
@@ -60,7 +61,7 @@ func _draw_match_result() -> void:
     draw_string(ThemeDB.fallback_font, Vector2(375.0, 318.0), "%s  /  %s  /  %s" % [equipment["role"], equipment["name"], equipment["special_name"]], HORIZONTAL_ALIGNMENT_CENTER, 850.0, 18, Color(accent))
     draw_rect(Rect2(422.0, 346.0, 756.0, 72.0), Color(0.035, 0.048, 0.068, 0.95))
     draw_string(ThemeDB.fallback_font, Vector2(445.0, 379.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), HORIZONTAL_ALIGNMENT_CENTER, 210.0, 25, Color("#6ef3a5"))
-    draw_string(ThemeDB.fallback_font, Vector2(695.0, 379.0), "CORE  %d%%" % roundi(world.decision_core_ratio * 100.0), HORIZONTAL_ALIGNMENT_CENTER, 210.0, 25, Color("#70e7ff"))
+    draw_string(ThemeDB.fallback_font, Vector2(695.0, 379.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), HORIZONTAL_ALIGNMENT_CENTER, 210.0, 25, Color("#70e7ff"))
     draw_string(ThemeDB.fallback_font, Vector2(945.0, 379.0), "SCORE  %d" % roundi(float(winner["score"])), HORIZONTAL_ALIGNMENT_CENTER, 210.0, 25, Color("#ffd166"))
     var standings: Array[Dictionary] = world.final_standings()
     draw_string(ThemeDB.fallback_font, Vector2(410.0, 455.0), "FINAL STANDINGS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color("#aebaca"))
@@ -73,7 +74,7 @@ func _draw_match_result() -> void:
         draw_circle(Vector2(430.0, row_y - 6.0), 9.0, player_colors[slot])
         draw_string(ThemeDB.fallback_font, Vector2(452.0, row_y), "%d   P%d  %s / %s" % [rank + 1, slot + 1, row_equipment["character_name"], row_equipment["name"]], HORIZONTAL_ALIGNMENT_LEFT, 380.0, 16, Color.WHITE)
         draw_string(ThemeDB.fallback_font, Vector2(845.0, row_y), "HP %3d%%" % roundi(float(row["hp_ratio"]) * 100.0), HORIZONTAL_ALIGNMENT_LEFT, 92.0, 15, Color("#6ef3a5"))
-        draw_string(ThemeDB.fallback_font, Vector2(952.0, row_y), "CORE %3d%%" % roundi(float(row["core_ratio"]) * 100.0), HORIZONTAL_ALIGNMENT_LEFT, 112.0, 15, Color("#70e7ff"))
+        draw_string(ThemeDB.fallback_font, Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", HORIZONTAL_ALIGNMENT_LEFT, 112.0, 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"))
         draw_string(ThemeDB.fallback_font, Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), HORIZONTAL_ALIGNMENT_RIGHT, 86.0, 15, Color("#ffd166"))
     draw_string(ThemeDB.fallback_font, Vector2(450.0, 701.0), "PRESS R FOR REMATCH", HORIZONTAL_ALIGNMENT_CENTER, 700.0, 19, Color("#dbe5f0"))
 
@@ -103,7 +104,7 @@ func _draw_minimal_status(summary: Dictionary, me: Dictionary) -> void:
     draw_string(ThemeDB.fallback_font, Vector2(250.0, 65.0), "%d / %d" % [roundi(float(me["hp"])), roundi(float(me["max_hp"]))], HORIZONTAL_ALIGNMENT_LEFT, 90.0, 13, Color("#dbe5f0"))
     var streak_text := "  ·  x%d" % int(me.get("kill_streak", 0)) if int(me.get("kill_streak", 0)) > 0 else ""
     draw_string(ThemeDB.fallback_font, Vector2(342.0, 42.0), "SCORE %d%s" % [roundi(float(me["score"])), streak_text], HORIZONTAL_ALIGNMENT_LEFT, 150.0, 13, Color("#ffd166"))
-    draw_string(ThemeDB.fallback_font, Vector2(342.0, 66.0), "CORE %d  ·  %d/6" % [roundi(float(world.cores[0]["hp"])), int(summary["alive"])], HORIZONTAL_ALIGNMENT_LEFT, 150.0, 13, Color("#aebaca"))
+    draw_string(ThemeDB.fallback_font, Vector2(342.0, 66.0), "ALIVE %d/6  ·  ZONE %d" % [int(summary["alive"]), roundi(float(world.safe_zone_radius))], HORIZONTAL_ALIGNMENT_LEFT, 170.0, 13, Color("#aebaca"))
 
 func _draw_combat_dock(me: Dictionary) -> void:
     var equipment: Dictionary = me["equipment"]
@@ -232,23 +233,21 @@ func _draw_full(summary: Dictionary, me: Dictionary) -> void:
     draw_rect(Rect2(38.0, 211.0, 790.0, 17.0), Color("#252b36"))
     draw_rect(Rect2(38.0, 211.0, 790.0 * ultimate_ratio, 17.0), Color("#ff5d73"))
     draw_string(ThemeDB.fallback_font, Vector2(38.0, 226.0), "ULT %d / 100%s" % [roundi(float(me["ultimate_charge"])), "  READY" if ultimate_ratio >= 1.0 else ""], HORIZONTAL_ALIGNMENT_CENTER, 790.0, 12, Color.WHITE)
-    draw_string(ThemeDB.fallback_font, Vector2(38.0, 258.0), "코어: 다운/CC 때만 노출  |  비행 중 벽 충돌 최대 3회 추가 피해  |  사망 시 10초", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("#d8b4ff"))
+    draw_string(ThemeDB.fallback_font, Vector2(38.0, 258.0), "자기장 밖이면 지속 피해  |  원 안이면 피해 정지  |  사망 시 즉시 탈락", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("#d8b4ff"))
     draw_string(ThemeDB.fallback_font, Vector2(38.0, 287.0), "WASD 이동  LMB 일반  RMB 스킬  SPACE 이동기  Q 필살기  R 새 판  F1 HUD 전환", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color("#c8d5e4"))
 
 func _draw_scoreboard() -> void:
     var rows: Array[Dictionary] = world.leaderboard()
     draw_rect(Rect2(940.0, 16.0, 644.0, 270.0), Color(0.02, 0.03, 0.05, 0.91))
-    draw_string(ThemeDB.fallback_font, Vector2(960.0, 44.0), "실시간 순위  CHARACTER / EQUIPMENT       SCORE  D/D  CORE  STATE       ULT", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#ffd166"))
+    draw_string(ThemeDB.fallback_font, Vector2(960.0, 44.0), "실시간 순위  CHARACTER / EQUIPMENT       SCORE  D/D  ZONE  STATE       ULT", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#ffd166"))
     for rank in range(rows.size()):
         var row: Dictionary = rows[rank]
         var slot := int(row["slot"])
         var hero: Dictionary = world.heroes[slot]
         var equipment: Dictionary = hero["equipment"]
         var state := "LIVE"
-        if bool(hero["eliminated"]):
+        if bool(hero["eliminated"]) or not bool(hero["alive"]):
             state = "OUT"
-        elif not bool(hero["alive"]):
-            state = "DOWN %.1f" % float(hero["respawn"])
         elif float(hero.get("stun_time", 0.0)) > 0.0:
             state = "STUN"
         elif float(hero.get("root_time", 0.0)) > 0.0:
@@ -264,11 +263,11 @@ func _draw_scoreboard() -> void:
         draw_string(ThemeDB.fallback_font, Vector2(980.0, y), "%d  P%d %s / %s" % [rank + 1, slot + 1, equipment["character_name"], equipment["name"]], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color.WHITE)
         draw_string(ThemeDB.fallback_font, Vector2(1280.0, y), "%4d" % roundi(float(row["score"])), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#ffd166"))
         draw_string(ThemeDB.fallback_font, Vector2(1340.0, y), "%d/%d" % [int(row["kills"]), int(row["deaths"])], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#dbe5f0"))
-        draw_string(ThemeDB.fallback_font, Vector2(1395.0, y), "%3d" % roundi(float(world.cores[slot]["hp"])), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#6ef3a5"))
+        draw_string(ThemeDB.fallback_font, Vector2(1395.0, y), "%3d" % roundi(float(world.safe_zone_radius)), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("#6ef3a5"))
         draw_string(ThemeDB.fallback_font, Vector2(1442.0, y), state, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, Color("#ff9ca4") if state != "LIVE" else Color("#8be3ff"))
         var ultimate_ready: bool = float(hero["ultimate_charge"]) >= float(world.ULTIMATE_MAX)
         draw_string(ThemeDB.fallback_font, Vector2(1512.0, y), "READY" if ultimate_ready else "%d%%" % roundi(float(hero["ultimate_charge"])), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11, Color("#ff5d91") if ultimate_ready else Color("#c8a5b8"))
-    draw_string(ThemeDB.fallback_font, Vector2(958.0, 274.0), "점수 = 피해 + 다운 120 + 연속 처치/처단 보너스 + 탈락 300 + 승리 500", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, Color("#aab8c8"))
+    draw_string(ThemeDB.fallback_font, Vector2(958.0, 274.0), "점수 = 피해 + 처치 120 + 연속 처치/처단 보너스 + 승리 500  |  사망 = 탈락", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, Color("#aab8c8"))
 
 func _draw_critical(me: Dictionary) -> void:
     if bool(me["alive"]) and float(me.get("stun_time", 0.0)) > 0.0:
@@ -305,8 +304,62 @@ func _draw_critical(me: Dictionary) -> void:
         var target_equipment: Dictionary = target["equipment"]
         draw_rect(Rect2(455.0, 786.0, 690.0, 90.0), Color(0.04, 0.02, 0.06, 0.88))
         draw_string(ThemeDB.fallback_font, Vector2(475.0, 816.0), "관전 P%d %s / %s" % [target_slot + 1, target_equipment["character_name"], target_equipment["name"]], HORIZONTAL_ALIGNMENT_CENTER, 650.0, 20, Color("#d8b4ff"))
-        var status := "탈락 - 관전 중" if bool(me["eliminated"]) else "부활까지 %.1f초" % float(me["respawn"])
-        draw_string(ThemeDB.fallback_font, Vector2(475.0, 843.0), status, HORIZONTAL_ALIGNMENT_CENTER, 650.0, 16, Color("#ff8d93"))
+        draw_string(ThemeDB.fallback_font, Vector2(475.0, 843.0), "탈락 - 관전 중", HORIZONTAL_ALIGNMENT_CENTER, 650.0, 16, Color("#ff8d93"))
         draw_string(ThemeDB.fallback_font, Vector2(475.0, 867.0), "A/D 또는 TAB: 관전 대상 변경  |  SPACE: 1위 자동 추적", HORIZONTAL_ALIGNMENT_CENTER, 650.0, 14, Color.WHITE)
     if world.result != &"playing":
         _draw_match_result()
+
+func _draw_minimap() -> void:
+    if world == null or world.heroes.is_empty():
+        return
+    var panel_size := 216.0
+    var panel_y := 294.0 if hud_mode == 1 else 16.0
+    var panel := Rect2(1600.0 - 16.0 - panel_size, panel_y, panel_size, panel_size)
+    draw_rect(panel, Color(0.012, 0.018, 0.028, 0.88))
+    draw_rect(panel, Color("#8aa0b8", 0.62), false, 2.0)
+    var inner := Rect2(panel.position + Vector2(10.0, 10.0), Vector2(panel_size - 20.0, panel_size - 32.0))
+    var arena_size: Vector2 = world.ARENA_SIZE
+    var scale: float = minf(inner.size.x / arena_size.x, inner.size.y / arena_size.y)
+    var drawn: Vector2 = arena_size * scale
+    var origin: Vector2 = inner.position + (inner.size - drawn) * 0.5
+    var arena_rect := Rect2(origin, drawn)
+    draw_rect(arena_rect, Color("#1a212b"))
+    draw_rect(arena_rect, Color("#606a78", 0.50), false, 1.0)
+    var zone_center: Vector2 = origin + Vector2(world.safe_zone_center) * scale
+    var zone_radius: float = maxf(2.0, float(world.safe_zone_radius) * scale)
+    draw_circle(zone_center, zone_radius, Color(0.18, 0.92, 0.58, 0.10))
+    var zone_ring := Color("#ff4f68") if bool(world.safe_zone_shrinking) else Color("#70e7ff")
+    draw_arc(zone_center, zone_radius, 0.0, TAU, 48, zone_ring, 2.0)
+    if bool(world.safe_zone_shrinking) or absf(float(world.safe_zone_target_radius) - float(world.safe_zone_radius)) > 4.0:
+        draw_arc(zone_center, maxf(2.0, float(world.safe_zone_target_radius) * scale), 0.0, TAU, 36, Color("#ffd166", 0.70), 1.5)
+    var focus_slot := 0
+    if spectate_slot > 0 and spectate_slot < world.heroes.size() and bool(world.heroes[spectate_slot]["alive"]):
+        focus_slot = spectate_slot
+    for hero in world.heroes:
+        var slot := int(hero["slot"])
+        if slot == focus_slot or not bool(hero["alive"]) or bool(hero["eliminated"]):
+            continue
+        var pos: Vector2 = origin + Vector2(hero["pos"]) * scale
+        pos.x = clampf(pos.x, arena_rect.position.x + 4.0, arena_rect.end.x - 4.0)
+        pos.y = clampf(pos.y, arena_rect.position.y + 4.0, arena_rect.end.y - 4.0)
+        var color: Color = player_colors[slot] if slot >= 0 and slot < player_colors.size() else Color("#e55934")
+        draw_circle(pos, 5.4, Color(0.02, 0.03, 0.05, 0.95))
+        draw_circle(pos, 3.9, color)
+    if focus_slot >= 0 and focus_slot < world.heroes.size() and bool(world.heroes[focus_slot]["alive"]) and not bool(world.heroes[focus_slot]["eliminated"]):
+        var me_pos: Vector2 = origin + Vector2(world.heroes[focus_slot]["pos"]) * scale
+        me_pos.x = clampf(me_pos.x, arena_rect.position.x + 6.0, arena_rect.end.x - 6.0)
+        me_pos.y = clampf(me_pos.y, arena_rect.position.y + 6.0, arena_rect.end.y - 6.0)
+        draw_circle(me_pos, 7.5, Color(0.02, 0.03, 0.05, 0.95))
+        draw_circle(me_pos, 6.3, Color.WHITE)
+        draw_circle(me_pos, 4.8, Color("#7af7ff"))
+        draw_circle(me_pos, 1.7, Color.WHITE)
+    var legend_y := panel.position.y + panel_size - 10.0
+    var me_legend := Vector2(panel.position.x + 18.0, legend_y - 4.0)
+    draw_circle(me_legend, 4.6, Color(0.02, 0.03, 0.05, 0.95))
+    draw_circle(me_legend, 3.6, Color.WHITE)
+    draw_circle(me_legend, 2.6, Color("#7af7ff"))
+    draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 26.0, legend_y), "ME", HORIZONTAL_ALIGNMENT_LEFT, 36.0, 11, Color("#dbe5f0"))
+    var foe_legend := Vector2(panel.position.x + 76.0, legend_y - 4.0)
+    draw_circle(foe_legend, 4.2, Color(0.02, 0.03, 0.05, 0.95))
+    draw_circle(foe_legend, 3.1, Color("#e55934"))
+    draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 84.0, legend_y), "FOE", HORIZONTAL_ALIGNMENT_LEFT, 48.0, 11, Color("#dbe5f0"))

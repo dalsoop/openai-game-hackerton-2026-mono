@@ -7,9 +7,15 @@ const EventLogScript = preload("res://scripts/sim/event_log.gd")
 const PLAYER_COUNT := 6
 const HERO_RADIUS := 20.0
 const HERO_SPEED := 310.0
-const ARENA_CENTER := Vector2(1400.0, 850.0)
-const ARENA_SIZE := Vector2(2800.0, 1700.0)
+const SOURCE_ARENA_SIZE := Vector2(2800.0, 1700.0)
+const ARENA_TILE_SCALE := 0.7
+const ARENA_SIZE := Vector2(3920.0, 2380.0)
+const ARENA_CENTER := Vector2(1960.0, 1190.0)
 const ARENA_MARGIN := 52.0
+const SPAWN_HERO_RADIUS_X := 1680.0
+const SPAWN_HERO_RADIUS_Y := 970.0
+const SPAWN_CORE_RADIUS_X := 1800.0
+const SPAWN_CORE_RADIUS_Y := 1060.0
 const CORE_RADIUS := 34.0
 const CORE_MAX_HP := 210.0
 const FIXED_DT := 1.0 / 60.0
@@ -19,14 +25,25 @@ const ULTIMATE_MAX := 100.0
 const HEALTH_PICKUP_RADIUS := 27.0
 const HEALTH_PICKUP_RESPAWN := 16.0
 const HEALTH_PICKUP_HEAL_RATIO := 0.30
-const HEALTH_PICKUP_MAGNET_RADIUS := 155.0
+const HEALTH_PICKUP_MAGNET_RADIUS := 217.0
 const HEALTH_PICKUP_MAGNET_SPEED := 760.0
 const HEALTH_PICKUP_RETURN_SPEED := 280.0
-const HEALTH_PICKUP_POINTS := [
+const SOURCE_HEALTH_PICKUP_POINTS := [
     Vector2(1400.0, 430.0),
     Vector2(1400.0, 1270.0),
     Vector2(760.0, 850.0),
     Vector2(2040.0, 850.0)
+]
+const SAFE_ZONE_INITIAL_RADIUS := 1652.0
+const SAFE_ZONE_DAMAGE_PER_SEC := 8.0
+const SAFE_ZONE_TICK_INTERVAL := 0.50
+const SAFE_ZONE_EDGE_BUFFER := 126.0
+const SAFE_ZONE_PHASES := [
+    {"wait":12.0, "shrink":10.0, "radius":1204.0},
+    {"wait":8.0, "shrink":10.0, "radius":812.0},
+    {"wait":8.0, "shrink":9.0, "radius":476.0},
+    {"wait":7.0, "shrink":8.0, "radius":252.0},
+    {"wait":6.0, "shrink":8.0, "radius":98.0}
 ]
 
 var rng
@@ -64,6 +81,15 @@ var streak_callout: String = ""
 var streak_subtitle: String = ""
 var streak_callout_ticks: int = 0
 var streak_callout_shutdown: bool = false
+var safe_zone_center: Vector2 = ARENA_CENTER
+var safe_zone_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_from_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_target_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_phase: int = 0
+var safe_zone_phase_time: float = 0.0
+var safe_zone_shrinking: bool = false
+var safe_zone_complete: bool = false
+var safe_zone_damage_clock: float = 0.0
 
 var equipment_defs := [
     {"id":"scatter", "name":"SCATTERGUN", "normal_name":"DOUBLE PELLET", "skill_name":"BACKBLAST", "skill_desc":"Cone knockback plus recoil escape", "ultimate_name":"ROOM CLEARER", "ultimate_desc":"Dash in and blast everyone outward", "normal_damage":5.5, "normal_interval":0.36, "normal_speed":720.0, "normal_range":0.72, "normal_spread":0.055, "normal_projectiles":2, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":10.0, "normal_kind":"pellet", "normal_radius":6.0, "preferred_range":285.0, "cooldown":3.10, "damage":7.0, "speed":720.0, "range":0.72},
@@ -97,18 +123,18 @@ func _identity_for_equipment(equipment_id: String) -> Dictionary:
 
 func _combat_stats_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
-        "scatter": return {"move_speed":320.0, "max_hp":102.0, "weight":1.00, "combo_cap_ratio":0.44, "special_name":"RECOIL RHYTHM", "special_desc":"fast close-range reset"}
-        "rail": return {"move_speed":292.0, "max_hp":88.0, "weight":0.88, "combo_cap_ratio":0.50, "special_name":"DEAD ANGLE", "special_desc":"long-range hits deal 12% more"}
-        "mortar": return {"move_speed":270.0, "max_hp":92.0, "weight":0.92, "combo_cap_ratio":0.47, "special_name":"GLASS ARTILLERY", "special_desc":"controls space but collapses when rushed"}
-        "leech": return {"move_speed":310.0, "max_hp":98.0, "weight":0.98, "combo_cap_ratio":0.45, "special_name":"HUNGER", "special_desc":"confirmed hits restore health"}
-        "breaker": return {"move_speed":266.0, "max_hp":128.0, "weight":1.34, "combo_cap_ratio":0.40, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
-        "burst": return {"move_speed":336.0, "max_hp":90.0, "weight":0.90, "combo_cap_ratio":0.50, "special_name":"PURSUIT", "special_desc":"homing attacks punish escape"}
-        "blade": return {"move_speed":354.0, "max_hp":90.0, "weight":0.86, "combo_cap_ratio":0.50, "special_name":"AFTERIMAGE", "special_desc":"mobility evades one incoming hit"}
-        "brawler": return {"move_speed":326.0, "max_hp":116.0, "weight":1.12, "combo_cap_ratio":0.43, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
-        "bomb": return {"move_speed":288.0, "max_hp":104.0, "weight":1.04, "combo_cap_ratio":0.44, "special_name":"MINE LAYER", "special_desc":"two persistent mines control rotations"}
-        "spear": return {"move_speed":316.0, "max_hp":102.0, "weight":1.02, "combo_cap_ratio":0.45, "special_name":"TIP RANGE", "special_desc":"far hits deal 12% more"}
-        "chain": return {"move_speed":298.0, "max_hp":108.0, "weight":1.08, "combo_cap_ratio":0.43, "special_name":"CAPTURE", "special_desc":"combo tugs hold prey for CHAIN LOCK"}
-        _: return {"move_speed":252.0, "max_hp":140.0, "weight":1.55, "combo_cap_ratio":0.38, "special_name":"BULLDOZER", "special_desc":"a moving wall forces enemies out of its lane"}
+        "scatter": return {"move_speed":320.0, "max_hp":155.0, "weight":1.00, "combo_cap_ratio":0.26, "special_name":"RECOIL RHYTHM", "special_desc":"fast close-range reset"}
+        "rail": return {"move_speed":292.0, "max_hp":141.0, "weight":0.88, "combo_cap_ratio":0.27, "special_name":"DEAD ANGLE", "special_desc":"long-range hits deal 12% more"}
+        "mortar": return {"move_speed":270.0, "max_hp":140.0, "weight":0.92, "combo_cap_ratio":0.26, "special_name":"GLASS ARTILLERY", "special_desc":"controls space but collapses when rushed"}
+        "leech": return {"move_speed":310.0, "max_hp":149.0, "weight":0.98, "combo_cap_ratio":0.26, "special_name":"HUNGER", "special_desc":"confirmed hits restore health"}
+        "breaker": return {"move_speed":266.0, "max_hp":195.0, "weight":1.34, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
+        "burst": return {"move_speed":336.0, "max_hp":137.0, "weight":0.90, "combo_cap_ratio":0.27, "special_name":"PURSUIT", "special_desc":"homing attacks punish escape"}
+        "blade": return {"move_speed":354.0, "max_hp":157.0, "weight":0.86, "combo_cap_ratio":0.27, "special_name":"AFTERIMAGE", "special_desc":"mobility evades one incoming hit"}
+        "brawler": return {"move_speed":326.0, "max_hp":176.0, "weight":1.12, "combo_cap_ratio":0.24, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
+        "bomb": return {"move_speed":288.0, "max_hp":158.0, "weight":1.04, "combo_cap_ratio":0.26, "special_name":"MINE LAYER", "special_desc":"two persistent mines control rotations"}
+        "spear": return {"move_speed":316.0, "max_hp":204.0, "weight":1.02, "combo_cap_ratio":0.26, "special_name":"TIP RANGE", "special_desc":"far hits deal 12% more"}
+        "chain": return {"move_speed":298.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"CAPTURE", "special_desc":"combo tugs hold prey for CHAIN LOCK"}
+        _: return {"move_speed":252.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"BULLDOZER", "special_desc":"a moving wall forces enemies out of its lane"}
 
 func _mobility_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
@@ -153,6 +179,15 @@ func reset() -> void:
     streak_callout_shutdown = false
     start_countdown = START_COUNTDOWN
     time_limit_warning_emitted = false
+    safe_zone_center = ARENA_CENTER
+    safe_zone_radius = SAFE_ZONE_INITIAL_RADIUS
+    safe_zone_from_radius = SAFE_ZONE_INITIAL_RADIUS
+    safe_zone_target_radius = float(SAFE_ZONE_PHASES[0]["radius"])
+    safe_zone_phase = 0
+    safe_zone_phase_time = 0.0
+    safe_zone_shrinking = false
+    safe_zone_complete = false
+    safe_zone_damage_clock = 0.0
     heroes.clear()
     cores.clear()
     projectiles.clear()
@@ -161,24 +196,13 @@ func reset() -> void:
     effects.clear()
     knockouts.clear()
     health_pickups.clear()
-    covers = [
-        {"rect":Rect2(1330.0, 590.0, 140.0, 520.0)},
-        {"rect":Rect2(930.0, 810.0, 300.0, 70.0)},
-        {"rect":Rect2(1570.0, 810.0, 300.0, 70.0)},
-        {"rect":Rect2(590.0, 350.0, 230.0, 82.0)},
-        {"rect":Rect2(1980.0, 350.0, 230.0, 82.0)},
-        {"rect":Rect2(590.0, 1268.0, 230.0, 82.0)},
-        {"rect":Rect2(1980.0, 1268.0, 230.0, 82.0)},
-        {"rect":Rect2(340.0, 715.0, 82.0, 270.0)},
-        {"rect":Rect2(2378.0, 715.0, 82.0, 270.0)},
-        {"rect":Rect2(1030.0, 260.0, 120.0, 120.0)},
-        {"rect":Rect2(1650.0, 1320.0, 120.0, 120.0)}
-    ]
-    for pickup_index in range(HEALTH_PICKUP_POINTS.size()):
+    covers = _build_tiled_covers()
+    var pickup_points := _tiled_points(SOURCE_HEALTH_PICKUP_POINTS)
+    for pickup_index in range(pickup_points.size()):
         health_pickups.append({
             "id":pickup_index,
-            "pos":HEALTH_PICKUP_POINTS[pickup_index],
-            "home":HEALTH_PICKUP_POINTS[pickup_index],
+            "pos":pickup_points[pickup_index],
+            "home":pickup_points[pickup_index],
             "magnet_slot":-1,
             "active":true,
             "respawn":0.0
@@ -195,8 +219,13 @@ func reset() -> void:
         equipment_order[swap_index] = held
     for slot in range(PLAYER_COUNT):
         var angle := -PI * 0.5 + TAU * float(slot) / PLAYER_COUNT
-        var core_pos := ARENA_CENTER + Vector2.RIGHT.rotated(angle) * 700.0
-        var hero_pos := ARENA_CENTER + Vector2.RIGHT.rotated(angle) * 560.0
+        var spawn_dir := Vector2.RIGHT.rotated(angle)
+        var core_pos := ARENA_CENTER + Vector2(spawn_dir.x * SPAWN_CORE_RADIUS_X, spawn_dir.y * SPAWN_CORE_RADIUS_Y)
+        var hero_pos := ARENA_CENTER + Vector2(spawn_dir.x * SPAWN_HERO_RADIUS_X, spawn_dir.y * SPAWN_HERO_RADIUS_Y)
+        core_pos = _clamp_arena_point(core_pos, CORE_RADIUS)
+        hero_pos = _clamp_arena_point(hero_pos, HERO_RADIUS)
+        core_pos = _nudge_out_of_cover(core_pos, CORE_RADIUS)
+        hero_pos = _nudge_out_of_cover(hero_pos, HERO_RADIUS)
         var equipment: Dictionary = equipment_defs[equipment_order[slot]].duplicate(true)
         var identity := _identity_for_equipment(str(equipment["id"]))
         for key in identity:
@@ -307,6 +336,7 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
         _resolve_time_limit()
         return
     _update_timers(dt)
+    _update_safe_zone(dt)
     _apply_human(command)
     _update_cpus(dt)
     _move_heroes(dt)
@@ -397,22 +427,6 @@ func _update_timers(dt: float) -> void:
         h["root_time"] = maxf(0.0, float(h["root_time"]) - dt)
         h["stun_time"] = maxf(0.0, float(h["stun_time"]) - dt)
         h["wall_hit_cd"] = maxf(0.0, float(h["wall_hit_cd"]) - dt)
-        if not bool(h["alive"]) and not bool(h["eliminated"]):
-            h["respawn"] = maxf(0.0, float(h["respawn"]) - dt)
-            if float(h["respawn"]) <= 0.0 and bool(cores[i]["alive"]):
-                h["alive"] = true
-                h["hp"] = float(h["max_hp"])
-                h["pos"] = Vector2(cores[i]["pos"]).lerp(ARENA_CENTER, 0.25)
-                h["vel"] = Vector2.ZERO
-                h["normal_step"] = 0
-                h["normal_chain_time"] = 0.0
-                h["combo_target"] = -1
-                h["combo_capture_time"] = 0.0
-                h["attack_lock_time"] = 0.0
-                h["charging_skill"] = false
-                h["charge_time"] = 0.0
-                _add_effect(&"respawn", Vector2(h["pos"]), 82.0, 0.65, Color("#6ef3a5"), "BACK IN!")
-                event_log.emit(tick, &"hero_respawned", i, i, {})
         heroes[i] = h
 
 func _apply_human(command: Dictionary) -> void:
@@ -541,9 +555,6 @@ func _update_cpus(dt: float) -> void:
                 elif dist < preferred_range * 0.72:
                     desired = (strafe * 0.75 - to_target * 0.25).normalized()
                     h["action"] = &"DISENGAGE"
-                elif _core_hp(tslot) < CORE_MAX_HP * 0.28:
-                    desired = to_target
-                    h["action"] = &"COMMIT_CORE"
                 elif dist <= preferred_range * 1.15:
                     desired = (strafe * 0.88 + to_target * 0.12).normalized()
                     h["action"] = &"HOLD_RANGE"
@@ -614,16 +625,16 @@ func _choose_target(slot: int) -> int:
             continue
         var target_h: Dictionary = heroes[target]
         var distance := Vector2(heroes[slot]["pos"]).distance_to(_target_position(target))
-        var leader_value := clampf((float(target_h["threat"]) + (CORE_MAX_HP - _core_hp(target)) * 0.35) / 180.0, 0.0, 1.0)
-        var finishability := clampf((130.0 - float(target_h["hp"])) / 130.0 + (CORE_MAX_HP * 0.36 - _core_hp(target)) / (CORE_MAX_HP * 0.55), 0.0, 1.0)
+        var leader_value := clampf(float(target_h["threat"]) / 180.0, 0.0, 1.0)
+        var finishability := clampf((float(target_h["max_hp"]) - float(target_h["hp"])) / maxf(1.0, float(target_h["max_hp"])), 0.0, 1.0)
         var dogpile := 1.0 if attacker_counts[target] == 1 else 0.0
         var crowd_penalty := maxf(0.0, float(attacker_counts[target] - 1)) * 0.42
         var retaliation := clampf(float(target_h["threat"]) / 150.0, 0.0, 1.0)
         var grudge := 1.0 if int(heroes[slot]["recent_attacker"]) == target else 0.0
-        var score := 0.26 * leader_value + 0.20 * finishability + 0.16 * clampf(1.0 - _core_hp(target) / CORE_MAX_HP, 0.0, 1.0)
+        var score := 0.26 * leader_value + 0.28 * finishability
         score += 0.13 * clampf(float(target_h["threat"]) / 120.0, 0.0, 1.0)
         score += 0.11 * grudge + 0.10 * dogpile + 0.06 * clampf(float(target_h["bounty"]) / 80.0, 0.0, 1.0)
-        score -= crowd_penalty + 0.18 * retaliation + 0.15 * clampf(distance / 900.0, 0.0, 1.0)
+        score -= crowd_penalty + 0.18 * retaliation + 0.15 * clampf(distance / 1260.0, 0.0, 1.0)
         score += rng.rangef(-0.025, 0.025)
         if score > best_score:
             best_score = score
@@ -635,11 +646,11 @@ func _best_health_pickup(slot: int) -> int:
     var health_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
     if health_ratio > 0.65:
         return -1
-    var search_radius := 500.0
+    var search_radius := 700.0
     if health_ratio <= 0.48:
-        search_radius = 850.0
+        search_radius = 1190.0
     if health_ratio <= 0.30:
-        search_radius = 1250.0
+        search_radius = 1750.0
     var best_index := -1
     var best_distance := search_radius
     for pickup_index in range(health_pickups.size()):
@@ -719,15 +730,22 @@ func _hazard_escape_vector(slot: int) -> Vector2:
             away = Vector2.LEFT.rotated(float(slot) * 1.1)
         var urgency := 1.3 if bool(mine.get("triggered", false)) else 0.55
         escape += away * (1.0 - distance / danger_radius + urgency)
+    var zone_distance := hero_pos.distance_to(safe_zone_center)
+    var retreat_radius := maxf(40.0, safe_zone_radius - SAFE_ZONE_EDGE_BUFFER)
+    if zone_distance > retreat_radius:
+        var inward := hero_pos.direction_to(safe_zone_center)
+        if inward.length_squared() < 0.1:
+            inward = Vector2.LEFT.rotated(float(slot) * 0.7)
+        var overrun := zone_distance - safe_zone_radius
+        var urgency := 1.85 if overrun > 0.0 else clampf((zone_distance - retreat_radius) / maxf(1.0, SAFE_ZONE_EDGE_BUFFER), 0.0, 1.0)
+        escape += inward * (1.15 + urgency)
     return escape.normalized() if escape.length_squared() > 0.1 else Vector2.ZERO
 
 func _target_valid(slot: int) -> bool:
-    return slot >= 0 and slot < PLAYER_COUNT and bool(cores[slot]["alive"])
+    return slot >= 0 and slot < PLAYER_COUNT and bool(heroes[slot]["alive"]) and not bool(heroes[slot]["eliminated"])
 
 func _target_position(slot: int) -> Vector2:
-    if bool(heroes[slot]["alive"]):
-        return Vector2(heroes[slot]["pos"])
-    return Vector2(cores[slot]["pos"])
+    return Vector2(heroes[slot]["pos"])
 
 func _core_hp(slot: int) -> float:
     return float(cores[slot]["hp"])
@@ -978,6 +996,55 @@ func _resolve_cover_motion(old_pos: Vector2, motion: Vector2) -> Vector2:
     if not _point_in_cover(y_candidate, HERO_RADIUS):
         resolved.y = y_candidate.y
     return resolved
+
+
+func _tiled_points(source_points: Array) -> Array:
+    var points: Array = []
+    for tile_x in range(2):
+        for tile_y in range(2):
+            var origin := Vector2(float(tile_x) * SOURCE_ARENA_SIZE.x, float(tile_y) * SOURCE_ARENA_SIZE.y) * ARENA_TILE_SCALE
+            for source in source_points:
+                points.append(origin + Vector2(source) * ARENA_TILE_SCALE)
+    return points
+
+func _build_tiled_covers() -> Array[Dictionary]:
+    var source_rects: Array[Rect2] = [
+        Rect2(1330.0, 590.0, 140.0, 520.0),
+        Rect2(930.0, 810.0, 300.0, 70.0),
+        Rect2(1570.0, 810.0, 300.0, 70.0),
+        Rect2(590.0, 350.0, 230.0, 82.0),
+        Rect2(1980.0, 350.0, 230.0, 82.0),
+        Rect2(590.0, 1268.0, 230.0, 82.0),
+        Rect2(1980.0, 1268.0, 230.0, 82.0),
+        Rect2(340.0, 715.0, 82.0, 270.0),
+        Rect2(2378.0, 715.0, 82.0, 270.0),
+        Rect2(1030.0, 260.0, 120.0, 120.0),
+        Rect2(1650.0, 1320.0, 120.0, 120.0)
+    ]
+    var result: Array[Dictionary] = []
+    for tile_x in range(2):
+        for tile_y in range(2):
+            var origin := Vector2(float(tile_x) * SOURCE_ARENA_SIZE.x, float(tile_y) * SOURCE_ARENA_SIZE.y) * ARENA_TILE_SCALE
+            for source_rect in source_rects:
+                result.append({"rect":Rect2(origin + source_rect.position * ARENA_TILE_SCALE, source_rect.size * ARENA_TILE_SCALE)})
+    return result
+
+func _clamp_arena_point(point: Vector2, radius: float) -> Vector2:
+    return Vector2(
+        clampf(point.x, ARENA_MARGIN + radius, ARENA_SIZE.x - ARENA_MARGIN - radius),
+        clampf(point.y, ARENA_MARGIN + radius, ARENA_SIZE.y - ARENA_MARGIN - radius)
+    )
+
+func _nudge_out_of_cover(point: Vector2, radius: float) -> Vector2:
+    if not _point_in_cover(point, radius):
+        return point
+    var nudged: Vector2 = point
+    for step_index in range(24):
+        nudged = nudged.move_toward(ARENA_CENTER, 28.0)
+        nudged = _clamp_arena_point(nudged, radius)
+        if not _point_in_cover(nudged, radius):
+            return nudged
+    return _clamp_arena_point(ARENA_CENTER, radius)
 
 func _point_in_cover(point: Vector2, padding: float = 0.0) -> bool:
     for cover in covers:
@@ -2048,7 +2115,10 @@ func _damage_core(owner: int, target: int, amount: float, source: StringName = &
     impact_pos = Vector2(core["pos"])
     event_log.emit(tick, &"core_hit", owner, target, {"damage":amount, "remaining":maxf(0.0, float(core["hp"]))})
     if float(core["hp"]) <= 0.0:
-        _eliminate(owner, target)
+        core["hp"] = 0.0
+        core["alive"] = false
+        cores[target] = core
+        event_log.emit(tick, &"core_destroyed", owner, target, {})
 
 func _award_charge(slot: int, amount: float, source: StringName) -> void:
     if source == &"ultimate" or source == &"mobility" or slot < 0 or slot >= heroes.size():
@@ -2096,16 +2166,21 @@ func _down_hero(owner: int, target: int) -> void:
     var defeated_streak := int(h.get("kill_streak", 0))
     var death_velocity: Vector2 = h["launch_vel"]
     if death_velocity.length() < 450.0:
-        var death_direction := Vector2(heroes[owner]["pos"]).direction_to(Vector2(h["pos"]))
-        if death_direction.length_squared() < 0.1:
-            death_direction = Vector2.RIGHT.rotated(float(target) * TAU / float(PLAYER_COUNT))
+        var death_direction := Vector2.RIGHT.rotated(float(target) * TAU / float(PLAYER_COUNT))
+        if owner >= 0 and owner < heroes.size():
+            death_direction = Vector2(heroes[owner]["pos"]).direction_to(Vector2(h["pos"]))
+            if death_direction.length_squared() < 0.1:
+                death_direction = Vector2.RIGHT.rotated(float(target) * TAU / float(PLAYER_COUNT))
+        elif Vector2(h["pos"]).distance_squared_to(safe_zone_center) > 1.0:
+            death_direction = safe_zone_center.direction_to(Vector2(h["pos"]))
         death_velocity = death_direction * 1550.0
     else:
         death_velocity = death_velocity.normalized() * maxf(1550.0, death_velocity.length() * 1.35)
     knockouts.append({"slot":target, "pos":Vector2(h["pos"]), "vel":death_velocity, "time":2.15, "max_time":2.15, "bounces":0, "finished":false, "trail":[Vector2(h["pos"])], "equipment":str(h["equipment"]["id"])})
     h["alive"] = false
     h["hp"] = 0.0
-    h["respawn"] = 10.0
+    h["respawn"] = 0.0
+    h["eliminated"] = true
     h["vel"] = Vector2.ZERO
     h["launch_vel"] = Vector2.ZERO
     h["launch_time"] = 0.0
@@ -2134,6 +2209,7 @@ func _down_hero(owner: int, target: int) -> void:
     if owner >= 0 and owner < heroes.size() and owner != target:
         var attacker: Dictionary = heroes[owner]
         attacker["kills"] = int(attacker["kills"]) + 1
+        attacker["eliminations"] = int(attacker["eliminations"]) + 1
         attacker["score"] = float(attacker["score"]) + 120.0
         attacker["bounty"] = float(attacker["bounty"]) + 12.0
         attacker["threat"] = float(attacker["threat"]) + 18.0
@@ -2167,6 +2243,11 @@ func _down_hero(owner: int, target: int) -> void:
         heroes[owner] = attacker
     impact_pos = Vector2(h["pos"])
     event_log.emit(tick, &"hero_downed", owner, target, {"streak":streak_after, "ended_streak":defeated_streak, "shutdown_bonus":shutdown_bonus})
+    event_log.emit(tick, &"player_eliminated", owner, target, {"source":&"death"})
+    if owner >= 0:
+        _announce("P%d ELIMINATED P%d!" % [owner + 1, target + 1], 140)
+    else:
+        _announce("P%d ELIMINATED BY ZONE!" % [target + 1], 140)
     impact_ticks = maxi(impact_ticks, 32)
 
 func _eliminate(owner: int, target: int) -> void:
@@ -2201,8 +2282,69 @@ func _update_threat(dt: float) -> void:
         wanted_slot = new_wanted
         _announce("BOUNTY: EVERYONE GET P%d!" % (wanted_slot + 1), 105)
 
+func _hero_in_safe_zone(slot: int) -> bool:
+    if slot < 0 or slot >= heroes.size():
+        return true
+    return Vector2(heroes[slot]["pos"]).distance_to(safe_zone_center) <= safe_zone_radius
+
+func _update_safe_zone(dt: float) -> void:
+    if not safe_zone_complete:
+        safe_zone_phase_time += dt
+        if safe_zone_shrinking:
+            var shrink_time := maxf(0.01, float(SAFE_ZONE_PHASES[safe_zone_phase]["shrink"]))
+            var ratio := clampf(safe_zone_phase_time / shrink_time, 0.0, 1.0)
+            var eased := ratio * ratio * (3.0 - 2.0 * ratio)
+            safe_zone_radius = lerpf(safe_zone_from_radius, safe_zone_target_radius, eased)
+            if ratio >= 1.0:
+                safe_zone_radius = safe_zone_target_radius
+                safe_zone_shrinking = false
+                safe_zone_phase_time = 0.0
+                safe_zone_phase += 1
+                if safe_zone_phase >= SAFE_ZONE_PHASES.size():
+                    safe_zone_complete = true
+                    safe_zone_phase = SAFE_ZONE_PHASES.size() - 1
+                else:
+                    safe_zone_target_radius = float(SAFE_ZONE_PHASES[safe_zone_phase]["radius"])
+                    _announce("SAFE ZONE HOLD  %d" % roundi(safe_zone_radius), 70)
+        else:
+            var wait_time := float(SAFE_ZONE_PHASES[safe_zone_phase]["wait"])
+            if safe_zone_phase_time >= wait_time:
+                safe_zone_shrinking = true
+                safe_zone_phase_time = 0.0
+                safe_zone_from_radius = safe_zone_radius
+                safe_zone_target_radius = float(SAFE_ZONE_PHASES[safe_zone_phase]["radius"])
+                _announce("SAFE ZONE SHRINKING", 80)
+                event_log.emit(tick, &"safe_zone_shrink", -1, -1, {"phase":safe_zone_phase, "from":safe_zone_from_radius, "to":safe_zone_target_radius})
+    _apply_safe_zone_damage(dt)
+
+func _apply_safe_zone_damage(dt: float) -> void:
+    safe_zone_damage_clock += dt
+    var show_tick := false
+    if safe_zone_damage_clock >= SAFE_ZONE_TICK_INTERVAL:
+        safe_zone_damage_clock -= SAFE_ZONE_TICK_INTERVAL
+        show_tick = true
+    var amount := SAFE_ZONE_DAMAGE_PER_SEC * dt
+    for slot in range(heroes.size()):
+        if not bool(heroes[slot]["alive"]) or bool(heroes[slot]["eliminated"]):
+            continue
+        if _hero_in_safe_zone(slot):
+            continue
+        _damage_hero_environment(slot, amount, show_tick)
+
+func _damage_hero_environment(target: int, amount: float, show_tick: bool) -> void:
+    var h: Dictionary = heroes[target]
+    if not bool(h["alive"]) or amount <= 0.0:
+        return
+    h["hp"] = float(h["hp"]) - amount
+    heroes[target] = h
+    if show_tick:
+        _add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
+        event_log.emit(tick, &"hero_hit", -1, target, {"damage":SAFE_ZONE_DAMAGE_PER_SEC * SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
+    if float(h["hp"]) <= 0.0:
+        _down_hero(-1, target)
+
 func _hero_hp_ratio(slot: int) -> float:
-    if slot < 0 or slot >= heroes.size() or not bool(cores[slot]["alive"]):
+    if slot < 0 or slot >= heroes.size() or bool(heroes[slot]["eliminated"]):
         return 0.0
     return clampf(float(heroes[slot]["hp"]) / maxf(1.0, float(heroes[slot]["max_hp"])), 0.0, 1.0) if bool(heroes[slot]["alive"]) else 0.0
 
@@ -2218,10 +2360,6 @@ func _time_limit_better(candidate: int, current: int) -> bool:
     var current_hp := _hero_hp_ratio(current)
     if not is_equal_approx(candidate_hp, current_hp):
         return candidate_hp > current_hp
-    var candidate_core := _core_hp_ratio(candidate)
-    var current_core := _core_hp_ratio(current)
-    if not is_equal_approx(candidate_core, current_core):
-        return candidate_core > current_core
     if not is_equal_approx(float(heroes[candidate]["score"]), float(heroes[current]["score"])):
         return float(heroes[candidate]["score"]) > float(heroes[current]["score"])
     return candidate < current
@@ -2243,8 +2381,8 @@ func _declare_winner(slot: int, reason: StringName) -> void:
 
 func _resolve_time_limit() -> void:
     var best := -1
-    for slot in range(cores.size()):
-        if bool(cores[slot]["alive"]) and _time_limit_better(slot, best):
+    for slot in range(heroes.size()):
+        if bool(heroes[slot]["alive"]) and not bool(heroes[slot]["eliminated"]) and _time_limit_better(slot, best):
             best = slot
     if best < 0:
         result = &"draw"
@@ -2264,8 +2402,10 @@ func _standing_better(a: Dictionary, b: Dictionary) -> bool:
         return false
     if result_reason == &"time_limit":
         return _time_limit_better(a_slot, b_slot)
-    if bool(a["core_alive"]) != bool(b["core_alive"]):
-        return bool(a["core_alive"])
+    var a_alive := bool(a.get("hero_alive", false))
+    var b_alive := bool(b.get("hero_alive", false))
+    if a_alive != b_alive:
+        return a_alive
     return float(a["score"]) > float(b["score"])
 
 func final_standings() -> Array[Dictionary]:
@@ -2276,21 +2416,22 @@ func final_standings() -> Array[Dictionary]:
             "hp_ratio":_hero_hp_ratio(slot),
             "core_ratio":_core_hp_ratio(slot),
             "score":float(heroes[slot]["score"]),
-            "core_alive":bool(cores[slot]["alive"])
+            "core_alive":bool(cores[slot]["alive"]),
+            "hero_alive":bool(heroes[slot]["alive"]) and not bool(heroes[slot]["eliminated"])
         })
     rows.sort_custom(_standing_better)
     return rows
 
 func _check_end() -> void:
     var alive_slots: Array[int] = []
-    for core in cores:
-        if bool(core["alive"]):
-            alive_slots.append(int(core["slot"]))
+    for hero in heroes:
+        if bool(hero["alive"]) and not bool(hero["eliminated"]):
+            alive_slots.append(int(hero["slot"]))
     if alive_slots.size() == 1:
-        _declare_winner(alive_slots[0], &"last_core")
+        _declare_winner(alive_slots[0], &"last_survivor")
     elif alive_slots.is_empty():
         result = &"draw"
-        result_reason = &"no_cores"
+        result_reason = &"no_survivors"
         winner_slot = -1
         _settle_match_visuals()
 
@@ -2303,14 +2444,14 @@ func summary() -> Dictionary:
     var core_hps: Array[float] = []
     var ultimate_uses := 0
     var equipment_hits := 0
-    for core in cores:
-        if bool(core["alive"]):
-            alive += 1
-        core_hps.append(maxf(0.0, float(core["hp"])))
     for hero in heroes:
+        if bool(hero["alive"]) and not bool(hero["eliminated"]):
+            alive += 1
         ultimate_uses += int(hero["ultimates"])
         equipment_hits += int(hero["equipment_hits"])
-    return {"tick":tick, "time":match_time, "time_limit":MATCH_TIME_LIMIT, "alive":alive, "winner":winner_slot, "result":result, "result_reason":result_reason, "decision_hp_ratio":decision_hp_ratio, "decision_core_ratio":decision_core_ratio, "projectiles":projectiles.size(), "start_countdown":start_countdown, "core_hps":core_hps, "ultimate_uses":ultimate_uses, "equipment_hits":equipment_hits}
+    for core in cores:
+        core_hps.append(maxf(0.0, float(core["hp"])))
+    return {"tick":tick, "time":match_time, "time_limit":MATCH_TIME_LIMIT, "alive":alive, "winner":winner_slot, "result":result, "result_reason":result_reason, "decision_hp_ratio":decision_hp_ratio, "decision_core_ratio":decision_core_ratio, "projectiles":projectiles.size(), "start_countdown":start_countdown, "core_hps":core_hps, "ultimate_uses":ultimate_uses, "equipment_hits":equipment_hits, "safe_zone_radius":safe_zone_radius, "safe_zone_target":safe_zone_target_radius, "safe_zone_shrinking":safe_zone_shrinking}
 
 func leaderboard() -> Array[Dictionary]:
     var rows: Array[Dictionary] = []
