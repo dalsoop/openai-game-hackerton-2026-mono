@@ -1,8 +1,0 @@
-animal=panda
-frames=24
-pair_count=276
-exact_duplicates=0
-near_duplicates=2
-minimum_margin=9
-near 04-09 h=13 mad=0.014782
-near 21-24 h=20 mad=0.024328
