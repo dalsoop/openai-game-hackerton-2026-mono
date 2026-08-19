@@ -16,5 +16,11 @@ logs/
 .godot/
 *.translation
 export_credentials.cfg
-# Godot web export output (built artifact — regenerate with export)
-apps/game-yjh-*/web/
+apps/game-*/project/web/
+apps/server-*/project/web/
+!apps/server-board/project/web/
+!apps/server-board/project/web/**
+.backups/
+__pycache__/
+*.pyc
+tools/godot-touch-controls/

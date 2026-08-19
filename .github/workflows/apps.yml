@@ -1,0 +1,89 @@
+name: Apps ship
+
+# 개발자는 apps/ 만 푸시한다. 셀프호스트 러너 하나에서 허브·웹을 올리고, 퍼지는 GitHub 호스트가 한다.
+on:
+  push:
+    branches: [main, jeongright-gang-up-multi]
+    paths:
+      - "apps/**"
+      - "deploy/**"
+      - ".github/workflows/apps.yml"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "모든 슬롯"
+        type: boolean
+        default: true
+      purge_only:
+        description: "배포 없이 Cloudflare만 퍼지"
+        type: boolean
+        default: false
+
+concurrency:
+  group: apps-ship
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      folders: ${{ steps.list.outputs.folders }}
+      helm: ${{ steps.list.outputs.helm }}
+      empty: ${{ steps.list.outputs.empty }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: list
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.all }}" = "true" ]; then
+              json=$(python3 deploy/scripts/ci-plan.py --all)
+            else
+              json=$(python3 deploy/scripts/ci-plan.py --changed "${{ github.event.before }}" "${{ github.sha }}")
+            fi
+          else
+            json=$(python3 deploy/scripts/ci-plan.py --changed "${{ github.event.before }}" "${{ github.sha }}")
+          fi
+          echo "$json"
+          folders=$(python3 -c "import json,sys; print(' '.join(json.loads(sys.argv[1]).get('folder', [])))" "$json")
+          helm=$(python3 -c "import json,sys; print('true' if json.loads(sys.argv[1]).get('helm') else 'false')" "$json")
+          echo "folders=$folders" >> "$GITHUB_OUTPUT"
+          echo "helm=$helm" >> "$GITHUB_OUTPUT"
+          if [ -z "$folders" ] && [ "$helm" != "true" ]; then
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  ship:
+    needs: plan
+    if: ${{ needs.plan.outputs.empty != 'true' && github.event.inputs.purge_only != 'true' }}
+    runs-on: [self-hosted, hackertone]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ship changed slots
+        run: |
+          set -eu
+          folders="${{ needs.plan.outputs.folders }}"
+          if [ -n "$folders" ]; then
+            python3 deploy/scripts/apply-apps.py ship $folders
+          else
+            echo "웹·허브 대상 없음"
+          fi
+          if [ "${{ needs.plan.outputs.helm }}" = "true" ]; then
+            python3 deploy/scripts/apply-apps.py helm
+          fi
+
+  purge:
+    needs: [plan, ship]
+    if: ${{ always() && !cancelled() && (needs.ship.result == 'success' || github.event.inputs.purge_only == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Purge Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: python3 deploy/scripts/purge-cache.py

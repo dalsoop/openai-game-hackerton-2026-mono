@@ -1,20 +1,19 @@
 # CLAUDE.md — 제출 앱 도메인
 
-루트 `AGENTS.md` 규칙이 우선. `apps/game-*`만 줄이고, 런처는 유지한다.
+루트 `AGENTS.md`가 우선. 배포는 `.claude/skills/hackertone-games-deploy/SKILL.md`.
 
 ## 앱
 
-| 앱 | 장르 | 실행 |
+| 앱 | 역할 | 실행 |
 |---|---|---|
-| `app-yjh-all-games-starter` | `apps/game-*` 런처 | `cd apps/app-yjh-all-games-starter && cargo run` |
-| `game-pjh-gang-up` | 6인 개인전 다굴 배틀로얄 (Godot) | `godot --path apps/game-pjh-gang-up/project` |
+| `server-yjh-dev1` | 정한 본 슬롯. 클라 + 클러스터 허브 | `godot --path apps/server-yjh-dev1/project` · `npm start` |
+| `server-pjh-dev1` | 크리엘 본 슬롯 | `godot --path apps/server-pjh-dev1/project` |
+| `server-pig-dev1` | Figix 본 슬롯 | `godot --path apps/server-pig-dev1/project` |
+| `server-board` | 배포 보드 | `https://server-board.external.kr/` |
+| `*-dev2` · `*-dev3` · `server-prod` | 빈 슬롯 | `project/`를 채운 뒤 `web.enabled` |
+| `game-pjh-gang-up` | 크리엘 원본. 수정 금지 | 읽기만 |
 
-## 이름 규칙
+`apps/server-*` → `https://<폴더>.external.kr/`  
+확인: `python3 deploy/scripts/status.py` · 보드 `https://server-board.external.kr/`
 
-- 앱 디렉터리: `apps/game-{작성자이니셜}-{게임명}` 또는 `apps/app-*`
-- 작업 브랜치: `jeongright-{이름}`
-
-## 주의
-
-- 지우는 대상은 `apps/game-*` 뿐이다. `app-*`는 건드리지 말 것.
-- `game-pjh-gang-up`은 `project/` 하위가 Godot 루트다.
+방 서버는 `server-*`마다 따로다. 보드만 빼면 자기 호스트 `/gang-up`을 갖는다. 허브는 `apps/` 푸시 후 Actions `Apps ship`. Godot 웹은 `apply-apps.py web <폴더>`.

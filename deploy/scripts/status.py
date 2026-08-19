@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""apps/ 폴더 → 서브도메인이 살아 있는지 본다."""
+from __future__ import annotations
+
+import json
+import ssl
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+APPS = ROOT / "apps"
+ENV_FILE = ROOT / "deploy" / "env.yaml"
+
+
+def env_name() -> str:
+    for line in ENV_FILE.read_text().splitlines():
+        if line.startswith("env:"):
+            return line.split(":", 1)[1].strip()
+    return "dev1"
+
+
+def folders() -> list[tuple[str, str]]:
+    out = []
+    for path in sorted(APPS.glob("*/hackertone.yaml")):
+        if not path.parent.name.startswith("server-"):
+            continue
+        text = path.read_text().replace("\r\n", "\n")
+        web_on = "web:\n  enabled: true" in text
+        if "hub:\n  enabled: true" in text:
+            out.append((path.parent.name, "hub"))
+        if web_on:
+            out.append((path.parent.name, "game"))
+    return out
+
+
+def probe(url: str) -> tuple[int, str]:
+    ctx = ssl.create_default_context()
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={"User-Agent": "hackertone-status/1"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8, context=ctx) as res:
+            body = res.read(120).decode("utf-8", "replace").replace("\n", " ")
+            return res.status, body
+    except urllib.error.HTTPError as exc:
+        return exc.code, str(exc.reason)
+    except Exception as exc:
+        return 0, str(exc)
+
+
+def main() -> int:
+    env = env_name()
+    rows = folders()
+    if not rows:
+        print("apps/ 에 배포할 앱이 없습니다")
+        return 1
+    failed = 0
+    print(f"env={env}")
+    for folder, kind in rows:
+        host = f"{folder}.external.kr"
+        url = f"https://{host}/health" if kind == "hub" else f"https://{host}/"
+        status, detail = probe(url)
+        ok = 200 <= status < 400
+        if kind == "hub" and ok:
+            try:
+                body = json.loads(detail)
+                slot = str(body.get("slot") or "")
+            except json.JSONDecodeError:
+                slot = ""
+            if slot != folder:
+                ok = False
+                detail = f"공유 허브 또는 slot 불일치 (got {slot or '없음'}) {detail}"
+        mark = "OK" if ok else "FAIL"
+        if not ok:
+            failed += 1
+        print(f"{mark:4}  {url}  {status}  {detail[:80]}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
