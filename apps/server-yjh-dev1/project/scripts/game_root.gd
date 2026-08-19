@@ -207,7 +207,7 @@ func _physics_process(_delta: float) -> void:
         var dash_held: bool = Input.is_key_pressed(KEY_SPACE) or (touch != null and touch.dash_held)
         var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
         world.present(1.0 / 60.0)
-        var seq := world.predict_local(move, dash_held, aim_world, 1.0 / 60.0)
+        var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
         hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
         previous_right_mouse = equipment_held
     else:

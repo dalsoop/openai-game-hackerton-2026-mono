@@ -21,6 +21,7 @@ apps/server-*/project/web/
 !apps/server-board/project/web/
 !apps/server-board/project/web/**
 .backups/
+deploy/.godot-cache/
 __pycache__/
 *.pyc
 tools/godot-touch-controls/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CI가 슬롯을 병렬로 올린다. 개발자는 apps/ 만 푸시한다."""
+"""CI가 슬롯을 올린다. 개발자는 apps/ 만 푸시한다. Godot 웹도 여기서 익스포트한다."""
 from __future__ import annotations
 
 import importlib.util
@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.request
+import zipfile
 import re
 from pathlib import Path
 
@@ -18,6 +20,16 @@ CHART = ROOT / "deploy" / "chart"
 ENV = ROOT / "deploy" / "env.yaml"
 PLANT = Path(__file__).with_name("plant-apps.py")
 REMOTE_DIR = "/data/hackertone/g"
+GODOT_VERSION = "4.7.1"
+GODOT_CACHE = ROOT / "deploy" / ".godot-cache"
+GODOT_LINUX_URL = (
+    f"https://github.com/godotengine/godot/releases/download/{GODOT_VERSION}-stable/"
+    f"Godot_v{GODOT_VERSION}-stable_linux.x86_64.zip"
+)
+GODOT_TEMPLATES_URL = (
+    f"https://github.com/godotengine/godot/releases/download/{GODOT_VERSION}-stable/"
+    f"Godot_v{GODOT_VERSION}-stable_export_templates.tpz"
+)
 
 
 def plant_mod():
@@ -76,6 +88,113 @@ def parse_folder(mod, folder: str) -> dict:
 def run_plant() -> None:
     sys.argv = [str(PLANT)]
     plant_mod().main()
+
+
+def templates_dir() -> Path:
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/Godot/export_templates" / f"{GODOT_VERSION}.stable"
+    return Path.home() / ".local/share/godot/export_templates" / f"{GODOT_VERSION}.stable"
+
+
+def _download(url: str, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    print(f"download {url}")
+    with urllib.request.urlopen(url, timeout=120) as src, dest.open("wb") as out:
+        shutil.copyfileobj(src, out)
+
+
+def ensure_linux_godot() -> Path:
+    name = f"Godot_v{GODOT_VERSION}-stable_linux.x86_64"
+    binary = GODOT_CACHE / name
+    if binary.is_file() and os.access(binary, os.X_OK):
+        return binary
+    zpath = GODOT_CACHE / f"{name}.zip"
+    if not zpath.is_file():
+        _download(GODOT_LINUX_URL, zpath)
+    with zipfile.ZipFile(zpath) as zf:
+        zf.extractall(GODOT_CACHE)
+    binary.chmod(0o755)
+    if not binary.is_file():
+        raise SystemExit(f"godot 압축에 {name} 없음")
+    return binary
+
+
+def ensure_templates() -> None:
+    dest = templates_dir()
+    marker = dest / "web_nothreads_release.zip"
+    if marker.is_file() or (dest / "web_release.zip").is_file():
+        return
+    tpz = GODOT_CACHE / f"Godot_v{GODOT_VERSION}-stable_export_templates.tpz"
+    if not tpz.is_file():
+        _download(GODOT_TEMPLATES_URL, tpz)
+    dest.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(tpz) as zf:
+        for info in zf.infolist():
+            name = Path(info.filename)
+            if name.parts and name.parts[0] == "templates":
+                target = dest / Path(*name.parts[1:])
+            else:
+                target = dest / name
+            if info.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(info) as src, target.open("wb") as out:
+                shutil.copyfileobj(src, out)
+    if not marker.is_file() and not (dest / "web_release.zip").is_file():
+        raise SystemExit(f"웹 익스포트 템플릿 없음: {dest}")
+    print(f"templates {dest}")
+
+
+def godot_bin() -> str:
+    env = os.environ.get("GODOT") or os.environ.get("GODOT_BIN")
+    candidates: list[Path] = []
+    if env:
+        candidates.append(Path(env).expanduser())
+    for name in ("godot", "godot4"):
+        found = shutil.which(name)
+        if found:
+            candidates.append(Path(found))
+    mac = Path("/Applications/Godot.app/Contents/MacOS/Godot")
+    if mac.is_file():
+        candidates.append(mac)
+    linux_cache = GODOT_CACHE / f"Godot_v{GODOT_VERSION}-stable_linux.x86_64"
+    if linux_cache.is_file():
+        candidates.append(linux_cache)
+    for cand in candidates:
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    if sys.platform.startswith("linux"):
+        return str(ensure_linux_godot())
+    raise SystemExit("godot 4.7.1 이 없다. GODOT 경로를 지정한다.")
+
+
+def export_web(folder: str) -> None:
+    mod = plant_mod()
+    data = parse_folder(mod, folder)
+    web = data.get("web") or {}
+    if not web.get("enabled"):
+        print(f"skip web export {folder} (disabled)")
+        return
+    project = APPS / folder / "project"
+    presets = project / "export_presets.cfg"
+    if not (project / "project.godot").is_file() or not presets.is_file():
+        print(f"skip web export {folder} (no godot project)")
+        return
+    ensure_templates()
+    godot = godot_bin()
+    export_dir = APPS / folder / str(web.get("exportDir", "project/web"))
+    export_dir.mkdir(parents=True, exist_ok=True)
+    html = export_dir / "index.html"
+    rel = os.path.relpath(html, project)
+    print(f"export {folder} with {godot}")
+    subprocess.run([godot, "--headless", "--path", str(project), "--import", "--quit"], check=True)
+    subprocess.run(
+        [godot, "--headless", "--path", str(project), "--export-release", "Web", rel],
+        check=True,
+    )
+    if not html.is_file():
+        raise SystemExit(f"{folder}: 웹 익스포트가 index.html 을 만들지 않음")
 
 
 def push_web(folder: str) -> None:
@@ -213,7 +332,7 @@ def main() -> int:
     args = sys.argv[1:]
     if not args:
         print("개발자는 apps/ 를 푸시하면 됩니다. 로컬 전체 적용은 CI와 같습니다.", file=sys.stderr)
-        print("usage: apply-apps.py plant|hub <folder>|web <folder>|ship [folders...]|helm", file=sys.stderr)
+        print("usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|ship [folders...]|helm", file=sys.stderr)
         return 2
     cmd = args[0]
     if cmd == "plant":
@@ -223,17 +342,22 @@ def main() -> int:
         build_hub(args[1])
         return 0
     if cmd == "web" and len(args) == 2:
+        export_web(args[1])
         push_web(args[1])
+        return 0
+    if cmd == "export" and len(args) == 2:
+        export_web(args[1])
         return 0
     if cmd == "ship":
         for folder in args[1:]:
+            export_web(folder)
             build_hub(folder)
             push_web(folder)
         return 0
     if cmd == "helm":
         helm_upgrade()
         return 0
-    print("usage: apply-apps.py plant|hub <folder>|web <folder>|ship [folders...]|helm", file=sys.stderr)
+    print("usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|ship [folders...]|helm", file=sys.stderr)
     return 2
 
 

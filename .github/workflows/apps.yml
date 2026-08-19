@@ -1,6 +1,6 @@
 name: Apps ship
 
-# 개발자는 apps/ 만 푸시한다. 셀프호스트 러너 하나에서 허브·웹을 올리고, 퍼지는 GitHub 호스트가 한다.
+# 개발자는 apps/ 만 푸시한다. 셀프호스트 러너가 Godot 웹 익스포트·허브 이미지·Helm을 올리고, 퍼지는 GitHub 호스트가 한다.
 on:
   push:
     branches: [main, jeongright-gang-up-multi]
