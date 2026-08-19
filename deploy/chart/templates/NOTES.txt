@@ -1,0 +1,7 @@
+apps/<폴더>/ → https://<폴더>.external.kr/
+{{- range .Values.games }}
+https://{{ include "hackertone-games.publicHost" .folder }}/
+{{- end }}
+{{- range .Values.hubs }}
+https://{{ include "hackertone-games.publicHost" .folder }}/health
+{{- end }}

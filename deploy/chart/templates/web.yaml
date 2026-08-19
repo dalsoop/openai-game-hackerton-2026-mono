@@ -1,0 +1,227 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-caddy
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+data:
+  Caddyfile: |
+    {
+      auto_https off
+      admin off
+    }
+    :8080 {
+      encode {
+        gzip
+        match {
+          header Content-Type text/*
+          header Content-Type application/javascript*
+          header Content-Type application/json*
+        }
+      }
+      header X-Content-Type-Options nosniff
+
+      handle /healthz {
+        header Access-Control-Allow-Origin *
+        header Cache-Control "no-store"
+        respond "ok" 200
+      }
+
+      handle /status {
+        header Cache-Control "no-store"
+        respond "ok" 200
+      }
+
+      @slotfile path_regexp slotfile ^/slot-file/([A-Za-z0-9-]+)$
+      handle @slotfile {
+        header Access-Control-Allow-Origin *
+        header Cache-Control "no-store"
+        root * /srv/g/{http.regexp.slotfile.1}
+        @hasfile file /index.html
+        handle @hasfile {
+          respond "ok" 200
+        }
+        respond "missing" 404
+      }
+
+      @slothub path_regexp slothub ^/slot-hub/([A-Za-z0-9-]+)$
+      handle @slothub {
+        header Access-Control-Allow-Origin *
+        header Cache-Control "no-store"
+        rewrite * /health
+        reverse_proxy {http.regexp.slothub.1}-hub:80 {
+          flush_interval -1
+        }
+      }
+
+      {{- range .Values.hubs }}
+      @hub_{{ .id | replace "-" "_" }} host {{ .folder }}.external.kr
+      handle @hub_{{ .id | replace "-" "_" }} {
+        handle /health {
+          header Access-Control-Allow-Origin *
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
+        handle {{ .pathPrefix | default "/gang-up" }}* {
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
+        root * /srv/g/{{ .folder }}
+        header Cache-Control "no-store, no-cache, must-revalidate"
+        file_server
+      }
+      {{- end }}
+
+      @app header_regexp folder Host ^([A-Za-z0-9-]+)\.external\.kr(?::\d+)?$
+      handle @app {
+        handle /ready {
+          header Access-Control-Allow-Origin *
+          header Cache-Control "no-store"
+          root * /srv/g/{http.regexp.folder.1}
+          @idx file /index.html
+          handle @idx {
+            respond "ok" 200
+          }
+          respond "missing" 404
+        }
+        root * /srv/g/{http.regexp.folder.1}
+        header Cache-Control "no-store, no-cache, must-revalidate"
+        file_server
+      }
+
+      root * /srv
+      file_server
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-web
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "hackertone-games.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "hackertone-games.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      annotations:
+        checksum/caddy: {{ print (.Values.hubs | toYaml) "hub-fileserver" | sha256sum }}
+    spec:
+      enableServiceLinks: false
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: attach-apps
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["sh", "/scripts/attach-apps.sh"]
+          env:
+            - name: GIT_REPO
+              value: {{ .Values.git.repo | quote }}
+            - name: GIT_REVISION
+              value: {{ .Values.git.revision | quote }}
+            - name: GAMES_DIR
+              value: /srv/g
+            - name: GIT_SYNC_ONCE
+              value: "1"
+          volumeMounts:
+            - name: games
+              mountPath: /srv/g
+            - name: attach
+              mountPath: /scripts
+              readOnly: true
+      containers:
+        - name: web
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: caddyfile
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+            - name: games
+              mountPath: /srv/g
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+        - name: attach-loop
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["sh", "/scripts/attach-apps.sh"]
+          env:
+            - name: GIT_REPO
+              value: {{ .Values.git.repo | quote }}
+            - name: GIT_REVISION
+              value: {{ .Values.git.revision | quote }}
+            - name: GAMES_DIR
+              value: /srv/g
+            - name: GIT_SYNC_SECONDS
+              value: {{ .Values.git.syncSeconds | quote }}
+          volumeMounts:
+            - name: games
+              mountPath: /srv/g
+            - name: attach
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+      volumes:
+        - name: caddyfile
+          configMap:
+            name: {{ include "hackertone-games.fullname" . }}-caddy
+        - name: attach
+          configMap:
+            name: {{ include "hackertone-games.fullname" . }}-attach
+            defaultMode: 0755
+        - name: games
+          hostPath:
+            path: {{ .Values.git.gamesHostPath | quote }}
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-web
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  selector:
+    {{- include "hackertone-games.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

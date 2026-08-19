@@ -1,0 +1,32 @@
+{{- define "hackertone-games.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "hackertone-games.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "hackertone-games.labels" -}}
+app.kubernetes.io/name: {{ include "hackertone-games.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
+{{- end -}}
+
+{{- define "hackertone-games.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hackertone-games.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "hackertone-games.env" -}}
+{{- required "values.env 가 필요합니다 (deploy/env.yaml)" .Values.env -}}
+{{- end -}}
+
+{{- define "hackertone-games.publicHost" -}}
+{{- printf "%s.external.kr" . -}}
+{{- end -}}

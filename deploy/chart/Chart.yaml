@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hackertone-games
+description: Hackerton 2026 파티 게임 허브 (정적 Godot 웹 + gang-up WebSocket)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,18 @@
+{{- if and .Values.tls.enabled .Values.tls.issuer.create (not .Values.tls.issuer.clusterIssuer) }}
+{{- $name := .Values.tls.issuer.existingCloudflareSecret }}
+{{- $local := lookup "v1" "Secret" .Release.Namespace $name }}
+{{- if not $local }}
+{{- $src := lookup "v1" "Secret" "traefik" "cloudflare-api-token" }}
+{{- if $src }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+type: Opaque
+data:
+  api-token: {{ index $src.data "api-token" | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
