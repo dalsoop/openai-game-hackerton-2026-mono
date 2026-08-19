@@ -7,6 +7,11 @@ const ARENA_SIZE := Vector2(1600.0, 900.0)
 const ARENA_CENTER := Vector2(800.0, 450.0)
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
+const INTERP_SEC := 0.10
+const MOVE_SPEED := 210.0
+const DASH_SPEED := 520.0
+const DASH_COOLDOWN := 1.6
+const ISLAND_RADIUS := 402.0
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
@@ -58,6 +63,14 @@ var mode: String = "classic"
 
 var _prev_bullets: Array[Dictionary] = []
 var _deaths: Dictionary = {}
+var _snaps: Array[Dictionary] = []
+var _pending: Array[Dictionary] = []
+var _input_seq: int = 0
+var _acked: int = 0
+var _pred_pos: Vector2 = ARENA_CENTER
+var _pred_aim: Vector2 = Vector2.RIGHT
+var _pred_dash_cd: float = 0.0
+var _has_pred: bool = false
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -79,11 +92,193 @@ func reset() -> void:
     knockouts.clear()
     _prev_bullets.clear()
     _deaths.clear()
+    _snaps.clear()
+    _pending.clear()
+    _input_seq = 0
+    _acked = 0
+    _pred_pos = ARENA_CENTER
+    _pred_aim = Vector2.RIGHT
+    _pred_dash_cd = 0.0
+    _has_pred = false
     last_down_slot = -1
     last_down_ticks = 0
     callout = ""
     callout_ticks = 0
     event_log.clear()
+
+func push_snap(snap: Dictionary) -> void:
+    if snap.is_empty():
+        return
+    var next_tick := int(snap.get("tick", -1))
+    if not _snaps.is_empty() and next_tick <= int(_snaps.back().get("tick", -1)):
+        return
+    _snaps.append(snap)
+    while _snaps.size() > 16:
+        _snaps.pop_front()
+    if heroes.is_empty():
+        apply_snap(snap)
+        _seed_prediction(snap)
+
+func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
+    _input_seq += 1
+    var mx := move.x
+    var my := move.y
+    _pending.append({"seq":_input_seq, "mx":mx, "my":my, "dash":dash, "aim":aim, "dt":dt})
+    while _pending.size() > 90:
+        _pending.pop_front()
+    if not _has_pred and not heroes.is_empty() and local_slot >= 0 and local_slot < heroes.size():
+        _pred_pos = Vector2(heroes[local_slot]["pos"])
+        _has_pred = true
+    _step_pred(mx, my, dash, aim, dt)
+    _overlay_prediction()
+    return _input_seq
+
+func present(_dt: float) -> void:
+    if _snaps.is_empty():
+        return
+    if _snaps.size() == 1:
+        apply_snap(_snaps[0])
+        _seed_prediction(_snaps[0])
+        _overlay_prediction()
+        return
+    var latest: Dictionary = _snaps.back()
+    var render_tick := float(int(latest.get("tick", 0))) - INTERP_SEC * SNAP_HZ
+    var older: Dictionary = _snaps[0]
+    var newer: Dictionary = latest
+    for i in range(_snaps.size() - 1):
+        var a: Dictionary = _snaps[i]
+        var b: Dictionary = _snaps[i + 1]
+        if float(int(b.get("tick", 0))) >= render_tick:
+            older = a
+            newer = b
+            break
+    apply_snap(newer)
+    var from_tick := float(int(older.get("tick", 0)))
+    var to_tick := float(int(newer.get("tick", 0)))
+    var span := maxf(0.0001, to_tick - from_tick)
+    var alpha := clampf((render_tick - from_tick) / span, 0.0, 1.0)
+    if render_tick > to_tick:
+        var extra := minf(0.08, (render_tick - to_tick) / SNAP_HZ)
+        _extrapolate(extra)
+    else:
+        _lerp_motion(older, newer, alpha)
+    _reconcile(newer)
+    _overlay_prediction()
+    while _snaps.size() > 2 and float(int(_snaps[1].get("tick", 0))) < render_tick:
+        _snaps.pop_front()
+
+func _seed_prediction(snap: Dictionary) -> void:
+    if _has_pred:
+        return
+    var me := _player_in(snap, local_slot)
+    if me.is_empty():
+        return
+    _pred_pos = Vector2(float(me.get("x", ARENA_CENTER.x)), float(me.get("y", ARENA_CENTER.y)))
+    _pred_aim = Vector2(float(me.get("aimX", _pred_pos.x + 1.0)), float(me.get("aimY", _pred_pos.y))) - _pred_pos
+    if _pred_aim.length_squared() < 0.01:
+        _pred_aim = Vector2.RIGHT
+    else:
+        _pred_aim = _pred_aim.normalized()
+    _has_pred = true
+
+func _player_in(snap: Dictionary, slot: int) -> Dictionary:
+    for raw in snap.get("players", []):
+        var p: Dictionary = raw
+        if int(p.get("slot", -1)) == slot:
+            return p
+    return {}
+
+func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
+    var from_map := {}
+    for raw in older.get("players", []):
+        var p: Dictionary = raw
+        from_map[int(p.get("slot", -1))] = p
+    var to_map := {}
+    for raw in newer.get("players", []):
+        var p: Dictionary = raw
+        to_map[int(p.get("slot", -1))] = p
+    for hero in heroes:
+        var slot := int(hero["slot"])
+        if not from_map.has(slot) or not to_map.has(slot):
+            continue
+        var a: Dictionary = from_map[slot]
+        var b: Dictionary = to_map[slot]
+        var from_pos := Vector2(float(a.get("x", 0.0)), float(a.get("y", 0.0)))
+        var to_pos := Vector2(float(b.get("x", 0.0)), float(b.get("y", 0.0)))
+        hero["pos"] = from_pos.lerp(to_pos, alpha)
+        hero["vel"] = (to_pos - from_pos) * SNAP_HZ
+        var from_aim := Vector2(float(a.get("aimX", from_pos.x + 1.0)), float(a.get("aimY", from_pos.y)))
+        var to_aim := Vector2(float(b.get("aimX", to_pos.x + 1.0)), float(b.get("aimY", to_pos.y)))
+        var aim_point := from_aim.lerp(to_aim, alpha)
+        if Vector2(hero["pos"]).distance_squared_to(aim_point) > 1.0:
+            hero["aim"] = Vector2(hero["pos"]).direction_to(aim_point)
+    var old_bullets: Array = older.get("bullets", [])
+    var new_bullets: Array = newer.get("bullets", [])
+    if old_bullets.size() == new_bullets.size() and projectiles.size() == new_bullets.size():
+        for i in range(projectiles.size()):
+            var ob: Dictionary = old_bullets[i]
+            var nb: Dictionary = new_bullets[i]
+            var from_b := Vector2(float(ob.get("x", 0.0)), float(ob.get("y", 0.0)))
+            var to_b := Vector2(float(nb.get("x", 0.0)), float(nb.get("y", 0.0)))
+            projectiles[i]["pos"] = from_b.lerp(to_b, alpha)
+            projectiles[i]["vel"] = (to_b - from_b) * SNAP_HZ
+    safe_zone_radius = lerpf(float(older.get("zoneR", safe_zone_radius)), float(newer.get("zoneR", safe_zone_radius)), alpha)
+
+func _extrapolate(extra: float) -> void:
+    for hero in heroes:
+        hero["pos"] = _clamp_island(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
+    for shot in projectiles:
+        shot["pos"] = Vector2(shot["pos"]) + Vector2(shot.get("vel", Vector2.ZERO)) * extra
+
+func _reconcile(snap: Dictionary) -> void:
+    var me := _player_in(snap, local_slot)
+    if me.is_empty() or not bool(me.get("alive", true)):
+        _has_pred = false
+        _pending.clear()
+        return
+    var ack := int(me.get("ack", 0))
+    if ack < _acked:
+        return
+    _acked = ack
+    var keep: Array[Dictionary] = []
+    for item in _pending:
+        if int(item.get("seq", 0)) > ack:
+            keep.append(item)
+    _pending = keep
+    _pred_pos = Vector2(float(me.get("x", _pred_pos.x)), float(me.get("y", _pred_pos.y)))
+    _has_pred = true
+    for item in _pending:
+        _step_pred(float(item.get("mx", 0.0)), float(item.get("my", 0.0)), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), float(item.get("dt", 1.0 / 60.0)))
+
+func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> void:
+    _pred_dash_cd = maxf(0.0, _pred_dash_cd - dt)
+    var speed := MOVE_SPEED
+    var move := Vector2(mx, my)
+    var mlen := move.length()
+    if mlen > 0.05:
+        _pred_pos += move / maxf(1.0, mlen) * speed * dt
+    _pred_pos = _clamp_island(_pred_pos)
+    if aim.distance_squared_to(_pred_pos) > 1.0:
+        _pred_aim = _pred_pos.direction_to(aim)
+
+func _clamp_island(pos: Vector2) -> Vector2:
+    var delta := pos - ARENA_CENTER
+    var length := delta.length()
+    if length > ISLAND_RADIUS:
+        return ARENA_CENTER + delta / length * ISLAND_RADIUS
+    return pos
+
+func _overlay_prediction() -> void:
+    if not _has_pred or heroes.is_empty():
+        return
+    if local_slot < 0 or local_slot >= heroes.size():
+        return
+    var me: Dictionary = heroes[local_slot]
+    if not bool(me.get("alive", true)):
+        return
+    me["pos"] = _pred_pos
+    me["aim"] = _pred_aim
+    heroes[local_slot] = me
 
 func _make_equipment(weapon_name: String, player_name: String) -> Dictionary:
     return {

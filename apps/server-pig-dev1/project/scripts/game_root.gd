@@ -86,12 +86,13 @@ func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void
         spectate_slot = you
         hud.spectate_slot = spectate_slot
     if not snap.is_empty() and world != null and bool(world.get("is_net")):
-        world.apply_snap(snap)
+        world.push_snap(snap)
+        world.present(0.0)
     _set_phase(&"play")
 
 func _on_net_snapshot(snap: Dictionary) -> void:
     if net_active and world != null and bool(world.get("is_net")):
-        world.apply_snap(snap)
+        world.push_snap(snap)
 
 func _on_hub_status(next_status: String) -> void:
     if next_status == "다시 연결 중":
@@ -205,7 +206,9 @@ func _physics_process(_delta: float) -> void:
     if net_active:
         var dash_held: bool = Input.is_key_pressed(KEY_SPACE) or (touch != null and touch.dash_held)
         var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
-        hub.send_input(move, primary, dash_held, use_held, aim_world)
+        world.present(1.0 / 60.0)
+        var seq := world.predict_local(move, dash_held, aim_world, 1.0 / 60.0)
+        hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
         previous_right_mouse = equipment_held
     else:
         var ultimate_edge := _edge(KEY_Q)

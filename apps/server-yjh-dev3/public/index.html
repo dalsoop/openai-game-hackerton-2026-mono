@@ -82,6 +82,8 @@ let phase = "hub";
 let selectedMode = params.get("mode") || "classic";
 let roomInfo = null;
 let snap = null;
+const snapBuf = [];
+const INTERP_MS = 100;
 let keys = {};
 let mouse = { x: 800, y: 450, down: false };
 const nameIn = document.getElementById("name");
@@ -121,11 +123,13 @@ ws.onmessage = (ev) => {
   if (msg.t === "start") { you = msg.you; setPhase("play"); }
   if (msg.t === "snap") {
     snap = msg;
+    snapBuf.push({ at: performance.now(), snap: msg });
+    while (snapBuf.length > 16) snapBuf.shift();
     if (msg.result !== "playing") document.body.className = "play";
     setPhase("play");
   }
   if (msg.t === "left") {
-    players = []; roomInfo = null; snap = null;
+    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
     history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
     setPhase("hub");
     hello();
@@ -205,23 +209,56 @@ setInterval(() => {
   });
 }, 50);
 
+function viewSnap() {
+  if (snapBuf.length === 0) return snap;
+  if (snapBuf.length === 1) return snapBuf[0].snap;
+  const renderAt = performance.now() - INTERP_MS;
+  let a = snapBuf[0];
+  let b = snapBuf[snapBuf.length - 1];
+  for (let i = 0; i < snapBuf.length - 1; i++) {
+    if (snapBuf[i + 1].at >= renderAt) {
+      a = snapBuf[i];
+      b = snapBuf[i + 1];
+      break;
+    }
+  }
+  const span = Math.max(1, b.at - a.at);
+  const t = Math.max(0, Math.min(1, (renderAt - a.at) / span));
+  const as = a.snap;
+  const bs = b.snap;
+  const mix = (p, q, k) => p + (q - p) * k;
+  const aPlayers = as.players || [];
+  const bPlayers = bs.players || [];
+  const playersView = bPlayers.map((bp) => {
+    const ap = aPlayers.find((x) => x.slot === bp.slot) || bp;
+    return { ...bp, x: mix(ap.x, bp.x, t), y: mix(ap.y, bp.y, t), aimX: mix(ap.aimX, bp.aimX, t), aimY: mix(ap.aimY, bp.aimY, t) };
+  });
+  const aBullets = as.bullets || [];
+  const bBullets = bs.bullets || [];
+  const bullets = aBullets.length === bBullets.length
+    ? bBullets.map((bb, i) => ({ ...bb, x: mix(aBullets[i].x, bb.x, t), y: mix(aBullets[i].y, bb.y, t) }))
+    : bBullets;
+  return { ...bs, zoneR: mix(as.zoneR || 420, bs.zoneR || 420, t), players: playersView, bullets };
+}
+
 function draw() {
   requestAnimationFrame(draw);
   if (phase !== "play" || !snap) return;
+  const view = viewSnap() || snap;
   ctx.fillStyle = "#0b0e13"; ctx.fillRect(0, 0, 1600, 900);
-  const zoneR = snap.zoneR || 420;
+  const zoneR = view.zoneR || 420;
   ctx.beginPath(); ctx.arc(800, 450, 430, 0, Math.PI*2); ctx.fillStyle = "#123047"; ctx.fill();
   ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.fillStyle = "#c4a574"; ctx.fill();
-  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.strokeStyle = snap.shrinking ? "#ff4f68" : "#70e7ff"; ctx.lineWidth = 4; ctx.stroke();
-  for (const drop of snap.loot || []) {
+  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.strokeStyle = view.shrinking ? "#ff4f68" : "#70e7ff"; ctx.lineWidth = 4; ctx.stroke();
+  for (const drop of view.loot || []) {
     ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
     ctx.fillStyle = drop.kind === "gun" ? "#ffd166" : "#6ef3a5"; ctx.fill();
   }
-  for (const b of snap.bullets || []) {
+  for (const b of view.bullets || []) {
     ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fillStyle = "#ffe066"; ctx.fill();
   }
   let me = null, alive = 0;
-  for (const p of snap.players || []) {
+  for (const p of view.players || []) {
     if (p.alive) alive++;
     ctx.globalAlpha = p.alive ? 1 : 0.25;
     ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fillStyle = p.color || "#fff"; ctx.fill();
