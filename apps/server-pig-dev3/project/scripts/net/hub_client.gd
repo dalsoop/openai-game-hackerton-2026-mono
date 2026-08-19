@@ -10,6 +10,7 @@ signal snapshot_received(snap: Dictionary)
 signal left_room
 signal hub_error(message: String)
 signal hub_notice(message: String)
+signal chat_received(from_name: String, slot: int, text: String)
 
 const STATUS_CONNECTING := "연결 중"
 const STATUS_RECONNECTING := "다시 연결 중"
@@ -19,7 +20,7 @@ const STATUS_OFFLINE := "오프라인 로컬"
 const MAX_ATTEMPTS := 3
 const RETRY_BASE := 1.0
 const RETRY_MAX := 6.0
-const PING_EVERY := 5.0
+const PING_EVERY := 2.0
 
 var player_name := "플레이어"
 var mode := "classic"
@@ -41,6 +42,8 @@ var _connecting := false
 var _attempts := 0
 var _retry_wait := 0.0
 var _ping_wait := 0.0
+var _ping_sent_ms: int = 0
+var rtt_ms: int = -1
 
 func _ready() -> void:
     resume_token = _load_resume()
@@ -117,6 +120,7 @@ func _process(delta: float) -> void:
         _ping_wait -= delta
         if _ping_wait <= 0.0:
             _ping_wait = PING_EVERY
+            _ping_sent_ms = Time.get_ticks_msec()
             _send({"t":"ping"})
     elif state == WebSocketPeer.STATE_CLOSED:
         if _was_open or _connecting:
@@ -131,7 +135,7 @@ func _on_open() -> void:
     _was_open = true
     _connecting = false
     _attempts = 0
-    _ping_wait = PING_EVERY
+    _ping_wait = 0.25
     var hello := {"t":"hello", "name":player_name, "mode":mode, "wantResume": holding_seat}
     if resume_token.length() == 32:
         hello["resume"] = resume_token
@@ -209,6 +213,14 @@ func set_room_mode(mode_id: String) -> void:
     mode = mode_id
     _send({"t":"mode", "mode": mode_id})
 
+func kick_player(slot: int) -> void:
+    _send({"t":"kick", "slot":slot})
+
+func send_chat(text: String) -> void:
+    if not in_room:
+        return
+    _send({"t":"chat", "text":text})
+
 func send_hello() -> void:
     var hello := {"t":"hello", "name":player_name, "mode":mode, "wantResume": holding_seat}
     if resume_token.length() == 32:
@@ -280,9 +292,15 @@ func _on_msg(msg: Dictionary) -> void:
             match_started.emit(you, room)
         "snap":
             snapshot_received.emit(msg)
+        "chat":
+            chat_received.emit(str(msg.get("from", "?")), int(msg.get("slot", -1)), str(msg.get("text", "")))
         "pong":
-            pass
+            if _ping_sent_ms > 0:
+                rtt_ms = Time.get_ticks_msec() - _ping_sent_ms
         "left":
+            _give_up_seat()
+        "kicked":
+            hub_error.emit(str(msg.get("msg", "방에서 내보내졌습니다.")))
             _give_up_seat()
         "dropped":
             var drop_msg := str(msg.get("msg", "연결이 만료되었습니다"))

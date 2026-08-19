@@ -121,12 +121,14 @@ func _touch_button(text: String, bg: Color) -> Button:
 func _sync_touch_buttons() -> void:
     if _touch_exit == null:
         return
-    var on: bool = phase == &"play" and touch != null and touch.has_method("is_enabled") and bool(touch.is_enabled())
-    _touch_exit.visible = on
+    var playing: bool = phase == &"play"
+    var touch_on: bool = touch != null and touch.has_method("is_enabled") and bool(touch.is_enabled())
     var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
-    _touch_rematch.visible = on and finished and not net_active
+    _touch_exit.visible = playing and (touch_on or finished)
+    _touch_exit.text = "대기실로" if finished else "나가기"
+    _touch_rematch.visible = playing and finished and not net_active
     if touch != null and touch.has_method("set_playing"):
-        touch.set_playing(phase == &"play" and not finished)
+        touch.set_playing(playing and not finished)
 
 func _on_start_match() -> void:
     net_active = false
@@ -285,6 +287,8 @@ func _physics_process(_delta: float) -> void:
         var dash_held: bool = Input.is_key_pressed(KEY_SPACE) or (touch != null and touch.dash_held)
         var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
         world.present(1.0 / 60.0)
+        hud.net_rtt_ms = int(hub.rtt_ms)
+        hud.net_connected = bool(hub.is_open())
         var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
         hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
         previous_right_mouse = equipment_held

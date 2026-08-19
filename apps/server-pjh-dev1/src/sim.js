@@ -248,6 +248,7 @@ export function snapshot(match) {
       slot: p.slot,
       name: p.name,
       cpu: p.cpu,
+      parked: Boolean(p.parked),
       x: r1(p.x),
       y: r1(p.y),
       aimX: r1(p.aimX),

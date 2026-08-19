@@ -7,7 +7,7 @@ const ARENA_SIZE := Vector2(1600.0, 900.0)
 const ARENA_CENTER := Vector2(800.0, 450.0)
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
-const INTERP_SEC := 0.10
+const INTERP_SEC := 0.06
 const MOVE_SPEED := 210.0
 const DASH_SPEED := 520.0
 const DASH_COOLDOWN := 1.6
@@ -384,6 +384,7 @@ func _apply_players(list: Array) -> void:
             "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
             "display_name":player_name,
             "cpu":bool(p.get("cpu", false)),
+            "parked":bool(p.get("parked", false)),
             "ultimate_charge":0.0,
             "mobility_cd":0.0,
             "medkits":1 if item_name != "" else 0,

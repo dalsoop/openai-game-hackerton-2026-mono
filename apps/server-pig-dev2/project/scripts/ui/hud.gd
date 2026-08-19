@@ -5,6 +5,8 @@ var spectate_slot: int = 0
 var hud_mode: int = 0
 var mode_id: String = "classic"
 var touch_hints: bool = false
+var net_rtt_ms: int = -1
+var net_connected: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
 const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
@@ -76,7 +78,11 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
             row_name = "P%d %s" % [slot + 1, _zodiac_name(slot)]
         _text(Vector2(46.0, row_y), row_name, 13, name_color, 110.0)
         var state := "%d킬" % int(hero["kills"]) if alive else "탈락"
-        _text(Vector2(158.0, row_y), state, 12, Color("#ffd166") if alive else Color("#6b7480"), 76.0)
+        var state_color := Color("#ffd166") if alive else Color("#6b7480")
+        if bool(hero.get("parked", false)):
+            state = "끊김"
+            state_color = Color("#ff8d93")
+        _text(Vector2(158.0, row_y), state, 12, state_color, 76.0)
         row_y += 22.0
 
 func _draw_mode_chip() -> void:
@@ -85,6 +91,20 @@ func _draw_mode_chip() -> void:
     draw_rect(chip, PANEL_BG)
     draw_rect(chip, Color(ZONE_PURPLE, 0.55), false, 2.0)
     _text(chip.position + Vector2(0.0, 23.0), "모드 · %s" % title, 15, Color("#e8d5ff"), chip.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+    if not bool(world.get("is_net")):
+        return
+    var ping := Rect2(908.0, 14.0, 96.0, 34.0)
+    draw_rect(ping, PANEL_BG)
+    var label := "연결 끊김"
+    var tint := Color("#ff5d73")
+    if net_connected and net_rtt_ms >= 0:
+        label = "%d ms" % net_rtt_ms
+        tint = Color("#6ef3a5") if net_rtt_ms < 80 else (Color("#ffd166") if net_rtt_ms < 160 else Color("#ff5d73"))
+    elif net_connected:
+        label = "측정 중"
+        tint = Color("#aebaca")
+    draw_rect(ping, Color(tint, 0.55), false, 2.0)
+    _text(ping.position + Vector2(0.0, 23.0), label, 14, tint, ping.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 func _draw_minimap() -> void:
     if world.heroes.is_empty():
@@ -277,7 +297,7 @@ func _draw_match_result() -> void:
         _text(Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"), 112.0)
         _text(Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), 15, Color("#ffd166"), 86.0, HORIZONTAL_ALIGNMENT_RIGHT)
     if bool(world.get("is_net")):
-        _text(Vector2(450.0, 701.0), "나가기 버튼으로 대기실로" if touch_hints else "ESC  대기실로", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(450.0, 701.0), "대기실로 버튼을 누르세요" if touch_hints else "대기실로 버튼 또는 ESC", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
     else:
         if not touch_hints:
             _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
