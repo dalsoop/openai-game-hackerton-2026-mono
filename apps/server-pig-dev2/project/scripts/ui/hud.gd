@@ -4,6 +4,7 @@ var world
 var spectate_slot: int = 0
 var hud_mode: int = 0
 var mode_id: String = "classic"
+var touch_hints: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
 const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
@@ -173,7 +174,7 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
         draw_texture_rect(gun_texture, Rect2(rect.position + Vector2(10.0, 17.0), Vector2(52.0, 30.0)), false)
     else:
         draw_line(rect.position + Vector2(12.0, 30.0), rect.position + Vector2(52.0, 30.0), Color("#ffd166"), 8.0)
-    _text(rect.position + Vector2(10.0, 15.0), "LMB", 11, Color("#ffd166"))
+    _text(rect.position + Vector2(10.0, 15.0), "공격" if touch_hints else "LMB", 11, Color("#ffd166"))
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
@@ -189,7 +190,7 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
         draw_rect(Rect2(rect.position + Vector2(22.0, 18.0), Vector2(10.0, 28.0)), tint)
         draw_rect(Rect2(rect.position + Vector2(13.0, 27.0), Vector2(28.0, 10.0)), tint)
     _text(rect.position + Vector2(52.0, 40.0), "x%d" % carried, 22, Color("#6ef3a5") if usable else Color("#6b7480"))
-    _text(rect.position + Vector2(10.0, 15.0), "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
+    _text(rect.position + Vector2(10.0, 15.0), "약" if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
     _text(rect.position + Vector2(52.0, 55.0), "메드킷", 11, Color("#aebaca"))
 
 func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
@@ -203,7 +204,7 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), "SPACE", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SPACE", 10, chevron)
     if ready:
         _text(rect.position + Vector2(48.0, 40.0), "대시", 15, Color.WHITE)
     else:
@@ -276,9 +277,10 @@ func _draw_match_result() -> void:
         _text(Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"), 112.0)
         _text(Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), 15, Color("#ffd166"), 86.0, HORIZONTAL_ALIGNMENT_RIGHT)
     if bool(world.get("is_net")):
-        _text(Vector2(450.0, 701.0), "ESC  대기실로", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(450.0, 701.0), "나가기 버튼으로 대기실로" if touch_hints else "ESC  대기실로", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
     else:
-        _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+        if not touch_hints:
+            _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 func _draw_ultimate_cinematic() -> void:
     if world.ultimate_focus_time <= 0.0 or world.ultimate_focus_slot < 0 or world.ultimate_focus_slot >= world.heroes.size():

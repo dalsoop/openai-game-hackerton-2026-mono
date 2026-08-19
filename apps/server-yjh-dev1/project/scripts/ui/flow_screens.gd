@@ -3,6 +3,7 @@ extends Control
 signal start_match
 signal request_quit_to_intro
 signal request_resume
+signal control_mode_changed(mode: String)
 
 const BG := Color("F5F2EA")
 const INK := Color("1C2430")
@@ -29,6 +30,7 @@ const MODES := [
 var page := &"lobby"
 var selected_mode := "classic"
 var sound_on := true
+var control_mode := SettingsStore.MODE_AUTO
 var hub = null
 var _select: Control
 var _intro: Control
@@ -52,6 +54,10 @@ var _retry_button: Button
 var _mode_buttons: Array[Button] = []
 var _wait_mode_buttons: Array[Button] = []
 var _how_return: StringName = &"lobby"
+var _settings_return: StringName = &"lobby"
+var _settings_mode_buttons: Dictionary = {}
+var _settings_mode_desc: Label
+var _settings_sound: CheckButton
 var _pending_create := false
 
 func _ready() -> void:
@@ -60,7 +66,11 @@ func _ready() -> void:
     var t := Theme.new()
     t.default_font = GameFont.get_font()
     theme = t
+    control_mode = SettingsStore.load_control_mode()
+    sound_on = SettingsStore.load_sound_on()
+    AudioServer.set_bus_mute(0, not sound_on)
     _build()
+    _sync_settings_ui()
     _name_edit.text = "플레이어%02d" % (randi() % 90 + 10)
     show_page(&"lobby")
 
@@ -95,7 +105,7 @@ func pop_page() -> void:
             else:
                 show_page(&"lobby")
         &"settings":
-            show_page(&"wait")
+            show_page(_settings_return)
         _:
             show_page(&"lobby")
 
@@ -159,6 +169,29 @@ func _btn(text: String, bg: Color, min_size: Vector2) -> Button:
     b.add_theme_color_override("font_hover_color", Color.WHITE)
     b.add_theme_color_override("font_pressed_color", Color.WHITE)
     return b
+
+func _chip(text: String, group: ButtonGroup) -> Button:
+    var chip := Button.new()
+    chip.toggle_mode = true
+    chip.button_group = group
+    chip.text = text
+    chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    chip.custom_minimum_size = Vector2(0, 46)
+    for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+        chip.add_theme_color_override(state, INK)
+    var chip_off := _card_box()
+    chip.add_theme_stylebox_override("normal", chip_off)
+    var chip_on := chip_off.duplicate()
+    chip_on.border_color = BLUE
+    chip_on.border_width_left = 3
+    chip_on.border_width_top = 3
+    chip_on.border_width_right = 3
+    chip_on.border_width_bottom = 3
+    chip.add_theme_stylebox_override("pressed", chip_on)
+    chip.add_theme_stylebox_override("hover", chip_on)
+    chip.add_theme_stylebox_override("hover_pressed", chip_on)
+    chip.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+    return chip
 
 func _icon_btn(caption: String) -> Button:
     var b := Button.new()
@@ -393,6 +426,9 @@ func _build_lobby() -> Control:
     refresh.custom_minimum_size = Vector2(110, 52)
     refresh.pressed.connect(_on_lobby_refresh)
     head.add_child(refresh)
+    var lobby_gear := _icon_btn("설정")
+    lobby_gear.pressed.connect(func(): open_settings(&"lobby"))
+    head.add_child(lobby_gear)
     col.add_child(head)
     var body := HBoxContainer.new()
     body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -642,7 +678,7 @@ func _build_wait() -> Control:
     var sound := _icon_btn("소리")
     sound.pressed.connect(_toggle_sound)
     var gear := _icon_btn("설정")
-    gear.pressed.connect(func(): show_page(&"settings"))
+    gear.pressed.connect(func(): open_settings(&"wait"))
     header.add_child(sound)
     header.add_child(gear)
     root.add_child(header)
@@ -657,23 +693,7 @@ func _build_wait() -> Control:
     _wait_mode_buttons.clear()
     var wait_group := ButtonGroup.new()
     for mode in MODES:
-        var chip := Button.new()
-        chip.toggle_mode = true
-        chip.button_group = wait_group
-        chip.text = str(mode["title"])
-        chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        chip.custom_minimum_size = Vector2(0, 46)
-        chip.add_theme_color_override("font_color", INK)
-        var chip_off := _card_box()
-        chip.add_theme_stylebox_override("normal", chip_off)
-        var chip_on := chip_off.duplicate()
-        chip_on.border_color = BLUE
-        chip_on.border_width_left = 3
-        chip_on.border_width_top = 3
-        chip_on.border_width_right = 3
-        chip_on.border_width_bottom = 3
-        chip.add_theme_stylebox_override("pressed", chip_on)
-        chip.add_theme_stylebox_override("hover", chip_on)
+        var chip := _chip(str(mode["title"]), wait_group)
         var mode_id := str(mode["id"])
         chip.pressed.connect(func(): _on_wait_mode_pressed(mode_id))
         _wait_mode_buttons.append(chip)
@@ -775,6 +795,28 @@ func _build_tip() -> Control:
     panel.add_child(col)
     return panel
 
+func open_settings(return_to: StringName) -> void:
+    _settings_return = return_to
+    _sync_settings_ui()
+    show_page(&"settings")
+
+func set_control_mode(mode: String) -> void:
+    if not mode in SettingsStore.MODES:
+        mode = SettingsStore.MODE_AUTO
+    control_mode = mode
+    SettingsStore.save(control_mode, sound_on)
+    _sync_settings_ui()
+    control_mode_changed.emit(control_mode)
+
+func _sync_settings_ui() -> void:
+    for mode in _settings_mode_buttons.keys():
+        var b: Button = _settings_mode_buttons[mode]
+        b.set_pressed_no_signal(mode == control_mode)
+    if _settings_mode_desc != null:
+        _settings_mode_desc.text = SettingsStore.mode_desc(control_mode)
+    if _settings_sound != null:
+        _settings_sound.set_pressed_no_signal(sound_on)
+
 func _build_settings() -> Control:
     var root := _full(Control.new())
     var dim := ColorRect.new()
@@ -782,33 +824,62 @@ func _build_settings() -> Control:
     dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
     dim.gui_input.connect(func(ev):
         if ev is InputEventMouseButton and ev.pressed:
-            show_page(&"wait")
+            pop_page()
     )
     root.add_child(dim)
     var panel := Panel.new()
     panel.set_anchors_preset(PRESET_CENTER)
-    panel.offset_left = -220
-    panel.offset_right = 220
-    panel.offset_top = -120
-    panel.offset_bottom = 120
+    panel.offset_left = -270
+    panel.offset_right = 270
+    panel.offset_top = -165
+    panel.offset_bottom = 165
     panel.add_theme_stylebox_override("panel", _card_box())
     var col := VBoxContainer.new()
     col.set_anchors_and_offsets_preset(PRESET_FULL_RECT, PRESET_MODE_MINSIZE, 24)
-    col.add_theme_constant_override("separation", 14)
-    col.add_child(_lbl("로비  >  방  >  설정", 13, MUTED))
+    col.add_theme_constant_override("separation", 12)
     col.add_child(_lbl("설정", 24, INK))
-    var sound := CheckButton.new()
-    sound.text = "소리"
-    sound.button_pressed = true
-    sound.toggled.connect(func(on): sound_on = on; AudioServer.set_bus_mute(0, not on))
-    col.add_child(sound)
-    var back := _btn("대기실로", Color("3D4654"), Vector2(160, 44))
-    back.pressed.connect(func(): show_page(&"wait"))
-    var intro := Button.new()
-    intro.text = "로비로"
+
+    col.add_child(_lbl("조작 방식", 15, INK))
+    var mode_row := HBoxContainer.new()
+    mode_row.add_theme_constant_override("separation", 8)
+    var mode_group := ButtonGroup.new()
+    _settings_mode_buttons.clear()
+    for mode in SettingsStore.MODES:
+        var chip := _chip(SettingsStore.mode_title(mode), mode_group)
+        var mode_id := str(mode)
+        chip.pressed.connect(func(): set_control_mode(mode_id))
+        _settings_mode_buttons[mode_id] = chip
+        mode_row.add_child(chip)
+    col.add_child(mode_row)
+    _settings_mode_desc = _lbl("", 13, MUTED)
+    _settings_mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    col.add_child(_settings_mode_desc)
+
+    col.add_child(_lbl("소리", 15, INK))
+    _settings_sound = CheckButton.new()
+    _settings_sound.text = "효과음 켜기"
+    for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+        _settings_sound.add_theme_color_override(state, INK)
+    _settings_sound.button_pressed = sound_on
+    _settings_sound.toggled.connect(func(on):
+        sound_on = on
+        AudioServer.set_bus_mute(0, not on)
+        SettingsStore.save(control_mode, sound_on)
+    )
+    col.add_child(_settings_sound)
+
+    var spacer := Control.new()
+    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    col.add_child(spacer)
+    var actions := HBoxContainer.new()
+    actions.add_theme_constant_override("separation", 10)
+    var back := _btn("닫기", Color("3D4654"), Vector2(160, 44))
+    back.pressed.connect(func(): pop_page())
+    var intro := _btn("로비로 나가기", Color("8A93A3"), Vector2(160, 44))
     intro.pressed.connect(func(): _quit_to_select())
-    col.add_child(back)
-    col.add_child(intro)
+    actions.add_child(back)
+    actions.add_child(intro)
+    col.add_child(actions)
     panel.add_child(col)
     root.add_child(panel)
     return root
@@ -973,6 +1044,8 @@ func _notification(what: int) -> void:
 func _toggle_sound() -> void:
     sound_on = not sound_on
     AudioServer.set_bus_mute(0, not sound_on)
+    SettingsStore.save(control_mode, sound_on)
+    _sync_settings_ui()
 
 func _quit_to_select() -> void:
     if hub != null and hub.in_room:
