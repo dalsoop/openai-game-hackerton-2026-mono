@@ -25,4 +25,3 @@ deploy/.godot-cache/
 deploy/usability/last-report.json
 __pycache__/
 *.pyc
-tools/godot-touch-controls/

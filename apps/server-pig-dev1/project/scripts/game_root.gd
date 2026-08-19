@@ -3,7 +3,7 @@ extends Node
 const WorldScript = preload("res://scripts/sim/game_world.gd")
 const NetWorldScript = preload("res://scripts/net/net_world.gd")
 const HubClientScript = preload("res://scripts/net/hub_client.gd")
-const TouchControlsScript = preload("res://addons/godot-touch-controls/touch_controls.gd")
+const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
 
 @onready var world_view: Node2D = $WorldView
 @onready var camera: Camera2D = $WorldView/Camera2D
@@ -30,12 +30,13 @@ var previous_right_mouse: bool = false
 var phase: StringName = &"select"
 var touch: CanvasLayer = null
 var _net_banner: Label = null
+var _touch_exit: Button = null
+var _touch_rematch: Button = null
 
 func _ready() -> void:
     _build_sfx()
-    touch = TouchControlsScript.new()
-    touch.name = "TouchControls"
-    $HUD.add_child(touch)
+    _attach_touch()
+    _build_touch_buttons()
     hub = HubClientScript.new()
     hub.name = "HubClient"
     add_child(hub)
@@ -49,8 +50,83 @@ func _ready() -> void:
     screens.start_match.connect(_on_start_match)
     screens.request_resume.connect(func(): _set_phase(&"play"))
     screens.request_quit_to_intro.connect(func(): _set_phase(&"lobby"))
+    screens.control_mode_changed.connect(_apply_control_mode)
+    _apply_control_mode(screens.control_mode)
     Engine.max_fps = 60
     _set_phase(&"lobby")
+
+func _attach_touch() -> void:
+    if not ResourceLoader.exists(TOUCH_CONTROLS_PATH):
+        return
+    var script = load(TOUCH_CONTROLS_PATH)
+    if script == null:
+        return
+    touch = script.new()
+    touch.name = "TouchControls"
+    $HUD.add_child(touch)
+
+func _apply_control_mode(mode: String) -> void:
+    if touch == null or not touch.has_method("set_control_mode"):
+        return
+    touch.set_control_mode(mode)
+    hud.touch_hints = bool(touch.is_enabled())
+    hud.queue_redraw()
+    _sync_touch_buttons()
+
+func _build_touch_buttons() -> void:
+    var layer := CanvasLayer.new()
+    layer.name = "TouchMenu"
+    layer.layer = 3
+    $HUD.add_child(layer)
+    _touch_exit = _touch_button("나가기", Color("3D4654"))
+    _touch_exit.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+    _touch_exit.offset_left = -120
+    _touch_exit.offset_right = -16
+    _touch_exit.offset_top = 14
+    _touch_exit.offset_bottom = 58
+    _touch_exit.pressed.connect(func(): _set_phase(&"wait"))
+    layer.add_child(_touch_exit)
+    _touch_rematch = _touch_button("재경기", Color("2F6BFF"))
+    _touch_rematch.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+    _touch_rematch.offset_left = -110
+    _touch_rematch.offset_right = 110
+    _touch_rematch.offset_top = -160
+    _touch_rematch.offset_bottom = -104
+    _touch_rematch.pressed.connect(func():
+        seed += 1
+        _restart()
+    )
+    layer.add_child(_touch_rematch)
+    _sync_touch_buttons()
+
+func _touch_button(text: String, bg: Color) -> Button:
+    var b := Button.new()
+    b.text = text
+    b.visible = false
+    b.add_theme_font_size_override("font_size", 18)
+    b.add_theme_color_override("font_color", Color.WHITE)
+    b.add_theme_color_override("font_pressed_color", Color.WHITE)
+    b.add_theme_color_override("font_hover_color", Color.WHITE)
+    var sb := StyleBoxFlat.new()
+    sb.bg_color = Color(bg, 0.92)
+    sb.set_corner_radius_all(12)
+    sb.content_margin_left = 14
+    sb.content_margin_right = 14
+    b.add_theme_stylebox_override("normal", sb)
+    b.add_theme_stylebox_override("hover", sb)
+    b.add_theme_stylebox_override("pressed", sb)
+    b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+    return b
+
+func _sync_touch_buttons() -> void:
+    if _touch_exit == null:
+        return
+    var on: bool = phase == &"play" and touch != null and touch.has_method("is_enabled") and bool(touch.is_enabled())
+    _touch_exit.visible = on
+    var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
+    _touch_rematch.visible = on and finished and not net_active
+    if touch != null and touch.has_method("set_playing"):
+        touch.set_playing(phase == &"play" and not finished)
 
 func _on_start_match() -> void:
     net_active = false
@@ -114,6 +190,7 @@ func _set_phase(next: StringName) -> void:
     screens.visible = not playing
     if touch != null:
         touch.set_playing(playing)
+    _sync_touch_buttons()
     if not playing:
         var page := next
         if page == &"play" or page == &"select" or page == &"intro":
@@ -179,6 +256,7 @@ func _physics_process(_delta: float) -> void:
         seed += 1
         _restart()
         return
+    _sync_touch_buttons()
     if _edge(KEY_F1):
         hud_mode = (hud_mode + 1) % 3
         hud.hud_mode = hud_mode
