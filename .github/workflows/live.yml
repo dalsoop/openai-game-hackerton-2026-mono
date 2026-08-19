@@ -1,0 +1,16 @@
+name: Live hosts
+
+on:
+  push:
+    branches: [jeongright-gang-up-multi, main]
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe public hosts
+        run: python3 deploy/scripts/status.py

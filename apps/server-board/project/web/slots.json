@@ -1,0 +1,130 @@
+{
+  "repo": "dalsoop/openai-game-hackerton-2026-mono",
+  "env": "dev1",
+  "hubFolder": "server-pig-dev1",
+  "hubFolders": [
+    "server-pig-dev1",
+    "server-pig-dev2",
+    "server-pig-dev3",
+    "server-pjh-dev1",
+    "server-pjh-dev2",
+    "server-pjh-dev3",
+    "server-prod",
+    "server-yjh-dev1",
+    "server-yjh-dev2",
+    "server-yjh-dev3"
+  ],
+  "board": "https://server-board.external.kr/",
+  "slots": [
+    {
+      "folder": "server-board",
+      "id": "board",
+      "title": "배포 보드",
+      "blurb": "server-* 슬롯 상태와 공개 URL",
+      "web": true,
+      "hub": false,
+      "hasExport": true,
+      "url": "https://server-board.external.kr/"
+    },
+    {
+      "folder": "server-pig-dev1",
+      "id": "pig-dev1",
+      "title": "다굴 (pig-dev1)",
+      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "web": true,
+      "hub": true,
+      "hasExport": true,
+      "url": "https://server-pig-dev1.external.kr/"
+    },
+    {
+      "folder": "server-pig-dev2",
+      "id": "pig-dev2",
+      "title": "pig-dev2",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-pig-dev2.external.kr/"
+    },
+    {
+      "folder": "server-pig-dev3",
+      "id": "pig-dev3",
+      "title": "pig-dev3",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-pig-dev3.external.kr/"
+    },
+    {
+      "folder": "server-pjh-dev1",
+      "id": "pjh-dev1",
+      "title": "다굴 (pjh-dev1)",
+      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "web": true,
+      "hub": true,
+      "hasExport": true,
+      "url": "https://server-pjh-dev1.external.kr/"
+    },
+    {
+      "folder": "server-pjh-dev2",
+      "id": "pjh-dev2",
+      "title": "pjh-dev2",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-pjh-dev2.external.kr/"
+    },
+    {
+      "folder": "server-pjh-dev3",
+      "id": "pjh-dev3",
+      "title": "pjh-dev3",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-pjh-dev3.external.kr/"
+    },
+    {
+      "folder": "server-prod",
+      "id": "prod",
+      "title": "prod",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-prod.external.kr/"
+    },
+    {
+      "folder": "server-yjh-dev1",
+      "id": "yjh-dev1",
+      "title": "다굴 (yjh-dev1)",
+      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "web": true,
+      "hub": true,
+      "hasExport": true,
+      "url": "https://server-yjh-dev1.external.kr/"
+    },
+    {
+      "folder": "server-yjh-dev2",
+      "id": "yjh-dev2",
+      "title": "yjh-dev2",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-yjh-dev2.external.kr/"
+    },
+    {
+      "folder": "server-yjh-dev3",
+      "id": "yjh-dev3",
+      "title": "yjh-dev3",
+      "blurb": "빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.",
+      "web": false,
+      "hub": true,
+      "hasExport": false,
+      "url": "https://server-yjh-dev3.external.kr/"
+    }
+  ]
+}

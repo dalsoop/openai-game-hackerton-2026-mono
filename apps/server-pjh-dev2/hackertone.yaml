@@ -1,0 +1,12 @@
+id: pjh-dev2
+kind: game
+title: pjh-dev2
+blurb: 빈 슬롯. project/ 를 채운 뒤 web.enabled 를 켠다.
+players: 1–8
+web:
+  enabled: false
+  exportDir: project/web
+hub:
+  enabled: true
+  pathPrefix: /gang-up
+  dockerfile: Dockerfile

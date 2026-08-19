@@ -1,0 +1,12 @@
+id: board
+kind: board
+title: 배포 보드
+blurb: server-* 슬롯 상태와 공개 URL
+players: —
+web:
+  enabled: true
+  exportDir: project/web
+hub:
+  enabled: false
+  pathPrefix: /gang-up
+  dockerfile: Dockerfile
