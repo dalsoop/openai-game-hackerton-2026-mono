@@ -24,7 +24,7 @@ function resumeToken() {
 function send(ws, msg) {
   if (!ws || ws.readyState !== 1) return;
   try {
-    ws.send(JSON.stringify(msg));
+    ws.send(typeof msg === "string" ? msg : JSON.stringify(msg));
   } catch {
     /* ignore broken sockets */
   }
@@ -33,6 +33,12 @@ function send(ws, msg) {
 function sendTo(id, msg) {
   const c = clients.get(id);
   if (c && !c.dead) send(c.ws, msg);
+}
+
+// Serialize once, fan out the same string to every recipient.
+function sendRoom(room, msg) {
+  const text = JSON.stringify(msg);
+  for (const id of livingIds(room)) sendTo(id, text);
 }
 
 function clientByWs(ws) {
@@ -78,14 +84,14 @@ function peersPayload(room) {
 }
 
 function notifyRoom(room, extra) {
-  const payload = { t: "peers", players: peersPayload(room), room: roomPublic(room), ...extra };
-  for (const id of livingIds(room)) sendTo(id, payload);
+  sendRoom(room, { t: "peers", players: peersPayload(room), room: roomPublic(room), ...extra });
 }
 
 function broadcastRooms() {
   const list = [...rooms.values()].filter((r) => r.phase === "lobby").map(roomPublic);
+  const text = JSON.stringify({ t: "rooms", rooms: list });
   for (const c of clients.values()) {
-    if (!c.dead) send(c.ws, { t: "rooms", rooms: list });
+    if (!c.dead) send(c.ws, text);
   }
 }
 
@@ -153,7 +159,7 @@ function leaveRoom(client, { silent } = {}) {
     if (room.timer) clearTimeout(room.timer);
     rooms.delete(room.id);
   } else if (!silent) {
-    notifyRoom(room);
+    notifyRoom(room, { notice: `${client.name} 이(가) 나갔습니다.` });
   }
   broadcastRooms();
 }
@@ -223,10 +229,14 @@ function startMatch(room) {
       nextAt += interval;
       steps += 1;
     }
+    if (steps === 4 && now >= nextAt) {
+      // Fell too far behind (GC pause etc.) — drop the backlog instead of slow-motion catch-up.
+      nextAt = now + interval;
+    }
     if (steps > 0) {
       const snap = snapshot(room.match);
       room.lastSnap = snap;
-      for (const id of livingIds(room)) sendTo(id, snap);
+      sendRoom(room, snap);
       if (room.match.result !== "playing") {
         room.timer = null;
         return;
@@ -373,7 +383,7 @@ function handleMessage(client, msg) {
       room: roomPublic(room),
       players: peersPayload(room),
     });
-    notifyRoom(room);
+    notifyRoom(room, { notice: `${client.name} 이(가) 들어왔습니다.` });
     broadcastRooms();
     return;
   }
@@ -400,6 +410,31 @@ function handleMessage(client, msg) {
     const room = rooms.get(client.roomId);
     if (!room || hostId(room) !== client.id) return send(client.ws, { t: "error", msg: "호스트만 시작할 수 있습니다" });
     startMatch(room);
+    return;
+  }
+  if (t === "kick") {
+    const room = rooms.get(client.roomId);
+    if (!room || room.phase !== "lobby") return send(client.ws, { t: "error", msg: "지금은 내보낼 수 없습니다" });
+    if (hostId(room) !== client.id) return send(client.ws, { t: "error", msg: "호스트만 내보낼 수 있습니다" });
+    const slot = Number(msg.slot);
+    const targetId = room.members[slot];
+    if (!targetId || targetId === client.id) return;
+    const target = clients.get(targetId);
+    if (!target) return;
+    leaveRoom(target, { silent: true });
+    send(target.ws, { t: "kicked", msg: "호스트가 방에서 내보냈습니다." });
+    notifyRoom(room, { notice: `${target.name} 이(가) 내보내졌습니다.` });
+    return;
+  }
+  if (t === "chat") {
+    const room = rooms.get(client.roomId);
+    if (!room) return;
+    const text = String(msg.text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!text) return;
+    const now = Date.now();
+    if (client.lastChatAt && now - client.lastChatAt < 400) return;
+    client.lastChatAt = now;
+    sendRoom(room, { t: "chat", from: client.name, slot: room.members.indexOf(client.id), text });
     return;
   }
   if (t === "input") {

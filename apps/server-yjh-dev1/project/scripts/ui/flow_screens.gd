@@ -593,6 +593,7 @@ func bind_hub(client) -> void:
     hub.status_changed.connect(_on_hub_status)
     hub.hub_error.connect(_on_hub_error)
     hub.hub_notice.connect(_on_hub_notice)
+    hub.chat_received.connect(_on_hub_chat)
     _on_hub_status(hub.status)
 
 func _on_hub_rooms(_rooms: Array) -> void:
@@ -908,9 +909,27 @@ func _make_slot_card(index: int) -> Panel:
     ready.name = "Ready"
     var art := _lbl(ANIMALS[index], 28, SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
     art.name = "Art"
+    var kick := Button.new()
+    kick.name = "Kick"
+    kick.text = "내보내기"
+    kick.visible = false
+    kick.custom_minimum_size = Vector2(0, 26)
+    kick.add_theme_font_size_override("font_size", 12)
+    kick.add_theme_color_override("font_color", Color("C0392B"))
+    kick.add_theme_color_override("font_hover_color", Color("C0392B"))
+    kick.add_theme_color_override("font_pressed_color", Color("C0392B"))
+    kick.add_theme_stylebox_override("normal", _card_box())
+    kick.add_theme_stylebox_override("hover", _card_box())
+    kick.add_theme_stylebox_override("pressed", _card_box())
+    kick.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+    kick.pressed.connect(func():
+        if hub != null and hub.in_room:
+            hub.kick_player(index)
+    )
     col.add_child(row)
     col.add_child(ready)
     col.add_child(art)
+    col.add_child(kick)
     card.add_child(col)
     return card
 
@@ -952,10 +971,14 @@ func _fill_wait() -> void:
     var count := 1
     if online:
         count = hub.players.size()
+    var me_host: bool = online and hub.you >= 0 and hub.you < hub.players.size() and bool(hub.players[hub.you].get("host", false))
     for i in SLOT_COUNT:
         var card: Panel = _slot_host.get_node("Slot%d" % i)
         var nick: Label = card.find_child("Nick", true, false)
         var ready: Label = card.find_child("Ready", true, false)
+        var kick: Button = card.find_child("Kick", true, false)
+        if kick != null:
+            kick.visible = me_host and i < hub.players.size() and i != hub.you
         if online and i < hub.players.size():
             var peer: Dictionary = hub.players[i]
             var peer_name := str(peer.get("name", "?"))
@@ -1057,4 +1080,15 @@ func _send_chat(text: String) -> void:
     var t := text.strip_edges()
     if t.is_empty():
         return
+    if hub != null and hub.in_room:
+        hub.send_chat(t)
+        return
     _chat_log.append_text("%s: %s\n" % [_display_name(), t])
+
+func _on_hub_chat(from_name: String, slot: int, text: String) -> void:
+    if _chat_log == null:
+        return
+    var color: Color = SLOT_COLORS[slot] if slot >= 0 and slot < SLOT_COLORS.size() else INK
+    var mine: bool = hub != null and slot == hub.you
+    var shown := from_name + " (나)" if mine else from_name
+    _chat_log.append_text("[color=#%s][b]%s[/b][/color]: %s\n" % [color.to_html(false), shown, text.replace("[", "[lb]")])
