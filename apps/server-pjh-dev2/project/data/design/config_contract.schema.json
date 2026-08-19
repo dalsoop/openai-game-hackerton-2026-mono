@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/config-contract.schema.json",
+  "title": "Common data contract",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "contentVersion",
+    "id"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "contentVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_:-]+$"
+    },
+    "tuningNote": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

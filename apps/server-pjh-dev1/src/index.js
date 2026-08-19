@@ -150,7 +150,7 @@ function leaveRoom(client, { silent } = {}) {
   room.members = room.members.filter((id) => id !== client.id);
   parkPlayer(room, client.id);
   if (room.members.length === 0) {
-    if (room.timer) clearInterval(room.timer);
+    if (room.timer) clearTimeout(room.timer);
     rooms.delete(room.id);
   } else if (!silent) {
     notifyRoom(room);
@@ -209,17 +209,32 @@ function startMatch(room) {
     else sendTo(id, { t: "start", you: room.members.indexOf(id), room: roomPublic(room) });
   }
   broadcastRooms();
-  room.timer = setInterval(() => {
-    if (!room.match) return;
-    step(room.match);
-    const snap = snapshot(room.match);
-    room.lastSnap = snap;
-    for (const id of livingIds(room)) sendTo(id, snap);
-    if (room.match.result !== "playing") {
-      clearInterval(room.timer);
+  const interval = 1000 / TICK_HZ;
+  let nextAt = Date.now() + interval;
+  const loop = () => {
+    if (!room.match) {
       room.timer = null;
+      return;
     }
-  }, 1000 / TICK_HZ);
+    const now = Date.now();
+    let steps = 0;
+    while (now + 1 >= nextAt && steps < 4) {
+      step(room.match);
+      nextAt += interval;
+      steps += 1;
+    }
+    if (steps > 0) {
+      const snap = snapshot(room.match);
+      room.lastSnap = snap;
+      for (const id of livingIds(room)) sendTo(id, snap);
+      if (room.match.result !== "playing") {
+        room.timer = null;
+        return;
+      }
+    }
+    room.timer = setTimeout(loop, Math.max(1, nextAt - Date.now()));
+  };
+  room.timer = setTimeout(loop, interval);
 }
 
 const server = http.createServer((req, res) => {

@@ -16,11 +16,12 @@
 
 | 둘 곳 | 내용 |
 |---|---|
-| `apps/server-yjh-dev1/` | 정한 본 슬롯. Godot + 클러스터 허브 |
-| `apps/server-pjh-dev1/` | 크리엘 본 슬롯. Godot + 로컬 허브 코드 |
-| `apps/server-pig-dev1/` | Figix 본 슬롯. Godot + 로컬 허브 코드 |
+| `apps/server-yjh-dev1/` | 정한 개발환경 1. 지금 다굴 |
+| `apps/server-pjh-dev1/` | 크리엘 개발환경 1. 지금 다굴 |
+| `apps/server-pig-dev1/` | Figix 개발환경 1. 지금 다굴 |
 | `apps/server-board/` | 배포 보드. `https://server-board.external.kr/` |
-| `apps/server-*-dev2/` · `*-dev3/` · `server-prod/` | 빈 슬롯. 트리를 복사하지 않음 |
+| `apps/server-*-dev2/` · `*-dev3/` | 그 사람의 개발환경 2·3 |
+| `apps/server-prod/` | 제출·운영 |
 | `apps/game-pjh-gang-up/` | 원본. 읽기만 |
 | `docs/` | 제품 설계 (`DESIGN.md`, `FEEL-TUNING.md`) |
 | `deploy/` | Helm·`apply-apps.py`. 클러스터 YAML은 `apps/`에 두지 않는다 |
@@ -36,7 +37,7 @@ src/              # 방 서버가 이 폴더에 있을 때만
 
 방 서버는 `server-*` 폴더마다 따로다. 보드만 허브가 없다. 이미지는 그 폴더 Dockerfile이다.
 
-빈 슬롯은 `web.enabled: false`다. `project/web`을 넣은 뒤에만 켠다. `dev2`/`dev3`에 본게임을 통째로 복사하지 않는다.
+`dev2`/`dev3`/`prod`도 `web.enabled`가 켜져 있다. 각자 `dev1`과 같은 `project/`를 쓴다. `prod`는 `yjh-dev1`과 같다.
 
 ## 모노레포 규칙
 
@@ -57,10 +58,11 @@ src/              # 방 서버가 이 폴더에 있을 때만
 ```bash
 godot --path apps/server-yjh-dev1/project
 cd apps/server-yjh-dev1 && npm start
+cd deploy/usability && node cli.mjs smoke
 ```
 
 ## 배포
 
-`apps/`의 허브 코드를 푸시하면 `Apps ship`이 이미지와 Helm을 올린다. Godot 웹은 git에 넣지 않고 `python3 deploy/scripts/apply-apps.py web <폴더>`로 올린다. Helm은 Apps ship만 돌린다. 보드는 `https://server-board.external.kr/`.
+`apps/`를 푸시하면 `Apps ship`이 Godot 웹 익스포트·허브 이미지·Helm을 올린다. wasm/pck는 git에 넣지 않는다. 보드는 `https://server-board.external.kr/`.
 
 PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.

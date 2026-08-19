@@ -44,6 +44,7 @@ export function createMatch(modeId, humans) {
       item: null,
       fireCd: 0,
       dashCd: 0,
+      lastSeq: 0,
       kills: 0,
       input: { mx: 0, my: 0, fire: false, dash: false, use: false },
     });
@@ -77,6 +78,8 @@ export function applyInput(match, clientId, input) {
     aimX: Number(input.aimX) || p.aimX,
     aimY: Number(input.aimY) || p.aimY,
   };
+  const seq = Number(input.seq);
+  if (Number.isFinite(seq) && seq > (p.lastSeq || 0)) p.lastSeq = seq;
 }
 
 function cpuThink(match, p) {
@@ -254,6 +257,7 @@ export function snapshot(match) {
       weapon: p.weapon.name,
       item: p.item?.name ?? "",
       kills: p.kills,
+      ack: p.lastSeq || 0,
     })),
   };
 }

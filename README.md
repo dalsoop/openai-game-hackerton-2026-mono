@@ -16,11 +16,11 @@
 ```text
 ├── AGENTS.md
 ├── apps/game-pjh-gang-up/     # 원본. 수정하지 않음
-├── apps/server-yjh-dev1/      # 정한 본 슬롯. 클라 + 방 서버
-├── apps/server-pjh-dev1/      # 크리엘 본 슬롯
-├── apps/server-pig-dev1/      # Figix 본 슬롯
-├── apps/server-*-dev2|3/      # 보조 슬롯 (빈 자리)
-├── apps/server-prod/          # 제출 슬롯 (빈 자리)
+├── apps/server-yjh-dev1/      # 정한 개발환경 1
+├── apps/server-pjh-dev1/      # 크리엘 개발환경 1
+├── apps/server-pig-dev1/      # Figix 개발환경 1
+├── apps/server-*-dev2|3/      # 그 사람의 개발환경 2·3
+├── apps/server-prod/          # 제출·운영
 ├── apps/server-board/         # 배포 보드
 ├── deploy/                   # chart(Helm) · env.yaml · 웹 이미지
 ├── docs/
@@ -43,7 +43,7 @@ cd apps/server-yjh-dev1 && npm install && npm start
 
 - 배포용으로 브랜치를 새로 파지 않는다. URL은 `apps/` 폴더명
 - 올렸는지는 `python3 deploy/scripts/status.py`
-- 작업: `apps/server-yjh-dev1/` · `apps/server-pjh-dev1/` · `apps/server-pig-dev1/` · 빈 슬롯은 `*-dev2`/`*-dev3`/`server-prod`
+- 작업: 자기 `apps/server-<이름>-dev1|2|3/` 또는 `server-prod`. 웹은 전부 켜져 있다.
 - 크리엘 원본: `apps/game-pjh-gang-up/` (수정하지 않음)
 - 비밀키·개인 토큰은 커밋 금지
 
