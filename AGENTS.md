@@ -20,8 +20,8 @@
 | `apps/server-pjh-dev1/` | 크리엘 개발환경 1. 지금 다굴 |
 | `apps/server-pig-dev1/` | Figix 개발환경 1. 지금 다굴 |
 | `apps/server-board/` | 배포 보드. `https://server-board.external.kr/` |
-| `apps/server-*-dev2/` · `*-dev3/` | 그 사람의 개발환경 2·3. 허브는 있고 웹은 끔 |
-| `apps/server-prod/` | 제출·운영. 허브는 있고 웹은 끔 |
+| `apps/server-*-dev2/` · `*-dev3/` | 그 사람의 개발환경 2·3 |
+| `apps/server-prod/` | 제출·운영 |
 | `apps/game-pjh-gang-up/` | 원본. 읽기만 |
 | `docs/` | 제품 설계 (`DESIGN.md`, `FEEL-TUNING.md`) |
 | `deploy/` | Helm·`apply-apps.py`. 클러스터 YAML은 `apps/`에 두지 않는다 |
@@ -37,7 +37,7 @@ src/              # 방 서버가 이 폴더에 있을 때만
 
 방 서버는 `server-*` 폴더마다 따로다. 보드만 허브가 없다. 이미지는 그 폴더 Dockerfile이다.
 
-`dev2`/`dev3`/`prod`는 `web.enabled: false`다. 그 환경에 게임을 올리면 `project/web`을 넣고 켠다.
+`dev2`/`dev3`/`prod`도 `web.enabled`가 켜져 있다. 각자 `dev1`과 같은 `project/`를 쓴다. `prod`는 `yjh-dev1`과 같다.
 
 ## 모노레포 규칙
 

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 6,
+  "downRule": {"respawnSec": 10.0, "coreHp": 330.0, "coreExposure": "The core is attackable only while its owner is downed or under crowd control.", "eliminationGraceSec": 15.0},
+  "launchRule": {"maxWallBounces": 3, "wallDamage": "15 to 36 from impact speed within the current combo budget", "deathTrajectorySec": 2.15, "rule": "Knockback becomes high-speed physical launch velocity; visible arena bounds and covers reflect the victim and deal bonus damage."},
+  "comboRule": {"windowSec":1.05, "finisherRecoverySec":0.38, "postComboImmunitySec":0.58, "finisher":"Each career has a three-to-six beat normal string; only its authored final beat launches.", "escape":"A ready Space mobility breaks hitstun and grants 0.72 seconds of combo immunity.", "damageCap":"Each completed string plus its wall collision damage is limited to 38-50% of max HP, requiring two strings for fragile careers and three for heavy careers."},
+  "chargeSkillRule": {"input":"Hold and release RMB", "fullChargeSec":1.15, "scales":"damage, reach, radius, crowd control, knockback, and career-specific projectile count", "cancel":"Starting charge cancels normal recovery; Q and Space cancel charge and normal recovery immediately."},
+  "normalAttackRule": "LMB advances an authored rhythmic string. Only shotgun, sniper, and dual pistols use projectile normals; the other nine careers use direct weapon/body/placed-blast hit regions.",
+  "normalAttacks": [
+    {"equipmentId":"scatter", "beats":4, "projectile":true, "rhythm":"bang / bang / ba-bang / heavy blast"},
+    {"equipmentId":"rail", "beats":3, "projectile":true, "rhythm":"mark / settle / execution shot"},
+    {"equipmentId":"mortar", "beats":3, "projectile":false, "rhythm":"short placement / long placement / cluster finish"},
+    {"equipmentId":"leech", "beats":4, "projectile":false, "rhythm":"hook lashes ending in a hard inward pull"},
+    {"equipmentId":"breaker", "beats":3, "projectile":false, "rhythm":"two weighted swings into a floor-breaking smash"},
+    {"equipmentId":"burst", "beats":5, "projectile":true, "rhythm":"alternating taps / double tap / triple finish"},
+    {"equipmentId":"blade", "beats":4, "projectile":false, "rhythm":"left cut / right cut / rising cut / draw finish"},
+    {"equipmentId":"brawler", "beats":6, "projectile":false, "rhythm":"five rapid body blows into one planted punch"},
+    {"equipmentId":"bomb", "beats":3, "projectile":false, "rhythm":"two quick fuses into a large delayed finish"},
+    {"equipmentId":"spear", "beats":4, "projectile":false, "rhythm":"increasing thrust reach into a committed impale"},
+    {"equipmentId":"chain", "beats":4, "projectile":false, "rhythm":"three captures into a heavy inward whip"},
+    {"equipmentId":"shield", "beats":3, "projectile":false, "rhythm":"check / drive / full-body bash"}
+  ],
+  "equipmentAssignment": {
+    "input": "MouseRight",
+    "rule": "At match start six of the twelve careers are shuffled and dealt without duplicates."
+  },
+  "mobility": [
+    {"equipmentId":"scatter", "input":"Space", "name":"SKIRMISH HOP", "cooldownSec":4.2, "distance":190, "identity":"fast lateral recoil"},
+    {"equipmentId":"rail", "input":"Space", "name":"SIGHTLINE STEP", "cooldownSec":4.8, "distance":165, "identity":"short precise sidestep"},
+    {"equipmentId":"mortar", "input":"Space", "name":"BLAST HOP", "cooldownSec":5.2, "distance":175, "identity":"jump with a small nearby repel"},
+    {"equipmentId":"leech", "input":"Space", "name":"SHADOW PULL", "cooldownSec":5.0, "distance":215, "heal":8, "identity":"long sustain slide"},
+    {"equipmentId":"breaker", "input":"Space", "name":"IRON MARCH", "cooldownSec":4.6, "distance":145, "guardSec":0.8, "identity":"short armored advance"},
+    {"equipmentId":"burst", "input":"Space", "name":"FLASH CUT", "cooldownSec":5.5, "distance":250, "identity":"long non-attacking blink"},
+    {"equipmentId":"blade", "input":"Space", "name":"SHADOW SHEATH", "cooldownSec":3.8, "distance":265, "identity":"blink and evade one incoming hit"},
+    {"equipmentId":"brawler", "input":"Space", "name":"WEAVE", "cooldownSec":3.6, "distance":155, "identity":"short combo-breaking dodge"},
+    {"equipmentId":"bomb", "input":"Space", "name":"BLAST ROLL", "cooldownSec":4.8, "distance":190, "identity":"roll away from a live fuse"},
+    {"equipmentId":"spear", "input":"Space", "name":"POLE VAULT", "cooldownSec":4.3, "distance":230, "identity":"long committed vault"},
+    {"equipmentId":"chain", "input":"Space", "name":"SWING STEP", "cooldownSec":4.5, "distance":205, "identity":"curve around captured prey"},
+    {"equipmentId":"shield", "input":"Space", "name":"BRACE STEP", "cooldownSec":5.0, "distance":120, "identity":"small step with long guard"}
+  ],
+  "equipment": [
+    {"id": "scatter", "character": "REX", "role": "BRAWLER", "name": "SCATTERGUN", "skill": "BACKBLAST", "cooldownSec": 3.10, "damagePerPellet": 7.0, "projectiles": 5, "knockback": 28, "selfRecoil": 95, "tactic": "point-blank displacement followed by recoil escape"},
+    {"id": "rail", "character": "SCOPE", "role": "SNIPER", "name": "RAIL LANCE", "skill": "ANCHOR BREAK", "cooldownSec": 3.50, "damage": 38.0, "pierceTargets": 3, "ccSec": 1.15, "knockback": 125, "tactic": "long sightline punish that launches a line of targets"},
+    {"id": "mortar", "character": "BOMBI", "role": "CONTROLLER", "name": "CLUSTER MORTAR", "skill": "SKYFALL", "cooldownSec": 3.80, "damage": 28.0, "warningSec": 0.65, "splashRadius": 120, "ccSec": 1.45, "knockback": 115, "tactic": "telegraphed area denial and coordinated core opening"},
+    {"id": "leech", "character": "NYX", "role": "DRAINER", "name": "LEECH CORE", "skill": "BLOOD HARPOON", "cooldownSec": 3.40, "damage": 18.0, "healFraction": 0.13, "pull": 120, "ccSec": 0.70, "tactic": "pull prey out of safety and sustain through the hit"},
+    {"id": "breaker", "character": "BRICK", "role": "VANGUARD", "name": "BREACH HAMMER", "skill": "CRASH ENTRY", "cooldownSec": 3.60, "damage": 32.0, "dash": 175, "splashRadius": 112, "ccSec": 1.55, "knockback": 165, "tactic": "commit with a dash and scatter a clustered fight"},
+    {"id": "burst", "character": "ZIP", "role": "HUNTER", "name": "BURST RACK", "skill": "SEEKER SALVO", "cooldownSec": 3.35, "damagePerShot": 10.0, "projectiles": 3, "homing": 3.6, "tactic": "curving missiles punish evasive movement"},
+    {"id":"blade", "character":"AKARI", "role":"ASSASSIN", "name":"MOON KATANA", "skill":"CROSS STEP", "maxHp":84, "moveSpeed":354, "weight":0.82, "passive":"AFTERIMAGE", "tactic":"evade one hit, cross through and confirm a sword combo"},
+    {"id":"brawler", "character":"MACK", "role":"STRIKER", "name":"BARE KNUCKLES", "skill":"LIVER SHOT", "maxHp":116, "moveSpeed":326, "weight":1.12, "passive":"COMEBACK", "tactic":"deal 12% more damage below half HP and stay in punching range"},
+    {"id":"bomb", "character":"MIMI", "role":"TRICKSTER", "name":"BOMB SATCHEL", "skill":"STICKY PRESENT", "maxHp":104, "moveSpeed":288, "weight":1.04, "passive":"LIVE FUSE", "tactic":"seed delayed escape-route explosions"},
+    {"id":"spear", "character":"ORIN", "role":"LANCER", "name":"SUN SPEAR", "skill":"VAULT IMPALE", "maxHp":102, "moveSpeed":316, "weight":1.02, "passive":"TIP RANGE", "tactic":"far hits deal 12% more and reward exact spacing"},
+    {"id":"chain", "character":"RIVA", "role":"TRAPPER", "name":"CHAIN SICKLE", "skill":"SNATCH", "maxHp":108, "moveSpeed":302, "weight":1.08, "passive":"CAPTURE", "tactic":"pull hits add hitstun and rewrite positioning"},
+    {"id":"shield", "character":"WARD", "role":"GUARDIAN", "name":"TOWER SHIELD", "skill":"NO PASSAGE", "maxHp":140, "moveSpeed":252, "weight":1.55, "passive":"FORTRESS", "tactic":"trade speed for the highest launch resistance and guard time"}
+  ],
+  "ultimate": {
+    "input": "KeyQ",
+    "maxCharge": 100,
+    "normalHitCharge": "1.5 + 0.38 * applied damage, capped at 7 per confirmed projectile",
+    "equipmentHitCharge": "7 + 0.28 * applied damage, capped at 18",
+    "ultimateHitsGrantCharge": false,
+    "effectRule": "The twelve ultimates include radial scatter, rail strikes, mortar denial, drain pulses, hammer shockwave, homing storm, crossing katana cuts, fist rush, walking bomb chain, piercing spear lines, chain vortex, and a fortified shield overturn. Projectile and zone skills can both damage an exposed core."
+  }
+}
