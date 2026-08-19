@@ -17,6 +17,8 @@
 
 wasm·pck는 브라우저가 들고 있고, 배포가 끝나면 CI가 Cloudflare를 퍼지한다. 개발 중에 캐시를 직접 비울 필요는 없다. 자기 브라우저만 이상하면 강력 새로고침(`Cmd+Shift+R`)이면 된다.
 
+허브 스모크·부하는 `deploy/usability/` 이다. `node cli.mjs smoke`, 부하는 먼저 `--dry-run`.
+
 로컬에서 급히 올릴 때:
 
 ```bash

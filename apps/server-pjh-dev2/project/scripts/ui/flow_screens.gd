@@ -52,6 +52,7 @@ var _retry_button: Button
 var _mode_buttons: Array[Button] = []
 var _wait_mode_buttons: Array[Button] = []
 var _how_return: StringName = &"lobby"
+var _pending_create := false
 
 func _ready() -> void:
     set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -477,11 +478,20 @@ func _on_lobby_refresh() -> void:
         hub.reconnect_now()
 
 func _on_create_pressed() -> void:
-    if hub == null or not hub.is_open():
-        _lobby_error.text = "허브에 연결되어 있지 않습니다."
+    if hub == null:
+        _lobby_error.text = "허브 클라이언트가 없습니다."
         return
     _push_identity()
-    hub.create_room()
+    if hub.is_open():
+        _pending_create = false
+        hub.create_room()
+        return
+    _pending_create = true
+    _lobby_error.text = "허브에 연결하는 중입니다."
+    if hub.status == "오프라인 로컬" or hub.status == "끊김":
+        hub.reconnect_now()
+    else:
+        hub.ensure_connected()
 
 func _rebuild_room_list() -> void:
     if _room_list == null:
@@ -593,6 +603,15 @@ func _on_hub_status(next: String) -> void:
         _retry_button.visible = next == "오프라인 로컬" or next == "끊김"
     if page == &"lobby" and next == "로비" and hub != null:
         hub.request_rooms()
+        if _pending_create:
+            _pending_create = false
+            _lobby_error.text = ""
+            _push_identity()
+            hub.create_room()
+    elif next == "오프라인 로컬" and _pending_create:
+        _pending_create = false
+        if _lobby_error != null:
+            _lobby_error.text = "허브에 연결하지 못했습니다. 다시 연결을 눌러 주세요."
     if page == &"wait":
         _fill_wait()
 

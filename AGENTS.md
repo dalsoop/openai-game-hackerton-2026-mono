@@ -58,6 +58,7 @@ src/              # 방 서버가 이 폴더에 있을 때만
 ```bash
 godot --path apps/server-yjh-dev1/project
 cd apps/server-yjh-dev1 && npm start
+cd deploy/usability && node cli.mjs smoke
 ```
 
 ## 배포

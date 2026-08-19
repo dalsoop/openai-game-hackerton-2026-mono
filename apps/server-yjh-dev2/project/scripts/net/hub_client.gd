@@ -44,16 +44,31 @@ var _ping_wait := 0.0
 
 func _ready() -> void:
     resume_token = _load_resume()
+    ensure_connected()
+
+func _js_text(code: String) -> String:
+    if not OS.has_feature("web"):
+        return ""
+    var text := str(JavaScriptBridge.eval(code, true)).strip_edges()
+    if text.begins_with("\"") and text.ends_with("\"") and text.length() >= 2:
+        text = text.substr(1, text.length() - 2)
+    if text == "<null>" or text == "null" or text == "undefined":
+        return ""
+    return text
 
 func _resolve_url() -> String:
     var env := OS.get_environment("GANG_UP_WS")
     if env.strip_edges() != "":
         return env.strip_edges()
     if OS.has_feature("web"):
-        var proto := str(JavaScriptBridge.eval("location.protocol"))
-        var host := str(JavaScriptBridge.eval("location.host"))
-        var scheme := "wss://" if proto == "https:" else "ws://"
-        return "%s%s/gang-up/ws" % [scheme, host]
+        var origin := _js_text("String(window.location.origin)")
+        if origin.begins_with("https://"):
+            return "wss://%s/gang-up/ws" % origin.substr(8)
+        if origin.begins_with("http://"):
+            return "ws://%s/gang-up/ws" % origin.substr(7)
+        var host := _js_text("String(window.location.host)")
+        if host != "":
+            return "wss://%s/gang-up/ws" % host
     return "ws://127.0.0.1:9120"
 
 func is_open() -> bool:
@@ -290,7 +305,7 @@ func _save_resume(token: String) -> void:
 
 func _load_resume() -> String:
     if OS.has_feature("web"):
-        var stored := str(JavaScriptBridge.eval("try{localStorage.getItem('gangup_resume')||''}catch(e){''}"))
+        var stored := _js_text("try{localStorage.getItem('gangup_resume')||''}catch(e){''}")
         if stored.length() == 32:
             return stored
         return ""
