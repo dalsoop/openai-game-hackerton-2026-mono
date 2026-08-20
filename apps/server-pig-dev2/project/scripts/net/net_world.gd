@@ -106,6 +106,12 @@ func reset() -> void:
     callout_ticks = 0
     event_log.clear()
 
+static func _f(source: Dictionary, key: String, fallback: float) -> float:
+    var v: Variant = source.get(key)
+    if v is float or v is int:
+        return float(v)
+    return fallback
+
 func push_snap(snap: Dictionary) -> void:
     if snap.is_empty():
         return
@@ -173,8 +179,8 @@ func _seed_prediction(snap: Dictionary) -> void:
     var me := _player_in(snap, local_slot)
     if me.is_empty():
         return
-    _pred_pos = Vector2(float(me.get("x", ARENA_CENTER.x)), float(me.get("y", ARENA_CENTER.y)))
-    _pred_aim = Vector2(float(me.get("aimX", _pred_pos.x + 1.0)), float(me.get("aimY", _pred_pos.y))) - _pred_pos
+    _pred_pos = Vector2(_f(me, "x", ARENA_CENTER.x), _f(me, "y", ARENA_CENTER.y))
+    _pred_aim = Vector2(_f(me, "aimX", _pred_pos.x + 1.0), _f(me, "aimY", _pred_pos.y)) - _pred_pos
     if _pred_aim.length_squared() < 0.01:
         _pred_aim = Vector2.RIGHT
     else:
@@ -203,12 +209,12 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
             continue
         var a: Dictionary = from_map[slot]
         var b: Dictionary = to_map[slot]
-        var from_pos := Vector2(float(a.get("x", 0.0)), float(a.get("y", 0.0)))
-        var to_pos := Vector2(float(b.get("x", 0.0)), float(b.get("y", 0.0)))
+        var from_pos := Vector2(_f(a, "x", 0.0), _f(a, "y", 0.0))
+        var to_pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
         hero["pos"] = from_pos.lerp(to_pos, alpha)
         hero["vel"] = (to_pos - from_pos) * SNAP_HZ
-        var from_aim := Vector2(float(a.get("aimX", from_pos.x + 1.0)), float(a.get("aimY", from_pos.y)))
-        var to_aim := Vector2(float(b.get("aimX", to_pos.x + 1.0)), float(b.get("aimY", to_pos.y)))
+        var from_aim := Vector2(_f(a, "aimX", from_pos.x + 1.0), _f(a, "aimY", from_pos.y))
+        var to_aim := Vector2(_f(b, "aimX", to_pos.x + 1.0), _f(b, "aimY", to_pos.y))
         var aim_point := from_aim.lerp(to_aim, alpha)
         if Vector2(hero["pos"]).distance_squared_to(aim_point) > 1.0:
             hero["aim"] = Vector2(hero["pos"]).direction_to(aim_point)
@@ -218,11 +224,11 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         for i in range(projectiles.size()):
             var ob: Dictionary = old_bullets[i]
             var nb: Dictionary = new_bullets[i]
-            var from_b := Vector2(float(ob.get("x", 0.0)), float(ob.get("y", 0.0)))
-            var to_b := Vector2(float(nb.get("x", 0.0)), float(nb.get("y", 0.0)))
+            var from_b := Vector2(_f(ob, "x", 0.0), _f(ob, "y", 0.0))
+            var to_b := Vector2(_f(nb, "x", 0.0), _f(nb, "y", 0.0))
             projectiles[i]["pos"] = from_b.lerp(to_b, alpha)
             projectiles[i]["vel"] = (to_b - from_b) * SNAP_HZ
-    safe_zone_radius = lerpf(float(older.get("zoneR", safe_zone_radius)), float(newer.get("zoneR", safe_zone_radius)), alpha)
+    safe_zone_radius = lerpf(_f(older, "zoneR", safe_zone_radius), _f(newer, "zoneR", safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
@@ -245,10 +251,10 @@ func _reconcile(snap: Dictionary) -> void:
         if int(item.get("seq", 0)) > ack:
             keep.append(item)
     _pending = keep
-    _pred_pos = Vector2(float(me.get("x", _pred_pos.x)), float(me.get("y", _pred_pos.y)))
+    _pred_pos = Vector2(_f(me, "x", _pred_pos.x), _f(me, "y", _pred_pos.y))
     _has_pred = true
     for item in _pending:
-        _step_pred(float(item.get("mx", 0.0)), float(item.get("my", 0.0)), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), float(item.get("dt", 1.0 / 60.0)))
+        _step_pred(_f(item, "mx", 0.0), _f(item, "my", 0.0), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), _f(item, "dt", 1.0 / 60.0))
 
 func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> void:
     _pred_dash_cd = maxf(0.0, _pred_dash_cd - dt)
@@ -299,7 +305,7 @@ func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
     tick = int(snap.get("tick", tick))
     var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
-    match_time = float(snap.get("time", match_time))
+    match_time = _f(snap, "time", match_time)
     var prev_result := result
     var snap_result := str(snap.get("result", "playing"))
     winner_slot = int(snap.get("winner", -1))
@@ -313,7 +319,7 @@ func apply_snap(snap: Dictionary) -> void:
     else:
         result = &"won" if winner_slot == local_slot else &"lost"
         result_reason = &"last_survivor"
-    safe_zone_radius = float(snap.get("zoneR", safe_zone_radius))
+    safe_zone_radius = _f(snap, "zoneR", safe_zone_radius)
     safe_zone_shrinking = bool(snap.get("shrinking", false))
     if safe_zone_shrinking:
         safe_zone_target_radius = maxf(SAFE_ZONE_MIN_RADIUS, safe_zone_radius * 0.62)
@@ -341,11 +347,11 @@ func _apply_players(list: Array) -> void:
     for raw in list:
         var p: Dictionary = raw
         var slot := int(p.get("slot", next.size()))
-        var pos := Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+        var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
         var old: Dictionary = prev.get(slot, {})
         var old_pos: Vector2 = old.get("pos", pos)
         var vel := (pos - old_pos) * SNAP_HZ
-        var aim_point := Vector2(float(p.get("aimX", pos.x + 1.0)), float(p.get("aimY", pos.y)))
+        var aim_point := Vector2(_f(p, "aimX", pos.x + 1.0), _f(p, "aimY", pos.y))
         var aim := Vector2(old.get("aim", Vector2.RIGHT))
         if pos.distance_squared_to(aim_point) > 1.0:
             aim = pos.direction_to(aim_point)
@@ -371,7 +377,7 @@ func _apply_players(list: Array) -> void:
             "pos":pos,
             "vel":vel,
             "aim":aim,
-            "hp":float(p.get("hp", 0.0)),
+            "hp":_f(p, "hp", 0.0),
             "max_hp":100.0,
             "kills":kills,
             "deaths":deaths,
@@ -409,7 +415,7 @@ func _apply_bullets(list: Array) -> void:
     var next: Array[Dictionary] = []
     for raw in list:
         var b: Dictionary = raw
-        var pos := Vector2(float(b.get("x", 0.0)), float(b.get("y", 0.0)))
+        var pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
         var vel := Vector2.ZERO
         var best := 3600.0
         for prev_b in _prev_bullets:
@@ -435,7 +441,7 @@ func _apply_loot(list: Array) -> void:
         var drop: Dictionary = raw
         var entry := {
             "active":true,
-            "pos":Vector2(float(drop.get("x", 0.0)), float(drop.get("y", 0.0))),
+            "pos":Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
             "id":abs(hash(str(drop.get("id", "")))) % 1000,
             "magnet_slot":-1
         }

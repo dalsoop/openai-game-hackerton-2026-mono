@@ -46,7 +46,7 @@ export function createMatch(modeId, humans) {
       dashCd: 0,
       lastSeq: 0,
       kills: 0,
-      input: { mx: 0, my: 0, fire: false, dash: false, use: false },
+      input: { mx: 0, my: 0, fire: false, dash: false, use: false, aimX: ARENA.cx, aimY: ARENA.cy },
     });
   }
   return {
@@ -90,14 +90,32 @@ function cpuThink(match, p) {
   const dx = prey.x - p.x;
   const dy = prey.y - p.y;
   const d = Math.hypot(dx, dy) || 1;
-  const preferred = 180;
+  // Per-slot personality so bots don't move in lockstep symmetry.
+  const preferred = 140 + (p.slot % 4) * 30;
+  const side = p.slot % 2 === 0 ? 1 : -1;
+  const wobble = Math.sin(match.time * (0.9 + p.slot * 0.17) + p.slot * 1.7) * 0.45;
   let mx = dx / d;
   let my = dy / d;
   if (d < preferred * 0.7) {
-    mx = -mx * 0.4 + -my * 0.8;
-    my = -my * 0.4 + mx * 0.8;
+    const ox = mx;
+    const oy = my;
+    mx = -ox * 0.4 - oy * 0.8 * side;
+    my = -oy * 0.4 + ox * 0.8 * side;
+  } else {
+    // Strafe around the target instead of walking a straight line.
+    mx += -my * wobble * side;
+    my += mx * wobble * side;
   }
-  p.input = { mx, my, fire: d < 340, dash: d > 300 && Math.random() < 0.02, use: p.hp < 40 && Boolean(p.item), aimX: prey.x, aimY: prey.y };
+  const aimJitter = (p.slot % 3 - 1) * 14;
+  p.input = {
+    mx,
+    my,
+    fire: d < 340,
+    dash: d > 300 && Math.random() < 0.02,
+    use: p.hp < 40 && Boolean(p.item),
+    aimX: prey.x + aimJitter,
+    aimY: prey.y - aimJitter,
+  };
 }
 
 function dropLoot(match, victim) {
@@ -223,7 +241,7 @@ export function step(match) {
 }
 
 function r1(n) {
-  return Math.round(n * 10) / 10;
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
 }
 
 export function snapshot(match) {
