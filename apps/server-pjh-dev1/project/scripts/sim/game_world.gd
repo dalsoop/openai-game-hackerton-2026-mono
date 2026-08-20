@@ -6,7 +6,7 @@ const EventLogScript = preload("res://scripts/sim/event_log.gd")
 
 const PLAYER_COUNT := 8
 const HERO_RADIUS := 20.0
-const HERO_SPEED := 310.0
+const HERO_SPEED := 419.0
 const SOURCE_ARENA_SIZE := Vector2(2800.0, 1700.0)
 const ARENA_TILE_SCALE := 0.7
 const ARENA_SIZE := Vector2(3920.0, 2380.0)
@@ -28,6 +28,8 @@ const HEALTH_PICKUP_HEAL_RATIO := 0.30
 const HEALTH_PICKUP_MAGNET_RADIUS := 217.0
 const HEALTH_PICKUP_MAGNET_SPEED := 760.0
 const HEALTH_PICKUP_RETURN_SPEED := 280.0
+const HOP_AIR := 0.30
+const HOP_LOCK := 0.08
 const SOURCE_HEALTH_PICKUP_POINTS := [
     Vector2(1400.0, 430.0),
     Vector2(1400.0, 1270.0),
@@ -39,7 +41,7 @@ const SAFE_ZONE_DAMAGE_PER_SEC := 8.0
 const SAFE_ZONE_TICK_INTERVAL := 0.50
 const SAFE_ZONE_EDGE_BUFFER := 126.0
 const SAFE_ZONE_PHASES := [
-    {"wait":12.0, "shrink":10.0, "radius":1204.0},
+    {"wait":8.0, "shrink":10.0, "radius":1204.0},
     {"wait":8.0, "shrink":10.0, "radius":812.0},
     {"wait":8.0, "shrink":9.0, "radius":476.0},
     {"wait":7.0, "shrink":8.0, "radius":252.0},
@@ -98,6 +100,23 @@ const MEDKIT_HEAL_RATIO := 0.30
 const GUN_LOOT_MODES := ["gun-semi", "gun-auto", "full"]
 const MEDKIT_MODES := ["item", "full"]
 const NO_LOOT_MODES := ["gun-semi", "gun-auto"]
+const ITEM_POOL_MODE := "item"
+const SPRING_AIR := 0.45
+const SPRING_LIFT := 36.0
+const SPRING_EVADE := 0.22
+const SPRING_BOOST := 220.0
+const SLIDE_DURATION := 2.2
+const SLIDE_ACCEL := 520.0
+const SLIDE_FRICTION := 180.0
+const PULL_DURATION := 0.55
+const PULL_RADIUS := 300.0
+const PULL_LAUNCH := 380.0
+const DECOY_DAMAGE := 18.0
+const DECOY_KNOCK := 90.0
+const POCKET_DURATION := 5.0
+const POCKET_RADIUS := 150.0
+const HOP_LIFT_DEFAULT := 19.0
+const ITEM_DROP_IGNORE := 0.45
 const MODE_START_EQUIPMENT := {"gun-semi":"rail", "gun-auto":"burst", "item":"scatter"}
 const GUN_LOOT_CHAIN := ["rail", "burst", "scatter", "mortar", "breaker", "bomb", "leech", "blade", "spear", "chain", "shield", "brawler"]
 
@@ -133,33 +152,33 @@ func _identity_for_equipment(equipment_id: String) -> Dictionary:
 
 func _combat_stats_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
-        "scatter": return {"move_speed":320.0, "max_hp":155.0, "weight":1.00, "combo_cap_ratio":0.26, "special_name":"RECOIL RHYTHM", "special_desc":"fast close-range reset"}
-        "rail": return {"move_speed":292.0, "max_hp":141.0, "weight":0.88, "combo_cap_ratio":0.27, "special_name":"DEAD ANGLE", "special_desc":"long-range hits deal 12% more"}
-        "mortar": return {"move_speed":270.0, "max_hp":140.0, "weight":0.92, "combo_cap_ratio":0.26, "special_name":"GLASS ARTILLERY", "special_desc":"controls space but collapses when rushed"}
-        "leech": return {"move_speed":310.0, "max_hp":149.0, "weight":0.98, "combo_cap_ratio":0.26, "special_name":"HUNGER", "special_desc":"confirmed hits restore health"}
-        "breaker": return {"move_speed":266.0, "max_hp":195.0, "weight":1.34, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
-        "burst": return {"move_speed":336.0, "max_hp":137.0, "weight":0.90, "combo_cap_ratio":0.27, "special_name":"PURSUIT", "special_desc":"homing attacks punish escape"}
-        "blade": return {"move_speed":354.0, "max_hp":157.0, "weight":0.86, "combo_cap_ratio":0.27, "special_name":"AFTERIMAGE", "special_desc":"mobility evades one incoming hit"}
-        "brawler": return {"move_speed":326.0, "max_hp":176.0, "weight":1.12, "combo_cap_ratio":0.24, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
-        "bomb": return {"move_speed":288.0, "max_hp":158.0, "weight":1.04, "combo_cap_ratio":0.26, "special_name":"MINE LAYER", "special_desc":"two persistent mines control rotations"}
-        "spear": return {"move_speed":316.0, "max_hp":204.0, "weight":1.02, "combo_cap_ratio":0.26, "special_name":"TIP RANGE", "special_desc":"far hits deal 12% more"}
-        "chain": return {"move_speed":298.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"CAPTURE", "special_desc":"combo tugs hold prey for CHAIN LOCK"}
-        _: return {"move_speed":252.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"BULLDOZER", "special_desc":"a moving wall forces enemies out of its lane"}
+        "scatter": return {"move_speed":432.0, "max_hp":155.0, "weight":1.00, "combo_cap_ratio":0.26, "special_name":"RECOIL RHYTHM", "special_desc":"fast close-range reset"}
+        "rail": return {"move_speed":394.0, "max_hp":141.0, "weight":0.88, "combo_cap_ratio":0.27, "special_name":"DEAD ANGLE", "special_desc":"long-range hits deal 12% more"}
+        "mortar": return {"move_speed":365.0, "max_hp":140.0, "weight":0.92, "combo_cap_ratio":0.26, "special_name":"GLASS ARTILLERY", "special_desc":"controls space but collapses when rushed"}
+        "leech": return {"move_speed":419.0, "max_hp":149.0, "weight":0.98, "combo_cap_ratio":0.26, "special_name":"HUNGER", "special_desc":"confirmed hits restore health"}
+        "breaker": return {"move_speed":359.0, "max_hp":195.0, "weight":1.34, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
+        "burst": return {"move_speed":454.0, "max_hp":137.0, "weight":0.90, "combo_cap_ratio":0.27, "special_name":"PURSUIT", "special_desc":"homing attacks punish escape"}
+        "blade": return {"move_speed":478.0, "max_hp":157.0, "weight":0.86, "combo_cap_ratio":0.27, "special_name":"AFTERIMAGE", "special_desc":"mobility evades one incoming hit"}
+        "brawler": return {"move_speed":440.0, "max_hp":176.0, "weight":1.12, "combo_cap_ratio":0.24, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
+        "bomb": return {"move_speed":389.0, "max_hp":158.0, "weight":1.04, "combo_cap_ratio":0.26, "special_name":"MINE LAYER", "special_desc":"two persistent mines control rotations"}
+        "spear": return {"move_speed":427.0, "max_hp":204.0, "weight":1.02, "combo_cap_ratio":0.26, "special_name":"TIP RANGE", "special_desc":"far hits deal 12% more"}
+        "chain": return {"move_speed":402.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"CAPTURE", "special_desc":"combo tugs hold prey for CHAIN LOCK"}
+        _: return {"move_speed":340.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"BULLDOZER", "special_desc":"a moving wall forces enemies out of its lane"}
 
 func _mobility_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
-        "scatter": return {"mobility_name":"SKIRMISH HOP", "mobility_desc":"fast lateral recoil", "mobility_cooldown":4.2, "mobility_distance":190.0}
-        "rail": return {"mobility_name":"SIGHTLINE STEP", "mobility_desc":"short precise sidestep", "mobility_cooldown":4.8, "mobility_distance":165.0}
-        "mortar": return {"mobility_name":"BLAST HOP", "mobility_desc":"jump and repel nearby enemies", "mobility_cooldown":5.2, "mobility_distance":175.0}
-        "leech": return {"mobility_name":"SHADOW PULL", "mobility_desc":"long slide with a small heal", "mobility_cooldown":5.0, "mobility_distance":215.0}
-        "breaker": return {"mobility_name":"IRON MARCH", "mobility_desc":"short armored advance", "mobility_cooldown":4.6, "mobility_distance":145.0}
-        "burst": return {"mobility_name":"FLASH CUT", "mobility_desc":"long blink with no attack", "mobility_cooldown":5.5, "mobility_distance":250.0}
-        "blade": return {"mobility_name":"SHADOW SHEATH", "mobility_desc":"blink and evade one hit", "mobility_cooldown":3.8, "mobility_distance":265.0}
-        "brawler": return {"mobility_name":"WEAVE", "mobility_desc":"short dodge that breaks a combo", "mobility_cooldown":3.6, "mobility_distance":155.0}
-        "bomb": return {"mobility_name":"BLAST ROLL", "mobility_desc":"roll away from the live fuse", "mobility_cooldown":4.8, "mobility_distance":190.0}
-        "spear": return {"mobility_name":"POLE VAULT", "mobility_desc":"long committed vault", "mobility_cooldown":4.3, "mobility_distance":230.0}
-        "chain": return {"mobility_name":"SWING STEP", "mobility_desc":"curve around the captured target", "mobility_cooldown":4.5, "mobility_distance":205.0}
-        _: return {"mobility_name":"BRACE STEP", "mobility_desc":"small step with a long guard", "mobility_cooldown":5.0, "mobility_distance":120.0}
+        "scatter": return {"mobility_name":"SKIRMISH HOP", "mobility_desc":"fast lateral recoil", "mobility_cooldown":4.2, "mobility_distance":219.0}
+        "rail": return {"mobility_name":"SIGHTLINE STEP", "mobility_desc":"short precise sidestep", "mobility_cooldown":4.8, "mobility_distance":190.0}
+        "mortar": return {"mobility_name":"BLAST HOP", "mobility_desc":"jump and repel nearby enemies", "mobility_cooldown":5.2, "mobility_distance":201.0}
+        "leech": return {"mobility_name":"SHADOW PULL", "mobility_desc":"long slide with a small heal", "mobility_cooldown":5.0, "mobility_distance":247.0}
+        "breaker": return {"mobility_name":"IRON MARCH", "mobility_desc":"short armored advance", "mobility_cooldown":4.6, "mobility_distance":167.0}
+        "burst": return {"mobility_name":"FLASH CUT", "mobility_desc":"long blink with no attack", "mobility_cooldown":5.5, "mobility_distance":288.0}
+        "blade": return {"mobility_name":"SHADOW SHEATH", "mobility_desc":"blink and evade one hit", "mobility_cooldown":3.8, "mobility_distance":305.0}
+        "brawler": return {"mobility_name":"WEAVE", "mobility_desc":"short dodge that breaks a combo", "mobility_cooldown":3.6, "mobility_distance":178.0}
+        "bomb": return {"mobility_name":"BLAST ROLL", "mobility_desc":"roll away from the live fuse", "mobility_cooldown":4.8, "mobility_distance":219.0}
+        "spear": return {"mobility_name":"POLE VAULT", "mobility_desc":"long committed vault", "mobility_cooldown":4.3, "mobility_distance":265.0}
+        "chain": return {"mobility_name":"SWING STEP", "mobility_desc":"curve around the captured target", "mobility_cooldown":4.5, "mobility_distance":236.0}
+        _: return {"mobility_name":"BRACE STEP", "mobility_desc":"small step with a long guard", "mobility_cooldown":5.0, "mobility_distance":138.0}
 
 func _init(seed: int = 2222) -> void:
     rng = SeededRngScript.new(seed)
@@ -230,14 +249,17 @@ func reset() -> void:
     covers = _build_tiled_covers()
     var pickup_points := _tiled_points(SOURCE_HEALTH_PICKUP_POINTS)
     for pickup_index in range(pickup_points.size()):
-        health_pickups.append({
+        var pickup: Dictionary = {
             "id":pickup_index,
             "pos":pickup_points[pickup_index],
             "home":pickup_points[pickup_index],
             "magnet_slot":-1,
             "active":true,
             "respawn":0.0
-        })
+        }
+        if mode == ITEM_POOL_MODE:
+            _roll_pickup_kind(pickup)
+        health_pickups.append(pickup)
     next_entity_id = 100
     event_log.clear()
     if mode in NO_LOOT_MODES:
@@ -298,6 +320,13 @@ func reset() -> void:
             "kills":0,
             "deaths":0,
             "medkits":0,
+            "held_item":"",
+            "slide_time":0.0,
+            "pull_time":0.0,
+            "pocket_time":0.0,
+            "spring_time":0.0,
+            "hop_height":HOP_LIFT_DEFAULT,
+            "slide_wish":Vector2.ZERO,
             "kill_streak":0,
             "best_kill_streak":0,
             "eliminations":0,
@@ -334,7 +363,10 @@ func reset() -> void:
             "charging_skill":false,
             "charge_time":0.0,
             "charge_dir":hero_pos.direction_to(ARENA_CENTER),
-            "cpu_charge_target":0.0
+            "cpu_charge_target":0.0,
+            "hop_time":0.0,
+            "hop_lock":0.0,
+            "hop_max":HOP_AIR
         })
         event_log.emit(tick, &"equipment_revealed", slot, -1, {"equipment":equipment["id"]})
     event_log.emit(tick, &"match_started", -1, -1, {})
@@ -366,6 +398,7 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
         _resolve_time_limit()
         return
     _update_timers(dt)
+    _update_item_pulses(dt)
     _update_safe_zone(dt)
     _apply_human(command)
     _update_cpus(dt)
@@ -425,11 +458,21 @@ func _update_timers(dt: float) -> void:
         h["fire_cd"] = maxf(0.0, float(h["fire_cd"]) - dt)
         h["equipment_cd"] = maxf(0.0, float(h["equipment_cd"]) - dt)
         h["mobility_cd"] = maxf(0.0, float(h["mobility_cd"]) - dt)
+        var previous_hop: float = float(h.get("hop_time", 0.0))
+        h["hop_time"] = maxf(0.0, previous_hop - dt)
+        if previous_hop > 0.0 and float(h["hop_time"]) <= 0.0:
+            h["hop_lock"] = HOP_LOCK
+        else:
+            h["hop_lock"] = maxf(0.0, float(h.get("hop_lock", 0.0)) - dt)
         h["guard_time"] = maxf(0.0, float(h["guard_time"]) - dt)
         h["super_armor_time"] = maxf(0.0, float(h["super_armor_time"]) - dt)
         if float(h["super_armor_time"]) <= 0.0:
             h["super_armor_strength"] = 0.0
         h["evade_time"] = maxf(0.0, float(h["evade_time"]) - dt)
+        h["slide_time"] = maxf(0.0, float(h.get("slide_time", 0.0)) - dt)
+        h["pull_time"] = maxf(0.0, float(h.get("pull_time", 0.0)) - dt)
+        h["pocket_time"] = maxf(0.0, float(h.get("pocket_time", 0.0)) - dt)
+        h["spring_time"] = maxf(0.0, float(h.get("spring_time", 0.0)) - dt)
         h["hitstun_time"] = maxf(0.0, float(h["hitstun_time"]) - dt)
         if float(h["launch_time"]) > 0.0:
             h["launch_trail_fade"] = 0.34
@@ -497,10 +540,27 @@ func _apply_human(command: Dictionary) -> void:
         control_speed *= 0.76
     if bool(h["charging_skill"]):
         control_speed *= 0.62
-    h["vel"] = move * float(h["equipment"]["move_speed"]) * control_speed * _streak_move_multiplier(0)
+    if float(h.get("slide_time", 0.0)) > 0.0:
+        _steer_slide(0, h, move, control_speed, FIXED_DT)
+    else:
+        var cruise: Vector2 = move * float(h["equipment"]["move_speed"]) * control_speed * _streak_move_multiplier(0)
+        h["vel"] = cruise
+        if float(h.get("spring_time", 0.0)) > 0.0:
+            var boost_dir: Vector2 = move
+            if boost_dir.length_squared() < 0.1:
+                boost_dir = Vector2(h["facing"])
+            if boost_dir.length_squared() > 0.1:
+                var boosted: Vector2 = Vector2(h["vel"]) + boost_dir.normalized() * SPRING_BOOST
+                h["vel"] = boosted
+    if bool(command.get("hop", false)):
+        var hop_ready: bool = float(h.get("hop_time", 0.0)) <= 0.0 and float(h.get("hop_lock", 0.0)) <= 0.0
+        if hop_ready and float(h["root_time"]) <= 0.0 and float(h["hitstun_time"]) <= 0.0:
+            h["hop_time"] = HOP_AIR
+            h["hop_max"] = HOP_AIR
+            h["hop_height"] = HOP_LIFT_DEFAULT
     heroes[0] = h
     if bool(command.get("medkit", false)):
-        _try_use_medkit(0)
+        _try_use_active_item(0)
     if bool(command.get("ultimate", false)):
         _cancel_skill_charge(0)
         _try_ultimate(0, Vector2(h["facing"]))
@@ -547,9 +607,21 @@ func _update_cpus(dt: float) -> void:
                 elif float(h["mobility_cd"]) <= 0.0 and rng.chance(0.055):
                     _try_mobility(slot, -Vector2(h["facing"]))
                     h = heroes[slot]
-        if int(h.get("medkits", 0)) > 0 and float(h["hp"]) < float(h["max_hp"]) * 0.5 and rng.chance(0.30):
+        if mode == ITEM_POOL_MODE:
+            _cpu_consider_held_item(slot)
+            h = heroes[slot]
+        elif int(h.get("medkits", 0)) > 0 and float(h["hp"]) < float(h["max_hp"]) * 0.5 and rng.chance(0.30):
             _try_use_medkit(slot)
             h = heroes[slot]
+        if float(h.get("slide_time", 0.0)) > 0.0:
+            var slide_wish: Vector2 = h.get("slide_wish", Vector2.ZERO)
+            if slide_wish.length_squared() < 0.01:
+                slide_wish = Vector2(h["facing"])
+            var slide_scale := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
+            if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0:
+                slide_scale = 0.0
+            _steer_slide(slot, h, slide_wish, slide_scale, dt)
+            heroes[slot] = h
         h["think"] = float(h["think"]) - dt
         if float(h["think"]) <= 0.0:
             h["think"] = 0.16 + rng.rangef(0.0, 0.10)
@@ -573,7 +645,7 @@ func _update_cpus(dt: float) -> void:
                     heal_move = (to_heal * 0.38 + heal_strafe).normalized()
                 var heal_cc_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
                 var heal_hitstun_speed := 0.0 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0 else 1.0
-                h["vel"] = heal_move * float(h["equipment"]["move_speed"]) * heal_cc_speed * heal_hitstun_speed * _streak_move_multiplier(slot)
+                _apply_cpu_move(slot, h, heal_move, heal_cc_speed * heal_hitstun_speed)
                 h["action"] = &"SEEK_HEAL"
                 if tslot >= 0:
                     h["aim"] = Vector2(h["pos"]).direction_to(_target_position(tslot)).rotated(rng.rangef(-0.085, 0.085))
@@ -604,7 +676,7 @@ func _update_cpus(dt: float) -> void:
                 var action_speed := 0.76 if float(h["attack_lock_time"]) > 0.0 else 1.0
                 if bool(h["charging_skill"]):
                     action_speed *= 0.62
-                h["vel"] = desired * float(h["equipment"]["move_speed"]) * cc_speed * hitstun_speed * action_speed * rng.rangef(0.93, 1.02) * _streak_move_multiplier(slot)
+                _apply_cpu_move(slot, h, desired, cc_speed * hitstun_speed * action_speed * rng.rangef(0.93, 1.02))
                 var aim_error: float = rng.rangef(-0.085, 0.085)
                 h["aim"] = to_target.rotated(aim_error)
                 h["facing"] = h["aim"]
@@ -612,7 +684,7 @@ func _update_cpus(dt: float) -> void:
             if hazard_escape.length_squared() > 0.1:
                 var hazard_cc_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
                 var hazard_lock_speed := 0.0 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0 else 1.0
-                h["vel"] = hazard_escape * float(h["equipment"]["move_speed"]) * hazard_cc_speed * hazard_lock_speed * _streak_move_multiplier(slot)
+                _apply_cpu_move(slot, h, hazard_escape, hazard_cc_speed * hazard_lock_speed)
                 h["action"] = &"DODGE_WARNING"
         heroes[slot] = h
         var current_target := int(h["target"])
@@ -682,9 +754,12 @@ func _choose_target(slot: int) -> int:
 func _best_health_pickup(slot: int) -> int:
     var h: Dictionary = heroes[slot]
     var health_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
-    if health_ratio > 0.65:
+    var empty_hand := mode == ITEM_POOL_MODE and str(h.get("held_item", "")) == ""
+    if health_ratio > 0.65 and not empty_hand:
         return -1
     var search_radius := 700.0
+    if empty_hand:
+        search_radius = 980.0
     if health_ratio <= 0.48:
         search_radius = 1190.0
     if health_ratio <= 0.30:
@@ -863,10 +938,19 @@ func _update_health_pickups(dt: float) -> void:
         if not bool(pickup["active"]):
             pickup["respawn"] = maxf(0.0, float(pickup["respawn"]) - dt)
             if float(pickup["respawn"]) <= 0.0:
-                pickup["active"] = true
-                pickup["pos"] = Vector2(pickup["home"])
-                pickup["magnet_slot"] = -1
-                _add_effect(&"heal_ready", Vector2(pickup["pos"]), 62.0, 0.55, Color("#6ef3a5"), "HEAL READY")
+                if bool(pickup.get("ephemeral", false)):
+                    pickup["active"] = false
+                    pickup["respawn"] = 99999.0
+                else:
+                    pickup["active"] = true
+                    pickup["pos"] = Vector2(pickup["home"])
+                    pickup["magnet_slot"] = -1
+                    pickup["ignore_slot"] = -1
+                    pickup["ignore_time"] = 0.0
+                    if mode == ITEM_POOL_MODE:
+                        _roll_pickup_kind(pickup)
+                    _add_effect(&"heal_ready", Vector2(pickup["pos"]), 62.0, 0.55, Color("#6ef3a5"), "HEAL READY")
+        pickup["ignore_time"] = maxf(0.0, float(pickup.get("ignore_time", 0.0)) - dt)
         if bool(pickup["active"]):
             var magnet_slot := int(pickup.get("magnet_slot", -1))
             if not _pickup_target_valid(magnet_slot, pickup, HEALTH_PICKUP_MAGNET_RADIUS * 1.65):
@@ -878,7 +962,9 @@ func _update_health_pickups(dt: float) -> void:
                 if Vector2(pickup["pos"]).distance_to(target_pos) <= HERO_RADIUS + HEALTH_PICKUP_RADIUS:
                     var h: Dictionary = heroes[magnet_slot]
                     var carried := int(h.get("medkits", 0))
-                    if mode in MEDKIT_MODES and carried < MEDKIT_MAX:
+                    if mode == ITEM_POOL_MODE:
+                        pickup = _collect_item_pickup(magnet_slot, pickup)
+                    elif mode in MEDKIT_MODES and carried < MEDKIT_MAX:
                         h["medkits"] = carried + 1
                         heroes[magnet_slot] = h
                         pickup["active"] = false
@@ -907,6 +993,8 @@ func _pickup_target_valid(slot: int, pickup: Dictionary, max_distance: float) ->
         return false
     var h: Dictionary = heroes[slot]
     if not bool(h["alive"]) or bool(h["eliminated"]) or float(h["launch_time"]) > 0.0:
+        return false
+    if int(pickup.get("ignore_slot", -1)) == slot and float(pickup.get("ignore_time", 0.0)) > 0.0:
         return false
     return Vector2(h["pos"]).distance_to(Vector2(pickup["pos"])) <= max_distance
 
@@ -2193,6 +2281,282 @@ func _heal_hero(slot: int, amount: float) -> void:
         h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + amount)
         heroes[slot] = h
 
+func _item_kind_color(kind: String) -> Color:
+    match kind:
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        _:
+            return Color("#6ef3a5")
+
+func _roll_pickup_kind(pickup: Dictionary) -> void:
+    var roll: float = rng.rangef(0.0, 1.0)
+    var kind := "medkit"
+    if roll < 0.30:
+        kind = "medkit"
+    elif roll < 0.48:
+        kind = "spring"
+    elif roll < 0.66:
+        kind = "slide"
+    elif roll < 0.80:
+        kind = "pull"
+    elif roll < 0.90:
+        kind = "pocket"
+    else:
+        kind = "decoy"
+    pickup["kind"] = kind
+    if kind == "decoy":
+        var faces := ["medkit", "spring", "slide", "pull", "pocket"]
+        pickup["disguise"] = str(faces[rng.rangei(0, faces.size() - 1)])
+    else:
+        pickup["disguise"] = kind
+
+func _spawn_dropped_pickup(pos: Vector2, kind: String, ignore_slot: int = -1) -> void:
+    if kind == "" or kind == "decoy":
+        return
+    var drop_pos: Vector2 = _clamp_arena_point(pos, HEALTH_PICKUP_RADIUS)
+    for pickup_index in range(health_pickups.size()):
+        var old_pickup: Dictionary = health_pickups[pickup_index]
+        if bool(old_pickup.get("ephemeral", false)) and not bool(old_pickup["active"]):
+            old_pickup["pos"] = drop_pos
+            old_pickup["home"] = drop_pos
+            old_pickup["kind"] = kind
+            old_pickup["disguise"] = kind
+            old_pickup["active"] = true
+            old_pickup["respawn"] = 0.0
+            old_pickup["magnet_slot"] = -1
+            old_pickup["ignore_slot"] = ignore_slot
+            old_pickup["ignore_time"] = ITEM_DROP_IGNORE if ignore_slot >= 0 else 0.0
+            health_pickups[pickup_index] = old_pickup
+            return
+    health_pickups.append({
+        "id":health_pickups.size(),
+        "pos":drop_pos,
+        "home":drop_pos,
+        "magnet_slot":-1,
+        "active":true,
+        "respawn":0.0,
+        "kind":kind,
+        "disguise":kind,
+        "ephemeral":true,
+        "ignore_slot":ignore_slot,
+        "ignore_time":ITEM_DROP_IGNORE if ignore_slot >= 0 else 0.0
+    })
+
+func _explode_decoy(slot: int, origin: Vector2) -> void:
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    if not bool(h["alive"]):
+        return
+    if float(h.get("evade_time", 0.0)) > 0.0:
+        h["evade_time"] = 0.0
+        heroes[slot] = h
+        _add_effect(&"afterimage", Vector2(h["pos"]), 105.0, 0.38, Color("#b9f3ff"), "EVADE")
+        event_log.emit(tick, &"attack_evaded", -1, slot, {"source":&"decoy"})
+        return
+    h["hp"] = float(h["hp"]) - DECOY_DAMAGE
+    var push: Vector2 = origin.direction_to(Vector2(h["pos"]))
+    if push.length_squared() < 0.1:
+        push = Vector2(h.get("facing", Vector2.RIGHT))
+    var launch_speed: float = (900.0 + DECOY_KNOCK * 9.8) / maxf(0.35, float(h["equipment"]["weight"]))
+    h["launch_vel"] = push * launch_speed
+    h["launch_time"] = 0.28
+    h["vel"] = Vector2.ZERO
+    h["launch_owner"] = -1
+    heroes[slot] = h
+    _add_effect(&"explosion", origin, 78.0, 0.40, Color("#ff665a"), "DECOY")
+    event_log.emit(tick, &"decoy_exploded", -1, slot, {"damage":DECOY_DAMAGE})
+    if float(h["hp"]) <= 0.0:
+        _down_hero(-1, slot)
+
+func _collect_item_pickup(slot: int, pickup: Dictionary) -> Dictionary:
+    var kind := str(pickup.get("kind", "medkit"))
+    var target_pos: Vector2 = heroes[slot]["pos"]
+    if kind == "decoy":
+        _explode_decoy(slot, Vector2(pickup["pos"]))
+        pickup["active"] = false
+        pickup["respawn"] = 99999.0 if bool(pickup.get("ephemeral", false)) else HEALTH_PICKUP_RESPAWN
+        pickup["magnet_slot"] = -1
+        pickup["pos"] = Vector2(pickup["home"])
+        return pickup
+    var h: Dictionary = heroes[slot]
+    var old_item := str(h.get("held_item", ""))
+    if old_item != "":
+        var drop_pos: Vector2 = target_pos - Vector2(h.get("facing", Vector2.RIGHT)) * 36.0
+        _spawn_dropped_pickup(drop_pos, old_item, slot)
+    h["held_item"] = kind
+    heroes[slot] = h
+    pickup["active"] = false
+    pickup["respawn"] = 99999.0 if bool(pickup.get("ephemeral", false)) else HEALTH_PICKUP_RESPAWN
+    pickup["magnet_slot"] = -1
+    pickup["pos"] = Vector2(pickup["home"])
+    _add_effect(&"heal_pickup", target_pos, 64.0, 0.38, _item_kind_color(kind), kind.to_upper())
+    event_log.emit(tick, &"item_collected", slot, -1, {"kind":kind, "dropped":old_item})
+    return pickup
+
+func _steer_slide(slot: int, h: Dictionary, wish: Vector2, control_speed: float, dt: float) -> void:
+    var vel: Vector2 = h["vel"]
+    var max_speed: float = float(h["equipment"]["move_speed"]) * control_speed * _streak_move_multiplier(slot)
+    if wish.length_squared() > 0.04:
+        var wish_dir: Vector2 = wish.normalized()
+        vel = vel + wish_dir * SLIDE_ACCEL * dt
+        var cap: float = maxf(40.0, max_speed * 1.15)
+        if vel.length() > cap:
+            vel = vel.normalized() * cap
+    else:
+        vel = vel.move_toward(Vector2.ZERO, SLIDE_FRICTION * dt)
+    h["vel"] = vel
+    h["slide_wish"] = wish
+
+func _apply_cpu_move(slot: int, h: Dictionary, wish_dir: Vector2, speed_scale: float) -> void:
+    h["slide_wish"] = wish_dir
+    if float(h.get("slide_time", 0.0)) > 0.0:
+        return
+    var cruise: Vector2 = wish_dir * float(h["equipment"]["move_speed"]) * speed_scale * _streak_move_multiplier(slot)
+    h["vel"] = cruise
+    if float(h.get("spring_time", 0.0)) > 0.0 and wish_dir.length_squared() > 0.1:
+        var boosted: Vector2 = Vector2(h["vel"]) + wish_dir.normalized() * SPRING_BOOST
+        h["vel"] = boosted
+
+func _pull_target_toward(target: int, user_pos: Vector2) -> void:
+    var h: Dictionary = heroes[target]
+    var to_user: Vector2 = Vector2(h["pos"]).direction_to(user_pos)
+    if to_user.length_squared() < 0.01:
+        return
+    h["launch_vel"] = to_user * PULL_LAUNCH
+    h["launch_time"] = maxf(float(h["launch_time"]), 0.20)
+    h["vel"] = Vector2.ZERO
+    heroes[target] = h
+
+func _apply_pull_pulse(slot: int, dt: float) -> void:
+    var user_pos: Vector2 = heroes[slot]["pos"]
+    for target in range(heroes.size()):
+        if target == slot:
+            continue
+        if not bool(heroes[target]["alive"]) or bool(heroes[target]["eliminated"]):
+            continue
+        if Vector2(heroes[target]["pos"]).distance_to(user_pos) > PULL_RADIUS:
+            continue
+        _pull_target_toward(target, user_pos)
+    for pickup_index in range(health_pickups.size()):
+        var pickup: Dictionary = health_pickups[pickup_index]
+        if not bool(pickup["active"]):
+            continue
+        var pickup_pos: Vector2 = pickup["pos"]
+        if pickup_pos.distance_to(user_pos) > PULL_RADIUS:
+            continue
+        var pulled: Vector2 = pickup_pos.move_toward(user_pos, 520.0 * dt)
+        pickup["pos"] = pulled
+        health_pickups[pickup_index] = pickup
+
+func _update_item_pulses(dt: float) -> void:
+    if mode != ITEM_POOL_MODE:
+        return
+    for slot in range(heroes.size()):
+        if not bool(heroes[slot]["alive"]) or bool(heroes[slot]["eliminated"]):
+            continue
+        if float(heroes[slot].get("pull_time", 0.0)) > 0.0:
+            _apply_pull_pulse(slot, dt)
+
+func _hero_in_own_pocket(slot: int) -> bool:
+    if slot < 0 or slot >= heroes.size():
+        return false
+    if float(heroes[slot].get("pocket_time", 0.0)) <= 0.0:
+        return false
+    var hero_pos: Vector2 = heroes[slot]["pos"]
+    return hero_pos.distance_to(Vector2(heroes[slot]["pos"])) <= POCKET_RADIUS
+
+func _try_use_active_item(slot: int) -> void:
+    if mode != ITEM_POOL_MODE:
+        _try_use_medkit(slot)
+        return
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    if not bool(h["alive"]) or bool(h["eliminated"]):
+        return
+    var kind := str(h.get("held_item", ""))
+    if kind == "":
+        return
+    match kind:
+        "medkit":
+            if float(h["hp"]) >= float(h["max_hp"]) - 0.5:
+                return
+            h["held_item"] = ""
+            heroes[slot] = h
+            var heal_amount := float(h["max_hp"]) * MEDKIT_HEAL_RATIO
+            _heal_hero(slot, heal_amount)
+            _add_effect(&"heal_pickup", Vector2(h["pos"]), 72.0, 0.45, Color("#6ef3a5"), "MEDKIT")
+            event_log.emit(tick, &"medkit_used", slot, -1, {"amount":heal_amount, "left":0})
+        "spring":
+            h["held_item"] = ""
+            h["hop_time"] = SPRING_AIR
+            h["hop_max"] = SPRING_AIR
+            h["hop_height"] = SPRING_LIFT
+            h["evade_time"] = maxf(float(h["evade_time"]), SPRING_EVADE)
+            h["spring_time"] = SPRING_AIR
+            var boost_dir: Vector2 = Vector2(h["vel"])
+            if boost_dir.length_squared() < 0.1:
+                boost_dir = Vector2(h["facing"])
+            if boost_dir.length_squared() > 0.1:
+                var boosted: Vector2 = Vector2(h["vel"]) + boost_dir.normalized() * SPRING_BOOST
+                h["vel"] = boosted
+            heroes[slot] = h
+            _add_effect(&"speed_streak", Vector2(h["pos"]), 90.0, 0.34, Color("#ffe066"), "SPRING", boost_dir)
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"spring"})
+        "slide":
+            h["held_item"] = ""
+            h["slide_time"] = SLIDE_DURATION
+            heroes[slot] = h
+            _add_effect(&"speed_streak", Vector2(h["pos"]), 70.0, 0.28, Color("#70e7ff"), "SLIDE")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"slide"})
+        "pull":
+            h["held_item"] = ""
+            h["pull_time"] = PULL_DURATION
+            heroes[slot] = h
+            _apply_pull_pulse(slot, FIXED_DT)
+            _add_effect(&"chain_vortex", Vector2(h["pos"]), PULL_RADIUS, 0.55, Color("#b78cff"), "PULL")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"pull"})
+        "pocket":
+            h["held_item"] = ""
+            h["pocket_time"] = POCKET_DURATION
+            heroes[slot] = h
+            _add_effect(&"guard", Vector2(h["pos"]), POCKET_RADIUS, 0.45, Color("#f4e2ff"), "POCKET")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"pocket"})
+
+func _cpu_consider_held_item(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var kind := str(h.get("held_item", ""))
+    if kind == "":
+        return
+    var hp_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
+    var should_use := false
+    match kind:
+        "medkit":
+            should_use = hp_ratio < 0.5 and rng.chance(0.30)
+        "pocket":
+            should_use = (not _hero_in_safe_zone(slot)) and rng.chance(0.22)
+        "pull":
+            var near := 0
+            for other in range(heroes.size()):
+                if other == slot or not bool(heroes[other]["alive"]):
+                    continue
+                if Vector2(h["pos"]).distance_to(Vector2(heroes[other]["pos"])) <= PULL_RADIUS:
+                    near += 1
+            should_use = near > 0 and rng.chance(0.12)
+        "spring":
+            should_use = rng.chance(0.06) and (hp_ratio < 0.42 or float(h["mobility_cd"]) > 0.8)
+        "slide":
+            should_use = rng.chance(0.08) and (h["action"] == &"CLOSE_RANGE" or h["action"] == &"SEEK_HEAL")
+    if should_use:
+        _try_use_active_item(slot)
+
 func _try_use_medkit(slot: int) -> void:
     if slot < 0 or slot >= heroes.size():
         return
@@ -2260,6 +2624,8 @@ func _down_hero(owner: int, target: int) -> void:
     else:
         death_velocity = death_velocity.normalized() * maxf(1550.0, death_velocity.length() * 1.35)
     knockouts.append({"slot":target, "pos":Vector2(h["pos"]), "vel":death_velocity, "time":2.15, "max_time":2.15, "bounces":0, "finished":false, "trail":[Vector2(h["pos"])], "equipment":str(h["equipment"]["id"])})
+    var death_drop := str(h.get("held_item", ""))
+    var death_pos: Vector2 = h["pos"]
     h["alive"] = false
     h["hp"] = 0.0
     h["respawn"] = 0.0
@@ -2282,7 +2648,14 @@ func _down_hero(owner: int, target: int) -> void:
     h["charge_time"] = 0.0
     h["deaths"] = int(h["deaths"]) + 1
     h["kill_streak"] = 0
+    h["held_item"] = ""
+    h["slide_time"] = 0.0
+    h["pull_time"] = 0.0
+    h["pocket_time"] = 0.0
+    h["spring_time"] = 0.0
     heroes[target] = h
+    if mode == ITEM_POOL_MODE and death_drop != "" and death_drop != "decoy":
+        _spawn_dropped_pickup(death_pos, death_drop, -1)
     _add_effect(&"death_burst", Vector2(h["pos"]), 260.0, 1.25, Color("#ff3349"), "", death_velocity.normalized())
     impact_ticks = maxi(impact_ticks, 32)
     last_down_slot = target
@@ -2412,6 +2785,8 @@ func _apply_safe_zone_damage(dt: float) -> void:
         if not bool(heroes[slot]["alive"]) or bool(heroes[slot]["eliminated"]):
             continue
         if _hero_in_safe_zone(slot):
+            continue
+        if _hero_in_own_pocket(slot):
             continue
         _damage_hero_environment(slot, amount, show_tick)
 

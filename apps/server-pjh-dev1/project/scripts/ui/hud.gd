@@ -198,7 +198,51 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
+func _held_item_label(kind: String) -> String:
+    match kind:
+        "medkit":
+            return "MEDKIT"
+        "spring":
+            return "SPRING"
+        "slide":
+            return "SLIDE"
+        "pull":
+            return "PULL"
+        "pocket":
+            return "POCKET"
+        _:
+            return "EMPTY"
+
+func _held_item_color(kind: String) -> Color:
+    match kind:
+        "medkit":
+            return Color("#6ef3a5")
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        _:
+            return Color("#6b7480")
+
 func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
+    if str(world.mode) == "item":
+        var kind := str(me.get("held_item", ""))
+        var label := _held_item_label(kind)
+        var usable := label != "EMPTY"
+        var accent: Color = _held_item_color(kind)
+        draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
+        draw_rect(rect, Color(accent, 0.85 if usable else 0.25), false, 2.0)
+        if kind == "medkit" and medkit_texture != null:
+            draw_texture_rect(medkit_texture, Rect2(rect.position + Vector2(10.0, 15.0), Vector2(34.0, 34.0)), false)
+        else:
+            draw_circle(rect.position + Vector2(27.0, 34.0), 12.0, Color(accent, 0.85 if usable else 0.28))
+        _text(rect.position + Vector2(52.0, 40.0), label, 16, accent if usable else Color("#6b7480"))
+        _text(rect.position + Vector2(10.0, 15.0), "E", 11, accent if usable else Color("#6b7480"))
+        return
     var carried := int(me.get("medkits", 0))
     var usable := carried > 0
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
@@ -224,7 +268,7 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SPACE", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SHIFT", 10, chevron)
     if ready:
         _text(rect.position + Vector2(48.0, 40.0), "대시", 15, Color.WHITE)
     else:
@@ -323,7 +367,7 @@ func _draw_critical(me: Dictionary) -> void:
         _text(Vector2(570.0, 692.0), "STUNNED  |  INPUT LOCKED", 20, Color("#ffe27a"), 460.0, HORIZONTAL_ALIGNMENT_CENTER)
     elif bool(me["alive"]) and float(me.get("root_time", 0.0)) > 0.0:
         draw_rect(Rect2(510.0, 660.0, 580.0, 48.0), Color(0.07, 0.025, 0.12, 0.90))
-        _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SPACE LOCKED - ATTACK/Q AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SHIFT/SPACE LOCKED - ATTACK/Q AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.last_down_ticks > 0 and world.last_down_slot >= 0:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]

@@ -12,7 +12,17 @@ var zodiac_textures: Array = []
 var island_texture: Texture2D = null
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var animal_atlas: Texture2D = null
+var bullet_atlas: Texture2D = null
 var lite_draw := false
+
+# lhj 4x3 atlas frames: Rat Ox Tiger Rabbit Snake Dragon Horse Goat Monkey Rooster Dog Pig
+# dagul slots:            쥐  소 호랑이  토끼   용    뱀    말   양   원숭이   닭    개  돼지
+const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
+const ANIMAL_COLS := 4
+const ANIMAL_ROWS := 3
+const BULLET_COLS := 4
+const BULLET_ROWS := 4
 
 func _ready() -> void:
     lite_draw = OS.has_feature("web")
@@ -21,6 +31,8 @@ func _ready() -> void:
     island_texture = _load_tex("res://assets/world/island_bg.png")
     gun_texture = _load_tex("res://assets/items/gun.png")
     medkit_texture = _load_tex("res://assets/items/medkit.png")
+    animal_atlas = _load_tex("res://assets/lhj/Tex_Animal_4x3.png")
+    bullet_atlas = _load_tex("res://assets/lhj/Tex_FX_Bullet_4x4_256x144.png")
 
 func _load_tex(path: String) -> Texture2D:
     if ResourceLoader.exists(path):
@@ -31,6 +43,43 @@ func _zodiac_texture(slot: int) -> Texture2D:
     if zodiac_textures.is_empty():
         return null
     return zodiac_textures[posmod(slot, 12)]
+
+
+func _animal_src_rect(slot: int) -> Rect2:
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+    var cell := Vector2(float(animal_atlas.get_width()) / float(ANIMAL_COLS), float(animal_atlas.get_height()) / float(ANIMAL_ROWS))
+    var col := frame % ANIMAL_COLS
+    var row := int(frame / ANIMAL_COLS)
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+
+func _bullet_src_rect(kind: String, tick: int) -> Rect2:
+    var row := 1
+    match kind:
+        "pellet":
+            row = 0
+        "burst", "bolt":
+            row = 1
+        "shell":
+            row = 2
+        "seeker":
+            row = 3
+        _:
+            row = 1
+    var col := posmod(tick / 3, BULLET_COLS)
+    var cell := Vector2(float(bullet_atlas.get_width()) / float(BULLET_COLS), float(bullet_atlas.get_height()) / float(BULLET_ROWS))
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+
+func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String) -> void:
+    if bullet_atlas == null:
+        return
+    var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
+    var src := _bullet_src_rect(kind, int(world.tick))
+    var dest := Rect2(Vector2(-28.0, -10.0), Vector2(56.0, 20.0))
+    draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
+    draw_texture_rect_region(bullet_atlas, dest, src)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -124,6 +173,40 @@ func _draw_covers() -> void:
         draw_circle(c - Vector2(base * 0.25, base * 0.30), base * 0.55, Color("#9aa1ac"))
         draw_circle(c + Vector2(base * 0.35, base * 0.25), base * 0.34, Color("#6a707a"))
 
+func _item_display_kind(pickup: Dictionary) -> String:
+    var kind := str(pickup.get("kind", ""))
+    if kind == "":
+        return "medkit"
+    if kind == "decoy":
+        return str(pickup.get("disguise", "medkit"))
+    return kind
+
+func _item_tint(kind: String) -> Color:
+    match kind:
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        _:
+            return Color("#6ef3a5")
+
+func _item_label(kind: String) -> String:
+    match kind:
+        "spring":
+            return "SPRING"
+        "slide":
+            return "SLIDE"
+        "pull":
+            return "PULL"
+        "pocket":
+            return "POCKET"
+        _:
+            return "MEDKIT"
+
 func _draw_pickups() -> void:
     for pickup in world.health_pickups:
         if not bool(pickup["active"]):
@@ -138,21 +221,28 @@ func _draw_pickups() -> void:
                 draw_texture_rect(gun_texture, Rect2(pickup_pos - Vector2(24.0, 14.0) * pulse, Vector2(48.0, 28.0) * pulse), false)
             draw_string(GameFont.get_font(), pickup_pos + Vector2(-60.0, 44.0), gun_name, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 12, Color("#ffd166"))
             continue
+        var show_kind := _item_display_kind(pickup)
+        var tint: Color = _item_tint(show_kind)
         var magnet_slot := int(pickup.get("magnet_slot", -1))
         if magnet_slot >= 0 and magnet_slot < world.heroes.size():
             var magnet_dir := pickup_pos.direction_to(Vector2(world.heroes[magnet_slot]["pos"]))
             for trail_index in range(3):
                 var side := magnet_dir.orthogonal() * (float(trail_index) - 1.0) * 7.0
-                draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color("#6ef3a5", 0.72), 4.0)
-            draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color("#d9ffe8"), 5.0)
+                draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color(tint, 0.72), 4.0)
+            draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color(tint, 0.95), 5.0)
         else:
-            draw_circle(pickup_pos, 24.0 * pulse, Color(0.18, 0.95, 0.52, 0.16))
-            draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, Color("#6ef3a5"), 3.5)
-        if medkit_texture != null:
+            draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
+            draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
+        if show_kind == "medkit" and medkit_texture != null:
             draw_texture_rect(medkit_texture, Rect2(pickup_pos - Vector2(19.0, 19.0) * pulse, Vector2(38.0, 38.0) * pulse), false)
-        else:
+        elif show_kind == "medkit":
             draw_rect(Rect2(pickup_pos + Vector2(-5.0, -16.0), Vector2(10.0, 32.0)), Color("#d9ffe8"))
             draw_rect(Rect2(pickup_pos + Vector2(-16.0, -5.0), Vector2(32.0, 10.0)), Color("#d9ffe8"))
+        else:
+            draw_circle(pickup_pos, 11.0 * pulse, Color(tint, 0.92))
+            draw_arc(pickup_pos, 16.0 * pulse, 0.0, TAU, 20, Color.WHITE, 2.0)
+        if show_kind != "medkit" or str(pickup.get("kind", "")) != "":
+            draw_string(GameFont.get_font(), pickup_pos + Vector2(-48.0, 42.0), _item_label(show_kind), HORIZONTAL_ALIGNMENT_CENTER, 96.0, 11, tint)
 
 func _draw_cores() -> void:
     for core in world.cores:
@@ -277,11 +367,18 @@ func _draw_projectiles() -> void:
             "shield":
                 var shield_side := direction.orthogonal()
                 draw_colored_polygon(PackedVector2Array([projectile_pos - shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 14.0 + direction * 17.0, projectile_pos + direction * 26.0, projectile_pos - shield_side * 14.0 + direction * 17.0]), Color("#8de1ff"))
+            "pellet", "burst", "bolt":
+                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
+                _draw_lhj_bullet(projectile_pos, direction, kind)
             _:
-                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
-                draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
-                draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
-                draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
+                if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
+                    _draw_lhj_bullet(projectile_pos, direction, kind)
+                else:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
+                    draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
+                    draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
+                    draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
 
 func _draw_zones() -> void:
     for zone in world.zones:
@@ -460,18 +557,47 @@ func _draw_effects() -> void:
         if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
             draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
 
-func _draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0) -> void:
-    draw_circle(pos + Vector2(2.0, 7.0), 24.0, Color(0.0, 0.0, 0.0, 0.22 * opacity))
+func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
+    var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
+    var size_mul: float = lerpf(1.0, 0.52, height_t)
+    var alpha_mul: float = lerpf(1.0, 0.38, height_t)
+    var radius_x: float = 26.0 * size_mul
+    var radius_y: float = 11.5 * size_mul
+    var center: Vector2 = ground_pos + Vector2(1.5, 34.0)
+    draw_set_transform(center, 0.0, Vector2(1.0, radius_y / radius_x))
+    var rings: Array = [
+        [1.00, 0.07],
+        [0.88, 0.10],
+        [0.74, 0.13],
+        [0.58, 0.16],
+        [0.40, 0.17],
+        [0.22, 0.14]
+    ]
+    for ring in rings:
+        var ring_scale: float = float(ring[0])
+        var ring_alpha: float = float(ring[1])
+        draw_circle(Vector2.ZERO, radius_x * ring_scale, Color(0.0, 0.0, 0.0, ring_alpha * alpha_mul * opacity))
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE) -> void:
+    _draw_blob_shadow(pos, hop_lift, opacity)
     draw_arc(pos, 30.0, 0.0, TAU, 28, Color(colors[slot], 0.85 * opacity), 3.5)
-    var tex := _zodiac_texture(slot)
-    if tex != null:
-        var flip := -1.0 if aim.x < -0.05 else 1.0
-        draw_set_transform(pos, 0.0, Vector2(flip, 1.0))
-        draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, Color(1.0, 1.0, 1.0, opacity))
+    var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+    var flip: float = -1.0 if aim.x < -0.05 else 1.0
+    var draw_scale: Vector2 = Vector2(flip * hop_scale.x, hop_scale.y)
+    if animal_atlas != null:
+        draw_set_transform(sprite_pos, 0.0, draw_scale)
+        draw_texture_rect_region(animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), _animal_src_rect(slot), Color(1.0, 1.0, 1.0, opacity))
         draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
     else:
-        draw_circle(pos, 22.0, Color(colors[slot], opacity))
-        draw_arc(pos, 22.0, 0.0, TAU, 24, Color(0.0, 0.0, 0.0, 0.8 * opacity), 3.0)
+        var tex := _zodiac_texture(slot)
+        if tex != null:
+            draw_set_transform(sprite_pos, 0.0, draw_scale)
+            draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, Color(1.0, 1.0, 1.0, opacity))
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+        else:
+            draw_circle(sprite_pos, 22.0, Color(colors[slot], opacity))
+            draw_arc(sprite_pos, 22.0, 0.0, TAU, 24, Color(0.0, 0.0, 0.0, 0.8 * opacity), 3.0)
 
 func _draw_hero_gun(pos: Vector2, aim: Vector2, opacity: float = 1.0) -> void:
     var dir := aim.normalized() if aim.length_squared() > 0.1 else Vector2.RIGHT
@@ -500,14 +626,19 @@ func _draw_knockouts() -> void:
         var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
         _draw_motion_trail(knockout.get("trail", []), colors[knockout_slot], 9.0, knockout_fade)
         var knockout_pos: Vector2 = knockout["pos"]
-        var tex := _zodiac_texture(knockout_slot)
-        if tex != null:
-            var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+        var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+        if animal_atlas != null:
             draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
-            draw_texture_rect(tex, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), false, Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
+            draw_texture_rect_region(animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), _animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
             draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
         else:
-            draw_circle(knockout_pos, 22.0, Color(colors[knockout_slot], 0.72 * knockout_fade))
+            var tex := _zodiac_texture(knockout_slot)
+            if tex != null:
+                draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
+                draw_texture_rect(tex, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), false, Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
+                draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            else:
+                draw_circle(knockout_pos, 22.0, Color(colors[knockout_slot], 0.72 * knockout_fade))
 
 func _draw_heroes() -> void:
     for hero in world.heroes:
@@ -552,12 +683,23 @@ func _draw_heroes() -> void:
             draw_arc(pos, winner_pulse + 11.0, float(world.tick) * 0.025, float(world.tick) * 0.025 + PI * 1.45, 38, Color(Color.WHITE, 0.72), 3.0)
             var crown_y := -86.0 + sin(float(world.tick) * 0.08) * 2.0
             draw_colored_polygon(PackedVector2Array([pos + Vector2(-22.0, crown_y + 17.0), pos + Vector2(-20.0, crown_y), pos + Vector2(-7.0, crown_y + 10.0), pos + Vector2(0.0, crown_y - 6.0), pos + Vector2(7.0, crown_y + 10.0), pos + Vector2(20.0, crown_y), pos + Vector2(22.0, crown_y + 17.0)]), Color("#ffd166"))
-        _draw_hero_sprite(pos, slot, aim)
-        _draw_hero_gun(pos, aim)
+        var hop_time: float = float(hero.get("hop_time", 0.0))
+        var hop_lift: float = 0.0
+        var hop_scale: Vector2 = Vector2.ONE
+        if hop_time > 0.0:
+            var hop_max: float = maxf(0.001, float(hero.get("hop_max", 0.30)))
+            var hop_t: float = clampf(1.0 - hop_time / hop_max, 0.0, 1.0)
+            var hop_height: float = float(hero.get("hop_height", 19.0))
+            hop_lift = hop_height * sin(PI * hop_t)
+            var hop_squash: float = cos(PI * hop_t)
+            hop_scale = Vector2(1.00 + 0.12 * hop_squash, 1.02 - 0.14 * hop_squash)
+        var body_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+        _draw_hero_sprite(pos, slot, aim, 1.0, hop_lift, hop_scale)
+        _draw_hero_gun(body_pos, aim)
         var hp_ratio := maxf(0.0, float(hero["hp"]) / float(hero["max_hp"]))
-        _draw_nametag(pos, slot, hp_ratio, 1.0, str(hero.get("display_name", "")))
+        _draw_nametag(body_pos, slot, hp_ratio, 1.0, str(hero.get("display_name", "")))
         if int(hero.get("kill_streak", 0)) >= 2:
-            draw_string(GameFont.get_font(), pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
+            draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
         if slot > 0:
             var ultimate_ratio := clampf(float(hero["ultimate_charge"]) / world.ULTIMATE_MAX, 0.0, 1.0)
             if ultimate_ratio >= 1.0:
@@ -565,6 +707,18 @@ func _draw_heroes() -> void:
                 draw_arc(pos, ultimate_pulse, 0.0, TAU, 32, Color(Color("#ff5d91"), 0.72), 3.0)
                 draw_rect(Rect2(pos + Vector2(28.0, -40.0), Vector2(36.0, 17.0)), Color("#ff5d91"))
                 draw_string(GameFont.get_font(), pos + Vector2(30.0, -27.0), "ULT", HORIZONTAL_ALIGNMENT_CENTER, 32.0, 10, Color.WHITE)
+
+func _draw_pocket_bubbles() -> void:
+    for hero in world.heroes:
+        if not bool(hero.get("alive", false)):
+            continue
+        if float(hero.get("pocket_time", 0.0)) <= 0.0:
+            continue
+        var bubble_pos: Vector2 = hero["pos"]
+        var pulse := 150.0 + sin(float(world.tick) * 0.14 + float(hero.get("slot", 0))) * 4.0
+        draw_circle(bubble_pos, pulse, Color(0.92, 0.95, 1.0, 0.10))
+        draw_arc(bubble_pos, pulse, 0.0, TAU, 48, Color(0.90, 0.94, 1.0, 0.55), 3.0)
+        draw_arc(bubble_pos, pulse * 0.70, 0.0, TAU, 32, Color(0.78, 0.86, 1.0, 0.22), 2.0)
 
 func _draw() -> void:
     if world == null:
@@ -579,4 +733,5 @@ func _draw() -> void:
     _draw_projectiles()
     _draw_effects()
     _draw_knockouts()
+    _draw_pocket_bubbles()
     _draw_heroes()
