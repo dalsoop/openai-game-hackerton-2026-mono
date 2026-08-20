@@ -1,0 +1,99 @@
+{
+  "game": "gang_up",
+  "target_skill": "first-time human average + 10~20 percent",
+  "default_profile": {
+    "id": "veteran_default",
+    "description": "초행 평균 인간보다 약간 잘하지만, 숨은 정보·프레임 완벽 반응을 사용하지 않는 기본 CPU",
+    "perceptionHz": 10,
+    "pathPlanHz": 5,
+    "highLevelDecisionHz": 4,
+    "reactionMs": {
+      "mean": 220,
+      "stddev": 45,
+      "min": 130,
+      "max": 390
+    },
+    "commandJitterMs": {
+      "min": 0,
+      "max": 70
+    },
+    "predictionHorizonSec": {
+      "min": 0.75,
+      "max": 1.25
+    },
+    "actionCommitSec": {
+      "min": 0.35,
+      "max": 0.9
+    },
+    "switchHysteresis": 1.15,
+    "positionErrorUnits": {
+      "mean": 7,
+      "max": 22
+    },
+    "memoryHalfLifeSec": 8,
+    "mistakeModel": {
+      "lowPressureDecisionError": 0.025,
+      "highPressureDecisionError": 0.1,
+      "repeatSameErrorLimit": 1,
+      "neverFabricateInputLoss": true
+    },
+    "fairness": {
+      "readsHiddenState": false,
+      "usesExactFutureRng": false,
+      "ignoresFogOrOcclusion": false,
+      "sharesOnlyPublicPings": true,
+      "canBeFeinted": true
+    }
+  },
+  "personalities": [
+    {
+      "id": "balanced",
+      "reaction_scale": 1.0,
+      "risk": 0.55,
+      "social_aggression": 0.45,
+      "mistake_scale": 1.0
+    },
+    {
+      "id": "bold",
+      "reaction_scale": 0.86,
+      "risk": 0.78,
+      "social_aggression": 0.68,
+      "mistake_scale": 1.18
+    },
+    {
+      "id": "careful",
+      "reaction_scale": 1.18,
+      "risk": 0.3,
+      "social_aggression": 0.22,
+      "mistake_scale": 0.82
+    },
+    {
+      "id": "greedy",
+      "reaction_scale": 0.94,
+      "risk": 0.68,
+      "social_aggression": 0.76,
+      "mistake_scale": 1.1
+    },
+    {
+      "id": "helper",
+      "reaction_scale": 1.06,
+      "risk": 0.46,
+      "social_aggression": 0.18,
+      "mistake_scale": 0.9
+    },
+    {
+      "id": "chaotic_but_fair",
+      "reaction_scale": 1.12,
+      "risk": 0.62,
+      "social_aggression": 0.58,
+      "mistake_scale": 1.32
+    }
+  ],
+  "fairness_invariants": [
+    "no hidden state reads",
+    "no exact future RNG reads",
+    "same collision, cooldown and resource rules as human",
+    "reaction delay applied after observation",
+    "mistakes chosen from plausible alternatives only"
+  ]
+}

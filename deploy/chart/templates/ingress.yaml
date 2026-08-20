@@ -1,0 +1,72 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.tls.enabled }}
+  tls:
+    - hosts:
+        - "*.external.kr"
+      secretName: {{ .Values.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: "*.external.kr"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "hackertone-games.fullname" . }}-web
+                port:
+                  number: 80
+{{- if and .Values.tls.enabled .Values.tls.issuer.create }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.tls.issuer.name }}
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+spec:
+  acme:
+    email: {{ .Values.tls.issuer.email | quote }}
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: {{ .Values.tls.issuer.name }}-account
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: {{ .Values.tls.issuer.existingCloudflareSecret }}
+              key: api-token
+        selector:
+          dnsZones:
+            {{- toYaml .Values.tls.issuer.dnsZones | nindent 12 }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.tls.secretName }}
+  issuerRef:
+    {{- if .Values.tls.issuer.clusterIssuer }}
+    kind: ClusterIssuer
+    name: {{ .Values.tls.issuer.clusterIssuer }}
+    {{- else }}
+    kind: Issuer
+    name: {{ .Values.tls.issuer.name }}
+    {{- end }}
+  dnsNames:
+    - "*.external.kr"
+{{- end }}

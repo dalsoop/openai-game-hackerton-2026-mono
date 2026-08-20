@@ -3,46 +3,48 @@
 > **OpenAI 게임 해커톤** 제출용 파티게임 모노레포.  
 > 형제 레포: [`ax-hackerton-2026-mono`](https://github.com/dalsoop/ax-hackerton-2026-mono) (AX 해커톤).
 
-로컬 협동 **관성 레이싱** 파티 미니게임.  
-친구와 한 키보드로 달리는 초갈 감성 — **싱글 플레이 없음** (파티 전제).
+제출 엔트리는 Godot **다굴(gang-up) 하나**다. 모드 5종은 그 로비 안에 있다.
 
 ## 제품 한 줄
 
-> 관성이 빡센 조작감 + 로컬 협동만 되는 짧은 레이스. 혼자서는 못 함. OpenAI 게임 해커톤 엔트리.
+> 개인전 다굴 배틀로얄. 로비에서 방을 만들면 허브가 시뮬하고, 아니면 인간 1 + CPU.
 
-## 레포 구조 (`ax-hackerton-2026-mono` 스타일)
+원본은 `game-pjh-gang-up`에 두고, 배포·작업은 `apps/server-*`에서 한다. 협업은 `apps/README.md`, 에이전트는 `AGENTS.md`.
+
+## 레포 구조
 
 ```text
-openai-game-hackerton-2026-mono/
-├── AGENTS.md                 # 에이전트·사람 공통 규칙
-├── README.md
-├── apps/
-│   ├── game-pjh-*/           # 박진혁 Godot 게임 5종
-│   ├── game-yjh-*/           # 윤정한 Godot 게임 5종 (싱글 2 + 멀티 3)
-│   └── app-yjh-all-games-starter/  # 전 게임 바로 체험 런처 (Rust+egui)
+├── AGENTS.md
+├── apps/game-pjh-gang-up/     # 원본. 수정하지 않음
+├── apps/server-yjh-dev1/      # 정한 개발환경 1
+├── apps/server-pjh-dev1/      # 크리엘 개발환경 1
+├── apps/server-pig-dev1/      # Figix 개발환경 1
+├── apps/server-*-dev2|3/      # 그 사람의 개발환경 2·3
+├── apps/server-prod/          # 제출·운영
+├── apps/server-board/         # 배포 보드
+├── deploy/                   # chart(Helm) · env.yaml · 웹 이미지
 ├── docs/
-│   ├── DESIGN.md             # 제품·조작·튜닝 설계
-│   └── FEEL-TUNING.md        # 조작감 조율 플레이북
-└── tools/                    # 공용 스크립트
+└── tools/
 ```
 
 ## 빠른 시작
 
 ```bash
-# 전 게임 런처 (Rust 툴체인 + Godot 4 필요)
-cd apps/app-yjh-all-games-starter && cargo run
+godot --path apps/server-yjh-dev1/project
 
-# 개별 게임 직접 실행
-godot --path apps/game-yjh-slither          # yjh (project.godot 루트)
-godot --path apps/game-pjh-hiking/project   # pjh (project/ 하위)
+cd apps/server-yjh-dev1 && npm install && npm start
+# 같은 Godot에서 로비 → 방만들기. 웹은 같은 호스트 /gang-up/ws
 ```
 
-각 게임 조작·모드는 앱별 `README.md` 참조.
+웹: `https://server-yjh-dev1.external.kr/`  
+보드: `https://server-board.external.kr/`
 
 ## 협업
 
-- 브랜치: `feat/<이름>-<주제>` → PR → `main`
-- 커밋: 한국어·영어 혼용 가능, **why** 한 줄
+- 배포용으로 브랜치를 새로 파지 않는다. URL은 `apps/` 폴더명
+- 올렸는지는 `python3 deploy/scripts/status.py`
+- 작업: 자기 `apps/server-<이름>-dev1|2|3/` 또는 `server-prod`. 웹은 전부 켜져 있다.
+- 크리엘 원본: `apps/game-pjh-gang-up/` (수정하지 않음)
 - 비밀키·개인 토큰은 커밋 금지
 
 ## 팀

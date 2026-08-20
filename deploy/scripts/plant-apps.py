@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""apps/*/hackertone.yaml → 카탈로그. 코드는 apps/ 에만 둔다."""
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+APPS = ROOT / "apps"
+OUT_VALUES = ROOT / "deploy" / "chart" / "values-games.yaml"
+BOARD_SLOTS = ROOT / "apps" / "server-board" / "project" / "web" / "slots.json"
+ENV_FILE = ROOT / "deploy" / "env.yaml"
+REPO = "dalsoop/openai-game-hackerton-2026-mono"
+HUB_REGISTRY = "harbor.50.internal.xz/library"
+
+
+def tree_hash(root: Path) -> str:
+    digest = hashlib.sha256()
+    if not root.exists():
+        return "missing"
+    files = [root] if root.is_file() else sorted(p for p in root.rglob("*") if p.is_file())
+    for path in files:
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        rel = path.name if root.is_file() else path.relative_to(root).as_posix()
+        digest.update(rel.encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+def hub_image_tag(folder: Path) -> str:
+    parts = [
+        folder / "Dockerfile",
+        folder / "package.json",
+        folder / "package-lock.json",
+        folder / "src",
+        folder / "public",
+    ]
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(tree_hash(part).encode())
+    return digest.hexdigest()[:12]
+
+
+def parse_yaml(text: str) -> dict:
+    try:
+        import yaml  # type: ignore
+
+        data = yaml.safe_load(text) or {}
+        if not isinstance(data, dict):
+            raise ValueError("root must be a mapping")
+        return data
+    except ImportError:
+        pass
+    root: dict = {}
+    stack: list[tuple[int, dict]] = [(-1, root)]
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        key, _, rest = raw.lstrip().partition(":")
+        val = rest.strip()
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+        parent = stack[-1][1]
+        if val == "":
+            child: dict = {}
+            parent[key] = child
+            stack.append((indent, child))
+            continue
+        if val in ("true", "false"):
+            parent[key] = val == "true"
+        elif val.startswith('"') and val.endswith('"'):
+            parent[key] = val[1:-1]
+        else:
+            parent[key] = val
+    return root
+
+
+def main() -> None:
+    games = []
+    slots = []
+    hubs = []
+    for path in sorted(APPS.glob("*/hackertone.yaml")):
+        folder = path.parent.name
+        if not folder.startswith("server-"):
+            continue
+        data = parse_yaml(path.read_text())
+        kind = data.get("kind")
+        web = data.get("web") or {}
+        export_dir = path.parent / str(web.get("exportDir", "project/web"))
+        has_export = export_dir.is_dir() and any(export_dir.iterdir())
+        hub_on = bool((data.get("hub") or {}).get("enabled"))
+        host = f"{folder}.external.kr"
+        slots.append(
+            {
+                "folder": folder,
+                "id": data.get("id", folder),
+                "title": data.get("title", folder),
+                "blurb": data.get("blurb", ""),
+                "web": bool(web.get("enabled")),
+                "hub": hub_on,
+                "hasExport": has_export,
+                "url": f"https://{host}/",
+            }
+        )
+        if kind == "game" and web.get("enabled"):
+            gid = data["id"]
+            games.append(
+                {
+                    "folder": folder,
+                    "id": gid,
+                    "title": data.get("title", gid),
+                    "blurb": data.get("blurb", ""),
+                    "players": data.get("players", ""),
+                }
+            )
+        if (data.get("hub") or {}).get("enabled"):
+            hubs.append(
+                {
+                    "folder": folder,
+                    "id": data["id"],
+                    "pathPrefix": (data.get("hub") or {}).get("pathPrefix", "/gang-up"),
+                    "image": f"{HUB_REGISTRY}/{folder}",
+                    "tag": hub_image_tag(path.parent),
+                }
+            )
+    env = "dev1"
+    if ENV_FILE.is_file():
+        for line in ENV_FILE.read_text().splitlines():
+            if line.startswith("env:"):
+                env = line.split(":", 1)[1].strip() or env
+                break
+    catalog = {
+        "repo": REPO,
+        "env": env,
+        "hubFolder": hubs[0]["folder"] if hubs else "",
+        "hubFolders": [item["folder"] for item in hubs],
+        "board": "https://server-board.external.kr/",
+        "slots": slots,
+    }
+    slots_text = json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
+    BOARD_SLOTS.parent.mkdir(parents=True, exist_ok=True)
+    BOARD_SLOTS.write_text(slots_text)
+    lines = ["# generated by deploy/scripts/plant-apps.py — do not edit", "games:"]
+    if not games:
+        lines.append("  []")
+    for g in games:
+        lines.append(f"  - folder: {g['folder']}")
+        lines.append(f"    id: {g['id']}")
+    lines.append("hubs:")
+    if not hubs:
+        lines.append("  []")
+    for item in hubs:
+        lines.append(f"  - folder: {item['folder']}")
+        lines.append(f"    id: {item['id']}")
+        lines.append(f"    pathPrefix: {item['pathPrefix']}")
+        lines.append(f"    image: {item['image']}")
+        lines.append(f"    tag: {item['tag']}")
+    OUT_VALUES.write_text("\n".join(lines) + "\n")
+    print(f"wrote {BOARD_SLOTS.relative_to(ROOT)} ({len(slots)} slots)")
+    print(f"wrote {OUT_VALUES.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-attach
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+data:
+  attach-apps.sh: |
+{{ .Files.Get "files/attach-apps.sh" | nindent 4 }}

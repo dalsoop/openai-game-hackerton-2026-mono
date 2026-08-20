@@ -19,3 +19,12 @@ export_credentials.cfg
 # Godot web export output (built artifact — regenerate with export)
 apps/game-yjh-*/web/
 apps/game-lhj-*/web/
+apps/game-*/project/web/
+apps/server-*/project/web/
+!apps/server-board/project/web/
+!apps/server-board/project/web/**
+.backups/
+deploy/.godot-cache/
+deploy/usability/last-report.json
+__pycache__/
+*.pyc
