@@ -284,7 +284,7 @@ func _physics_process(_delta: float) -> void:
     var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
     var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
     if net_active:
-        var dash_held: bool = Input.is_key_pressed(KEY_SPACE) or (touch != null and touch.dash_held)
+        var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
         var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
         world.present(1.0 / 60.0)
         hud.net_rtt_ms = int(hub.rtt_ms)
@@ -294,7 +294,8 @@ func _physics_process(_delta: float) -> void:
         previous_right_mouse = equipment_held
     else:
         var ultimate_edge := _edge(KEY_Q)
-        var mobility_edge := _edge(KEY_SPACE)
+        var mobility_edge := _edge(KEY_SHIFT)
+        var hop_edge := _edge(KEY_SPACE)
         var medkit_edge := _edge(KEY_E)
         if touch != null:
             ultimate_edge = touch.consume_ult() or ultimate_edge
@@ -309,6 +310,7 @@ func _physics_process(_delta: float) -> void:
             "equipment_released":not equipment_held and previous_right_mouse,
             "ultimate":ultimate_edge,
             "mobility":mobility_edge,
+            "hop":hop_edge,
             "medkit":medkit_edge
         }
         previous_right_mouse = equipment_held
