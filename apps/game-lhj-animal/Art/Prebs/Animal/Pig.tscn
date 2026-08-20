@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dnxf1da7sk0ke"]
+
+[ext_resource type="Texture2D" uid="uid://b7ts1rihjc2yu" path="res://Art/Textures/Tex_Animal_4x3.png" id="1_5f1uk"]
+
+[node name="Pig" type="Node2D" unique_id=1321753301]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=410902824]
+position = Vector2(7.825, -100.585)
+texture = ExtResource("1_5f1uk")
+hframes = 4
+vframes = 3
+frame = 11
+
+[node name="Gun Socket" type="Node2D" parent="Sprite2D" unique_id=1432158526]
+position = Vector2(-54.89, 28.585)

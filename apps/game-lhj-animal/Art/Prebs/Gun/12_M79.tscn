@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://bh0xwsxb4dbcm"]
+
+[ext_resource type="Script" uid="uid://cymfkpla7lrpy" path="res://Effect.gd" id="1_lwt16"]
+[ext_resource type="Texture2D" uid="uid://dgi4a3wfv1js1" path="res://Art/Textures/Tex_Gun_4x3.png" id="2_3y1qp"]
+[ext_resource type="PackedScene" path="res://Art/Prebs/Effects/MuzzleFlash.tscn" id="4_muzzle"]
+
+[node name="12_M79" type="Node2D" unique_id=2096763628]
+script = ExtResource("1_lwt16")
+MuzzleFlashArchetypeIndex = 2
+BulletArchetypeIndex = 2
+ImpactArchetypeIndex = 2
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=881015329]
+scale = Vector2(0.645, 0.645)
+texture = ExtResource("2_3y1qp")
+offset = Vector2(9.302326, -4.651169)
+hframes = 4
+vframes = 3
+frame = 11
+
+[node name="MuzzleSocket" type="Node2D" parent="." unique_id=581337852]
+position = Vector2(120, -20)
+
+[node name="MuzzleFlash" parent="MuzzleSocket" unique_id=1334863732 instance=ExtResource("4_muzzle")]

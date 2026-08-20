@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://MuzzleFlash.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://Art/Textures/Tex_Fx_MuzzleFlash_4x3.png" id="2_texture"]
+
+[node name="MuzzleFlash" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+position = Vector2(49.536, 0)
+scale = Vector2(0.74175, 0.74175)
+texture = ExtResource("2_texture")
+hframes = 4
+vframes = 3

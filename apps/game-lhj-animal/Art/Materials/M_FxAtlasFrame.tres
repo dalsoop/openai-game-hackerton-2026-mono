@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bosi3y7nryu6x"]
+
+[ext_resource type="Shader" uid="uid://h7le5c62nxqt" path="res://Art/Shaders/Fx_AtlasFrame.gdshader" id="1"]
+
+[resource]
+shader = ExtResource("1")
+shader_parameter/columns = 4
+shader_parameter/rows = 3

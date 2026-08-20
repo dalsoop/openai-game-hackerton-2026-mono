@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://BulletVisual.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://Art/Textures/Tex_FX_Bullet_4x4_256x144.png" id="2_texture"]
+
+[node name="BulletVisual" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_texture")
+hframes = 4
+vframes = 4
