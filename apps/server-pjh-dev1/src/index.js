@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import http from "node:http";
 import crypto from "node:crypto";
 import { WebSocketServer } from "ws";
+import promClient from "prom-client";
 import { MAX_PLAYERS, MODES, TICK_HZ } from "./modes.js";
 import { applyInput, createMatch, snapshot, step } from "./sim.js";
 
@@ -12,6 +13,18 @@ const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../p
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
 const GRACE_LOBBY_MS = 20_000;
 const GRACE_PLAY_MS = 60_000;
+const SERVER_START = Date.now();
+const SLOT = process.env.SLOT_FOLDER || "server-pjh-dev1";
+const promRegister = new promClient.Registry();
+promRegister.setDefaultLabels({ slot: SLOT });
+promClient.collectDefaultMetrics({ register: promRegister });
+const gaugeClients = new promClient.Gauge({ name: "gangup_clients_total", help: "Connected clients", registers: [promRegister] });
+const gaugeClientsPlaying = new promClient.Gauge({ name: "gangup_clients_playing", help: "Clients in active matches", registers: [promRegister] });
+const gaugeRooms = new promClient.Gauge({ name: "gangup_rooms_total", help: "Total rooms", registers: [promRegister] });
+const gaugeRoomsPlaying = new promClient.Gauge({ name: "gangup_rooms_playing", help: "Rooms in playing phase", registers: [promRegister] });
+const gaugeRoomsLobby = new promClient.Gauge({ name: "gangup_rooms_lobby", help: "Rooms in lobby phase", registers: [promRegister] });
+const histRtt = new promClient.Histogram({ name: "gangup_rtt_ms", help: "Player RTT in ms", buckets: [5, 10, 25, 50, 100, 200, 500, 1000], registers: [promRegister] });
+const gaugeUptime = new promClient.Gauge({ name: "gangup_uptime_seconds", help: "Server uptime in seconds", registers: [promRegister] });
 let nextId = 1;
 let nextRoom = 1;
 const clients = new Map();
@@ -263,6 +276,26 @@ const server = http.createServer((req, res) => {
     }));
     return;
   }
+  if (pathname === "/metrics" || pathname === "/gang-up/metrics") {
+    promRegister.metrics().then((metrics) => {
+      res.writeHead(200, { "content-type": promRegister.contentType, "access-control-allow-origin": "*", "cache-control": "no-store" });
+      res.end(metrics);
+    });
+    return;
+  }
+  if (pathname === "/status" || pathname === "/gang-up/status") {
+    const alive = [...clients.values()].filter((c) => !c.dead);
+    const rtts = alive.map((c) => c.rtt).filter((r) => r > 0);
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
+    res.end(JSON.stringify({
+      ok: true, slot: SLOT, uptime: Math.floor((Date.now() - SERVER_START) / 1000), tickHz: TICK_HZ,
+      clients: { total: alive.length, playing: alive.filter((c) => rooms.get(c.roomId)?.phase === "playing").length },
+      ping: { avg: rtts.length ? Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length) : 0, min: rtts.length ? Math.min(...rtts) : 0, max: rtts.length ? Math.max(...rtts) : 0 },
+      players: alive.map((c) => ({ id: c.id, name: c.name, rtt: c.rtt, roomId: c.roomId, phase: c.roomId ? rooms.get(c.roomId)?.phase ?? null : null })),
+      rooms: [...rooms.values()].map((r) => ({ id: r.id, mode: r.mode, title: r.title, phase: r.phase, playerCount: livingIds(r).length })),
+    }));
+    return;
+  }
   const url = new URL(req.url || "/", "http://localhost");
   let file = url.pathname === "/" ? "/index.html" : url.pathname;
   const full = path.normalize(path.join(PUBLIC_DIR, file));
@@ -293,6 +326,7 @@ wss.on("connection", (ws) => {
     dead: false,
     deadAt: 0,
     dropTimer: null,
+    rtt: 0,
   };
   clients.set(client.id, client);
   send(ws, { t: "welcome", id: client.id, resume: client.resume, modes: MODES, max: MAX_PLAYERS });
@@ -324,7 +358,11 @@ wss.on("connection", (ws) => {
 function handleMessage(client, msg) {
   const t = msg.t;
   if (t === "ping") {
-    send(client.ws, { t: "pong" });
+    send(client.ws, { t: "pong", ts: msg.ts });
+    return;
+  }
+  if (t === "pong") {
+    if (typeof msg.ts === "number") client.rtt = Date.now() - msg.ts;
     return;
   }
   if (t === "hello") {
@@ -444,10 +482,22 @@ function handleMessage(client, msg) {
 }
 
 setInterval(() => {
+  const alive = [...clients.values()].filter((c) => !c.dead);
+  gaugeClients.set(alive.length);
+  gaugeClientsPlaying.set(alive.filter((c) => rooms.get(c.roomId)?.phase === "playing").length);
+  gaugeRooms.set(rooms.size);
+  gaugeRoomsPlaying.set([...rooms.values()].filter((r) => r.phase === "playing").length);
+  gaugeRoomsLobby.set([...rooms.values()].filter((r) => r.phase === "lobby").length);
+  gaugeUptime.set(Math.floor((Date.now() - SERVER_START) / 1000));
+  for (const c of alive) { if (c.rtt > 0) histRtt.observe(c.rtt); }
+}, 5_000);
+
+setInterval(() => {
   for (const c of clients.values()) {
     if (!c.dead && c.ws.readyState === 1) {
       try {
         c.ws.ping();
+        send(c.ws, { t: "ping", ts: Date.now() });
       } catch {
         /* ignore */
       }

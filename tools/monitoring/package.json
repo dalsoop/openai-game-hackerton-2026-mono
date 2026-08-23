@@ -1,0 +1,8 @@
+{
+  "name": "gangup-monitoring",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "prom-client": "^15.1.3"
+  }
+}
