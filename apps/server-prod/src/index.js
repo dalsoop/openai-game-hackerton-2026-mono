@@ -297,7 +297,8 @@ const server = http.createServer((req, res) => {
     return;
   }
   const url = new URL(req.url || "/", "http://localhost");
-  let file = url.pathname === "/" ? "/index.html" : url.pathname;
+  const raw = url.pathname.replace(/^\/gang-up/, "") || "/";
+  let file = raw === "/" ? "/index.html" : raw;
   const full = path.normalize(path.join(PUBLIC_DIR, file));
   if (!full.startsWith(PUBLIC_DIR)) {
     res.writeHead(403).end();
