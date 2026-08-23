@@ -73,12 +73,12 @@ const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const proto = location.protocol === "https:" ? "wss" : "ws";
 const wsPath = location.pathname.replace(/\/[^/]*$/, "") || "";
-const ws = new WebSocket(`${proto}://${location.host}${wsPath}`);
 const params = new URLSearchParams(location.search);
 let modes = {};
 let rooms = [];
 let players = [];
 let you = 0;
+let myId = "";
 let phase = "hub";
 let selectedMode = params.get("mode") || "classic";
 let roomInfo = null;
@@ -88,33 +88,162 @@ const INTERP_MS = 100;
 let keys = {};
 let mouse = { x: 800, y: 450, down: false };
 let myPing = 0;
-let pingTs = 0;
 const nameIn = document.getElementById("name");
 nameIn.value = params.get("name") || ("웹" + Math.floor(10 + Math.random() * 89));
 
-function send(msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+// --- Fix 1: reconnect state ---
+let ws = null;
+let reconnectAttempt = 0;
+let intentionalClose = false;
+let resumeToken = sessionStorage.getItem("gangup.resume") || "";
+let welcomed = false; // Fix 12: guard against duplicate setInterval
+
+// --- Fix 2: XSS escape ---
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function send(msg) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+}
+
 function setPhase(next) {
   phase = next;
   document.body.className = next === "play" ? "play" : next === "wait" ? "wait" : "";
 }
+
+let wantResume = false;
 function hello() {
-  send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode });
+  send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode, resume: resumeToken, wantResume });
   send({ t: "rooms" });
+  wantResume = false;
 }
 
-ws.onmessage = (ev) => {
+// --- Fix 8: reconnect banner ---
+function showBanner(text) {
+  document.getElementById("status").textContent = text;
+  let el = document.getElementById("reconnect-banner");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "reconnect-banner";
+    el.style.cssText = "position:fixed;top:0;left:0;width:100%;padding:12px;background:rgba(232,89,52,0.92);color:#fff;text-align:center;font-size:15px;z-index:9999";
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.style.display = "block";
+}
+
+function hideBanner() {
+  const el = document.getElementById("reconnect-banner");
+  if (el) el.style.display = "none";
+  document.getElementById("status").textContent = myPing > 0 ? `접속됨 · ${myPing}ms · 최대 8명` : "접속됨 · 최대 8명";
+}
+
+// --- Fix 1: connection with exponential backoff ---
+function connect() {
+  ws = new WebSocket(`${proto}://${location.host}${wsPath}`);
+  ws.onopen = () => {
+    wantResume = reconnectAttempt > 0;
+    reconnectAttempt = 0;
+    hideBanner();
+  };
+  ws.onmessage = onMessage;
+  ws.onclose = () => {
+    if (intentionalClose) return;
+    showBanner(`연결이 끊겼습니다. 다시 연결하는 중… (${reconnectAttempt + 1}번째 시도)`);
+    const delay = Math.min(500 * Math.pow(2, reconnectAttempt) + Math.random() * 250, 30000);
+    reconnectAttempt++;
+    setTimeout(connect, delay);
+  };
+  ws.onerror = () => {};
+}
+
+window.addEventListener("beforeunload", () => { intentionalClose = true; });
+
+function onMessage(ev) {
   const msg = JSON.parse(ev.data);
   if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
   if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+
   if (msg.t === "welcome") {
+    if (msg.id) myId = msg.id;
+    // Fix 1: save prev token for hello, then store new one
+    const prevToken = resumeToken;
+    if (msg.resume) {
+      resumeToken = msg.resume;
+      sessionStorage.setItem("gangup.resume", resumeToken);
+    }
     modes = msg.modes || {};
-    document.getElementById("status").textContent = "접속됨 · 최대 8명";
-    setInterval(() => { const el = document.getElementById("status"); if (myPing > 0) el.textContent = `접속됨 · ${myPing}ms · 최대 8명`; }, 2000);
+    // Fix 12: only set up intervals and auto-join once
+    if (!welcomed) {
+      welcomed = true;
+      setInterval(() => {
+        const el = document.getElementById("status");
+        if (myPing > 0 && !document.getElementById("reconnect-banner")?.style.display?.includes("block")) {
+          el.textContent = `접속됨 · ${myPing}ms · 최대 8명`;
+        }
+      }, 2000);
+      const roomId = params.get("room");
+      if (roomId) setTimeout(() => send({ t: "join", roomId }), 80);
+    }
+    hideBanner();
     renderModes();
-    hello();
-    const roomId = params.get("room");
-    if (roomId) setTimeout(() => send({ t: "join", roomId }), 80);
+    // send hello with previous token so server can match the old session
+    send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode, resume: prevToken, wantResume: !!prevToken && wantResume });
+    send({ t: "rooms" });
+    return;
   }
+
+  // Fix 1: resume handler
+  if (msg.t === "resume") {
+    if (msg.id) myId = msg.id;
+    you = msg.you;
+    players = msg.players || [];
+    roomInfo = msg.room;
+    snapBuf.length = 0;
+    if (msg.resume) { resumeToken = msg.resume; sessionStorage.setItem("gangup.resume", resumeToken); }
+    if (msg.playing) {
+      if (msg.snap) {
+        snap = msg.snap;
+        snapBuf.push({ at: performance.now(), snap: msg.snap });
+      }
+      setPhase("play");
+    } else {
+      setPhase("wait");
+      renderWait();
+    }
+    hideBanner();
+    return;
+  }
+
+  // Fix 1: dropped handler (resume token not found on server)
+  if (msg.t === "dropped") {
+    if (msg.resume) {
+      resumeToken = msg.resume;
+      sessionStorage.setItem("gangup.resume", resumeToken);
+    }
+    setPhase("hub");
+    hello();
+    return;
+  }
+
+  if (msg.t === "kicked") {
+    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
+    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
+    setPhase("hub");
+    hello();
+    showBanner(msg.msg || "방에서 내보내졌습니다.");
+    setTimeout(hideBanner, 3000);
+    return;
+  }
+
+  // Fix 7 counterpart: server sends lobby after match ends
+  if (msg.t === "lobby") {
+    snap = null;
+    snapBuf.length = 0;
+    setPhase("wait");
+    renderWait();
+    return;
+  }
+
   if (msg.t === "rooms") { rooms = msg.rooms || []; renderRooms(); }
   if (msg.t === "joined") {
     you = msg.you;
@@ -125,7 +254,13 @@ ws.onmessage = (ev) => {
     setPhase("wait");
     renderWait();
   }
-  if (msg.t === "peers") { players = msg.players || []; if (msg.room) roomInfo = msg.room; renderWait(); }
+  if (msg.t === "peers") {
+    players = msg.players || [];
+    if (msg.room) roomInfo = msg.room;
+    const me = players.find(p => p.id === myId);
+    if (me) you = me.slot;
+    renderWait();
+  }
   if (msg.t === "start") { you = msg.you; setPhase("play"); }
   if (msg.t === "snap") {
     snap = msg;
@@ -141,7 +276,7 @@ ws.onmessage = (ev) => {
     hello();
   }
   if (msg.t === "error") document.getElementById("err").textContent = msg.msg;
-};
+}
 
 nameIn.onchange = hello;
 document.getElementById("copy").onclick = async () => {
@@ -154,7 +289,7 @@ document.getElementById("start").onclick = () => send({ t: "start" });
 
 function renderModes() {
   document.getElementById("modes").innerHTML = Object.values(modes).map(m =>
-    `<button class="mode ${m.id === selectedMode ? "on" : ""}" data-id="${m.id}"><b>${m.title}</b><span>${m.blurb}</span></button>`
+    `<button class="mode ${m.id === selectedMode ? "on" : ""}" data-id="${esc(m.id)}"><b>${esc(m.title)}</b><span>${esc(m.blurb)}</span></button>`
   ).join("");
   document.querySelectorAll(".mode").forEach(el => {
     el.onclick = () => {
@@ -168,7 +303,7 @@ function renderModes() {
 function renderRooms() {
   const titles = { classic: "클래식", "gun-semi": "무기 · 단발", "gun-auto": "무기 · 연발", item: "아이템", full: "합본" };
   document.getElementById("rooms").innerHTML = rooms.length
-    ? rooms.map(r => `<div class="room" data-id="${r.id}"><div><b>${r.title}</b><div class="sub" style="margin:4px 0 0">${titles[r.mode] || r.mode}</div></div><span>${r.count}/8 입장</span></div>`).join("")
+    ? rooms.map(r => `<div class="room" data-id="${esc(r.id)}"><div><b>${esc(r.title)}</b><div class="sub" style="margin:4px 0 0">${esc(titles[r.mode] || r.mode)}</div></div><span>${r.count}/8 입장</span></div>`).join("")
     : `<div class="room">아직 열린 방이 없습니다. 위에서 모드를 누르면 방이 만들어집니다.</div>`;
   document.querySelectorAll(".room[data-id]").forEach(el => el.onclick = () => send({ t: "join", roomId: el.dataset.id }));
 }
@@ -178,11 +313,12 @@ function renderWait() {
   document.getElementById("waitTitle").textContent = `${roomInfo?.title || "대기실"} · ${modeName}`;
   document.getElementById("waitSub").textContent = `${players.length}/8 모이는 중. 링크를 나눠 같이 들어오고, 호스트만 시작할 수 있습니다.`;
   document.getElementById("invite").value = location.href;
-  document.getElementById("start").style.display = you === 0 ? "inline-block" : "none";
+  const amHost = players.some(p => p.id === myId && p.host);
+  document.getElementById("start").style.display = amHost ? "inline-block" : "none";
   const cells = [];
   for (let i = 0; i < 8; i++) {
     const p = players.find(x => x.slot === i);
-    if (p) cells.push(`<div class="slot filled ${p.host ? "host" : ""}"><div class="who">${p.name}</div><div class="tag">${p.host ? "호스트 · P"+(i+1) : "P"+(i+1)}${i === you ? " · 나" : ""}</div></div>`);
+    if (p) cells.push(`<div class="slot filled ${p.host ? "host" : ""}"><div class="who">${esc(p.name)}</div><div class="tag">${p.host ? "호스트 · P"+(i+1) : "P"+(i+1)}${p.id === myId ? " · 나" : ""}</div></div>`);
     else cells.push(`<div class="slot"><div class="who">빈자리</div><div class="tag">시작 시 CPU</div></div>`);
   }
   document.getElementById("slots").innerHTML = cells.join("");
@@ -295,6 +431,7 @@ function draw() {
   }
 }
 draw();
+connect();
 </script>
 </body>
 </html>
