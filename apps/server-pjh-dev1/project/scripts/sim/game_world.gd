@@ -84,6 +84,15 @@ var knockouts: Array[Dictionary] = []
 var covers: Array[Dictionary] = []
 var health_pickups: Array[Dictionary] = []
 var crates: Array[Dictionary] = []
+var rat_tides: Array[Dictionary] = []
+var snake_skins: Array[Dictionary] = []
+var dragon_smokes: Array[Dictionary] = []
+var tiger_roars: Array[Dictionary] = []
+var rabbit_holes: Array[Dictionary] = []
+var horse_kicks: Array[Dictionary] = []
+var rooster_eggs: Array[Dictionary] = []
+var pig_muds: Array[Dictionary] = []
+var dog_bones: Array[Dictionary] = []
 var crate_orbs: Array[Dictionary] = []
 var mid_tower: Dictionary = {}
 var next_entity_id: int = 100
@@ -152,7 +161,7 @@ const GUN_LOOT_CHAIN := ["rail", "burst", "scatter", "mortar", "breaker", "bomb"
 var equipment_defs := [
     {"id":"scatter", "name":"SPAS-12", "normal_name":"PUMP BLAST", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"semi", "normal_damage":33.6, "normal_interval":0.50, "normal_speed":800.0, "normal_range":0.48, "normal_spread":0.12, "normal_projectiles":5, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":24.0, "normal_kind":"pellet", "normal_radius":6.0, "normal_pierce":0, "burst_shots":0, "mag_size":7, "reload_time":1.80, "preferred_range":260.0, "cooldown":99.0, "damage":33.6, "speed":800.0, "range":0.48},
     {"id":"rail", "name":"AWM", "normal_name":"BOLT SHOT", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"bolt", "normal_damage":142.0, "normal_interval":1.22, "normal_speed":1520.0, "normal_range":1.12, "normal_spread":0.006, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":14.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":3, "burst_shots":0, "mag_size":5, "reload_time":2.40, "preferred_range":560.0, "cooldown":99.0, "damage":142.0, "speed":1520.0, "range":1.12},
-    {"id":"mortar", "name":"M79", "normal_name":"ARC SHELL", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"gl", "normal_damage":88.0, "normal_interval":1.05, "normal_speed":620.0, "normal_range":0.95, "normal_spread":0.012, "normal_projectiles":1, "normal_splash":120.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":42.0, "normal_kind":"shell", "normal_radius":9.0, "normal_pierce":0, "burst_shots":0, "mag_size":1, "reload_time":1.40, "preferred_range":430.0, "cooldown":99.0, "damage":88.0, "speed":620.0, "range":0.95},
+    {"id":"mortar", "name":"M79", "normal_name":"RPG", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"gl", "normal_damage":88.0, "normal_interval":1.05, "normal_speed":620.0, "normal_range":0.95, "normal_spread":0.012, "normal_projectiles":1, "normal_splash":120.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":42.0, "normal_kind":"shell", "normal_radius":9.0, "normal_pierce":0, "burst_shots":0, "mag_size":1, "reload_time":1.40, "preferred_range":430.0, "cooldown":99.0, "damage":88.0, "speed":620.0, "range":0.95},
     {"id":"leech", "name":"MP5", "normal_name":"SMG BURST", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":11.4, "normal_interval":0.095, "normal_speed":980.0, "normal_range":0.42, "normal_spread":0.038, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":5.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":25, "reload_time":1.25, "preferred_range":240.0, "cooldown":99.0, "damage":11.4, "speed":980.0, "range":0.42},
     {"id":"breaker", "name":"RPK", "normal_name":"LMG FIRE", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":12.2, "normal_interval":0.155, "normal_speed":1020.0, "normal_range":0.82, "normal_spread":0.028, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":8.0, "normal_kind":"bolt", "normal_radius":6.0, "normal_pierce":0, "burst_shots":0, "mag_size":40, "reload_time":2.20, "preferred_range":380.0, "cooldown":99.0, "damage":12.2, "speed":1020.0, "range":0.82},
     {"id":"burst", "name":"GLOCK 18", "normal_name":"AUTO PISTOL", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":10.2, "normal_interval":0.105, "normal_speed":1000.0, "normal_range":0.44, "normal_spread":0.040, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":5.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":18, "reload_time":1.15, "preferred_range":250.0, "cooldown":99.0, "damage":10.2, "speed":1000.0, "range":0.44},
@@ -280,6 +289,15 @@ func reset() -> void:
     knockouts.clear()
     health_pickups.clear()
     crates.clear()
+    rat_tides.clear()
+    snake_skins.clear()
+    dragon_smokes.clear()
+    tiger_roars.clear()
+    rabbit_holes.clear()
+    horse_kicks.clear()
+    rooster_eggs.clear()
+    pig_muds.clear()
+    dog_bones.clear()
     crate_orbs.clear()
     covers = _build_tiled_covers()
     _spawn_breakable_crates()
@@ -434,7 +452,23 @@ func reset() -> void:
             "ult_clone_time":0.0,
             "downed":false,
             "down_left":0.0,
-            "down_taken":0.0
+            "down_taken":0.0,
+            "ox_phase":"",
+            "ox_time":0.0,
+            "ox_dir":Vector2.RIGHT,
+            "ox_hit":[],
+            "flee_time":0.0,
+            "flee_from":Vector2.ZERO,
+            "burrowed":false,
+            "burrow_left":0.0,
+            "burrow_exit":Vector2.ZERO,
+            "dog_rush":false,
+            "dog_windup":0.0,
+            "dog_bone":Vector2.ZERO,
+            "dog_hit":[],
+            "wool_time":0.0,
+            "wool_hp":0,
+            "wool_max":5
         })
         event_log.emit(tick, &"equipment_revealed", slot, -1, {"equipment":equipment["id"]})
     event_log.emit(tick, &"match_started", -1, -1, {})
@@ -470,7 +504,18 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
     _update_safe_zone(dt)
     _apply_human(command)
     _update_cpus(dt)
+    _tick_ox_charges(dt)
+    _apply_rat_tides(dt)
+    _tick_snake_skins(dt)
+    _tick_dragon_smokes(dt)
+    _tick_tiger_roars(dt)
+    _tick_rabbit_burrows(dt)
+    _tick_horse_kicks(dt)
+    _tick_dog_rush(dt)
     _move_heroes(dt)
+    _tick_rooster_eggs(dt)
+    _tick_pig_muds(dt)
+    _tick_wool_shields(dt)
     _tick_downs(dt)
     _sync_ult_clones(dt)
     _update_health_pickups(dt)
@@ -581,6 +626,7 @@ func _update_timers(dt: float) -> void:
         h["cc_time"] = maxf(0.0, float(h["cc_time"]) - dt)
         h["root_time"] = maxf(0.0, float(h["root_time"]) - dt)
         h["stun_time"] = maxf(0.0, float(h["stun_time"]) - dt)
+        h["flee_time"] = maxf(0.0, float(h.get("flee_time", 0.0)) - dt)
         h["wall_hit_cd"] = maxf(0.0, float(h["wall_hit_cd"]) - dt)
         if not bool(h["alive"]) or float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
             h["reload_left"] = 0.0
@@ -609,6 +655,15 @@ func _apply_human(command: Dictionary) -> void:
         return
     if not bool(h["alive"]):
         heroes[0] = h
+        return
+    if bool(h.get("burrowed", false)):
+        h["vel"] = Vector2.ZERO
+        heroes[0] = h
+        return
+    if bool(h.get("dog_rush", false)):
+        heroes[0] = h
+        if bool(command.get("ultimate", false)):
+            _try_ultimate(0, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
         return
     if bool(h.get("downed", false)):
         var crawl: Vector2 = command.get("move", Vector2.ZERO)
@@ -667,7 +722,7 @@ func _apply_human(command: Dictionary) -> void:
     if bool(command.get("medkit", false)) and not _hero_has_timed(h, "turtle"):
         _try_use_active_item(0)
     if bool(command.get("ultimate", false)) and not _hero_has_timed(h, "turtle"):
-        _try_ultimate(0, Vector2(h["facing"]))
+        _try_ultimate(0, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
         h = heroes[0]
     if bool(command.get("mobility", false)) and not _hero_has_timed(h, "turtle"):
         _cancel_skill_charge(0)
@@ -1599,7 +1654,12 @@ func _standing_leader() -> int:
 func _hero_move_speed(slot: int) -> float:
     if slot < 0 or slot >= heroes.size():
         return HERO_SPEED
-    return float(heroes[slot]["equipment"]["move_speed"]) + _roulette_stat(slot, "spd")
+    var speed := float(heroes[slot]["equipment"]["move_speed"]) + _roulette_stat(slot, "spd")
+    if posmod(int(heroes[slot].get("animal", slot)), 12) == 4 and _pos_in_dragon_smoke(Vector2(heroes[slot]["pos"])):
+        speed *= 1.30
+    if _pos_in_enemy_mud(slot):
+        speed *= 0.48
+    return speed
 
 func _hero_has_timed(h: Dictionary, buff_id: String) -> bool:
     for buff in h.get("rl_timed", []):
@@ -2098,8 +2158,7 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
     if slot == local_slot:
         local_mouse_kick = kick
     if equipment_id == "mortar":
-        var bomb_distance := speed * ttl
-        _spawn_arc_bomb(slot, base_dir, bomb_distance, maxf(0.35, bomb_distance / maxf(1.0, speed)), damage, splash if splash > 1.0 else 120.0, 0.0, knockback, false)
+        _spawn_projectile(slot, base_dir, damage, speed, maxf(radius, 12.0), ttl, &"normal", splash if splash > 1.0 else 120.0, false, 0, 0.0, knockback, &"shell", 0.0, "", false)
     else:
         for index in range(pellet_count):
             var offset: float = 0.0
@@ -2452,6 +2511,128 @@ func _release_skill_charge(_slot: int, _direction: Vector2) -> void:
 func _try_equipment_attack(_slot: int, _direction: Vector2, _charge_ratio: float = 1.0) -> void:
     return
 
+
+
+func _begin_ox_gore(slot: int, direction: Vector2) -> void:
+    var h: Dictionary = heroes[slot]
+    var dir: Vector2 = direction
+    if dir.length_squared() < 0.05:
+        dir = Vector2(h.get("facing", Vector2.RIGHT))
+    if dir.length_squared() < 0.05:
+        dir = Vector2.RIGHT
+    dir = dir.normalized()
+    h["ox_phase"] = "back"
+    h["ox_time"] = 0.18
+    h["ox_dir"] = dir
+    h["ox_hit"] = []
+    h["facing"] = dir
+    heroes[slot] = h
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.40
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "ox_gore"})
+
+func _tick_ox_charges(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        var phase := str(h.get("ox_phase", ""))
+        if phase == "":
+            continue
+        if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+            h["ox_phase"] = ""
+            heroes[slot] = h
+            continue
+        var dir: Vector2 = h.get("ox_dir", Vector2.RIGHT)
+        if dir.length_squared() < 0.05:
+            dir = Vector2.RIGHT
+        dir = dir.normalized()
+        h["ox_time"] = float(h.get("ox_time", 0.0)) - dt
+        if phase == "back":
+            h["vel"] = -dir * 380.0
+            h["facing"] = dir
+            if float(h["ox_time"]) <= 0.0:
+                h["ox_phase"] = "rush"
+                h["ox_time"] = 0.38
+                h["ox_hit"] = []
+        elif phase == "rush":
+            h["vel"] = dir * 1100.0
+            h["facing"] = dir
+            var hit: Array = h.get("ox_hit", [])
+            for other in range(heroes.size()):
+                if other == slot or other in hit:
+                    continue
+                var t: Dictionary = heroes[other]
+                if not bool(t.get("alive", false)) or bool(t.get("downed", false)):
+                    continue
+                if Vector2(h["pos"]).distance_to(Vector2(t["pos"])) > 62.0:
+                    continue
+                hit.append(other)
+                t["stun_time"] = maxf(float(t.get("stun_time", 0.0)), 1.35)
+                t["vel"] = dir * 260.0
+                t["pos"] = _resolve_cover_motion(Vector2(t["pos"]), dir * 70.0)
+                heroes[other] = t
+            h["ox_hit"] = hit
+            if float(h["ox_time"]) <= 0.0:
+                h["ox_phase"] = ""
+                h["vel"] = Vector2.ZERO
+        heroes[slot] = h
+
+func _begin_rat_tide(slot: int, direction: Vector2) -> void:
+    var h: Dictionary = heroes[slot]
+    var dir: Vector2 = direction
+    if dir.length_squared() < 0.05:
+        dir = Vector2(h.get("facing", Vector2.RIGHT))
+    if dir.length_squared() < 0.05:
+        dir = Vector2.RIGHT
+    dir = dir.normalized()
+    rat_tides.append({
+        "owner": slot,
+        "pos": Vector2(h["pos"]) + dir * 70.0,
+        "dir": dir,
+        "life": 1.70,
+        "travel": 720.0,
+        "half_w": 118.0,
+        "length": 360.0
+    })
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.28
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rat_tide"})
+
+func _hero_in_rat_tide(hpos: Vector2, tide: Dictionary) -> bool:
+    var dir: Vector2 = tide["dir"]
+    var rel: Vector2 = hpos - Vector2(tide["pos"])
+    var along := rel.dot(dir)
+    var side := absf(rel.dot(dir.rotated(PI * 0.5)))
+    var leng := float(tide.get("length", 360.0))
+    return along > -leng * 0.28 and along < leng * 0.72 and side <= float(tide.get("half_w", 118.0))
+
+func _apply_rat_tides(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for tide0 in rat_tides:
+        var tide: Dictionary = tide0
+        tide["life"] = float(tide.get("life", 0.0)) - dt
+        if float(tide["life"]) <= 0.0:
+            continue
+        var dir: Vector2 = Vector2(tide["dir"])
+        tide["pos"] = Vector2(tide["pos"]) + dir * float(tide.get("travel", 720.0)) * dt
+        for slot in range(heroes.size()):
+            if slot == int(tide.get("owner", -1)):
+                continue
+            var h: Dictionary = heroes[slot]
+            if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+                continue
+            if not _hero_in_rat_tide(Vector2(h["pos"]), tide):
+                continue
+            var wish: Vector2 = h.get("vel", Vector2.ZERO)
+            var along := wish.dot(dir)
+            var resist := 1.0
+            if along < -20.0:
+                resist = 0.40
+            var lateral: Vector2 = wish - dir * along
+            h["vel"] = lateral * 0.50 + dir * (860.0 * resist)
+            heroes[slot] = h
+        kept.append(tide)
+    rat_tides = kept
+
 func _try_ultimate(slot: int, _direction: Vector2) -> void:
     if slot < 0 or slot >= heroes.size():
         return
@@ -2461,10 +2642,44 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
     if float(h.get("ultimate_charge", 0.0)) < ULTIMATE_MAX - 0.5:
         return
     var animal := posmod(int(h.get("animal", slot)), 12)
-    if animal != 8:
+    if animal != 0 and animal != 1 and animal != 2 and animal != 3 and animal != 4 and animal != 5 and animal != 6 and animal != 7 and animal != 8 and animal != 9 and animal != 10 and animal != 11:
         return
     h["ultimate_charge"] = 0.0
     h["ultimates"] = int(h.get("ultimates", 0)) + 1
+    heroes[slot] = h
+    if animal == 0:
+        _begin_rat_tide(slot, _direction)
+        return
+    if animal == 1:
+        _begin_ox_gore(slot, _direction)
+        return
+    if animal == 2:
+        _begin_tiger_roar(slot)
+        return
+    if animal == 3:
+        _begin_rabbit_burrow(slot, _direction)
+        return
+    if animal == 4:
+        _begin_dragon_smoke(slot)
+        return
+    if animal == 5:
+        _begin_snake_shed(slot)
+        return
+    if animal == 6:
+        _begin_horse_kick(slot)
+        return
+    if animal == 7:
+        _begin_wool_shield(slot)
+        return
+    if animal == 9:
+        _begin_rooster_egg(slot)
+        return
+    if animal == 10:
+        _begin_dog_fetch(slot, _direction)
+        return
+    if animal == 11:
+        _begin_pig_mud(slot)
+        return
     h["ult_clone_time"] = 8.0
     var origin: Vector2 = h["pos"]
     var clones: Array = []
@@ -2486,6 +2701,530 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
     ultimate_focus_slot = slot
     ultimate_focus_time = 0.28
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "mirage", "clones": 7})
+
+
+
+
+
+
+
+
+
+func _begin_dog_fetch(slot: int, aim_pos: Vector2) -> void:
+    var h: Dictionary = heroes[slot]
+    var dest: Vector2 = _clamp_arena_point(aim_pos, HERO_RADIUS)
+    dest = _nudge_out_of_cover(dest, HERO_RADIUS)
+    dog_bones.append({"pos": dest, "owner": slot, "ttl": 5.0})
+    h["dog_rush"] = false
+    h["dog_windup"] = 1.0
+    h["dog_bone"] = dest
+    h["dog_hit"] = []
+    heroes[slot] = h
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.18
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "dog_fetch"})
+
+func _tick_dog_rush(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        var wind := float(h.get("dog_windup", 0.0))
+        if wind > 0.0:
+            wind = maxf(0.0, wind - dt)
+            h["dog_windup"] = wind
+            if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+                h["dog_windup"] = 0.0
+                h["dog_rush"] = false
+                heroes[slot] = h
+                continue
+            if wind <= 0.0:
+                h["dog_rush"] = true
+                h["dog_hit"] = []
+                h["super_armor_time"] = 2.2
+                h["super_armor_strength"] = 1.0
+            heroes[slot] = h
+            if not bool(h.get("dog_rush", false)):
+                continue
+        if not bool(h.get("dog_rush", false)):
+            continue
+        if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+            h["dog_rush"] = false
+            h["dog_windup"] = 0.0
+            heroes[slot] = h
+            continue
+        var dest: Vector2 = h.get("dog_bone", Vector2(h["pos"]))
+        var pos: Vector2 = Vector2(h["pos"])
+        var to: Vector2 = dest - pos
+        if to.length() <= 36.0:
+            h["dog_rush"] = false
+            h["vel"] = Vector2.ZERO
+            h["super_armor_time"] = 0.0
+            heroes[slot] = h
+            continue
+        var dir := to.normalized()
+        h["facing"] = dir
+        h["vel"] = dir * 1020.0
+        h["super_armor_time"] = maxf(float(h.get("super_armor_time", 0.0)), 0.2)
+        h["super_armor_strength"] = 1.0
+        var hit: Array = h.get("dog_hit", [])
+        for t in range(heroes.size()):
+            if t == slot or t in hit:
+                continue
+            var vic: Dictionary = heroes[t]
+            if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+                continue
+            if bool(vic.get("burrowed", false)):
+                continue
+            if pos.distance_to(Vector2(vic["pos"])) > 52.0:
+                continue
+            hit.append(t)
+            var push := dir * 780.0
+            vic["launch_vel"] = push
+            vic["launch_time"] = maxf(float(vic.get("launch_time", 0.0)), 0.48)
+            vic["stun_time"] = maxf(float(vic.get("stun_time", 0.0)), 1.25)
+            vic["vel"] = push
+            vic["pos"] = _resolve_cover_motion(Vector2(vic["pos"]), dir * 90.0)
+            heroes[t] = vic
+        h["dog_hit"] = hit
+        heroes[slot] = h
+    var kept: Array[Dictionary] = []
+    for bone0 in dog_bones:
+        var bone: Dictionary = bone0
+        bone["ttl"] = float(bone.get("ttl", 0.0)) - dt
+        var owner := int(bone.get("owner", -1))
+        if owner >= 0 and owner < heroes.size() and (bool(heroes[owner].get("dog_rush", false)) or float(heroes[owner].get("dog_windup", 0.0)) > 0.0):
+            bone["ttl"] = maxf(float(bone["ttl"]), 0.05)
+        if float(bone["ttl"]) > 0.0:
+            kept.append(bone)
+    dog_bones = kept
+
+
+func _wool_shield_pos(h: Dictionary) -> Vector2:
+    return Vector2(h["pos"])
+
+func _begin_wool_shield(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    h["wool_time"] = 5.0
+    h["wool_hp"] = 5
+    h["wool_max"] = 5
+    heroes[slot] = h
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.16
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "wool_shield"})
+
+func _tick_wool_shields(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if float(h.get("wool_time", 0.0)) <= 0.0:
+            continue
+        if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+            h["wool_time"] = 0.0
+            h["wool_hp"] = 0
+            heroes[slot] = h
+            continue
+        h["wool_time"] = float(h["wool_time"]) - dt
+        if float(h["wool_time"]) <= 0.0:
+            h["wool_time"] = 0.0
+            h["wool_hp"] = 0
+        heroes[slot] = h
+
+func _absorb_wool_shield(owner: int, target: int, pos: Vector2, radius: float) -> bool:
+    if target < 0 or target >= heroes.size():
+        return false
+    if owner == target:
+        return false
+    var h: Dictionary = heroes[target]
+    if float(h.get("wool_time", 0.0)) <= 0.0 or int(h.get("wool_hp", 0)) <= 0:
+        return false
+    if not bool(h.get("alive", false)):
+        return false
+    var shield: Vector2 = _wool_shield_pos(h)
+    if pos.distance_to(shield) > radius + 58.0:
+        return false
+    h["wool_hp"] = int(h.get("wool_hp", 0)) - 1
+    _add_effect(&"impact", shield, 36.0, 0.18, Color("#fff6d8"), "")
+    if int(h["wool_hp"]) <= 0:
+        h["wool_time"] = 0.0
+        heroes[target] = h
+        _pop_wool_shield(target)
+        return true
+    heroes[target] = h
+    return true
+
+func _pop_wool_shield(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var center: Vector2 = _wool_shield_pos(h)
+    _add_effect(&"explosion", center, 150.0, 0.36, Color("#fff1c8"), "")
+    for t in range(heroes.size()):
+        if t == slot:
+            continue
+        var vic: Dictionary = heroes[t]
+        if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+            continue
+        if bool(vic.get("burrowed", false)):
+            continue
+        if Vector2(vic["pos"]).distance_to(center) > 150.0:
+            continue
+        var dir: Vector2 = center.direction_to(Vector2(vic["pos"]))
+        if dir.length_squared() < 0.0001:
+            dir = Vector2(h.get("facing", Vector2.RIGHT))
+        var push := dir * 560.0
+        vic["launch_vel"] = push
+        vic["launch_time"] = maxf(float(vic.get("launch_time", 0.0)), 0.38)
+        vic["stun_time"] = maxf(float(vic.get("stun_time", 0.0)), 0.55)
+        vic["vel"] = push
+        vic["pos"] = _resolve_cover_motion(Vector2(vic["pos"]), dir * 70.0)
+        heroes[t] = vic
+
+func _begin_pig_mud(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    pig_muds.append({
+        "owner": slot,
+        "pos": Vector2(h["pos"]),
+        "radius": 200.0,
+        "ttl": 6.0
+    })
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.18
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "pig_mud"})
+
+func _tick_pig_muds(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for mud0 in pig_muds:
+        var mud: Dictionary = mud0
+        mud["ttl"] = float(mud.get("ttl", 0.0)) - dt
+        if float(mud["ttl"]) > 0.0:
+            kept.append(mud)
+    pig_muds = kept
+
+func _pos_in_enemy_mud(slot: int) -> bool:
+    if slot < 0 or slot >= heroes.size():
+        return false
+    var pos: Vector2 = heroes[slot]["pos"]
+    for mud in pig_muds:
+        if int(mud.get("owner", -1)) == slot:
+            continue
+        if pos.distance_to(Vector2(mud.get("pos", Vector2.ZERO))) <= float(mud.get("radius", 200.0)):
+            return true
+    return false
+
+func _begin_rooster_egg(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    rooster_eggs.append({
+        "owner": slot,
+        "pos": Vector2(h["pos"]),
+        "ttl": 8.0,
+        "arm": 0.55,
+        "trigger": 150.0,
+        "alive": true
+    })
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.18
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rooster_egg"})
+
+func _tick_rooster_eggs(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for egg0 in rooster_eggs:
+        var egg: Dictionary = egg0
+        if not bool(egg.get("alive", true)):
+            continue
+        egg["ttl"] = float(egg.get("ttl", 0.0)) - dt
+        egg["arm"] = maxf(0.0, float(egg.get("arm", 0.0)) - dt)
+        if float(egg["ttl"]) <= 0.0:
+            continue
+        var origin: Vector2 = egg.get("pos", Vector2.ZERO)
+        var trig := float(egg.get("trigger", 150.0)) + HERO_RADIUS
+        var boom := false
+        if float(egg.get("arm", 0.0)) <= 0.0:
+            for t in range(heroes.size()):
+                var vic: Dictionary = heroes[t]
+                if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+                    continue
+                if bool(vic.get("burrowed", false)):
+                    continue
+                if Vector2(vic["pos"]).distance_to(origin) <= trig:
+                    boom = true
+                    break
+        if boom:
+            _explode_rooster_egg(egg)
+            continue
+        kept.append(egg)
+    rooster_eggs = kept
+
+func _explode_rooster_egg(egg: Dictionary) -> void:
+    var origin: Vector2 = egg.get("pos", Vector2.ZERO)
+    var owner := int(egg.get("owner", -1))
+    var blast := 170.0
+    for t in range(heroes.size()):
+        if t == owner:
+            continue
+        var vic: Dictionary = heroes[t]
+        if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+            continue
+        if bool(vic.get("burrowed", false)):
+            continue
+        if Vector2(vic["pos"]).distance_to(origin) > blast:
+            continue
+        var away: Vector2 = Vector2(vic["pos"]) - origin
+        if away.length_squared() < 0.01:
+            away = Vector2.RIGHT
+        away = away.normalized()
+        vic["stun_time"] = maxf(float(vic.get("stun_time", 0.0)), 1.20)
+        vic["vel"] = away * 220.0
+        heroes[t] = vic
+    _add_effect(&"stun_burst", origin, 70.0, 0.36, Color("#ffe27a"), "EGG")
+    event_log.emit(tick, &"rooster_egg_boom", owner, -1, {})
+
+func _begin_horse_kick(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var face: Vector2 = Vector2(h.get("facing", Vector2.RIGHT))
+    if face.length_squared() < 0.05:
+        face = Vector2.RIGHT
+    face = face.normalized()
+    var back := -face
+    var origin: Vector2 = Vector2(h["pos"])
+    var reach := 400.0
+    var half := 1.15
+    horse_kicks.append({"pos": origin, "dir": back, "age": 0.0, "life": 0.42, "reach": reach})
+    for t in range(heroes.size()):
+        if t == slot:
+            continue
+        var vic: Dictionary = heroes[t]
+        if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+            continue
+        if bool(vic.get("downed", false)) or bool(vic.get("burrowed", false)):
+            continue
+        var delta: Vector2 = Vector2(vic["pos"]) - origin
+        var dist := delta.length()
+        if dist > reach or dist < 1.0:
+            continue
+        if absf(back.angle_to(delta.normalized())) > half:
+            continue
+        var push := back * 380.0
+        vic["launch_vel"] = push
+        vic["launch_time"] = maxf(float(vic.get("launch_time", 0.0)), 0.26)
+        vic["stun_time"] = maxf(float(vic.get("stun_time", 0.0)), 1.15)
+        vic["vel"] = push
+        vic["pos"] = _resolve_cover_motion(Vector2(vic["pos"]), back * 72.0)
+        heroes[t] = vic
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.22
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "horse_kick"})
+
+func _tick_horse_kicks(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for kick0 in horse_kicks:
+        var kick: Dictionary = kick0
+        kick["age"] = float(kick.get("age", 0.0)) + dt
+        if float(kick["age"]) < float(kick.get("life", 0.42)):
+            kept.append(kick)
+    horse_kicks = kept
+
+func _begin_rabbit_burrow(slot: int, aim_pos: Vector2) -> void:
+    var h: Dictionary = heroes[slot]
+    if bool(h.get("burrowed", false)) or bool(h.get("downed", false)):
+        h["ultimate_charge"] = ULTIMATE_MAX
+        heroes[slot] = h
+        return
+    var enter: Vector2 = Vector2(h["pos"])
+    var exit_pos: Vector2 = _clamp_arena_point(aim_pos, HERO_RADIUS)
+    exit_pos = _nudge_out_of_cover(exit_pos, HERO_RADIUS)
+    rabbit_holes.append({"pos": enter, "ttl": 4.5, "kind": "in"})
+    h["burrowed"] = true
+    h["burrow_left"] = 2.0
+    h["burrow_exit"] = exit_pos
+    h["vel"] = Vector2.ZERO
+    heroes[slot] = h
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.20
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rabbit_burrow"})
+
+func _tick_rabbit_burrows(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if not bool(h.get("burrowed", false)):
+            continue
+        h["burrow_left"] = float(h.get("burrow_left", 0.0)) - dt
+        h["vel"] = Vector2.ZERO
+        if float(h["burrow_left"]) <= 0.0:
+            var exit_pos: Vector2 = _clamp_arena_point(Vector2(h.get("burrow_exit", h["pos"])), HERO_RADIUS)
+            exit_pos = _nudge_out_of_cover(exit_pos, HERO_RADIUS)
+            rabbit_holes.append({"pos": exit_pos, "ttl": 3.5, "kind": "out"})
+            h["pos"] = exit_pos
+            h["burrowed"] = false
+            h["burrow_left"] = 0.0
+            h["spawn_protect_time"] = maxf(float(h.get("spawn_protect_time", 0.0)), 0.25)
+        heroes[slot] = h
+    var kept: Array[Dictionary] = []
+    for hole0 in rabbit_holes:
+        var hole: Dictionary = hole0
+        hole["ttl"] = float(hole.get("ttl", 0.0)) - dt
+        if float(hole["ttl"]) > 0.0:
+            kept.append(hole)
+    rabbit_holes = kept
+
+func _begin_tiger_roar(slot: int) -> void:
+    var origin: Vector2 = heroes[slot]["pos"]
+    tiger_roars.append({"pos": origin, "age": 0.0, "life": 1.15, "radius": 300.0, "owner": slot})
+    for t in range(heroes.size()):
+        if t == slot:
+            continue
+        var vic: Dictionary = heroes[t]
+        if not bool(vic.get("alive", false)) or bool(vic.get("eliminated", false)):
+            continue
+        if bool(vic.get("downed", false)):
+            continue
+        if Vector2(vic["pos"]).distance_to(origin) > 300.0:
+            continue
+        vic["flee_time"] = 1.5
+        vic["flee_from"] = origin
+        heroes[t] = vic
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.24
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "tiger_roar"})
+
+func _tick_tiger_roars(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for roar0 in tiger_roars:
+        var roar: Dictionary = roar0
+        roar["age"] = float(roar.get("age", 0.0)) + dt
+        if float(roar["age"]) < float(roar.get("life", 1.15)):
+            kept.append(roar)
+    tiger_roars = kept
+
+func _apply_flee_vel(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    if float(h.get("flee_time", 0.0)) <= 0.0:
+        return
+    if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+        return
+    if float(h.get("launch_time", 0.0)) > 0.0 or float(h.get("stun_time", 0.0)) > 0.0:
+        return
+    var away: Vector2 = Vector2(h["pos"]) - Vector2(h.get("flee_from", Vector2.ZERO))
+    if away.length_squared() < 0.01:
+        away = Vector2(h.get("facing", Vector2.RIGHT))
+    h["vel"] = away.normalized() * _hero_move_speed(slot) * 1.12
+    heroes[slot] = h
+
+func _begin_dragon_smoke(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    dragon_smokes.append({
+        "owner": slot,
+        "pos": Vector2(h["pos"]),
+        "radius": 560.0,
+        "ttl": 15.0
+    })
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.22
+    _add_effect(&"afterimage", Vector2(h["pos"]), 90.0, 0.28, Color("#c8c8c8"), "SMOKE")
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "dragon_smoke"})
+
+func _tick_dragon_smokes(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for smoke0 in dragon_smokes:
+        var smoke: Dictionary = smoke0
+        smoke["ttl"] = float(smoke.get("ttl", 0.0)) - dt
+        if float(smoke["ttl"]) > 0.0:
+            kept.append(smoke)
+    dragon_smokes = kept
+
+func _pos_in_dragon_smoke(pos: Vector2) -> bool:
+    for smoke in dragon_smokes:
+        if pos.distance_to(Vector2(smoke.get("pos", Vector2.ZERO))) <= float(smoke.get("radius", 560.0)):
+            return true
+    return false
+
+func hero_hidden_in_smoke(slot: int) -> bool:
+    if slot < 0 or slot >= heroes.size():
+        return false
+    var h: Dictionary = heroes[slot]
+    if not bool(h.get("alive", false)):
+        return false
+    if not _pos_in_dragon_smoke(Vector2(h["pos"])):
+        return false
+    var local_animal := 0
+    if local_slot >= 0 and local_slot < heroes.size():
+        local_animal = posmod(int(heroes[local_slot].get("animal", local_slot)), 12)
+    if slot == local_slot and local_animal == 4:
+        return false
+    return true
+
+func local_is_dragon() -> bool:
+    if local_slot < 0 or local_slot >= heroes.size():
+        return false
+    return posmod(int(heroes[local_slot].get("animal", local_slot)), 12) == 4
+
+func _begin_snake_shed(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var max_hp := float(h.get("max_hp", 164.0))
+    snake_skins.append({
+        "owner": slot,
+        "pos": Vector2(h["pos"]),
+        "facing": Vector2(h.get("facing", Vector2.RIGHT)),
+        "aim": Vector2(h.get("aim", Vector2.RIGHT)),
+        "animal": 5,
+        "hp": max_hp,
+        "max_hp": max_hp,
+        "scale": 1.5,
+        "ttl": 18.0,
+        "flash": 0.0,
+        "alive": true
+    })
+    _apply_roulette_face(slot, {"id":"giant", "name":"GIANT", "kind":"timed", "atk":3.0, "spd":5.0, "def":0.0, "hp":3.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":12.0})
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.28
+    _add_effect(&"afterimage", Vector2(h["pos"]), 64.0, 0.32, Color("#9ad47a"), "SHED")
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "snake_shed"})
+
+func _tick_snake_skins(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for skin0 in snake_skins:
+        var skin: Dictionary = skin0
+        if not bool(skin.get("alive", true)):
+            continue
+        skin["ttl"] = float(skin.get("ttl", 0.0)) - dt
+        skin["flash"] = maxf(0.0, float(skin.get("flash", 0.0)) - dt)
+        if float(skin["ttl"]) <= 0.0 or float(skin.get("hp", 0.0)) <= 0.0:
+            _add_effect(&"hit_spark", Vector2(skin["pos"]), 48.0, 0.24, Color("#b7d59a"), "")
+            continue
+        kept.append(skin)
+    snake_skins = kept
+
+func _hurt_snake_skin(index: int, damage: float) -> bool:
+    if index < 0 or index >= snake_skins.size():
+        return false
+    var skin: Dictionary = snake_skins[index]
+    if not bool(skin.get("alive", true)) or damage <= 0.0:
+        return false
+    skin["hp"] = float(skin.get("hp", 0.0)) - damage
+    skin["flash"] = 0.11
+    event_log.emit(tick, &"snake_shed_hit", -1, -1, {"damage": damage, "pos": Vector2(skin["pos"])})
+    if float(skin["hp"]) <= 0.0:
+        skin["hp"] = 0.0
+        skin["alive"] = false
+        snake_skins[index] = skin
+        _add_effect(&"hit_spark", Vector2(skin["pos"]), 52.0, 0.28, Color("#c8e8a8"), "SHED")
+        event_log.emit(tick, &"snake_shed_break", -1, -1, {})
+        return true
+    snake_skins[index] = skin
+    return true
+
+func _hit_snake_skin(owner: int, ppos: Vector2, radius: float, damage: float) -> bool:
+    var best := -1
+    var best_d := 99999.0
+    for i in range(snake_skins.size()):
+        var skin: Dictionary = snake_skins[i]
+        if not bool(skin.get("alive", true)):
+            continue
+        if int(skin.get("owner", -1)) == owner:
+            continue
+        var d := ppos.distance_to(Vector2(skin.get("pos", Vector2.ZERO)))
+        var skin_r := HERO_RADIUS * float(skin.get("scale", 1.5))
+        if d < radius + skin_r and d < best_d:
+            best_d = d
+            best = i
+    if best < 0:
+        return false
+    return _hurt_snake_skin(best, damage)
 
 func _sync_ult_clones(dt: float) -> void:
     for slot in range(heroes.size()):
@@ -2632,7 +3371,11 @@ func _update_projectiles(dt: float) -> void:
         p["trail"] = trail
         p["ttl"] = float(p["ttl"]) - dt
         if _point_in_cover(Vector2(p["pos"])):
-            _add_effect(&"impact", Vector2(p["pos"]), maxf(30.0, float(p["splash"])), 0.24, Color("#c4d0df"), "BLOCKED")
+            if float(p.get("splash", 0.0)) > 0.0:
+                _splash_damage(int(p["owner"]), Vector2(p["pos"]), float(p["splash"]), float(p["damage"]) * 0.55, -1, StringName(p["source"]), float(p.get("cc_time", 0.0)) * 0.65, float(p.get("knockback", 0.0)) * 0.65)
+                _add_effect(&"explosion", Vector2(p["pos"]), float(p["splash"]), 0.32, Color("#ff554a"), "")
+            else:
+                _add_effect(&"impact", Vector2(p["pos"]), maxf(30.0, float(p["splash"])), 0.24, Color("#c4d0df"), "BLOCKED")
             event_log.emit(tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"]})
             continue
         var owner := int(p["owner"])
@@ -2642,7 +3385,10 @@ func _update_projectiles(dt: float) -> void:
                 continue
             if target in p["hit_targets"]:
                 continue
-            if bool(heroes[target]["alive"]) and Vector2(p["pos"]).distance_to(Vector2(heroes[target]["pos"])) < float(p["radius"]) + HERO_RADIUS:
+            if _absorb_wool_shield(owner, target, Vector2(p["pos"]), float(p["radius"])):
+                hit = true
+                break
+            if bool(heroes[target]["alive"]) and not bool(heroes[target].get("burrowed", false)) and Vector2(p["pos"]).distance_to(Vector2(heroes[target]["pos"])) < float(p["radius"]) + HERO_RADIUS:
                 var from_pos: Vector2 = Vector2(p["pos"])
                 if owner >= 0 and owner < heroes.size():
                     from_pos = Vector2(heroes[owner]["pos"])
@@ -2663,6 +3409,9 @@ func _update_projectiles(dt: float) -> void:
                 _damage_core(owner, target, float(p["damage"]) * 0.78, StringName(p["source"]))
                 hit = true
                 break
+        if not hit:
+            if _hit_snake_skin(owner, Vector2(p["pos"]), float(p["radius"]), float(p["damage"])):
+                hit = true
         if not hit:
             if _hit_ult_clone(owner, Vector2(p["pos"]), float(p["radius"])):
                 hit = true
@@ -2695,6 +3444,14 @@ func _splash_damage(owner: int, center: Vector2, radius: float, damage: float, p
         if center.distance_to(Vector2(heroes[target]["pos"])) <= radius:
             _damage_hero(owner, target, damage, source, cc_time, knockback, center, "SPLASH", &"explosion")
     _damage_crates_at(center, radius, damage)
+    for si in range(snake_skins.size()):
+        var sk: Dictionary = snake_skins[si]
+        if not bool(sk.get("alive", true)):
+            continue
+        if int(sk.get("owner", -1)) == owner:
+            continue
+        if center.distance_to(Vector2(sk.get("pos", Vector2.ZERO))) <= radius + HERO_RADIUS * float(sk.get("scale", 1.5)):
+            _hurt_snake_skin(si, damage)
 
 func _update_zones(dt: float) -> void:
     var kept: Array[Dictionary] = []
@@ -2742,6 +3499,8 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     var h: Dictionary = heroes[target]
     if not bool(h["alive"]):
         return
+    if bool(h.get("burrowed", false)):
+        return
     if float(h.get("spawn_protect_time", 0.0)) > 0.0:
         return
     if float(h["evade_time"]) > 0.0:
@@ -2787,7 +3546,7 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     var armor_strength := clampf(float(h["super_armor_strength"]), 0.0, 1.0) if armor_active else 0.0
     if armor_active:
         h["combo_capture_time"] = 0.0
-    if source != &"mobility":
+    if source != &"mobility" and not bool(h.get("downed", false)):
         var combo_cap := float(h["max_hp"]) * float(h["equipment"]["combo_cap_ratio"])
         var combo_remaining := maxf(0.0, combo_cap - float(h["combo_damage"]))
         amount = minf(amount, combo_remaining)
@@ -3081,11 +3840,16 @@ func _steer_slide(slot: int, h: Dictionary, wish: Vector2, control_speed: float,
     h["slide_wish"] = wish
 
 func _apply_cpu_move(slot: int, h: Dictionary, wish_dir: Vector2, speed_scale: float) -> void:
+    if bool(h.get("dog_rush", false)):
+        return
     h["slide_wish"] = wish_dir
     if float(h.get("slide_time", 0.0)) > 0.0:
         return
     var cruise: Vector2 = wish_dir * _hero_move_speed(slot) * speed_scale * _streak_move_multiplier(slot)
     h["vel"] = cruise
+    heroes[slot] = h
+    _apply_flee_vel(slot)
+    h = heroes[slot]
     if float(h.get("spring_time", 0.0)) > 0.0 and wish_dir.length_squared() > 0.1:
         var boosted: Vector2 = Vector2(h["vel"]) + wish_dir.normalized() * SPRING_BOOST
         h["vel"] = boosted
@@ -3306,6 +4070,8 @@ func _enter_down(owner: int, target: int) -> void:
     h["downed"] = true
     h["down_left"] = DOWN_BLEED_TIME
     h["down_taken"] = 0.0
+    h["combo_damage"] = 0.0
+    h["combo_time"] = 0.0
     h["hp"] = 0.0
     h["vel"] = Vector2.ZERO
     h["launch_time"] = 0.0
