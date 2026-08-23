@@ -1,7 +1,12 @@
 extends Node2D
 
+const GunSig = preload("res://scripts/sim/gun_signature.gd")
+
 var world
-var colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
+var colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff"), Color("#ff8dac"), Color("#c9f24d"), Color("#7ad7f0"), Color("#e8a87c")]
+
+func _slot_color(index: int) -> Color:
+    return colors[posmod(index, colors.size())]
 
 const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
 const ZONE_RING := Color("#b44dff")
@@ -10,27 +15,269 @@ const BULLET_YELLOW := Color("#ffd23f")
 
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
+var tower_texture: Texture2D = null
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var animal_atlas: Texture2D = null
+var bullet_atlas: Texture2D = null
+var gun_atlas: Texture2D = null
+var muzzle_atlas: Texture2D = null
+var impact_atlas: Texture2D = null
+var impact_flashes: Array = []
+var combat_texts: Array = []
+var roulette_icons: Dictionary = {}
+var turtle_body_tex: Texture2D = null
+var roulette_wheel_tex: Texture2D = null
+var roulette_wheel_rank: Dictionary = {}
 var lite_draw := false
+var last_shot_event_id := 0
+var recoil_kick: Array = []
+var recoil_rot: Array = []
+var recoil_body: Array = []
+var recoil_strap: Array = []
+var recoil_decay: Array = []
+var muzzle_life: Array = []
+var rooster_comb_lag: float = 0.0
+
+# lhj 4x3 atlas frames: Rat Ox Tiger Rabbit Snake Dragon Horse Goat Monkey Rooster Dog Pig
+# dagul slots:            쥐  소 호랑이  토끼   용    뱀    말   양   원숭이   닭    개  돼지
+const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
+const ANIMAL_COLS := 4
+const ANIMAL_ROWS := 3
+const BULLET_COLS := 4
+const BULLET_ROWS := 4
 
 func _ready() -> void:
     lite_draw = OS.has_feature("web")
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
     island_texture = _load_tex("res://assets/world/island_bg.png")
+    tower_texture = _load_tex("res://assets/world/bounty-tower.png")
     gun_texture = _load_tex("res://assets/items/gun.png")
     medkit_texture = _load_tex("res://assets/items/medkit.png")
+    animal_atlas = _load_tex("res://assets/lhj/Tex_Animal_4x3.png")
+    bullet_atlas = _load_tex("res://assets/lhj/Tex_FX_Bullet_4x4_256x144.png")
+    gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
+    muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
+    impact_atlas = _load_tex("res://assets/lhj/Tex_Fx_ImpactFlash.png")
+    for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
+        var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
+        if icon_tex != null:
+            roulette_icons[icon_id] = icon_tex
+    turtle_body_tex = _load_tex("res://assets/hud/roulette/turtle_body.png")
+    roulette_wheel_tex = _load_tex("res://assets/hud/roulette/wheel.png")
+    roulette_wheel_rank["assist"] = _load_tex("res://assets/hud/roulette/wheel_assist.png")
+    roulette_wheel_rank["kill"] = _load_tex("res://assets/hud/roulette/wheel_kill.png")
+    roulette_wheel_rank["wanted"] = _load_tex("res://assets/hud/roulette/wheel_wanted.png")
+    if roulette_wheel_rank.get("kill", null) == null:
+        roulette_wheel_rank["kill"] = roulette_wheel_tex
+    _reset_recoil_state()
 
 func _load_tex(path: String) -> Texture2D:
     if ResourceLoader.exists(path):
-        return load(path)
+        var res = load(path)
+        if res is Texture2D:
+            return res
+    var img := Image.new()
+    var err := img.load(ProjectSettings.globalize_path(path))
+    if err != OK:
+        err = img.load(path)
+    if err == OK and img.get_width() > 0:
+        return ImageTexture.create_from_image(img)
     return null
+
+func _reset_recoil_state() -> void:
+    recoil_kick.clear()
+    recoil_rot.clear()
+    recoil_body.clear()
+    recoil_strap.clear()
+    recoil_decay.clear()
+    muzzle_life.clear()
+    for i in range(12):
+        recoil_kick.append(0.0)
+        recoil_rot.append(0.0)
+        recoil_body.append(0.0)
+        recoil_strap.append(0.0)
+        recoil_decay.append(10.0)
+        muzzle_life.append(0.0)
+    last_shot_event_id = 0
+
+
+func _gun_src_rect(frame: int) -> Rect2:
+    var cell: Vector2 = Vector2(float(gun_atlas.get_width()) / 4.0, float(gun_atlas.get_height()) / 3.0)
+    var col := posmod(frame, 4)
+    var row := int(frame / 4)
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+
+func _muzzle_src_rect(row: int, col: int) -> Rect2:
+    var cell: Vector2 = Vector2(float(muzzle_atlas.get_width()) / 4.0, float(muzzle_atlas.get_height()) / 3.0)
+    return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
+
+func _impact_src_rect(row: int, col: int) -> Rect2:
+    if impact_atlas == null:
+        return Rect2()
+    var cell: Vector2 = Vector2(float(impact_atlas.get_width()) / 4.0, float(impact_atlas.get_height()) / 3.0)
+    return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
+
+
+func _consume_shot_events() -> void:
+    if world == null or world.event_log == null:
+        return
+    if int(world.event_log.next_id) <= last_shot_event_id:
+        last_shot_event_id = 0
+    for event in world.event_log.events:
+        var eid := int(event.get("event_id", 0))
+        if eid <= last_shot_event_id:
+            continue
+        last_shot_event_id = maxi(last_shot_event_id, eid)
+        var et := StringName(event.get("type", &""))
+        if et == &"gun_fire" or et == &"normal_combo_step":
+            var slot := int(event.get("actor_id", -1))
+            if slot >= 0 and slot < recoil_kick.size():
+                _apply_shot_recoil(slot)
+        elif et == &"tower_hit":
+            var td: Dictionary = event.get("data", {})
+            var tdmg := float(td.get("damage", 0.0))
+            if tdmg > 0.4 and world.mid_tower:
+                _push_combat_text(Vector2(world.mid_tower.get("pos", Vector2.ZERO)), "%d" % roundi(tdmg), Color("#ffd36a"))
+        elif et == &"crate_hit":
+            var cdata: Dictionary = event.get("data", {})
+            var cdmg := float(cdata.get("damage", 0.0))
+            var cpos = cdata.get("pos", null)
+            if typeof(cpos) != TYPE_VECTOR2:
+                var ci := int(cdata.get("crate", -1))
+                if ci >= 0 and ci < world.crates.size():
+                    cpos = Vector2(world.crates[ci]["pos"])
+            if typeof(cpos) == TYPE_VECTOR2 and cdmg > 0.4:
+                _push_combat_text(cpos, "%d" % roundi(cdmg), Color("#ffd36a"))
+        elif et == &"hero_heal":
+            var hslot := int(event.get("actor_id", -1))
+            var hdata: Dictionary = event.get("data", {})
+            var heal_n := float(hdata.get("amount", 0.0))
+            if hslot >= 0 and hslot < world.heroes.size() and heal_n > 0.4:
+                _push_combat_text(Vector2(world.heroes[hslot]["pos"]), "+%d" % roundi(heal_n), Color("#7dff9a"))
+        elif et == &"hero_hit":
+            var data: Dictionary = event.get("data", {})
+            if StringName(data.get("source", &"")) == &"safe_zone":
+                continue
+            var tpos = event.get("pos", null)
+            var target := int(event.get("target_id", -1))
+            var hit_pos := Vector2.ZERO
+            if typeof(tpos) == TYPE_VECTOR2:
+                hit_pos = tpos
+            elif target >= 0 and target < world.heroes.size():
+                hit_pos = Vector2(world.heroes[target]["pos"])
+            else:
+                continue
+            var owner := int(event.get("actor_id", -1))
+            var row := 1
+            var hid := "burst"
+            if owner >= 0 and owner < world.heroes.size():
+                var held = world.heroes[owner].get("equipment", {})
+                if typeof(held) == TYPE_DICTIONARY:
+                    hid = str(held.get("id", "burst"))
+                var fam := GunSig.family_of(hid)
+                if fam == "pistol":
+                    row = 0
+                elif fam == "shotgun" or fam == "heavy":
+                    row = 2
+            var delay := 0.0
+            if hid == "rail":
+                delay = -0.10
+            impact_flashes.append({"pos": hit_pos, "row": row, "time": delay})
+            var dmg_n := float(data.get("damage", 0.0))
+            if StringName(data.get("source", &"")) != &"safe_zone" and dmg_n > 0.4:
+                _push_combat_text(hit_pos, "%d" % roundi(dmg_n), Color("#ffd36a"))
+
+
+func feel_muzzle_max(row: int) -> float:
+    var counts := [2, 3, 4]
+    return float(counts[clampi(row, 0, 2)]) * 0.055
+
+func _apply_shot_recoil(slot: int) -> void:
+    var equip_id := "burst"
+    if slot < world.heroes.size():
+        var held = world.heroes[slot].get("equipment", {})
+        if typeof(held) == TYPE_DICTIONARY:
+            equip_id = str(held.get("id", "burst"))
+    var feel: Dictionary = GunSig.feel_for_equipment(equip_id)
+    recoil_kick[slot] = float(feel.get("kick", 4.2))
+    recoil_rot[slot] = float(feel.get("rot", 0.045))
+    recoil_body[slot] = float(feel.get("body", 0.05))
+    recoil_strap[slot] = float(feel.get("strap", 1.4))
+    recoil_decay[slot] = float(feel.get("decay", 22.0))
+    var mrow := 0
+    var vis0: Dictionary = GunSig.visual_for_equipment(equip_id)
+    mrow = int(vis0.get("muzzle_row", 0))
+    muzzle_life[slot] = feel_muzzle_max(mrow)
+    if posmod(slot, 12) == 9:
+        rooster_comb_lag = 1.0
+
+
+func _tick_recoil(dt: float) -> void:
+    for slot in range(recoil_kick.size()):
+        var decay := float(recoil_decay[slot])
+        var factor: float = exp(-decay * dt)
+        recoil_kick[slot] = float(recoil_kick[slot]) * factor
+        recoil_rot[slot] = float(recoil_rot[slot]) * factor
+        recoil_body[slot] = float(recoil_body[slot]) * factor
+        recoil_strap[slot] = float(recoil_strap[slot]) * factor
+        muzzle_life[slot] = maxf(0.0, float(muzzle_life[slot]) - dt)
+    if rooster_comb_lag > 0.0:
+        rooster_comb_lag = maxf(0.0, rooster_comb_lag - 1.0)
+    var keep: Array = []
+    for flash in impact_flashes:
+        flash["time"] = float(flash.get("time", 0.0)) + dt
+        var row := int(flash.get("row", 1))
+        var counts := [2, 3, 4]
+        var n: int = int(counts[clampi(row, 0, 2)])
+        if float(flash["time"]) < float(n) * 0.055:
+            keep.append(flash)
+    impact_flashes = keep
+
 
 func _zodiac_texture(slot: int) -> Texture2D:
     if zodiac_textures.is_empty():
         return null
     return zodiac_textures[posmod(slot, 12)]
+
+
+func _animal_src_rect(slot: int) -> Rect2:
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+    var cell := Vector2(float(animal_atlas.get_width()) / float(ANIMAL_COLS), float(animal_atlas.get_height()) / float(ANIMAL_ROWS))
+    var col := frame % ANIMAL_COLS
+    var row := int(frame / ANIMAL_COLS)
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+
+func _bullet_src_rect(kind: String, tick: int) -> Rect2:
+    var row := 1
+    match kind:
+        "pellet":
+            row = 0
+        "burst", "bolt":
+            row = 1
+        "shell":
+            row = 2
+        "seeker":
+            row = 3
+        _:
+            row = 1
+    var col := posmod(tick / 3, BULLET_COLS)
+    var cell := Vector2(float(bullet_atlas.get_width()) / float(BULLET_COLS), float(bullet_atlas.get_height()) / float(BULLET_ROWS))
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+
+func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String) -> void:
+    if bullet_atlas == null:
+        return
+    var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
+    var src := _bullet_src_rect(kind, int(world.tick))
+    var dest := Rect2(Vector2(-28.0, -10.0), Vector2(56.0, 20.0))
+    draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
+    draw_texture_rect_region(bullet_atlas, dest, src)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -50,7 +297,7 @@ func _projectile_color(projectile: Dictionary) -> Color:
         "spear": return Color("#ffe27a")
         "chain": return Color("#b78cff")
         "shield": return Color("#8de1ff")
-        _: return colors[int(projectile["owner"])]
+        _: return _slot_color(int(projectile["owner"]))
 
 func _draw_dashed_circle(center: Vector2, radius: float, color: Color, width: float = 3.0, dash: float = 0.10, gap: float = 0.08) -> void:
     var angle := 0.0
@@ -124,6 +371,40 @@ func _draw_covers() -> void:
         draw_circle(c - Vector2(base * 0.25, base * 0.30), base * 0.55, Color("#9aa1ac"))
         draw_circle(c + Vector2(base * 0.35, base * 0.25), base * 0.34, Color("#6a707a"))
 
+func _item_display_kind(pickup: Dictionary) -> String:
+    var kind := str(pickup.get("kind", ""))
+    if kind == "":
+        return "medkit"
+    if kind == "decoy":
+        return str(pickup.get("disguise", "medkit"))
+    return kind
+
+func _item_tint(kind: String) -> Color:
+    match kind:
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        _:
+            return Color("#6ef3a5")
+
+func _item_label(kind: String) -> String:
+    match kind:
+        "spring":
+            return "SPRING"
+        "slide":
+            return "SLIDE"
+        "pull":
+            return "PULL"
+        "pocket":
+            return "POCKET"
+        _:
+            return "MEDKIT"
+
 func _draw_pickups() -> void:
     for pickup in world.health_pickups:
         if not bool(pickup["active"]):
@@ -134,31 +415,42 @@ func _draw_pickups() -> void:
         if gun_name != "":
             draw_circle(pickup_pos, 24.0 * pulse, Color(1.0, 0.82, 0.25, 0.16))
             draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, Color("#ffd166"), 3.5)
-            if gun_texture != null:
+            var pickup_equip := str(pickup.get("equipment", pickup.get("gun_id", "")))
+            if gun_atlas != null and pickup_equip != "":
+                var vis: Dictionary = GunSig.visual_for_equipment(pickup_equip)
+                draw_texture_rect_region(gun_atlas, Rect2(pickup_pos - Vector2(26.0, 14.0) * pulse, Vector2(52.0, 28.0) * pulse), _gun_src_rect(int(vis.get("frame", 0))))
+            elif gun_texture != null:
                 draw_texture_rect(gun_texture, Rect2(pickup_pos - Vector2(24.0, 14.0) * pulse, Vector2(48.0, 28.0) * pulse), false)
             draw_string(GameFont.get_font(), pickup_pos + Vector2(-60.0, 44.0), gun_name, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 12, Color("#ffd166"))
             continue
+        var show_kind := _item_display_kind(pickup)
+        var tint: Color = _item_tint(show_kind)
         var magnet_slot := int(pickup.get("magnet_slot", -1))
         if magnet_slot >= 0 and magnet_slot < world.heroes.size():
             var magnet_dir := pickup_pos.direction_to(Vector2(world.heroes[magnet_slot]["pos"]))
             for trail_index in range(3):
                 var side := magnet_dir.orthogonal() * (float(trail_index) - 1.0) * 7.0
-                draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color("#6ef3a5", 0.72), 4.0)
-            draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color("#d9ffe8"), 5.0)
+                draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color(tint, 0.72), 4.0)
+            draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color(tint, 0.95), 5.0)
         else:
-            draw_circle(pickup_pos, 24.0 * pulse, Color(0.18, 0.95, 0.52, 0.16))
-            draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, Color("#6ef3a5"), 3.5)
-        if medkit_texture != null:
+            draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
+            draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
+        if show_kind == "medkit" and medkit_texture != null:
             draw_texture_rect(medkit_texture, Rect2(pickup_pos - Vector2(19.0, 19.0) * pulse, Vector2(38.0, 38.0) * pulse), false)
-        else:
+        elif show_kind == "medkit":
             draw_rect(Rect2(pickup_pos + Vector2(-5.0, -16.0), Vector2(10.0, 32.0)), Color("#d9ffe8"))
             draw_rect(Rect2(pickup_pos + Vector2(-16.0, -5.0), Vector2(32.0, 10.0)), Color("#d9ffe8"))
+        else:
+            draw_circle(pickup_pos, 11.0 * pulse, Color(tint, 0.92))
+            draw_arc(pickup_pos, 16.0 * pulse, 0.0, TAU, 20, Color.WHITE, 2.0)
+        if show_kind != "medkit" or str(pickup.get("kind", "")) != "":
+            draw_string(GameFont.get_font(), pickup_pos + Vector2(-48.0, 42.0), _item_label(show_kind), HORIZONTAL_ALIGNMENT_CENTER, 96.0, 11, tint)
 
 func _draw_cores() -> void:
     for core in world.cores:
         var slot := int(core["slot"])
         var pos: Vector2 = core["pos"]
-        var color: Color = Color(colors[slot])
+        var color: Color = Color(_slot_color(slot))
         draw_circle(pos, 20.0, Color(color, 0.10))
         draw_arc(pos, 20.0, 0.0, TAU, 24, Color(color, 0.26), 2.0)
         draw_string(GameFont.get_font(), pos + Vector2(-18.0, 5.0), "P%d" % (slot + 1), HORIZONTAL_ALIGNMENT_CENTER, 36.0, 11, Color(color, 0.5))
@@ -167,7 +459,7 @@ func _draw_deployables() -> void:
     for mine in world.deployables:
         var mine_pos: Vector2 = mine["pos"]
         var mine_owner := int(mine["owner"])
-        var mine_color: Color = colors[mine_owner]
+        var mine_color: Color = _slot_color(mine_owner)
         if StringName(mine.get("type", &"mine")) == &"wall":
             var wall_dir := Vector2(mine["direction"]).normalized()
             var wall_normal := Vector2(mine.get("travel_direction", wall_dir.orthogonal())).normalized()
@@ -277,15 +569,28 @@ func _draw_projectiles() -> void:
             "shield":
                 var shield_side := direction.orthogonal()
                 draw_colored_polygon(PackedVector2Array([projectile_pos - shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 14.0 + direction * 17.0, projectile_pos + direction * 26.0, projectile_pos - shield_side * 14.0 + direction * 17.0]), Color("#8de1ff"))
+            "tracer":
+                var origin: Vector2 = projectile_pos
+                var trail: Array = projectile.get("trail", [])
+                if trail.size() > 0:
+                    origin = trail[0]
+                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
+                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
+            "pellet", "burst", "bolt":
+                _draw_lhj_bullet(projectile_pos, direction, kind)
             _:
-                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
-                draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
-                draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
-                draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
+                if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
+                    _draw_lhj_bullet(projectile_pos, direction, kind)
+                else:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
+                    draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
+                    draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
+                    draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
 
 func _draw_zones() -> void:
     for zone in world.zones:
-        var zone_color: Color = zone.get("color", colors[int(zone["owner"])])
+        var zone_color: Color = zone.get("color", _slot_color(int(zone["owner"])))
         var delay := float(zone.get("delay", 0.0))
         var warning_duration := maxf(0.01, float(zone.get("warning_duration", delay)))
         var warning_ratio := clampf(delay / warning_duration, 0.0, 1.0)
@@ -460,54 +765,156 @@ func _draw_effects() -> void:
         if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
             draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
 
-func _draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0) -> void:
-    draw_circle(pos + Vector2(2.0, 7.0), 24.0, Color(0.0, 0.0, 0.0, 0.22 * opacity))
-    draw_arc(pos, 30.0, 0.0, TAU, 28, Color(colors[slot], 0.85 * opacity), 3.5)
-    var tex := _zodiac_texture(slot)
-    if tex != null:
-        var flip := -1.0 if aim.x < -0.05 else 1.0
-        draw_set_transform(pos, 0.0, Vector2(flip, 1.0))
-        draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, Color(1.0, 1.0, 1.0, opacity))
-        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-    else:
-        draw_circle(pos, 22.0, Color(colors[slot], opacity))
-        draw_arc(pos, 22.0, 0.0, TAU, 24, Color(0.0, 0.0, 0.0, 0.8 * opacity), 3.0)
-
-func _draw_hero_gun(pos: Vector2, aim: Vector2, opacity: float = 1.0) -> void:
-    var dir := aim.normalized() if aim.length_squared() > 0.1 else Vector2.RIGHT
-    var angle := dir.angle()
-    var upright := Vector2(1.0, -1.0) if (angle > PI * 0.5 or angle < -PI * 0.5) else Vector2.ONE
-    var gun_pos := pos + dir * 21.0
-    draw_set_transform(gun_pos, angle, upright)
-    if gun_texture != null:
-        draw_texture_rect(gun_texture, Rect2(Vector2(-5.0, -9.0), Vector2(34.0, 18.0)), false, Color(1.0, 1.0, 1.0, opacity))
-    else:
-        draw_line(Vector2(-4.0, 0.0), Vector2(26.0, 0.0), Color(0.10, 0.10, 0.12, opacity), 7.0)
-        draw_line(Vector2(2.0, 0.0), Vector2(24.0, 0.0), Color(0.35, 0.36, 0.40, opacity), 3.0)
+func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
+    var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
+    var size_mul: float = lerpf(1.0, 0.52, height_t)
+    var alpha_mul: float = lerpf(1.0, 0.38, height_t)
+    var radius_x: float = 26.0 * size_mul
+    var radius_y: float = 11.5 * size_mul
+    var center: Vector2 = ground_pos + Vector2(1.5, 34.0)
+    draw_set_transform(center, 0.0, Vector2(1.0, radius_y / radius_x))
+    var rings: Array = [
+        [1.00, 0.07],
+        [0.88, 0.10],
+        [0.74, 0.13],
+        [0.58, 0.16],
+        [0.40, 0.17],
+        [0.22, 0.14]
+    ]
+    for ring in rings:
+        var ring_scale: float = float(ring[0])
+        var ring_alpha: float = float(ring[1])
+        draw_circle(Vector2.ZERO, radius_x * ring_scale, Color(0.0, 0.0, 0.0, ring_alpha * alpha_mul * opacity))
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func _draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "") -> void:
+func _draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0) -> void:
+    var hit_tint: Color = Color(3.4, 3.4, 3.4, opacity) if hit_flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
+    _draw_blob_shadow(pos, hop_lift, opacity)
+    draw_arc(pos, 30.0, 0.0, TAU, 28, Color(_slot_color(slot), 0.85 * opacity), 3.5)
+    var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+    var flip: float = -1.0 if aim.x < -0.05 else 1.0
+    var draw_scale: Vector2 = Vector2(flip * hop_scale.x, hop_scale.y)
+    if animal_atlas != null:
+        draw_set_transform(sprite_pos, 0.0, draw_scale)
+        draw_texture_rect_region(animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), _animal_src_rect(slot), hit_tint)
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    else:
+        var tex := _zodiac_texture(slot)
+        if tex != null:
+            draw_set_transform(sprite_pos, 0.0, draw_scale)
+            draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, hit_tint)
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+        else:
+            draw_circle(sprite_pos, 22.0, Color(_slot_color(slot), opacity))
+            draw_arc(sprite_pos, 22.0, 0.0, TAU, 24, Color(0.0, 0.0, 0.0, 0.8 * opacity), 3.0)
+
+func _draw_hero_gun(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, extra_squash: float = 0.0) -> void:
+    var dir := aim if aim.length_squared() > 0.0001 else Vector2.RIGHT
+    var equip_id := "burst"
+    if world != null and slot >= 0 and slot < world.heroes.size():
+        var held = world.heroes[slot].get("equipment", {})
+        if typeof(held) == TYPE_DICTIONARY:
+            equip_id = str(held.get("id", "burst"))
+    var vis: Dictionary = GunSig.visual_for_equipment(equip_id)
+    var family := str(vis.get("family", "rifle"))
+    var kick := 0.0
+    var rot_kick := 0.0
+    var strap_kick := 0.0
+    if slot >= 0 and slot < recoil_kick.size():
+        kick = float(recoil_kick[slot])
+        rot_kick = float(recoil_rot[slot])
+        strap_kick = float(recoil_strap[slot])
+    if extra_squash > 0.0 and posmod(slot, 12) == 11:
+        extra_squash += 0.04
+    var flip := -1.0 if dir.x < 0.0 else 1.0
+    var mount: Vector2 = pos + Vector2(flip * 6.0, 4.0) + dir * (18.0 - kick)
+    var angle := dir.angle() + rot_kick * (-1.0 if flip < 0.0 else 1.0)
+    const GUN_TSCN_SCALE := 0.645
+    const MUZZLE_LOCAL := Vector2(49.536, 0.0)
+    const MUZZLE_TSCN_SCALE := 0.74175
+    if gun_atlas != null:
+        var src := _gun_src_rect(int(vis.get("frame", 0)))
+        var cell := Vector2(float(gun_atlas.get_width()) / 4.0, float(gun_atlas.get_height()) / 3.0)
+        var world_s := 72.0 / (cell.x * GUN_TSCN_SCALE)
+        draw_set_transform(mount, angle, Vector2(world_s, world_s * flip))
+        var off := Vector2(float(vis.get("ox", 0.0)), float(vis.get("oy", 0.0)))
+        var gun_rect := Rect2((-cell * 0.5 + off) * GUN_TSCN_SCALE, cell * GUN_TSCN_SCALE)
+        draw_texture_rect_region(gun_atlas, gun_rect, src, Color(1.0, 1.0, 1.0, opacity))
+        var hero_muzzle := 0.0
+        var hero_mrow := 0
+        if world != null and slot >= 0 and slot < world.heroes.size():
+            hero_muzzle = float(world.heroes[slot].get("muzzle_time", 0.0))
+            hero_mrow = int(world.heroes[slot].get("muzzle_row", 0))
+        if muzzle_atlas != null and (hero_muzzle > 0.0 or (slot >= 0 and slot < muzzle_life.size() and float(muzzle_life[slot]) > 0.0)):
+            var counts := [2, 3, 4]
+            var row := hero_mrow if hero_muzzle > 0.0 else int(vis.get("muzzle_row", 0))
+            var n := int(counts[clampi(row, 0, 2)])
+            var life := hero_muzzle if hero_muzzle > 0.0 else float(muzzle_life[slot])
+            var played := maxf(0.0, float(feel_muzzle_max(row)) - life)
+            var col := clampi(int(played / 0.055), 0, n - 1)
+            var mcell := Vector2(float(muzzle_atlas.get_width()) / 4.0, float(muzzle_atlas.get_height()) / 3.0)
+            var mscale := 1.0
+            if world != null and slot >= 0 and slot < world.heroes.size():
+                mscale = float(world.heroes[slot].get("muzzle_scale", 1.0))
+            var msize := mcell * MUZZLE_TSCN_SCALE * mscale
+            var mcenter := Vector2(float(vis.get("mx", 90.0)), float(vis.get("my", -18.0))) + MUZZLE_LOCAL
+            draw_texture_rect_region(muzzle_atlas, Rect2(mcenter - msize * 0.5, msize), _muzzle_src_rect(row, col), Color(1.0, 1.0, 1.0, opacity))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    elif gun_texture != null:
+        draw_set_transform(mount, angle, Vector2(1.0, flip))
+        draw_texture_rect(gun_texture, Rect2(Vector2(-5.0, -9.0), Vector2(34.0, 18.0)), false, Color(1.0, 1.0, 1.0, opacity))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
     var name := display_name if display_name != "" else "P%d %s" % [slot + 1, _zodiac_name(slot)]
-    draw_string(GameFont.get_font(), pos + Vector2(-59.0, -50.0), name, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 13, Color(0.0, 0.0, 0.0, 0.85 * opacity))
-    draw_string(GameFont.get_font(), pos + Vector2(-60.0, -51.0), name, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 13, Color(1.0, 1.0, 1.0, opacity))
-    draw_rect(Rect2(pos + Vector2(-26.0, -46.0), Vector2(52.0, 7.0)), Color(0.0, 0.0, 0.0, 0.78 * opacity))
-    var fill := Color("#6ef3a5") if hp_ratio > 0.34 else Color("#ff5d73")
-    draw_rect(Rect2(pos + Vector2(-25.0, -45.0), Vector2(50.0 * maxf(0.0, hp_ratio), 5.0)), Color(fill, opacity))
+    draw_string(GameFont.get_font(), pos + Vector2(-71.0, -78.0), name, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(0.0, 0.0, 0.0, 0.85 * opacity))
+    draw_string(GameFont.get_font(), pos + Vector2(-72.0, -79.0), name, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(1.0, 1.0, 1.0, opacity))
+    var bar := Rect2(pos + Vector2(-46.0, -64.0), Vector2(92.0, 16.0))
+    draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.92 * opacity))
+    draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95 * opacity))
+    var fill := Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73")
+    var fill_w := (bar.size.x - 4.0) * clampf(hp_ratio, 0.0, 1.0)
+    draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2(fill_w, bar.size.y - 4.0)), Color(fill, opacity))
+    var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
+    draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 13.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7 * opacity))
+    draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(1.0, 1.0, 1.0, opacity))
 
 func _draw_knockouts() -> void:
     for knockout in world.knockouts:
         var knockout_slot := int(knockout["slot"])
         var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
-        _draw_motion_trail(knockout.get("trail", []), colors[knockout_slot], 9.0, knockout_fade)
+        _draw_motion_trail(knockout.get("trail", []), _slot_color(knockout_slot), 9.0, knockout_fade)
         var knockout_pos: Vector2 = knockout["pos"]
-        var tex := _zodiac_texture(knockout_slot)
-        if tex != null:
-            var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+        var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+        if animal_atlas != null:
             draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
-            draw_texture_rect(tex, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), false, Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
+            draw_texture_rect_region(animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), _animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
             draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
         else:
-            draw_circle(knockout_pos, 22.0, Color(colors[knockout_slot], 0.72 * knockout_fade))
+            var tex := _zodiac_texture(knockout_slot)
+            if tex != null:
+                draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
+                draw_texture_rect(tex, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), false, Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
+                draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            else:
+                draw_circle(knockout_pos, 22.0, Color(_slot_color(knockout_slot), 0.72 * knockout_fade))
+
+func _timed_ids(hero: Dictionary) -> Array:
+    var ids: Array = []
+    for buff in hero.get("rl_timed", []):
+        ids.append(str(buff.get("id", "")))
+    return ids
+
+func _timed_body_scale(hero: Dictionary) -> float:
+    var ids: Array = _timed_ids(hero)
+    if ids.has("double_giant"):
+        return 2.05
+    if ids.has("giant"):
+        return 1.55
+    if ids.has("turtle"):
+        return 0.0
+    return 1.0
 
 func _draw_heroes() -> void:
     for hero in world.heroes:
@@ -516,13 +923,15 @@ func _draw_heroes() -> void:
             continue
         var pos: Vector2 = hero["pos"]
         var aim := Vector2(hero["aim"])
+        var is_down := bool(hero.get("downed", false))
         var launch_trail_opacity := clampf(float(hero.get("launch_trail_fade", 0.0)) / 0.34, 0.0, 1.0)
-        _draw_motion_trail(hero.get("launch_trail", []), colors[slot], 6.5, launch_trail_opacity)
+        _draw_motion_trail(hero.get("launch_trail", []), _slot_color(slot), 6.5, launch_trail_opacity)
         if float(hero.get("launch_time", 0.0)) > 0.0 and Vector2(hero.get("launch_vel", Vector2.ZERO)).length_squared() > 1.0:
             var launch_dir := Vector2(hero["launch_vel"]).normalized()
-            draw_line(pos - launch_dir * 94.0, pos - launch_dir * 18.0, Color(colors[slot], 0.28), 9.0)
+            draw_line(pos - launch_dir * 94.0, pos - launch_dir * 18.0, Color(_slot_color(slot), 0.28), 9.0)
         if slot == world.wanted_slot:
-            draw_colored_polygon(PackedVector2Array([pos + Vector2(-18.0, -58.0), pos + Vector2(-15.0, -74.0), pos + Vector2(-5.0, -65.0), pos + Vector2(0.0, -80.0), pos + Vector2(5.0, -65.0), pos + Vector2(15.0, -74.0), pos + Vector2(18.0, -58.0)]), Color("#ffd166"))
+            draw_colored_polygon(PackedVector2Array([pos + Vector2(-18.0, -58.0), pos + Vector2(-15.0, -74.0), pos + Vector2(-5.0, -65.0), pos + Vector2(0.0, -80.0), pos + Vector2(5.0, -65.0), pos + Vector2(15.0, -74.0), pos + Vector2(18.0, -58.0)]), Color("#ff3349"))
+            draw_string(GameFont.get_font(), pos + Vector2(-40.0, -86.0), "WANTED", HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
         if float(hero["cc_time"]) > 0.0:
             draw_arc(pos, 34.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(hero["cc_time"]) / 1.5, 0.15, 1.0), 24, Color("#63d8ff"), 5.0)
         if float(hero.get("root_time", 0.0)) > 0.0:
@@ -552,31 +961,349 @@ func _draw_heroes() -> void:
             draw_arc(pos, winner_pulse + 11.0, float(world.tick) * 0.025, float(world.tick) * 0.025 + PI * 1.45, 38, Color(Color.WHITE, 0.72), 3.0)
             var crown_y := -86.0 + sin(float(world.tick) * 0.08) * 2.0
             draw_colored_polygon(PackedVector2Array([pos + Vector2(-22.0, crown_y + 17.0), pos + Vector2(-20.0, crown_y), pos + Vector2(-7.0, crown_y + 10.0), pos + Vector2(0.0, crown_y - 6.0), pos + Vector2(7.0, crown_y + 10.0), pos + Vector2(20.0, crown_y), pos + Vector2(22.0, crown_y + 17.0)]), Color("#ffd166"))
-        _draw_hero_sprite(pos, slot, aim)
-        _draw_hero_gun(pos, aim)
+        var hop_time: float = float(hero.get("hop_time", 0.0))
+        var hop_lift: float = 0.0
+        var hop_scale: Vector2 = Vector2.ONE
+        if hop_time > 0.0:
+            var hop_max: float = maxf(0.001, float(hero.get("hop_max", 0.30)))
+            var hop_t: float = clampf(1.0 - hop_time / hop_max, 0.0, 1.0)
+            var hop_height: float = float(hero.get("hop_height", 19.0))
+            hop_lift = hop_height * sin(PI * hop_t)
+            var hop_squash: float = cos(PI * hop_t)
+            hop_scale = Vector2(1.00 + 0.12 * hop_squash, 1.02 - 0.14 * hop_squash)
+        var body_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+        var body_squash := 0.0
+        if slot < recoil_body.size():
+            body_squash = float(recoil_body[slot])
+        if posmod(int(hero.get("animal", slot)), 12) == 11:
+            hop_scale = Vector2(hop_scale.x * (1.0 + body_squash * 1.35), hop_scale.y * (1.0 - body_squash * 1.55))
+        else:
+            hop_scale = Vector2(hop_scale.x * (1.0 + body_squash), hop_scale.y * (1.0 - body_squash))
+        var timed_ids: Array = _timed_ids(hero)
+        var is_turtle: bool = timed_ids.has("turtle")
+        var body_mul := _timed_body_scale(hero)
+        if is_turtle:
+            hop_scale = Vector2(1.25, 0.68)
+        elif body_mul > 1.01:
+            hop_scale = Vector2(hop_scale.x * body_mul, hop_scale.y * body_mul)
+        var comb_nudge := 0.0
+        if posmod(int(hero.get("animal", slot)), 12) == 9 and rooster_comb_lag > 0.0:
+            comb_nudge = 1.0
+        var ghost := 1.0
+        if float(hero.get("spawn_protect_time", 0.0)) > 0.0:
+            ghost = 0.38 + 0.38 * absf(sin(float(world.tick) * 0.35))
+        if float(hero.get("dmg_orb_time", 0.0)) > 0.0:
+            draw_arc(pos, 33.0 + sin(float(world.tick) * 0.28) * 2.0, 0.0, TAU, 28, Color(Color("#ff4f4f"), 0.80), 4.0)
+        var shield_hp := 0.0
+        for buff in hero.get("rl_timed", []):
+            shield_hp += float(buff.get("shield", 0.0))
+        if shield_hp > 0.01 or timed_ids.has("shield"):
+            draw_circle(pos, 40.0, Color(0.25, 0.78, 1.0, 0.16))
+            draw_arc(pos, 42.0 + sin(float(world.tick) * 0.22) * 2.0, 0.0, TAU, 36, Color(Color("#70e7ff"), 0.95), 6.0)
+        var hit_flash: float = float(hero.get("hit_flash", 0.0))
+        if is_turtle:
+            var turtle_tex: Texture2D = turtle_body_tex if turtle_body_tex != null else roulette_icons.get("turtle", null)
+            var turtle_size := 110.0
+            var flip: float = -1.0 if aim.x < -0.05 else 1.0
+            if turtle_tex != null:
+                draw_set_transform(pos + Vector2(0.0, 8.0), 0.0, Vector2(flip, 1.0))
+                draw_texture_rect(turtle_tex, Rect2(Vector2(-turtle_size * 0.5, -turtle_size * 0.62), Vector2(turtle_size, turtle_size)), false)
+                draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            else:
+                draw_circle(pos + Vector2(0.0, 6.0), 28.0, Color("#3d8f4a"))
+                draw_circle(pos + Vector2(0.0, 6.0), 16.0, Color("#6ef3a5"))
+        else:
+            var animal := int(hero.get("animal", slot))
+            if is_down:
+                draw_set_transform(pos + Vector2(0.0, 10.0), 1.25, Vector2(1.0, 0.72))
+                _draw_hero_sprite(Vector2.ZERO, animal, aim, 0.95, 0.0, Vector2.ONE, 0.15)
+                draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+                var bleed := clampf(float(hero.get("down_left", 0.0)) / 5.0, 0.0, 1.0)
+                draw_arc(pos, 34.0, -PI * 0.5, -PI * 0.5 + TAU * bleed, 28, Color("#ff8d93"), 4.0)
+                var fin := clampf(float(hero.get("down_taken", 0.0)) / 48.0, 0.0, 1.0)
+                draw_arc(pos, 28.0, -PI * 0.5, -PI * 0.5 + TAU * fin, 22, Color("#ff3349"), 3.0)
+                draw_string(GameFont.get_font(), pos + Vector2(-36.0, 48.0), "DOWN %.1f" % float(hero.get("down_left", 0.0)), HORIZONTAL_ALIGNMENT_CENTER, 72.0, 12, Color("#ffe066"))
+            else:
+                _draw_hero_sprite(pos + Vector2(0.0, comb_nudge), animal, aim, ghost, hop_lift, hop_scale, hit_flash)
+                _draw_hero_gun(body_pos, slot, aim, ghost, body_squash)
+            for clone in hero.get("ult_clones", []):
+                if not bool(clone.get("alive", true)):
+                    continue
+                var cpos: Vector2 = clone.get("pos", pos)
+                var caim: Vector2 = clone.get("aim", aim)
+                var chop := hop_lift
+                var cbody: Vector2 = cpos + Vector2(0.0, -chop)
+                _draw_hero_sprite(cpos, animal, caim, 0.94, chop, hop_scale, 0.0)
+                _draw_hero_gun(cbody, slot, caim, 0.94, body_squash)
+        var icon_x := -18.0
+        for mark_id in ["berserk", "sniper", "shield"]:
+            if not timed_ids.has(mark_id):
+                continue
+            var mark_tex: Texture2D = roulette_icons.get(mark_id, null)
+            var mark_pos: Vector2 = body_pos + Vector2(icon_x, -108.0)
+            if mark_tex != null:
+                draw_texture_rect(mark_tex, Rect2(mark_pos, Vector2(36.0, 36.0)), false)
+            else:
+                draw_circle(mark_pos + Vector2(18.0, 18.0), 14.0, Color.WHITE)
+            icon_x += 40.0
         var hp_ratio := maxf(0.0, float(hero["hp"]) / float(hero["max_hp"]))
-        _draw_nametag(pos, slot, hp_ratio, 1.0, str(hero.get("display_name", "")))
+        var animal_name := _zodiac_name(int(hero.get("animal", slot)))
+        var tag := str(hero.get("display_name", ""))
+        if tag == "":
+            tag = "P%d %s" % [slot + 1, animal_name]
+        _draw_nametag(body_pos, slot, hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
         if int(hero.get("kill_streak", 0)) >= 2:
-            draw_string(GameFont.get_font(), pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
-        if slot > 0:
-            var ultimate_ratio := clampf(float(hero["ultimate_charge"]) / world.ULTIMATE_MAX, 0.0, 1.0)
-            if ultimate_ratio >= 1.0:
-                var ultimate_pulse := 39.0 + sin(float(world.tick) * 0.20 + slot) * 2.5
-                draw_arc(pos, ultimate_pulse, 0.0, TAU, 32, Color(Color("#ff5d91"), 0.72), 3.0)
-                draw_rect(Rect2(pos + Vector2(28.0, -40.0), Vector2(36.0, 17.0)), Color("#ff5d91"))
-                draw_string(GameFont.get_font(), pos + Vector2(30.0, -27.0), "ULT", HORIZONTAL_ALIGNMENT_CENTER, 32.0, 10, Color.WHITE)
+            draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
+
+        _draw_reload_bubble(body_pos, hero)
+        _draw_head_roulette(body_pos, hero)
+
+
+func _draw_head_roulette(body_pos: Vector2, hero: Dictionary) -> void:
+    if int(hero.get("slot", -1)) != int(world.local_slot):
+        return
+    var phase := str(hero.get("roulette_phase", ""))
+    if phase == "":
+        return
+    var slice_ids: Array = ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "sniper", "double_giant", "turtle"]
+    var count := slice_ids.size()
+    var spin_id := str(hero.get("roulette_spin_id", ""))
+    var current := 0
+    if spin_id != "":
+        for i in range(count):
+            if str(slice_ids[i]) == spin_id:
+                current = i
+                break
+    var wheel_pos: Vector2 = body_pos + Vector2(0.0, -88.0)
+    var radius := 54.0
+    var slice := TAU / float(count)
+    var rot := 0.0
+    if phase == "spin":
+        var dur := maxf(0.001, float(hero.get("roulette_spin_dur", 0.9)))
+        var u := clampf(1.0 - float(hero.get("roulette_time", 0.0)) / dur, 0.0, 1.0)
+        var eased := 1.0 - (1.0 - u) * (1.0 - u)
+        rot = TAU * 1.65 * eased
+    elif phase == "land":
+        rot = -float(current) * slice
+    var rank := str(hero.get("roulette_rank", "kill"))
+    var cols: Array = _roulette_slice_palette(rank)
+    var rim: Color = _roulette_rank_color(rank)
+    for i in range(count):
+        var a0 := -PI * 0.5 + rot + float(i) * slice - slice * 0.5
+        var a1 := a0 + slice
+        var pts := PackedVector2Array()
+        pts.append(wheel_pos)
+        for s in range(7):
+            var a := lerpf(a0, a1, float(s) / 6.0)
+            pts.append(wheel_pos + Vector2(cos(a), sin(a)) * radius)
+        draw_colored_polygon(pts, cols[i % cols.size()])
+        draw_line(wheel_pos, wheel_pos + Vector2(cos(a0), sin(a0)) * radius, Color(1.0, 1.0, 1.0, 0.88), 1.6)
+    draw_arc(wheel_pos, radius, 0.0, TAU, 48, rim.darkened(0.25), 5.0)
+    draw_circle(wheel_pos, 7.5, Color(0.96, 0.93, 0.86, 1.0))
+    draw_arc(wheel_pos, 7.5, 0.0, TAU, 20, rim.darkened(0.15), 1.6)
+    for i in range(count):
+        var mid := -PI * 0.5 + rot + float(i) * slice
+        var face_id := str(slice_ids[i])
+        var icon_pos: Vector2 = wheel_pos + Vector2(cos(mid), sin(mid)) * (radius * 0.58)
+        var icon_tex: Texture2D = roulette_icons.get(face_id, null)
+        var glow := phase == "land" and i == current
+        var sz := 24.0 if glow else 20.0
+        if icon_tex != null:
+            draw_texture_rect(icon_tex, Rect2(icon_pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false)
+        else:
+            draw_circle(icon_pos, 5.0, Color.WHITE)
+    draw_colored_polygon(PackedVector2Array([
+        wheel_pos + Vector2(0.0, -radius - 7.0),
+        wheel_pos + Vector2(-7.0, -radius + 6.0),
+        wheel_pos + Vector2(7.0, -radius + 6.0)
+    ]), Color(0.98, 0.98, 0.98, 1.0))
+
+func _roulette_slice_palette(rank: String) -> Array:
+    if rank == "assist":
+        return [Color("#2f6fff"), Color("#7eb6ff"), Color("#163a8a")]
+    if rank == "wanted":
+        return [Color("#e11d2e"), Color("#ff6b6b"), Color("#7a121c")]
+    return [Color("#8b3dff"), Color("#c89bff"), Color("#4a1d86")]
+
+func _roulette_rank_color(rank: String) -> Color:
+    if rank == "assist":
+        return Color("#4da3ff")
+    if rank == "wanted":
+        return Color("#ff3349")
+    return Color("#b84dff")
+
+
+func _draw_reload_bubble(body_pos: Vector2, hero: Dictionary) -> void:
+    if not bool(hero.get("alive", false)):
+        return
+    var mag_now := int(hero.get("mag", 1))
+    var reloading := float(hero.get("reload_left", 0.0)) > 0.0
+    var flash := float(hero.get("reload_flash", 0.0)) > 0.0
+    var mode := ""
+    if reloading:
+        mode = "RELOADING"
+    elif flash:
+        mode = "RELOADED"
+    elif mag_now <= 0:
+        mode = "NEED"
+    if mode == "":
+        return
+    var bw := 36.0
+    var bh := 28.0
+    var origin: Vector2 = body_pos + Vector2(-bw * 0.5, -88.0)
+    draw_rect(Rect2(origin, Vector2(bw, bh)), Color(1.0, 1.0, 1.0, 0.96))
+    draw_rect(Rect2(origin, Vector2(bw, bh)), Color(0.05, 0.05, 0.07, 1.0), false, 1.0)
+    var tail: PackedVector2Array = PackedVector2Array([
+        body_pos + Vector2(-4.0, -60.0),
+        origin + Vector2(bw * 0.5 - 5.0, bh),
+        origin + Vector2(bw * 0.5 + 5.0, bh)
+    ])
+    draw_colored_polygon(tail, Color(1.0, 1.0, 1.0, 0.96))
+    draw_line(tail[0], tail[1], Color(0.05, 0.05, 0.07, 1.0), 1.0)
+    draw_line(tail[0], tail[2], Color(0.05, 0.05, 0.07, 1.0), 1.0)
+    var c: Vector2 = origin + Vector2(bw * 0.5, bh * 0.5 - 1.0)
+    if mode == "NEED":
+        draw_rect(Rect2(c + Vector2(-7.0, -8.0), Vector2(14.0, 16.0)), Color(0.12, 0.12, 0.14, 1.0), false, 1.5)
+        draw_rect(Rect2(c + Vector2(-4.0, -4.0), Vector2(8.0, 9.0)), Color(0.22, 0.22, 0.24, 1.0))
+        draw_rect(Rect2(c + Vector2(8.0, -9.0), Vector2(3.0, 10.0)), Color(0.92, 0.18, 0.22, 1.0))
+        draw_rect(Rect2(c + Vector2(8.0, 3.0), Vector2(3.0, 3.0)), Color(0.92, 0.18, 0.22, 1.0))
+    elif mode == "RELOADING":
+        var phase := int(world.tick / 4) % 8
+        for i in range(8):
+            var ang := float(i) * TAU / 8.0
+            var p0: Vector2 = c + Vector2(cos(ang), sin(ang)) * 5.0
+            var p1: Vector2 = c + Vector2(cos(ang), sin(ang)) * 10.0
+            var col := Color(0.18, 0.18, 0.2, 1.0)
+            if i == phase:
+                col = Color(0.12, 0.45, 0.95, 1.0)
+            draw_line(p0, p1, col, 2.0)
+    else:
+        draw_line(c + Vector2(-7.0, 1.0), c + Vector2(-2.0, 6.0), Color(0.12, 0.72, 0.28, 1.0), 2.4)
+        draw_line(c + Vector2(-2.0, 6.0), c + Vector2(8.0, -6.0), Color(0.12, 0.72, 0.28, 1.0), 2.4)
+
+func _draw_pocket_bubbles() -> void:
+    for hero in world.heroes:
+        if not bool(hero.get("alive", false)):
+            continue
+        if float(hero.get("pocket_time", 0.0)) <= 0.0:
+            continue
+        var bubble_pos: Vector2 = hero["pos"]
+        var pulse := 150.0 + sin(float(world.tick) * 0.14 + float(hero.get("slot", 0))) * 4.0
+        draw_circle(bubble_pos, pulse, Color(0.92, 0.95, 1.0, 0.10))
+        draw_arc(bubble_pos, pulse, 0.0, TAU, 48, Color(0.90, 0.94, 1.0, 0.55), 3.0)
+        draw_arc(bubble_pos, pulse * 0.70, 0.0, TAU, 32, Color(0.78, 0.86, 1.0, 0.22), 2.0)
 
 func _draw() -> void:
     if world == null:
         return
+    _consume_shot_events()
+    _tick_recoil(1.0 / 60.0)
+    _tick_combat_texts(1.0 / 60.0)
     _draw_island()
     _draw_safe_zone()
     _draw_covers()
+    _draw_crates()
+    _draw_mid_tower()
+    _draw_crate_orbs()
     _draw_pickups()
     _draw_cores()
     _draw_deployables()
     _draw_zones()
     _draw_projectiles()
+    _draw_impact_flashes()
     _draw_effects()
     _draw_knockouts()
+    _draw_pocket_bubbles()
     _draw_heroes()
+    _draw_combat_texts()
+
+func _draw_crates() -> void:
+    if world.crates.is_empty():
+        return
+    for crate in world.crates:
+        if not bool(crate.get("alive", false)):
+            continue
+        var pos: Vector2 = crate["pos"]
+        var body := Rect2(pos + Vector2(-22.0, -20.0), Vector2(44.0, 40.0))
+        draw_rect(body, Color("#5a3a1c"))
+        draw_rect(body, Color("#3b2410"), false, 2.0)
+        draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
+        draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
+        draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
+        var hp_now := float(crate.get("hp", 0.0))
+        var hp_max := float(crate.get("max_hp", 48.0))
+        var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
+        var bar := Rect2(pos + Vector2(-40.0, -38.0), Vector2(80.0, 14.0))
+        draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
+        draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
+        draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * hp_ratio, bar.size.y - 4.0)), Color("#e0a15a"))
+        var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
+        draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7))
+        draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 11.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color.WHITE)
+
+func _draw_crate_orbs() -> void:
+    if world.crate_orbs.is_empty():
+        return
+    for orb in world.crate_orbs:
+        if not bool(orb.get("active", true)):
+            continue
+        var pos: Vector2 = orb["pos"]
+        var pulse := 1.0 + sin(float(world.tick) * 0.18) * 0.12
+        var tint := Color("#ff4f4f") if bool(orb.get("red", true)) else Color("#4f8cff")
+        draw_circle(pos, 18.0 * pulse, Color(tint, 0.18))
+        draw_circle(pos, 11.0 * pulse, Color(tint, 0.92))
+        draw_arc(pos, 16.0 * pulse, 0.0, TAU, 22, Color.WHITE, 2.0)
+
+func _draw_impact_flashes() -> void:
+    if impact_atlas == null:
+        return
+    for flash in impact_flashes:
+        var row := int(flash.get("row", 1))
+        var counts := [2, 3, 4]
+        var n: int = int(counts[clampi(row, 0, 2)])
+        if float(flash.get("time", 0.0)) < 0.0:
+            continue
+        var col := clampi(int(float(flash.get("time", 0.0)) / 0.055), 0, n - 1)
+        var pos: Vector2 = flash["pos"]
+        draw_texture_rect_region(impact_atlas, Rect2(pos - Vector2(28.0, 28.0), Vector2(56.0, 56.0)), _impact_src_rect(row, col), Color.WHITE)
+
+func _push_combat_text(pos: Vector2, text: String, color: Color) -> void:
+    combat_texts.append({"pos": pos + Vector2(randf_range(-10.0, 10.0), -28.0), "text": text, "color": color, "time": 0.0})
+
+func _tick_combat_texts(dt: float) -> void:
+    var keep: Array = []
+    for item in combat_texts:
+        item["time"] = float(item.get("time", 0.0)) + dt
+        item["pos"] = Vector2(item["pos"]) + Vector2(0.0, -42.0 * dt)
+        if float(item["time"]) < 0.85:
+            keep.append(item)
+    combat_texts = keep
+
+func _draw_combat_texts() -> void:
+    for item in combat_texts:
+        var fade := 1.0 - clampf(float(item["time"]) / 0.85, 0.0, 1.0)
+        var pos: Vector2 = item["pos"]
+        var text := str(item.get("text", ""))
+        var col: Color = item.get("color", Color.WHITE)
+        draw_string(GameFont.get_font(), pos + Vector2(-31.0, 1.0), text, HORIZONTAL_ALIGNMENT_CENTER, 64.0, 18, Color(0.0, 0.0, 0.0, 0.75 * fade))
+        draw_string(GameFont.get_font(), pos + Vector2(-32.0, 0.0), text, HORIZONTAL_ALIGNMENT_CENTER, 64.0, 18, Color(col, fade))
+
+
+func _draw_mid_tower() -> void:
+    if world == null or not bool(world.mid_tower.get("alive", false)):
+        return
+    var pos: Vector2 = world.mid_tower["pos"]
+    var boing := float(world.mid_tower.get("boing", 0.0))
+    var squash := 1.0 + sin(boing * PI / 0.22) * 0.16 if boing > 0.0 else 1.0
+    var sz := Vector2(210.0, 278.0) * squash
+    if tower_texture != null:
+        draw_texture_rect(tower_texture, Rect2(pos - sz * 0.5 + Vector2(0, -22.0), sz), false)
+    var hp_now := float(world.mid_tower.get("hp", 0.0))
+    var hp_max := float(world.mid_tower.get("max_hp", 1.0))
+    var ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
+    var bar := Rect2(pos + Vector2(-88.0, -150.0), Vector2(176.0, 18.0))
+    draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
+    draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
+    draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * ratio, bar.size.y - 4.0)), Color("#ff5a4a"))
+    var label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
+    draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 13.0), label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 12, Color.WHITE)

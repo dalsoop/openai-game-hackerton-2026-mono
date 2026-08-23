@@ -14,6 +14,8 @@ const BLUE := Color("2F6BFF")
 const GREEN := Color("1F9D55")
 const SLOT_COUNT := 8
 const ANIMALS := ["토끼", "쥐", "호랑이", "황소", "용", "말", "닭", "돼지"]
+# lobby animals -> lhj atlas frames (Rat=0 Ox=1 Tiger=2 Rabbit=3 Snake=4 Dragon=5 Horse=6 Goat=7 Monkey=8 Rooster=9 Dog=10 Pig=11)
+const LOBBY_ANIMAL_FRAME := [3, 0, 2, 1, 5, 6, 9, 11]
 const NICKS := ["토토", "찍찍", "호랑", "황소", "용용", "말말", "꼬끼오", "꿀꿀"]
 const SLOT_COLORS := [
     Color("5bc0eb"), Color("9bc53d"), Color("e55934"), Color("fa7921"),
@@ -23,7 +25,7 @@ const MODES := [
     {"id":"classic", "title":"클래식", "desc":"시작부터 각자 다른 총. 필드 힐만.", "art":"mode_classic.png"},
     {"id":"gun-semi", "title":"단발", "desc":"모두 단발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_semi.png"},
     {"id":"gun-auto", "title":"연발", "desc":"모두 연발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_auto.png"},
-    {"id":"item", "title":"아이템", "desc":"같은 총 고정. 메드킷을 주워 E로 사용.", "art":"mode_item.png"},
+    {"id":"item", "title":"아이템", "desc":"같은 총 고정. 액티브 하나. E 사용. 사망 시 드롭.", "art":"mode_item.png"},
     {"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
 ]
 
@@ -382,7 +384,7 @@ func _build_how() -> Control:
         "키보드: WASD 이동  ·  마우스 조준",
         "터치: 왼쪽 스틱 이동  ·  오른쪽 스틱 조준",
         "LMB / 공격 버튼 기본 공격  ·  RMB / 스킬 버튼",
-        "SPACE / 대시 버튼 이동기  ·  Q / 궁 버튼 궁극기  ·  E / 약 버튼 메드킷",
+        "SHIFT / dash button flash  ·  SPACE hop  ·  Q / ult button  ·  E / item button",
         "최후의 1인이 이깁니다. 안전 구역은 줄어듭니다.",
     ]:
         col.add_child(_lbl(line, 18, MUTED))
@@ -885,6 +887,21 @@ func _build_settings() -> Control:
     root.add_child(panel)
     return root
 
+var _animal_atlas: Texture2D = null
+
+func _animal_portrait(index: int) -> Texture2D:
+    if _animal_atlas == null and ResourceLoader.exists("res://assets/lhj/Tex_Animal_4x3.png"):
+        _animal_atlas = load("res://assets/lhj/Tex_Animal_4x3.png")
+    if _animal_atlas == null:
+        return null
+    var frame := int(LOBBY_ANIMAL_FRAME[posmod(index, LOBBY_ANIMAL_FRAME.size())])
+    var cell := Vector2(float(_animal_atlas.get_width()) / 4.0, float(_animal_atlas.get_height()) / 3.0)
+    var atlas := AtlasTexture.new()
+    atlas.atlas = _animal_atlas
+    atlas.region = Rect2(Vector2(float(frame % 4), float(int(frame / 4))) * cell, cell)
+    return atlas
+
+
 func _make_slot_card(index: int) -> Panel:
     var card := Panel.new()
     card.name = "Slot%d" % index
@@ -907,7 +924,18 @@ func _make_slot_card(index: int) -> Panel:
     row.add_child(nick)
     var ready := _lbl("준비 완료", 13, GREEN)
     ready.name = "Ready"
-    var art := _lbl(ANIMALS[index], 28, SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
+    var portrait := _animal_portrait(index)
+    var art: Control
+    if portrait != null:
+        var pic := TextureRect.new()
+        pic.texture = portrait
+        pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        pic.custom_minimum_size = Vector2(88, 88)
+        pic.size_flags_horizontal = SIZE_EXPAND_FILL
+        art = pic
+    else:
+        art = _lbl(ANIMALS[index], 28, SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
     art.name = "Art"
     var kick := Button.new()
     kick.name = "Kick"

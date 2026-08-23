@@ -1,26 +1,33 @@
 class_name GangGameWorld
 extends RefCounted
+const GunSig = preload("res://scripts/sim/gun_signature.gd")
 
 const SeededRngScript = preload("res://scripts/sim/seeded_rng.gd")
 const EventLogScript = preload("res://scripts/sim/event_log.gd")
 
 const PLAYER_COUNT := 8
 const HERO_RADIUS := 20.0
-const HERO_SPEED := 310.0
+const HERO_SPEED := 419.0
 const SOURCE_ARENA_SIZE := Vector2(2800.0, 1700.0)
-const ARENA_TILE_SCALE := 0.7
-const ARENA_SIZE := Vector2(3920.0, 2380.0)
-const ARENA_CENTER := Vector2(1960.0, 1190.0)
-const ARENA_MARGIN := 52.0
-const SPAWN_HERO_RADIUS_X := 1680.0
-const SPAWN_HERO_RADIUS_Y := 970.0
-const SPAWN_CORE_RADIUS_X := 1800.0
-const SPAWN_CORE_RADIUS_Y := 1060.0
+const ARENA_TILE_SCALE := 1.4
+const ARENA_SIZE := Vector2(7840.0, 4760.0)
+const ARENA_CENTER := Vector2(3920.0, 2380.0)
+const ARENA_MARGIN := 104.0
+const SPAWN_HERO_RADIUS_X := 3360.0
+const SPAWN_HERO_RADIUS_Y := 1940.0
+const SPAWN_CORE_RADIUS_X := 3600.0
+const SPAWN_CORE_RADIUS_Y := 2120.0
 const CORE_RADIUS := 34.0
 const CORE_MAX_HP := 210.0
 const FIXED_DT := 1.0 / 60.0
 const START_COUNTDOWN := 3.0
 const MATCH_TIME_LIMIT := 210.0
+const TOWER_SPAWN_TIME := 75.0
+const TOWER_RADIUS := 86.0
+const TOWER_MAX_HP := 2400.0
+const TOWER_RANGE := 820.0
+const TOWER_INTERVAL := 1.85
+const TOWER_DAMAGE := 22.0
 const ULTIMATE_MAX := 100.0
 const HEALTH_PICKUP_RADIUS := 27.0
 const HEALTH_PICKUP_RESPAWN := 16.0
@@ -28,22 +35,40 @@ const HEALTH_PICKUP_HEAL_RATIO := 0.30
 const HEALTH_PICKUP_MAGNET_RADIUS := 217.0
 const HEALTH_PICKUP_MAGNET_SPEED := 760.0
 const HEALTH_PICKUP_RETURN_SPEED := 280.0
+const CRATE_RADIUS := 28.0
+const CRATE_MAX_HP := 48.0
+const CRATE_ORB_RADIUS := 16.0
+const CRATE_ORB_ARM := 0.25
+const CRATE_ORB_DMG_TIME := 12.0
+const CRATE_ORB_DMG_MUL := 1.25
+const CRATE_ORB_ULT_RATIO := 0.34
+const CRATE_RING_A_SCALE := 0.82
+const CRATE_RING_B_SCALE := 0.52
+const CRATE_RING_C_SCALE := 0.30
+const MAX_REVIVES := 3
+const RESPAWN_BASE := 3.0
+const RESPAWN_RANK_STEP := 0.5
+const RESPAWN_MAX := 5.5
+const DOWN_BLEED_TIME := 5.0
+const DOWN_FINISH_HP := 48.0
+const HOP_AIR := 0.30
+const HOP_LOCK := 0.08
 const SOURCE_HEALTH_PICKUP_POINTS := [
     Vector2(1400.0, 430.0),
     Vector2(1400.0, 1270.0),
     Vector2(760.0, 850.0),
     Vector2(2040.0, 850.0)
 ]
-const SAFE_ZONE_INITIAL_RADIUS := 1652.0
+const SAFE_ZONE_INITIAL_RADIUS := 3304.0
 const SAFE_ZONE_DAMAGE_PER_SEC := 8.0
 const SAFE_ZONE_TICK_INTERVAL := 0.50
-const SAFE_ZONE_EDGE_BUFFER := 126.0
+const SAFE_ZONE_EDGE_BUFFER := 252.0
 const SAFE_ZONE_PHASES := [
-    {"wait":12.0, "shrink":10.0, "radius":1204.0},
-    {"wait":8.0, "shrink":10.0, "radius":812.0},
-    {"wait":8.0, "shrink":9.0, "radius":476.0},
-    {"wait":7.0, "shrink":8.0, "radius":252.0},
-    {"wait":6.0, "shrink":8.0, "radius":98.0}
+    {"wait":20.0, "shrink":22.0, "radius":2750.0},
+    {"wait":16.0, "shrink":20.0, "radius":2200.0},
+    {"wait":14.0, "shrink":18.0, "radius":1700.0},
+    {"wait":12.0, "shrink":16.0, "radius":1280.0},
+    {"wait":12.0, "shrink":16.0, "radius":900.0}
 ]
 
 var rng
@@ -58,6 +83,9 @@ var effects: Array[Dictionary] = []
 var knockouts: Array[Dictionary] = []
 var covers: Array[Dictionary] = []
 var health_pickups: Array[Dictionary] = []
+var crates: Array[Dictionary] = []
+var crate_orbs: Array[Dictionary] = []
+var mid_tower: Dictionary = {}
 var next_entity_id: int = 100
 var result: StringName = &"playing"
 var winner_slot: int = -1
@@ -70,6 +98,9 @@ var callout: String = ""
 var callout_ticks: int = 0
 var impact_ticks: int = 0
 var impact_pos: Vector2 = ARENA_CENTER
+var local_hit_shake: int = 0
+var local_fire_shake: int = 0
+var local_mouse_kick: Vector2 = Vector2.ZERO
 var last_down_slot: int = -1
 var last_down_ticks: int = 0
 var start_countdown: float = START_COUNTDOWN
@@ -98,22 +129,39 @@ const MEDKIT_HEAL_RATIO := 0.30
 const GUN_LOOT_MODES := ["gun-semi", "gun-auto", "full"]
 const MEDKIT_MODES := ["item", "full"]
 const NO_LOOT_MODES := ["gun-semi", "gun-auto"]
+const ITEM_POOL_MODE := "item"
+const SPRING_AIR := 0.45
+const SPRING_LIFT := 36.0
+const SPRING_EVADE := 0.22
+const SPRING_BOOST := 220.0
+const SLIDE_DURATION := 2.2
+const SLIDE_ACCEL := 520.0
+const SLIDE_FRICTION := 180.0
+const PULL_DURATION := 0.55
+const PULL_RADIUS := 300.0
+const PULL_LAUNCH := 380.0
+const DECOY_DAMAGE := 18.0
+const DECOY_KNOCK := 90.0
+const POCKET_DURATION := 5.0
+const POCKET_RADIUS := 150.0
+const HOP_LIFT_DEFAULT := 19.0
+const ITEM_DROP_IGNORE := 0.45
 const MODE_START_EQUIPMENT := {"gun-semi":"rail", "gun-auto":"burst", "item":"scatter"}
 const GUN_LOOT_CHAIN := ["rail", "burst", "scatter", "mortar", "breaker", "bomb", "leech", "blade", "spear", "chain", "shield", "brawler"]
 
 var equipment_defs := [
-    {"id":"scatter", "name":"SCATTERGUN", "normal_name":"DOUBLE PELLET", "skill_name":"BACKBLAST", "skill_desc":"Cone knockback plus recoil escape", "ultimate_name":"ROOM CLEARER", "ultimate_desc":"Dash in and blast everyone outward", "normal_damage":5.5, "normal_interval":0.36, "normal_speed":720.0, "normal_range":0.72, "normal_spread":0.055, "normal_projectiles":2, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":10.0, "normal_kind":"pellet", "normal_radius":6.0, "preferred_range":285.0, "cooldown":3.10, "damage":7.0, "speed":720.0, "range":0.72},
-    {"id":"rail", "name":"RAIL LANCE", "normal_name":"MARKSMAN SHOT", "skill_name":"ANCHOR BREAK", "skill_desc":"Pierce, stagger and launch in one line", "ultimate_name":"DEADLINE", "ultimate_desc":"Three warned rail strikes split the arena", "normal_damage":12.0, "normal_interval":0.50, "normal_speed":980.0, "normal_range":1.28, "normal_spread":0.012, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":22.0, "normal_kind":"beam", "normal_radius":5.0, "preferred_range":540.0, "cooldown":3.50, "damage":38.0, "speed":1120.0, "range":1.42},
-    {"id":"mortar", "name":"CLUSTER MORTAR", "normal_name":"IMPACT SHELL", "skill_name":"SKYFALL", "skill_desc":"Warned blast opens cores and launches groups", "ultimate_name":"NO SAFE PLACE", "ultimate_desc":"Five staggered blasts deny an area", "normal_damage":8.0, "normal_interval":0.58, "normal_speed":560.0, "normal_range":0.98, "normal_spread":0.028, "normal_projectiles":1, "normal_splash":28.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":34.0, "normal_kind":"shell", "normal_radius":9.0, "preferred_range":455.0, "cooldown":4.40, "damage":24.0, "speed":560.0, "range":1.08},
-    {"id":"leech", "name":"LEECH CORE", "normal_name":"DRAIN NEEDLE", "skill_name":"BLOOD HARPOON", "skill_desc":"Hook pulls prey in and restores health", "ultimate_name":"BLOOD AUCTION", "ultimate_desc":"Three draining pulses drag everyone inward", "normal_damage":7.5, "normal_interval":0.32, "normal_speed":760.0, "normal_range":0.90, "normal_spread":0.035, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":true, "normal_cc":0.0, "normal_knockback":-12.0, "normal_kind":"tether", "normal_radius":7.0, "preferred_range":390.0, "cooldown":3.40, "damage":18.0, "speed":820.0, "range":1.08},
-    {"id":"breaker", "name":"BREACH HAMMER", "normal_name":"HEAVY SLUG", "skill_name":"CRASH ENTRY", "skill_desc":"Armored dash ends in a heavy shockwave", "ultimate_name":"TABLE FLIP", "ultimate_desc":"Long commit with an enormous launch", "normal_damage":20.0, "normal_interval":0.48, "normal_speed":700.0, "normal_range":0.98, "normal_spread":0.022, "normal_projectiles":1, "normal_splash":30.0, "normal_leech":false, "normal_cc":0.75, "normal_knockback":48.0, "normal_kind":"hammer", "normal_radius":12.0, "preferred_range":360.0, "cooldown":3.60, "damage":32.0, "speed":650.0, "range":0.96},
-    {"id":"burst", "name":"BURST RACK", "normal_name":"TRIPLE TAP", "skill_name":"SEEKER SALVO", "skill_desc":"Three curving missiles chase evasive prey", "ultimate_name":"HUNTER STORM", "ultimate_desc":"Twelve homing rockets cause chain panic", "normal_damage":4.8, "normal_interval":0.42, "normal_speed":840.0, "normal_range":0.98, "normal_spread":0.065, "normal_projectiles":3, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":8.0, "normal_kind":"burst", "normal_radius":5.0, "preferred_range":435.0, "cooldown":3.35, "damage":10.0, "speed":820.0, "range":1.18},
-    {"id":"blade", "name":"MOON KATANA", "normal_name":"MOON CUT", "skill_name":"CROSS STEP", "skill_desc":"Pass through the target and cut the exit", "ultimate_name":"THOUSANDTH EDGE", "ultimate_desc":"Five crossing cuts end in a launch", "normal_damage":9.5, "normal_interval":0.34, "normal_speed":900.0, "normal_range":0.23, "normal_spread":0.0, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":18.0, "normal_kind":"slash", "normal_radius":22.0, "preferred_range":205.0, "cooldown":3.10, "damage":27.0, "speed":980.0, "range":0.32},
-    {"id":"brawler", "name":"BARE KNUCKLES", "normal_name":"ONE-TWO", "skill_name":"LIVER SHOT", "skill_desc":"Shoulder in and pin the target in hitstun", "ultimate_name":"TEN COUNT", "ultimate_desc":"A rushing fist storm with a final uppercut", "normal_damage":6.5, "normal_interval":0.38, "normal_speed":780.0, "normal_range":0.17, "normal_spread":0.10, "normal_projectiles":2, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":11.0, "normal_kind":"fist", "normal_radius":16.0, "preferred_range":155.0, "cooldown":3.20, "damage":24.0, "speed":820.0, "range":0.26},
-    {"id":"bomb", "name":"MINE SATCHEL", "normal_name":"POCKET BOMB", "skill_name":"PROX MINE", "skill_desc":"Install up to two visible proximity mines", "ultimate_name":"PANIC MINEFIELD", "ultimate_desc":"Install five armed mines that auto-detonate", "normal_damage":8.5, "normal_interval":0.62, "normal_speed":510.0, "normal_range":1.00, "normal_spread":0.025, "normal_projectiles":1, "normal_splash":46.0, "normal_leech":false, "normal_cc":0.35, "normal_knockback":42.0, "normal_kind":"bomb", "normal_radius":11.0, "preferred_range":410.0, "cooldown":4.40, "damage":27.0, "speed":520.0, "range":1.10},
-    {"id":"spear", "name":"SUN SPEAR", "normal_name":"LONG THRUST", "skill_name":"VAULT IMPALE", "skill_desc":"Vault forward and skewer a sightline", "ultimate_name":"DRAGON LINE", "ultimate_desc":"Three enormous piercing thrusts", "normal_damage":13.0, "normal_interval":0.52, "normal_speed":1100.0, "normal_range":0.35, "normal_spread":0.0, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":25.0, "normal_kind":"spear", "normal_radius":10.0, "preferred_range":345.0, "cooldown":3.45, "damage":29.0, "speed":1180.0, "range":0.72},
-    {"id":"chain", "name":"CHAIN SICKLE", "normal_name":"CHAIN FLICK", "skill_name":"CHAIN LOCK", "skill_desc":"Pull and root one target; charge for a longer bind", "ultimate_name":"BLACK CAROUSEL", "ultimate_desc":"Pull twice, stun, then fling the trapped crowd", "normal_damage":7.5, "normal_interval":0.40, "normal_speed":800.0, "normal_range":0.56, "normal_spread":0.018, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":-18.0, "normal_kind":"chain", "normal_radius":12.0, "preferred_range":360.0, "cooldown":4.60, "damage":21.0, "speed":900.0, "range":0.78},
-    {"id":"shield", "name":"TOWER SHIELD", "normal_name":"SHIELD CHECK", "skill_name":"BULLDOZER WALL", "skill_desc":"Launch a warned moving wall that sweeps enemies away", "ultimate_name":"LAST ONE STANDING", "ultimate_desc":"Fortify, then overturn everyone nearby", "normal_damage":15.0, "normal_interval":0.62, "normal_speed":650.0, "normal_range":0.25, "normal_spread":0.0, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.30, "normal_knockback":40.0, "normal_kind":"shield", "normal_radius":24.0, "preferred_range":225.0, "cooldown":5.60, "damage":22.0, "speed":700.0, "range":0.30}
+    {"id":"scatter", "name":"SPAS-12", "normal_name":"PUMP BLAST", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"semi", "normal_damage":33.6, "normal_interval":0.50, "normal_speed":800.0, "normal_range":0.48, "normal_spread":0.12, "normal_projectiles":5, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":24.0, "normal_kind":"pellet", "normal_radius":6.0, "normal_pierce":0, "burst_shots":0, "mag_size":7, "reload_time":1.80, "preferred_range":260.0, "cooldown":99.0, "damage":33.6, "speed":800.0, "range":0.48},
+    {"id":"rail", "name":"AWM", "normal_name":"BOLT SHOT", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"bolt", "normal_damage":142.0, "normal_interval":1.22, "normal_speed":1520.0, "normal_range":1.12, "normal_spread":0.006, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":14.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":3, "burst_shots":0, "mag_size":5, "reload_time":2.40, "preferred_range":560.0, "cooldown":99.0, "damage":142.0, "speed":1520.0, "range":1.12},
+    {"id":"mortar", "name":"M79", "normal_name":"ARC SHELL", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"gl", "normal_damage":88.0, "normal_interval":1.05, "normal_speed":620.0, "normal_range":0.95, "normal_spread":0.012, "normal_projectiles":1, "normal_splash":120.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":42.0, "normal_kind":"shell", "normal_radius":9.0, "normal_pierce":0, "burst_shots":0, "mag_size":1, "reload_time":1.40, "preferred_range":430.0, "cooldown":99.0, "damage":88.0, "speed":620.0, "range":0.95},
+    {"id":"leech", "name":"MP5", "normal_name":"SMG BURST", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":11.4, "normal_interval":0.095, "normal_speed":980.0, "normal_range":0.42, "normal_spread":0.038, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":5.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":25, "reload_time":1.25, "preferred_range":240.0, "cooldown":99.0, "damage":11.4, "speed":980.0, "range":0.42},
+    {"id":"breaker", "name":"RPK", "normal_name":"LMG FIRE", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":12.2, "normal_interval":0.155, "normal_speed":1020.0, "normal_range":0.82, "normal_spread":0.028, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":8.0, "normal_kind":"bolt", "normal_radius":6.0, "normal_pierce":0, "burst_shots":0, "mag_size":40, "reload_time":2.20, "preferred_range":380.0, "cooldown":99.0, "damage":12.2, "speed":1020.0, "range":0.82},
+    {"id":"burst", "name":"GLOCK 18", "normal_name":"AUTO PISTOL", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":10.2, "normal_interval":0.105, "normal_speed":1000.0, "normal_range":0.44, "normal_spread":0.040, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":5.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":18, "reload_time":1.15, "preferred_range":250.0, "cooldown":99.0, "damage":10.2, "speed":1000.0, "range":0.44},
+    {"id":"blade", "name":"THOMPSON", "normal_name":"DRUM FIRE", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":12.2, "normal_interval":0.125, "normal_speed":910.0, "normal_range":0.58, "normal_spread":0.055, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":6.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":32, "reload_time":1.70, "preferred_range":300.0, "cooldown":99.0, "damage":12.2, "speed":910.0, "range":0.58},
+    {"id":"brawler", "name":"M1911", "normal_name":"SEMI PISTOL", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"semi", "normal_damage":36.0, "normal_interval":0.40, "normal_speed":1080.0, "normal_range":0.55, "normal_spread":0.018, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":8.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":7, "reload_time":1.05, "preferred_range":230.0, "cooldown":99.0, "damage":36.0, "speed":1080.0, "range":0.55},
+    {"id":"bomb", "name":"DOUBLE BARREL", "normal_name":"TWIN BLAST", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"semi", "normal_damage":27.4, "normal_interval":0.22, "normal_speed":760.0, "normal_range":0.40, "normal_spread":0.16, "normal_projectiles":6, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":28.0, "normal_kind":"pellet", "normal_radius":6.0, "normal_pierce":0, "burst_shots":2, "mag_size":2, "reload_time":1.10, "preferred_range":220.0, "cooldown":99.0, "damage":27.4, "speed":760.0, "range":0.40},
+    {"id":"spear", "name":"AK-47", "normal_name":"RIFLE FIRE", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":13.2, "normal_interval":0.135, "normal_speed":1060.0, "normal_range":0.86, "normal_spread":0.030, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":8.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":30, "reload_time":1.55, "preferred_range":390.0, "cooldown":99.0, "damage":13.2, "speed":1060.0, "range":0.86},
+    {"id":"chain", "name":"M4A1", "normal_name":"RIFLE FIRE", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"auto", "normal_damage":11.6, "normal_interval":0.115, "normal_speed":1100.0, "normal_range":0.88, "normal_spread":0.022, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":7.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":30, "reload_time":1.35, "preferred_range":400.0, "cooldown":99.0, "damage":11.6, "speed":1100.0, "range":0.88},
+{"id":"shield", "name":"WINCHESTER", "normal_name":"LEVER SHOT", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"lever", "normal_damage":54.0, "normal_interval":0.62, "normal_speed":1200.0, "normal_range":0.78, "normal_spread":0.014, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":12.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":8, "reload_time":1.60, "preferred_range":360.0, "cooldown":99.0, "damage":54.0, "speed":1200.0, "range":0.78}
 ]
 
 func _identity_for_equipment(equipment_id: String) -> Dictionary:
@@ -133,33 +181,33 @@ func _identity_for_equipment(equipment_id: String) -> Dictionary:
 
 func _combat_stats_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
-        "scatter": return {"move_speed":320.0, "max_hp":155.0, "weight":1.00, "combo_cap_ratio":0.26, "special_name":"RECOIL RHYTHM", "special_desc":"fast close-range reset"}
-        "rail": return {"move_speed":292.0, "max_hp":141.0, "weight":0.88, "combo_cap_ratio":0.27, "special_name":"DEAD ANGLE", "special_desc":"long-range hits deal 12% more"}
-        "mortar": return {"move_speed":270.0, "max_hp":140.0, "weight":0.92, "combo_cap_ratio":0.26, "special_name":"GLASS ARTILLERY", "special_desc":"controls space but collapses when rushed"}
-        "leech": return {"move_speed":310.0, "max_hp":149.0, "weight":0.98, "combo_cap_ratio":0.26, "special_name":"HUNGER", "special_desc":"confirmed hits restore health"}
-        "breaker": return {"move_speed":266.0, "max_hp":195.0, "weight":1.34, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
-        "burst": return {"move_speed":336.0, "max_hp":137.0, "weight":0.90, "combo_cap_ratio":0.27, "special_name":"PURSUIT", "special_desc":"homing attacks punish escape"}
-        "blade": return {"move_speed":354.0, "max_hp":157.0, "weight":0.86, "combo_cap_ratio":0.27, "special_name":"AFTERIMAGE", "special_desc":"mobility evades one incoming hit"}
-        "brawler": return {"move_speed":326.0, "max_hp":176.0, "weight":1.12, "combo_cap_ratio":0.24, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
-        "bomb": return {"move_speed":288.0, "max_hp":158.0, "weight":1.04, "combo_cap_ratio":0.26, "special_name":"MINE LAYER", "special_desc":"two persistent mines control rotations"}
-        "spear": return {"move_speed":316.0, "max_hp":204.0, "weight":1.02, "combo_cap_ratio":0.26, "special_name":"TIP RANGE", "special_desc":"far hits deal 12% more"}
-        "chain": return {"move_speed":298.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"CAPTURE", "special_desc":"combo tugs hold prey for CHAIN LOCK"}
-        _: return {"move_speed":252.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"BULLDOZER", "special_desc":"a moving wall forces enemies out of its lane"}
+        "scatter": return {"move_speed":432.0, "max_hp":155.0, "weight":1.00, "combo_cap_ratio":0.26, "special_name":"LIGHT FRAME", "special_desc":"fast close-range body"}
+        "rail": return {"move_speed":394.0, "max_hp":141.0, "weight":0.88, "combo_cap_ratio":0.27, "special_name":"LIGHT FRAME", "special_desc":"low HP long-range body"}
+        "mortar": return {"move_speed":365.0, "max_hp":140.0, "weight":0.92, "combo_cap_ratio":0.26, "special_name":"GLASS FRAME", "special_desc":"slow glass cannon body"}
+        "leech": return {"move_speed":419.0, "max_hp":149.0, "weight":0.98, "combo_cap_ratio":0.26, "special_name":"MID FRAME", "special_desc":"average SMG body"}
+        "breaker": return {"move_speed":359.0, "max_hp":195.0, "weight":1.34, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"high launch resistance"}
+        "burst": return {"move_speed":454.0, "max_hp":137.0, "weight":0.90, "combo_cap_ratio":0.27, "special_name":"LIGHT FRAME", "special_desc":"fast low HP body"}
+        "blade": return {"move_speed":478.0, "max_hp":157.0, "weight":0.86, "combo_cap_ratio":0.27, "special_name":"SWIFT FRAME", "special_desc":"fastest body"}
+        "brawler": return {"move_speed":440.0, "max_hp":176.0, "weight":1.12, "combo_cap_ratio":0.24, "special_name":"COMEBACK", "special_desc":"12% more damage below half health"}
+        "bomb": return {"move_speed":389.0, "max_hp":158.0, "weight":1.04, "combo_cap_ratio":0.26, "special_name":"MID FRAME", "special_desc":"average shotgun body"}
+        "spear": return {"move_speed":427.0, "max_hp":204.0, "weight":1.02, "combo_cap_ratio":0.26, "special_name":"TANK FRAME", "special_desc":"high HP rifle body"}
+        "chain": return {"move_speed":402.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"MID FRAME", "special_desc":"average rifle body"}
+        _: return {"move_speed":340.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"slowest high HP body"}
 
 func _mobility_for_equipment(equipment_id: String) -> Dictionary:
     match equipment_id:
-        "scatter": return {"mobility_name":"SKIRMISH HOP", "mobility_desc":"fast lateral recoil", "mobility_cooldown":4.2, "mobility_distance":190.0}
-        "rail": return {"mobility_name":"SIGHTLINE STEP", "mobility_desc":"short precise sidestep", "mobility_cooldown":4.8, "mobility_distance":165.0}
-        "mortar": return {"mobility_name":"BLAST HOP", "mobility_desc":"jump and repel nearby enemies", "mobility_cooldown":5.2, "mobility_distance":175.0}
-        "leech": return {"mobility_name":"SHADOW PULL", "mobility_desc":"long slide with a small heal", "mobility_cooldown":5.0, "mobility_distance":215.0}
-        "breaker": return {"mobility_name":"IRON MARCH", "mobility_desc":"short armored advance", "mobility_cooldown":4.6, "mobility_distance":145.0}
-        "burst": return {"mobility_name":"FLASH CUT", "mobility_desc":"long blink with no attack", "mobility_cooldown":5.5, "mobility_distance":250.0}
-        "blade": return {"mobility_name":"SHADOW SHEATH", "mobility_desc":"blink and evade one hit", "mobility_cooldown":3.8, "mobility_distance":265.0}
-        "brawler": return {"mobility_name":"WEAVE", "mobility_desc":"short dodge that breaks a combo", "mobility_cooldown":3.6, "mobility_distance":155.0}
-        "bomb": return {"mobility_name":"BLAST ROLL", "mobility_desc":"roll away from the live fuse", "mobility_cooldown":4.8, "mobility_distance":190.0}
-        "spear": return {"mobility_name":"POLE VAULT", "mobility_desc":"long committed vault", "mobility_cooldown":4.3, "mobility_distance":230.0}
-        "chain": return {"mobility_name":"SWING STEP", "mobility_desc":"curve around the captured target", "mobility_cooldown":4.5, "mobility_distance":205.0}
-        _: return {"mobility_name":"BRACE STEP", "mobility_desc":"small step with a long guard", "mobility_cooldown":5.0, "mobility_distance":120.0}
+        "scatter": return {"mobility_name":"SKIRMISH HOP", "mobility_desc":"fast lateral recoil", "mobility_cooldown":4.2, "mobility_distance":219.0}
+        "rail": return {"mobility_name":"SIGHTLINE STEP", "mobility_desc":"short precise sidestep", "mobility_cooldown":4.8, "mobility_distance":190.0}
+        "mortar": return {"mobility_name":"BLAST HOP", "mobility_desc":"jump and repel nearby enemies", "mobility_cooldown":5.2, "mobility_distance":201.0}
+        "leech": return {"mobility_name":"SHADOW PULL", "mobility_desc":"long slide with a small heal", "mobility_cooldown":5.0, "mobility_distance":247.0}
+        "breaker": return {"mobility_name":"IRON MARCH", "mobility_desc":"short armored advance", "mobility_cooldown":4.6, "mobility_distance":167.0}
+        "burst": return {"mobility_name":"FLASH CUT", "mobility_desc":"long blink with no attack", "mobility_cooldown":5.5, "mobility_distance":288.0}
+        "blade": return {"mobility_name":"SHADOW SHEATH", "mobility_desc":"blink and evade one hit", "mobility_cooldown":3.8, "mobility_distance":305.0}
+        "brawler": return {"mobility_name":"WEAVE", "mobility_desc":"short dodge that breaks a combo", "mobility_cooldown":3.6, "mobility_distance":178.0}
+        "bomb": return {"mobility_name":"BLAST ROLL", "mobility_desc":"roll away from the live fuse", "mobility_cooldown":4.8, "mobility_distance":219.0}
+        "spear": return {"mobility_name":"POLE VAULT", "mobility_desc":"long committed vault", "mobility_cooldown":4.3, "mobility_distance":265.0}
+        "chain": return {"mobility_name":"SWING STEP", "mobility_desc":"curve around the captured target", "mobility_cooldown":4.5, "mobility_distance":236.0}
+        _: return {"mobility_name":"BRACE STEP", "mobility_desc":"small step with a long guard", "mobility_cooldown":5.0, "mobility_distance":138.0}
 
 func _init(seed: int = 2222) -> void:
     rng = SeededRngScript.new(seed)
@@ -190,6 +238,7 @@ func _make_equipment(equipment_id: String) -> Dictionary:
 func reset() -> void:
     tick = 0
     match_time = 0.0
+    _reset_mid_tower()
     result = &"playing"
     winner_slot = -1
     result_reason = &""
@@ -199,6 +248,9 @@ func reset() -> void:
     callout = "NO TEAMS. ONLY TEMPORARY CONVENIENCE."
     callout_ticks = 210
     impact_ticks = 0
+    local_hit_shake = 0
+    local_fire_shake = 0
+    local_mouse_kick = Vector2.ZERO
     impact_pos = ARENA_CENTER
     last_down_slot = -1
     last_down_ticks = 0
@@ -227,17 +279,23 @@ func reset() -> void:
     effects.clear()
     knockouts.clear()
     health_pickups.clear()
+    crates.clear()
+    crate_orbs.clear()
     covers = _build_tiled_covers()
+    _spawn_breakable_crates()
     var pickup_points := _tiled_points(SOURCE_HEALTH_PICKUP_POINTS)
     for pickup_index in range(pickup_points.size()):
-        health_pickups.append({
+        var pickup: Dictionary = {
             "id":pickup_index,
             "pos":pickup_points[pickup_index],
             "home":pickup_points[pickup_index],
             "magnet_slot":-1,
             "active":true,
             "respawn":0.0
-        })
+        }
+        if mode == ITEM_POOL_MODE:
+            _roll_pickup_kind(pickup)
+        health_pickups.append(pickup)
     next_entity_id = 100
     event_log.clear()
     if mode in NO_LOOT_MODES:
@@ -261,7 +319,7 @@ func reset() -> void:
         hero_pos = _clamp_arena_point(hero_pos, HERO_RADIUS)
         core_pos = _nudge_out_of_cover(core_pos, CORE_RADIUS)
         hero_pos = _nudge_out_of_cover(hero_pos, HERO_RADIUS)
-        var equipment_id := str(equipment_defs[equipment_order[slot % equipment_order.size()]]["id"])
+        var equipment_id := GunSig.equipment_for_animal(slot)
         if MODE_START_EQUIPMENT.has(mode):
             equipment_id = str(MODE_START_EQUIPMENT[mode])
         var equipment := _make_equipment(equipment_id)
@@ -270,6 +328,9 @@ func reset() -> void:
         var initial_facing := hero_pos.direction_to(ARENA_CENTER)
         heroes.append({
             "slot":slot,
+            "animal":slot,
+            "muzzle_time":0.0,
+            "muzzle_row":0,
             "pos":hero_pos,
             "vel":Vector2.ZERO,
             "aim":initial_facing,
@@ -279,6 +340,9 @@ func reset() -> void:
             "alive":true,
             "eliminated":false,
             "respawn":0.0,
+            "respawn_left":0.0,
+            "revives_used":0,
+            "spawn_pos":hero_pos,
             "fire_cd":rng.rangef(0.0, 0.2),
             "equipment_cd":0.0,
             "mobility_cd":0.0,
@@ -298,6 +362,13 @@ func reset() -> void:
             "kills":0,
             "deaths":0,
             "medkits":0,
+            "held_item":"",
+            "slide_time":0.0,
+            "pull_time":0.0,
+            "pocket_time":0.0,
+            "spring_time":0.0,
+            "hop_height":HOP_LIFT_DEFAULT,
+            "slide_wish":Vector2.ZERO,
             "kill_streak":0,
             "best_kill_streak":0,
             "eliminations":0,
@@ -328,13 +399,42 @@ func reset() -> void:
             "combo_target":-1,
             "evade_time":0.0,
             "normal_step":0,
+            "burst_left":2,
+            "mag":int(equipment.get("mag_size", 1)),
+            "reload_left":0.0,
+            "reload_flash":0.0,
+            "spray_index":0.0,
+            "spray_idle":0.0,
+            "hit_flash":0.0,
             "normal_chain_time":0.0,
             "normal_interval":0.0,
             "attack_lock_time":0.0,
             "charging_skill":false,
             "charge_time":0.0,
             "charge_dir":hero_pos.direction_to(ARENA_CENTER),
-            "cpu_charge_target":0.0
+            "cpu_charge_target":0.0,
+            "hop_time":0.0,
+            "hop_lock":0.0,
+            "hop_max":HOP_AIR,
+            "dmg_orb_time":0.0,
+            "crate_target":-1,
+            "spawn_protect_time":0.0,
+            "life_hitters":[],
+            "life_hits":{},
+            "rl_until":{"atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0},
+            "rl_timed":[],
+            "roulette_time":0.0,
+            "roulette_label":"",
+            "roulette_rank":"",
+            "roulette_phase":"",
+            "roulette_pending":{},
+            "roulette_queue":[],
+            "roulette_faces":[],
+            "ult_clones":[],
+            "ult_clone_time":0.0,
+            "downed":false,
+            "down_left":0.0,
+            "down_taken":0.0
         })
         event_log.emit(tick, &"equipment_revealed", slot, -1, {"equipment":equipment["id"]})
     event_log.emit(tick, &"match_started", -1, -1, {})
@@ -366,13 +466,19 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
         _resolve_time_limit()
         return
     _update_timers(dt)
+    _update_item_pulses(dt)
     _update_safe_zone(dt)
     _apply_human(command)
     _update_cpus(dt)
     _move_heroes(dt)
+    _tick_downs(dt)
+    _sync_ult_clones(dt)
     _update_health_pickups(dt)
+    _update_crate_orbs(dt)
+    _update_respawns(dt)
     _update_knockouts(dt)
     _update_deployables(dt)
+    _update_mid_tower(dt)
     _update_projectiles(dt)
     _update_zones(dt)
     _update_effects(dt)
@@ -383,6 +489,8 @@ func _update_post_match_visuals(dt: float) -> void:
     tick += 1
     callout_ticks = maxi(0, callout_ticks - 1)
     impact_ticks = maxi(0, impact_ticks - 1)
+    local_hit_shake = maxi(0, local_hit_shake - 1)
+    local_fire_shake = maxi(0, local_fire_shake - 1)
     last_down_ticks = maxi(0, last_down_ticks - 1)
     streak_callout_ticks = maxi(0, streak_callout_ticks - 1)
     ultimate_focus_time = maxf(0.0, ultimate_focus_time - dt)
@@ -415,6 +523,8 @@ func _settle_match_visuals() -> void:
 func _update_timers(dt: float) -> void:
     callout_ticks = maxi(0, callout_ticks - 1)
     impact_ticks = maxi(0, impact_ticks - 1)
+    local_hit_shake = maxi(0, local_hit_shake - 1)
+    local_fire_shake = maxi(0, local_fire_shake - 1)
     last_down_ticks = maxi(0, last_down_ticks - 1)
     streak_callout_ticks = maxi(0, streak_callout_ticks - 1)
     ultimate_focus_time = maxf(0.0, ultimate_focus_time - dt)
@@ -423,13 +533,28 @@ func _update_timers(dt: float) -> void:
     for i in range(heroes.size()):
         var h: Dictionary = heroes[i]
         h["fire_cd"] = maxf(0.0, float(h["fire_cd"]) - dt)
+        h["spray_idle"] = float(h.get("spray_idle", 0.0)) + dt
+        if float(h["spray_idle"]) > 0.14:
+            var eqd: Dictionary = h["equipment"]
+            var eq_id := str(eqd.get("id", "burst"))
+            h["spray_index"] = maxf(0.0, float(h.get("spray_index", 0.0)) - dt * GunSig.spray_recover_rate(eq_id))
         h["equipment_cd"] = maxf(0.0, float(h["equipment_cd"]) - dt)
         h["mobility_cd"] = maxf(0.0, float(h["mobility_cd"]) - dt)
+        var previous_hop: float = float(h.get("hop_time", 0.0))
+        h["hop_time"] = maxf(0.0, previous_hop - dt)
+        if previous_hop > 0.0 and float(h["hop_time"]) <= 0.0:
+            h["hop_lock"] = HOP_LOCK
+        else:
+            h["hop_lock"] = maxf(0.0, float(h.get("hop_lock", 0.0)) - dt)
         h["guard_time"] = maxf(0.0, float(h["guard_time"]) - dt)
         h["super_armor_time"] = maxf(0.0, float(h["super_armor_time"]) - dt)
         if float(h["super_armor_time"]) <= 0.0:
             h["super_armor_strength"] = 0.0
         h["evade_time"] = maxf(0.0, float(h["evade_time"]) - dt)
+        h["slide_time"] = maxf(0.0, float(h.get("slide_time", 0.0)) - dt)
+        h["pull_time"] = maxf(0.0, float(h.get("pull_time", 0.0)) - dt)
+        h["pocket_time"] = maxf(0.0, float(h.get("pocket_time", 0.0)) - dt)
+        h["spring_time"] = maxf(0.0, float(h.get("spring_time", 0.0)) - dt)
         h["hitstun_time"] = maxf(0.0, float(h["hitstun_time"]) - dt)
         if float(h["launch_time"]) > 0.0:
             h["launch_trail_fade"] = 0.34
@@ -457,7 +582,23 @@ func _update_timers(dt: float) -> void:
         h["root_time"] = maxf(0.0, float(h["root_time"]) - dt)
         h["stun_time"] = maxf(0.0, float(h["stun_time"]) - dt)
         h["wall_hit_cd"] = maxf(0.0, float(h["wall_hit_cd"]) - dt)
+        if not bool(h["alive"]) or float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
+            h["reload_left"] = 0.0
+        elif float(h.get("reload_left", 0.0)) > 0.0:
+            h["reload_left"] = maxf(0.0, float(h["reload_left"]) - dt)
+            if float(h["reload_left"]) <= 0.0:
+                var mag_cap := int(h["equipment"].get("mag_size", 1))
+                h["mag"] = mag_cap
+                h["reload_flash"] = 0.55
+                h["action"] = &"RELOADED"
+        h["reload_flash"] = maxf(0.0, float(h.get("reload_flash", 0.0)) - dt)
+        h["hit_flash"] = maxf(0.0, float(h.get("hit_flash", 0.0)) - dt)
+        h["muzzle_time"] = maxf(0.0, float(h.get("muzzle_time", 0.0)) - dt)
+        h["dmg_orb_time"] = maxf(0.0, float(h.get("dmg_orb_time", 0.0)) - dt)
+        h["spawn_protect_time"] = maxf(0.0, float(h.get("spawn_protect_time", 0.0)) - dt)
         heroes[i] = h
+        _tick_roulette(i, dt)
+        h = heroes[i]
 
 func _apply_human(command: Dictionary) -> void:
     if heroes.is_empty():
@@ -467,6 +608,13 @@ func _apply_human(command: Dictionary) -> void:
         heroes[0] = h
         return
     if not bool(h["alive"]):
+        heroes[0] = h
+        return
+    if bool(h.get("downed", false)):
+        var crawl: Vector2 = command.get("move", Vector2.ZERO)
+        if crawl.length_squared() > 1.0:
+            crawl = crawl.normalized()
+        h["vel"] = crawl * _hero_move_speed(0) * 0.16
         heroes[0] = h
         return
     if float(h["launch_time"]) > 0.0:
@@ -490,38 +638,52 @@ func _apply_human(command: Dictionary) -> void:
         heroes[0] = h
         return
     if float(h["hitstun_time"]) > 0.0:
-        control_speed = 0.0
+        control_speed *= 0.72
     elif float(h["combo_capture_time"]) > 0.0:
-        control_speed = 0.0
+        control_speed *= 0.72
     if float(h["attack_lock_time"]) > 0.0:
         control_speed *= 0.76
     if bool(h["charging_skill"]):
         control_speed *= 0.62
-    h["vel"] = move * float(h["equipment"]["move_speed"]) * control_speed * _streak_move_multiplier(0)
+    if float(h.get("slide_time", 0.0)) > 0.0:
+        _steer_slide(0, h, move, control_speed, FIXED_DT)
+    else:
+        var cruise: Vector2 = move * _hero_move_speed(0) * control_speed * _streak_move_multiplier(0)
+        h["vel"] = cruise
+        if float(h.get("spring_time", 0.0)) > 0.0:
+            var boost_dir: Vector2 = move
+            if boost_dir.length_squared() < 0.1:
+                boost_dir = Vector2(h["facing"])
+            if boost_dir.length_squared() > 0.1:
+                var boosted: Vector2 = Vector2(h["vel"]) + boost_dir.normalized() * SPRING_BOOST
+                h["vel"] = boosted
+    if bool(command.get("hop", false)) and not _hero_has_timed(h, "turtle"):
+        var hop_ready: bool = float(h.get("hop_time", 0.0)) <= 0.0 and float(h.get("hop_lock", 0.0)) <= 0.0
+        if hop_ready and float(h["root_time"]) <= 0.0:
+            h["hop_time"] = HOP_AIR
+            h["hop_max"] = HOP_AIR
+            h["hop_height"] = HOP_LIFT_DEFAULT
     heroes[0] = h
-    if bool(command.get("medkit", false)):
-        _try_use_medkit(0)
-    if bool(command.get("ultimate", false)):
-        _cancel_skill_charge(0)
+    if bool(command.get("medkit", false)) and not _hero_has_timed(h, "turtle"):
+        _try_use_active_item(0)
+    if bool(command.get("ultimate", false)) and not _hero_has_timed(h, "turtle"):
         _try_ultimate(0, Vector2(h["facing"]))
-        return
-    if bool(command.get("mobility", false)):
+        h = heroes[0]
+    if bool(command.get("mobility", false)) and not _hero_has_timed(h, "turtle"):
         _cancel_skill_charge(0)
         _try_mobility(0, move if move.length_squared() > 0.1 else Vector2(h["facing"]))
         return
-    # 좌클릭이 우클릭 차지를 끊은 뒤 같은 프레임에 차지를 다시 열면
-    # _cancel_attack_recovery 가 fire_cd 를 0.04 로 깎아 연사가 된다.
-    if bool(command.get("primary", false)):
+    if bool(command.get("reload", false)) and not _hero_has_timed(h, "turtle"):
+        _try_start_reload(0)
+        h = heroes[0]
+    var fire_mode := str(h["equipment"].get("fire_mode", "auto"))
+    var want_fire := bool(command.get("primary", false))
+    if fire_mode != "auto":
+        want_fire = bool(command.get("primary_pressed", false))
+    if want_fire:
         _cancel_skill_charge(0)
         _try_normal_attack(0, Vector2(h["facing"]))
         return
-    var equipment_held := bool(command.get("equipment", false))
-    if bool(command.get("equipment_pressed", false)) or (equipment_held and not bool(heroes[0]["charging_skill"])):
-        _begin_skill_charge(0, Vector2(h["facing"]))
-    if equipment_held and bool(heroes[0]["charging_skill"]):
-        _continue_skill_charge(0, FIXED_DT, Vector2(h["facing"]))
-    if bool(command.get("equipment_released", false)):
-        _release_skill_charge(0, Vector2(h["facing"]))
 
 func _update_cpus(dt: float) -> void:
     for slot in range(1, heroes.size()):
@@ -529,6 +691,11 @@ func _update_cpus(dt: float) -> void:
         if bool(h["eliminated"]):
             continue
         if not bool(h["alive"]):
+            continue
+        if bool(h.get("downed", false)):
+            h["vel"] = Vector2.ZERO
+            h["action"] = &"DOWN"
+            heroes[slot] = h
             continue
         if float(h["stun_time"]) > 0.0:
             h["vel"] = Vector2.ZERO
@@ -541,15 +708,24 @@ func _update_cpus(dt: float) -> void:
             h["vel"] = Vector2.ZERO
             heroes[slot] = h
             if float(h["hitstun_time"]) <= 0.0:
-                if float(h["ultimate_charge"]) >= ULTIMATE_MAX and rng.chance(0.035):
-                    _try_ultimate(slot, Vector2(h["facing"]))
-                    h = heroes[slot]
-                elif float(h["mobility_cd"]) <= 0.0 and rng.chance(0.055):
+                if float(h["mobility_cd"]) <= 0.0 and rng.chance(0.055):
                     _try_mobility(slot, -Vector2(h["facing"]))
                     h = heroes[slot]
-        if int(h.get("medkits", 0)) > 0 and float(h["hp"]) < float(h["max_hp"]) * 0.5 and rng.chance(0.30):
+        if mode == ITEM_POOL_MODE:
+            _cpu_consider_held_item(slot)
+            h = heroes[slot]
+        elif int(h.get("medkits", 0)) > 0 and float(h["hp"]) < float(h["max_hp"]) * 0.5 and rng.chance(0.30):
             _try_use_medkit(slot)
             h = heroes[slot]
+        if float(h.get("slide_time", 0.0)) > 0.0:
+            var slide_wish: Vector2 = h.get("slide_wish", Vector2.ZERO)
+            if slide_wish.length_squared() < 0.01:
+                slide_wish = Vector2(h["facing"])
+            var slide_scale := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
+            if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0:
+                slide_scale = 0.0
+            _steer_slide(slot, h, slide_wish, slide_scale, dt)
+            heroes[slot] = h
         h["think"] = float(h["think"]) - dt
         if float(h["think"]) <= 0.0:
             h["think"] = 0.16 + rng.rangef(0.0, 0.10)
@@ -564,6 +740,11 @@ func _update_cpus(dt: float) -> void:
                         event_log.emit(tick, &"betrayal", slot, target, {"previous_target":old_target})
             var heal_index := _best_health_pickup(slot)
             var tslot := int(h["target"])
+            var orb_index := _best_crate_orb(slot)
+            var crate_index := _best_crate(slot)
+            var fight_dist := 99999.0
+            if tslot >= 0:
+                fight_dist = Vector2(h["pos"]).distance_to(_target_position(tslot))
             if heal_index >= 0:
                 var heal_pos: Vector2 = health_pickups[heal_index]["pos"]
                 var to_heal := Vector2(h["pos"]).direction_to(heal_pos)
@@ -572,12 +753,43 @@ func _update_cpus(dt: float) -> void:
                 if _line_blocked(Vector2(h["pos"]), heal_pos):
                     heal_move = (to_heal * 0.38 + heal_strafe).normalized()
                 var heal_cc_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
-                var heal_hitstun_speed := 0.0 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0 else 1.0
-                h["vel"] = heal_move * float(h["equipment"]["move_speed"]) * heal_cc_speed * heal_hitstun_speed * _streak_move_multiplier(slot)
+                var heal_hitstun_speed := 0.35 if float(h["root_time"]) > 0.0 else (0.72 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 else 1.0)
+                _apply_cpu_move(slot, h, heal_move, heal_cc_speed * heal_hitstun_speed)
                 h["action"] = &"SEEK_HEAL"
                 if tslot >= 0:
                     h["aim"] = Vector2(h["pos"]).direction_to(_target_position(tslot)).rotated(rng.rangef(-0.085, 0.085))
                     h["facing"] = h["aim"]
+            elif orb_index >= 0 and Vector2(h["pos"]).distance_to(Vector2(crate_orbs[orb_index]["pos"])) < minf(fight_dist, 520.0) and rng.chance(0.55):
+                var orb_pos: Vector2 = crate_orbs[orb_index]["pos"]
+                var to_orb: Vector2 = Vector2(h["pos"]).direction_to(orb_pos)
+                var orb_move: Vector2 = to_orb
+                if _line_blocked(Vector2(h["pos"]), orb_pos):
+                    orb_move = (to_orb * 0.40 + to_orb.orthogonal()).normalized()
+                _apply_cpu_move(slot, h, orb_move, 1.0)
+                h["action"] = &"SEEK_ORB"
+            elif bool(mid_tower.get("alive", false)) and Vector2(h["pos"]).distance_to(Vector2(mid_tower["pos"])) < minf(fight_dist, 780.0) and rng.chance(0.42):
+                var tower_pos: Vector2 = mid_tower["pos"]
+                var to_tower: Vector2 = Vector2(h["pos"]).direction_to(tower_pos)
+                h["aim"] = to_tower
+                h["facing"] = to_tower
+                var tower_move: Vector2 = to_tower
+                if Vector2(h["pos"]).distance_to(tower_pos) < float(h["equipment"]["preferred_range"]) * 0.62:
+                    tower_move = to_tower.orthogonal()
+                _apply_cpu_move(slot, h, tower_move, 1.0)
+                h["action"] = &"SEEK_TOWER"
+            elif crate_index >= 0 and Vector2(h["pos"]).distance_to(Vector2(crates[crate_index]["pos"])) < minf(fight_dist, 460.0) and rng.chance(0.28):
+                var crate_pos: Vector2 = crates[crate_index]["pos"]
+                var to_crate: Vector2 = Vector2(h["pos"]).direction_to(crate_pos)
+                h["crate_target"] = crate_index
+                h["aim"] = to_crate
+                h["facing"] = to_crate
+                var crate_move: Vector2 = to_crate
+                if _line_blocked(Vector2(h["pos"]), crate_pos):
+                    crate_move = (to_crate * 0.36 + to_crate.orthogonal()).normalized()
+                elif Vector2(h["pos"]).distance_to(crate_pos) < float(h["equipment"]["preferred_range"]) * 0.55:
+                    crate_move = to_crate.orthogonal()
+                _apply_cpu_move(slot, h, crate_move, 1.0)
+                h["action"] = &"SEEK_CRATE"
             elif tslot >= 0:
                 var target_pos := _target_position(tslot)
                 var to_target := Vector2(h["pos"]).direction_to(target_pos)
@@ -600,19 +812,19 @@ func _update_cpus(dt: float) -> void:
                     desired = (to_target + strafe * 0.20).normalized()
                     h["action"] = &"CLOSE_RANGE"
                 var cc_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
-                var hitstun_speed := 0.0 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0 else 1.0
+                var hitstun_speed := 0.35 if float(h["root_time"]) > 0.0 else (0.72 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 else 1.0)
                 var action_speed := 0.76 if float(h["attack_lock_time"]) > 0.0 else 1.0
                 if bool(h["charging_skill"]):
                     action_speed *= 0.62
-                h["vel"] = desired * float(h["equipment"]["move_speed"]) * cc_speed * hitstun_speed * action_speed * rng.rangef(0.93, 1.02) * _streak_move_multiplier(slot)
+                _apply_cpu_move(slot, h, desired, cc_speed * hitstun_speed * action_speed * rng.rangef(0.93, 1.02))
                 var aim_error: float = rng.rangef(-0.085, 0.085)
                 h["aim"] = to_target.rotated(aim_error)
                 h["facing"] = h["aim"]
             var hazard_escape := _hazard_escape_vector(slot)
             if hazard_escape.length_squared() > 0.1:
                 var hazard_cc_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
-                var hazard_lock_speed := 0.0 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["root_time"]) > 0.0 else 1.0
-                h["vel"] = hazard_escape * float(h["equipment"]["move_speed"]) * hazard_cc_speed * hazard_lock_speed * _streak_move_multiplier(slot)
+                var hazard_lock_speed := 0.35 if float(h["root_time"]) > 0.0 else (0.72 if float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 else 1.0)
+                _apply_cpu_move(slot, h, hazard_escape, hazard_cc_speed * hazard_lock_speed)
                 h["action"] = &"DODGE_WARNING"
         heroes[slot] = h
         var current_target := int(h["target"])
@@ -620,12 +832,6 @@ func _update_cpus(dt: float) -> void:
             var target_pos := _target_position(current_target)
             var dist := Vector2(h["pos"]).distance_to(target_pos)
             var clear_shot := not _line_blocked(Vector2(h["pos"]), target_pos)
-            if bool(h["charging_skill"]):
-                _continue_skill_charge(slot, dt, Vector2(h["pos"]).direction_to(target_pos))
-                h = heroes[slot]
-                if float(h["charge_time"]) >= float(h["cpu_charge_target"]):
-                    _release_skill_charge(slot, Vector2(h["pos"]).direction_to(target_pos))
-                continue
             if h["action"] != &"SEEK_HEAL" and float(h["mobility_cd"]) <= 0.0 and float(h["launch_time"]) <= 0.0 and (dist > float(h["equipment"]["preferred_range"]) * 1.35 or dist < float(h["equipment"]["preferred_range"]) * 0.48) and rng.chance(0.025):
                 var mobility_dir := Vector2(h["vel"]).normalized()
                 if mobility_dir.length_squared() < 0.1:
@@ -635,13 +841,17 @@ func _update_cpus(dt: float) -> void:
             if dist < _normal_reach(slot) and clear_shot and float(h["fire_cd"]) <= 0.0:
                 _try_normal_attack(slot, Vector2(h["aim"]))
             h = heroes[slot]
-            if dist < _equipment_reach(slot) and clear_shot and float(h["equipment_cd"]) <= 0.0 and rng.chance(0.045):
-                _begin_skill_charge(slot, Vector2(h["aim"]))
-                h = heroes[slot]
-                h["cpu_charge_target"] = rng.rangef(0.34, 1.15)
-                heroes[slot] = h
-            if dist < 720.0 and clear_shot and float(h["ultimate_charge"]) >= ULTIMATE_MAX and rng.chance(0.08):
-                _try_ultimate(slot, Vector2(h["aim"]))
+        if h["action"] == &"SEEK_TOWER" and float(h["fire_cd"]) <= 0.0 and bool(mid_tower.get("alive", false)):
+            var tpos: Vector2 = mid_tower["pos"]
+            if Vector2(h["pos"]).distance_to(tpos) < _normal_reach(slot):
+                _try_normal_attack(slot, Vector2(h["pos"]).direction_to(tpos))
+        if h["action"] == &"SEEK_CRATE" and float(h["fire_cd"]) <= 0.0:
+            var aim_crate := int(h.get("crate_target", -1))
+            if aim_crate >= 0 and aim_crate < crates.size() and bool(crates[aim_crate]["alive"]):
+                var crate_aim_pos: Vector2 = crates[aim_crate]["pos"]
+                if Vector2(h["pos"]).distance_to(crate_aim_pos) < _normal_reach(slot) and not _line_blocked(Vector2(h["pos"]), crate_aim_pos):
+                    _try_normal_attack(slot, Vector2(h["pos"]).direction_to(crate_aim_pos))
+                    h = heroes[slot]
 
 func _choose_target(slot: int) -> int:
     var best := -1
@@ -682,9 +892,12 @@ func _choose_target(slot: int) -> int:
 func _best_health_pickup(slot: int) -> int:
     var h: Dictionary = heroes[slot]
     var health_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
-    if health_ratio > 0.65:
+    var empty_hand := mode == ITEM_POOL_MODE and str(h.get("held_item", "")) == ""
+    if health_ratio > 0.65 and not empty_hand:
         return -1
     var search_radius := 700.0
+    if empty_hand:
+        search_radius = 980.0
     if health_ratio <= 0.48:
         search_radius = 1190.0
     if health_ratio <= 0.30:
@@ -696,10 +909,21 @@ func _best_health_pickup(slot: int) -> int:
         if not bool(pickup["active"]):
             continue
         var distance := Vector2(h["pos"]).distance_to(Vector2(pickup["pos"]))
-        if distance < best_distance:
-            best_distance = distance
+        if distance >= search_radius:
+            continue
+        var score_distance := distance
+        if _is_signature_floor_gun(slot, pickup):
+            score_distance = maxf(0.0, distance - 140.0)
+        if score_distance < best_distance:
+            best_distance = score_distance
             best_index = pickup_index
     return best_index
+
+func _is_signature_floor_gun(slot: int, pickup: Dictionary) -> bool:
+    var equip_id := str(pickup.get("equipment", pickup.get("gun_id", "")))
+    if equip_id == "":
+        return false
+    return GunSig.is_signature(slot, equip_id)
 
 func _hazard_escape_vector(slot: int) -> Vector2:
     if slot < 0 or slot >= heroes.size() or not bool(heroes[slot]["alive"]):
@@ -863,10 +1087,19 @@ func _update_health_pickups(dt: float) -> void:
         if not bool(pickup["active"]):
             pickup["respawn"] = maxf(0.0, float(pickup["respawn"]) - dt)
             if float(pickup["respawn"]) <= 0.0:
-                pickup["active"] = true
-                pickup["pos"] = Vector2(pickup["home"])
-                pickup["magnet_slot"] = -1
-                _add_effect(&"heal_ready", Vector2(pickup["pos"]), 62.0, 0.55, Color("#6ef3a5"), "HEAL READY")
+                if bool(pickup.get("ephemeral", false)):
+                    pickup["active"] = false
+                    pickup["respawn"] = 99999.0
+                else:
+                    pickup["active"] = true
+                    pickup["pos"] = Vector2(pickup["home"])
+                    pickup["magnet_slot"] = -1
+                    pickup["ignore_slot"] = -1
+                    pickup["ignore_time"] = 0.0
+                    if mode == ITEM_POOL_MODE:
+                        _roll_pickup_kind(pickup)
+                    _add_effect(&"heal_ready", Vector2(pickup["pos"]), 62.0, 0.55, Color("#6ef3a5"), "HEAL READY")
+        pickup["ignore_time"] = maxf(0.0, float(pickup.get("ignore_time", 0.0)) - dt)
         if bool(pickup["active"]):
             var magnet_slot := int(pickup.get("magnet_slot", -1))
             if not _pickup_target_valid(magnet_slot, pickup, HEALTH_PICKUP_MAGNET_RADIUS * 1.65):
@@ -878,7 +1111,9 @@ func _update_health_pickups(dt: float) -> void:
                 if Vector2(pickup["pos"]).distance_to(target_pos) <= HERO_RADIUS + HEALTH_PICKUP_RADIUS:
                     var h: Dictionary = heroes[magnet_slot]
                     var carried := int(h.get("medkits", 0))
-                    if mode in MEDKIT_MODES and carried < MEDKIT_MAX:
+                    if mode == ITEM_POOL_MODE:
+                        pickup = _collect_item_pickup(magnet_slot, pickup)
+                    elif mode in MEDKIT_MODES and carried < MEDKIT_MAX:
                         h["medkits"] = carried + 1
                         heroes[magnet_slot] = h
                         pickup["active"] = false
@@ -907,6 +1142,8 @@ func _pickup_target_valid(slot: int, pickup: Dictionary, max_distance: float) ->
         return false
     var h: Dictionary = heroes[slot]
     if not bool(h["alive"]) or bool(h["eliminated"]) or float(h["launch_time"]) > 0.0:
+        return false
+    if int(pickup.get("ignore_slot", -1)) == slot and float(pickup.get("ignore_time", 0.0)) > 0.0:
         return false
     return Vector2(h["pos"]).distance_to(Vector2(pickup["pos"])) <= max_distance
 
@@ -971,7 +1208,7 @@ func _move_launched_hero(slot: int, dt: float) -> void:
             h["pos"] = pos
             h["launch_vel"] = velocity
             heroes[slot] = h
-            _down_hero(launch_owner if launch_owner >= 0 else slot, slot)
+            _apply_lethal_or_down(launch_owner if launch_owner >= 0 else slot, slot, 0.0)
             return
         if int(h["wall_bounces"]) >= 3:
             h["launch_time"] = 0.0
@@ -1095,42 +1332,638 @@ func _nudge_out_of_cover(point: Vector2, radius: float) -> Vector2:
             return nudged
     return _clamp_arena_point(ARENA_CENTER, radius)
 
+func _cover_radius(cover: Dictionary) -> float:
+    var rect: Rect2 = cover["rect"]
+    return minf(rect.size.x, rect.size.y) * 0.5
+
 func _point_in_cover(point: Vector2, padding: float = 0.0) -> bool:
     for cover in covers:
         var rect: Rect2 = cover["rect"]
-        if rect.grow(padding).has_point(point):
+        if point.distance_to(rect.get_center()) <= _cover_radius(cover) + padding:
             return true
     return false
 
 func _line_blocked(from: Vector2, to: Vector2) -> bool:
     for cover in covers:
-        var rect: Rect2 = Rect2(cover["rect"]).grow(3.0)
-        if rect.has_point(from) or rect.has_point(to):
-            return true
-        var top_left := rect.position
-        var top_right := Vector2(rect.end.x, rect.position.y)
-        var bottom_left := Vector2(rect.position.x, rect.end.y)
-        var bottom_right := rect.end
-        if Geometry2D.segment_intersects_segment(from, to, top_left, top_right) != null:
-            return true
-        if Geometry2D.segment_intersects_segment(from, to, top_right, bottom_right) != null:
-            return true
-        if Geometry2D.segment_intersects_segment(from, to, bottom_right, bottom_left) != null:
-            return true
-        if Geometry2D.segment_intersects_segment(from, to, bottom_left, top_left) != null:
+        var c: Vector2 = Rect2(cover["rect"]).get_center()
+        var r := _cover_radius(cover) + 3.0
+        var closest: Vector2 = Geometry2D.get_closest_point_to_segment(c, from, to)
+        if closest.distance_to(c) <= r:
             return true
     return false
+
+func _spawn_breakable_crates() -> void:
+    crates.clear()
+    _place_crate_ring(8, SPAWN_HERO_RADIUS_X * CRATE_RING_A_SCALE, SPAWN_HERO_RADIUS_Y * CRATE_RING_A_SCALE, 0.0, 0, true)
+    _place_crate_ring(8, SPAWN_HERO_RADIUS_X * CRATE_RING_B_SCALE, SPAWN_HERO_RADIUS_Y * CRATE_RING_B_SCALE, PI * 0.125, 1, false)
+    _place_crate_ring(4, SPAWN_HERO_RADIUS_X * CRATE_RING_C_SCALE, SPAWN_HERO_RADIUS_Y * CRATE_RING_C_SCALE, PI * 0.25, 2, true)
+
+func _place_crate_ring(count: int, radius_x: float, radius_y: float, rot: float, ring_id: int, red_first: bool) -> void:
+    var radial_scale := 1.0
+    var scales: Array[float] = []
+    for i in range(16):
+        scales.append(1.0 + float(i) * 0.028)
+    for i in range(1, 12):
+        scales.append(1.0 - float(i) * 0.028)
+    for scale_try in scales:
+        var blocked := false
+        for n in range(count):
+            var ang := -PI * 0.5 + rot + TAU * float(n) / float(count)
+            var dir: Vector2 = Vector2.RIGHT.rotated(ang)
+            var pos: Vector2 = ARENA_CENTER + Vector2(dir.x * radius_x * scale_try, dir.y * radius_y * scale_try)
+            pos = _clamp_arena_point(pos, CRATE_RADIUS)
+            if _point_in_cover(pos, CRATE_RADIUS):
+                blocked = true
+                break
+        if not blocked:
+            radial_scale = scale_try
+            break
+    for n in range(count):
+        var ang := -PI * 0.5 + rot + TAU * float(n) / float(count)
+        var dir: Vector2 = Vector2.RIGHT.rotated(ang)
+        var pos: Vector2 = ARENA_CENTER + Vector2(dir.x * radius_x * radial_scale, dir.y * radius_y * radial_scale)
+        pos = _clamp_arena_point(pos, CRATE_RADIUS)
+        var is_red := (n % 2 == 0) if red_first else (n % 2 == 1)
+        crates.append({
+            "id":crates.size(),
+            "pos":pos,
+            "hp":CRATE_MAX_HP,
+            "max_hp":CRATE_MAX_HP,
+            "alive":true,
+            "ring":ring_id,
+            "orb_red":is_red
+        })
+
+func _hurt_crate(index: int, damage: float, show_number: bool = true) -> void:
+    if index < 0 or index >= crates.size():
+        return
+    var crate: Dictionary = crates[index]
+    if not bool(crate["alive"]) or damage <= 0.0:
+        return
+    crate["hp"] = float(crate["hp"]) - damage
+    if show_number and damage > 0.4:
+        event_log.emit(tick, &"crate_hit", -1, -1, {"crate":index, "damage":damage, "pos":Vector2(crate["pos"])})
+    if float(crate["hp"]) <= 0.0:
+        crate["hp"] = 0.0
+        crate["alive"] = false
+        crates[index] = crate
+        _spawn_crate_orb(Vector2(crate["pos"]), bool(crate["orb_red"]))
+        _add_effect(&"explosion", Vector2(crate["pos"]), 42.0, 0.28, Color("#c48a4a"), "CRATE")
+        event_log.emit(tick, &"crate_broke", -1, -1, {"crate":index, "red":bool(crate["orb_red"])})
+        return
+    crates[index] = crate
+
+func _damage_crates_at(center: Vector2, radius: float, damage: float) -> void:
+    for crate_i in range(crates.size()):
+        var crate: Dictionary = crates[crate_i]
+        if not bool(crate["alive"]):
+            continue
+        if center.distance_to(Vector2(crate["pos"])) <= radius + CRATE_RADIUS:
+            _hurt_crate(crate_i, damage)
+
+func _spawn_crate_orb(pos: Vector2, is_red: bool) -> void:
+    crate_orbs.append({
+        "pos":pos,
+        "home":pos,
+        "red":is_red,
+        "arm":CRATE_ORB_ARM,
+        "magnet_slot":-1,
+        "active":true
+    })
+
+func _update_crate_orbs(dt: float) -> void:
+    var kept: Array[Dictionary] = []
+    for orb0 in crate_orbs:
+        var orb: Dictionary = orb0
+        if not bool(orb.get("active", true)):
+            continue
+        orb["arm"] = maxf(0.0, float(orb.get("arm", 0.0)) - dt)
+        if float(orb["arm"]) <= 0.0:
+            var magnet_slot := int(orb.get("magnet_slot", -1))
+            if magnet_slot < 0 or magnet_slot >= heroes.size() or not bool(heroes[magnet_slot]["alive"]) or bool(heroes[magnet_slot]["eliminated"]):
+                magnet_slot = _nearest_orb_target(orb)
+                orb["magnet_slot"] = magnet_slot
+            if magnet_slot >= 0:
+                var target_pos: Vector2 = heroes[magnet_slot]["pos"]
+                orb["pos"] = Vector2(orb["pos"]).move_toward(target_pos, HEALTH_PICKUP_MAGNET_SPEED * dt)
+                if Vector2(orb["pos"]).distance_to(target_pos) <= HERO_RADIUS + CRATE_ORB_RADIUS:
+                    _collect_crate_orb(magnet_slot, orb)
+                    continue
+        kept.append(orb)
+    crate_orbs = kept
+
+func _nearest_orb_target(orb: Dictionary) -> int:
+    var best := -1
+    var best_distance := HEALTH_PICKUP_MAGNET_RADIUS
+    for slot in range(heroes.size()):
+        if not bool(heroes[slot]["alive"]) or bool(heroes[slot]["eliminated"]):
+            continue
+        var distance := Vector2(heroes[slot]["pos"]).distance_to(Vector2(orb["pos"]))
+        if distance < best_distance:
+            best_distance = distance
+            best = slot
+    return best
+
+func _collect_crate_orb(slot: int, orb: Dictionary) -> void:
+    var h: Dictionary = heroes[slot]
+    if bool(orb.get("red", true)):
+        h["dmg_orb_time"] = CRATE_ORB_DMG_TIME
+        heroes[slot] = h
+        _add_effect(&"heal_pickup", Vector2(h["pos"]), 58.0, 0.40, Color("#ff4f4f"), "DMG UP")
+        event_log.emit(tick, &"dmg_orb", slot, -1, {})
+    else:
+        h["ultimate_charge"] = minf(ULTIMATE_MAX, float(h.get("ultimate_charge", 0.0)) + ULTIMATE_MAX * CRATE_ORB_ULT_RATIO)
+        heroes[slot] = h
+        _add_effect(&"heal_pickup", Vector2(h["pos"]), 58.0, 0.40, Color("#4f8cff"), "POWER")
+        event_log.emit(tick, &"ult_orb", slot, -1, {"charge":float(h["ultimate_charge"])})
+
+func _best_crate(slot: int) -> int:
+    var h: Dictionary = heroes[slot]
+    var best := -1
+    var best_distance := 480.0
+    for crate_i in range(crates.size()):
+        var crate: Dictionary = crates[crate_i]
+        if not bool(crate["alive"]):
+            continue
+        var distance := Vector2(h["pos"]).distance_to(Vector2(crate["pos"]))
+        if distance < best_distance:
+            best_distance = distance
+            best = crate_i
+    return best
+
+func _best_crate_orb(slot: int) -> int:
+    var h: Dictionary = heroes[slot]
+    var best := -1
+    var best_distance := 420.0
+    for orb_i in range(crate_orbs.size()):
+        var orb: Dictionary = crate_orbs[orb_i]
+        if not bool(orb.get("active", true)):
+            continue
+        if float(orb.get("arm", 0.0)) > 0.0:
+            continue
+        var distance := Vector2(h["pos"]).distance_to(Vector2(orb["pos"]))
+        if distance < best_distance:
+            best_distance = distance
+            best = orb_i
+    return best
+
+func _respawn_delay_for(slot: int) -> float:
+    var rows: Array[Dictionary] = []
+    for i in range(heroes.size()):
+        if i == slot or not bool(heroes[i]["eliminated"]):
+            rows.append({"slot":i, "score":float(heroes[i]["score"]), "kills":int(heroes[i]["kills"])})
+    rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+        if absf(float(a["score"]) - float(b["score"])) > 0.01:
+            return float(a["score"]) > float(b["score"])
+        if int(a["kills"]) != int(b["kills"]):
+            return int(a["kills"]) > int(b["kills"])
+        return int(a["slot"]) < int(b["slot"])
+    )
+    var rank_from_top := 0
+    for i in range(rows.size()):
+        if int(rows[i]["slot"]) == slot:
+            rank_from_top = i
+            break
+    var from_last := maxi(0, rows.size() - 1 - rank_from_top)
+    return minf(RESPAWN_MAX, RESPAWN_BASE + RESPAWN_RANK_STEP * float(from_last))
+
+func _respawn_point(slot: int) -> Vector2:
+    var home: Vector2 = heroes[slot].get("spawn_pos", ARENA_CENTER)
+    if home.distance_to(safe_zone_center) <= maxf(40.0, safe_zone_radius - HERO_RADIUS - 12.0):
+        return _nudge_out_of_cover(_clamp_arena_point(home, HERO_RADIUS), HERO_RADIUS)
+    var outward: Vector2 = safe_zone_center.direction_to(home)
+    if outward.length_squared() < 0.01:
+        outward = Vector2.RIGHT
+    var safe_pos: Vector2 = safe_zone_center + outward * maxf(36.0, safe_zone_radius - 80.0)
+    return _nudge_out_of_cover(_clamp_arena_point(safe_pos, HERO_RADIUS), HERO_RADIUS)
+
+func _update_respawns(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if bool(h["eliminated"]) or bool(h["alive"]):
+            continue
+        h["respawn_left"] = maxf(0.0, float(h.get("respawn_left", 0.0)) - dt)
+        h["respawn"] = float(h["respawn_left"])
+        if float(h["respawn_left"]) > 0.0:
+            heroes[slot] = h
+            continue
+        var spawn_pos: Vector2 = _respawn_point(slot)
+        h["pos"] = spawn_pos
+        h["alive"] = true
+        h["hp"] = float(h["max_hp"])
+        h["mag"] = int(h["equipment"].get("mag_size", 1))
+        h["reload_left"] = 0.0
+        h["stun_time"] = 0.0
+        h["cc_time"] = 0.0
+        h["root_time"] = 0.0
+        h["hitstun_time"] = 0.0
+        h["launch_time"] = 0.0
+        h["launch_vel"] = Vector2.ZERO
+        h["launch_trail"] = []
+        h["vel"] = Vector2.ZERO
+        h["spawn_protect_time"] = 3.0
+        h["downed"] = false
+        h["down_left"] = 0.0
+        h["down_taken"] = 0.0
+        h["life_hitters"] = []
+        h["life_hits"] = {}
+        h["action"] = &"RESPAWN"
+        heroes[slot] = h
+        _add_effect(&"respawn", spawn_pos, 70.0, 0.45, Color("#b9f3ff"), "RESPAWN")
+        event_log.emit(tick, &"hero_respawned", slot, -1, {"revives_used":int(h.get("revives_used", 0))})
+
+func _standing_leader() -> int:
+    var best := -1
+    var best_score := -999999.0
+    var best_kills := -1
+    for slot in range(heroes.size()):
+        if bool(heroes[slot]["eliminated"]):
+            continue
+        var score := float(heroes[slot]["score"])
+        var kills := int(heroes[slot]["kills"])
+        var better := false
+        if best < 0:
+            better = true
+        elif score > best_score + 0.01:
+            better = true
+        elif absf(score - best_score) <= 0.01 and kills > best_kills:
+            better = true
+        elif absf(score - best_score) <= 0.01 and kills == best_kills and slot < best:
+            better = true
+        if better:
+            best = slot
+            best_score = score
+            best_kills = kills
+    return best
+
+func _hero_move_speed(slot: int) -> float:
+    if slot < 0 or slot >= heroes.size():
+        return HERO_SPEED
+    return float(heroes[slot]["equipment"]["move_speed"]) + _roulette_stat(slot, "spd")
+
+func _hero_has_timed(h: Dictionary, buff_id: String) -> bool:
+    for buff in h.get("rl_timed", []):
+        if str(buff.get("id", "")) == buff_id:
+            return true
+    return false
+
+func _roulette_stat(slot: int, key: String) -> float:
+    if slot < 0 or slot >= heroes.size():
+        return 0.0
+    var h: Dictionary = heroes[slot]
+    var total := float(h.get("rl_until", {}).get(key, 0.0))
+    for buff in h.get("rl_timed", []):
+        total += float(buff.get(key, 0.0))
+    return total
+
+func _roulette_faces(rank: String, timed_group: bool) -> Array:
+    if rank == "assist":
+        if timed_group:
+            return [
+                {"id":"giant", "name":"GIANT", "kind":"timed", "atk":2.0, "spd":3.0, "def":0.0, "hp":2.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":8.0},
+                {"id":"shield", "name":"SHIELD", "kind":"timed", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":24.0, "dur":2.0},
+                {"id":"berserk", "name":"BERSERK", "kind":"timed", "atk":2.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.04, "range":0.0, "shield":0.0, "dur":5.0}
+            ]
+        return [
+            {"id":"atk", "name":"ATK +2", "kind":"until", "atk":2.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"spd", "name":"SPD +2", "kind":"until", "atk":0.0, "spd":2.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"def", "name":"DEF +4%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.04, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"hp", "name":"HP +8", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":8.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"rate", "name":"RATE +4%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.04, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"range", "name":"RANGE +5%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.05, "shield":0.0, "dur":0.0}
+        ]
+    if rank == "wanted":
+        if timed_group:
+            return [
+                {"id":"giant", "name":"GIANT", "kind":"timed", "atk":4.5, "spd":7.5, "def":0.0, "hp":4.5, "rate":0.0, "range":0.0, "shield":0.0, "dur":12.0},
+                {"id":"shield", "name":"SHIELD", "kind":"timed", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":60.0, "dur":3.0},
+                {"id":"berserk", "name":"BERSERK", "kind":"timed", "atk":4.5, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.105, "range":0.0, "shield":0.0, "dur":8.0},
+                {"id":"sniper", "name":"SNIPER", "kind":"timed", "atk":4.5, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.12, "shield":0.0, "dur":9.0},
+                {"id":"double_giant", "name":"DOUBLE GIANT", "kind":"timed", "atk":6.0, "spd":10.0, "def":0.0, "hp":6.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":12.0}
+            ]
+        return [
+            {"id":"atk", "name":"ATK +5", "kind":"until", "atk":4.5, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"spd", "name":"SPD +6", "kind":"until", "atk":0.0, "spd":6.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"def", "name":"DEF +9%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.09, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"hp", "name":"HP +21", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":21.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"rate", "name":"RATE +11%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.105, "range":0.0, "shield":0.0, "dur":0.0},
+            {"id":"range", "name":"RANGE +12%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.12, "shield":0.0, "dur":0.0}
+        ]
+    if timed_group:
+        return [
+            {"id":"giant", "name":"GIANT", "kind":"timed", "atk":3.0, "spd":5.0, "def":0.0, "hp":3.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":12.0},
+            {"id":"shield", "name":"SHIELD", "kind":"timed", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":40.0, "dur":3.0},
+            {"id":"berserk", "name":"BERSERK", "kind":"timed", "atk":3.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.07, "range":0.0, "shield":0.0, "dur":8.0},
+            {"id":"sniper", "name":"SNIPER", "kind":"timed", "atk":3.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.08, "shield":0.0, "dur":9.0}
+        ]
+    return [
+        {"id":"atk", "name":"ATK +3", "kind":"until", "atk":3.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+        {"id":"spd", "name":"SPD +4", "kind":"until", "atk":0.0, "spd":4.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+        {"id":"def", "name":"DEF +6%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.06, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+        {"id":"hp", "name":"HP +14", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":14.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":0.0},
+        {"id":"rate", "name":"RATE +7%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.07, "range":0.0, "shield":0.0, "dur":0.0},
+        {"id":"range", "name":"RANGE +8%", "kind":"until", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.08, "shield":0.0, "dur":0.0}
+    ]
+
+func _roulette_b_chance(rank: String) -> float:
+    if rank == "assist":
+        return 0.25
+    if rank == "wanted":
+        return 0.55
+    return 0.40
+
+func _pick_roulette_face(rank: String) -> Dictionary:
+    if rng.rangef(0.0, 1.0) < 0.03:
+        return {"id":"turtle", "name":"TURTLE", "kind":"timed", "atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":2.0}
+    var timed_group: bool = rng.rangef(0.0, 1.0) < _roulette_b_chance(rank)
+    var faces: Array = _roulette_faces(rank, timed_group)
+    return faces[rng.rangei(0, faces.size() - 1)]
+
+func _roulette_face_list(rank: String) -> Array:
+    var faces: Array = []
+    for face in _roulette_faces(rank, false):
+        faces.append({"id":str(face["id"]), "name":str(face["name"])})
+    for face in _roulette_faces(rank, true):
+        faces.append({"id":str(face["id"]), "name":str(face["name"])})
+    faces.append({"id":"turtle", "name":"TURTLE"})
+    return faces
+
+func _clear_roulette_buffs(h: Dictionary) -> void:
+    var base_hp := float(h["equipment"]["max_hp"])
+    h["max_hp"] = base_hp
+    if float(h["hp"]) > base_hp:
+        h["hp"] = base_hp
+    h["rl_until"] = {"atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0}
+    h["rl_timed"] = []
+    h["roulette_time"] = 0.0
+    h["roulette_label"] = ""
+    h["roulette_rank"] = ""
+    h["roulette_phase"] = ""
+    h["roulette_pending"] = {}
+    h["roulette_queue"] = []
+    h["roulette_faces"] = []
+
+func _apply_roulette_face(slot: int, face: Dictionary) -> void:
+    if slot < 0 or slot >= heroes.size() or not bool(heroes[slot]["alive"]):
+        return
+    var h: Dictionary = heroes[slot]
+    var hp_add := float(face.get("hp", 0.0))
+    if str(face.get("kind", "until")) == "until":
+        var until_stats: Dictionary = h.get("rl_until", {"atk":0.0, "spd":0.0, "def":0.0, "hp":0.0, "rate":0.0, "range":0.0})
+        until_stats["atk"] = float(until_stats.get("atk", 0.0)) + float(face.get("atk", 0.0))
+        until_stats["spd"] = float(until_stats.get("spd", 0.0)) + float(face.get("spd", 0.0))
+        until_stats["def"] = float(until_stats.get("def", 0.0)) + float(face.get("def", 0.0))
+        until_stats["hp"] = float(until_stats.get("hp", 0.0)) + hp_add
+        until_stats["rate"] = float(until_stats.get("rate", 0.0)) + float(face.get("rate", 0.0))
+        until_stats["range"] = float(until_stats.get("range", 0.0)) + float(face.get("range", 0.0))
+        h["rl_until"] = until_stats
+        if hp_add > 0.0:
+            h["max_hp"] = float(h["max_hp"]) + hp_add
+            h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + hp_add)
+    else:
+        var timed: Dictionary = {
+            "id":str(face.get("id", "")),
+            "name":str(face.get("name", "")),
+            "time":float(face.get("dur", 0.0)),
+            "atk":float(face.get("atk", 0.0)),
+            "spd":float(face.get("spd", 0.0)),
+            "def":float(face.get("def", 0.0)),
+            "hp":hp_add,
+            "rate":float(face.get("rate", 0.0)),
+            "range":float(face.get("range", 0.0)),
+            "shield":float(face.get("shield", 0.0))
+        }
+        var timed_list: Array = h.get("rl_timed", [])
+        timed_list.append(timed)
+        h["rl_timed"] = timed_list
+        if hp_add > 0.0:
+            h["max_hp"] = float(h["max_hp"]) + hp_add
+            h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + hp_add)
+    heroes[slot] = h
+    _add_effect(&"heal_pickup", Vector2(h["pos"]), 72.0, 0.50, _roulette_rank_color(str(h.get("roulette_rank", "kill"))), str(face.get("name", "")))
+    event_log.emit(tick, &"kill_roulette", slot, -1, {"label":str(face.get("name", "")), "rank":str(h.get("roulette_rank", "")), "kind":str(face.get("kind", ""))})
+
+func _roulette_face_desc(face: Dictionary) -> String:
+    var bid := str(face.get("id", ""))
+    match bid:
+        "atk":
+            return "이번 목숨 동안 공격력이 올라갑니다"
+        "spd":
+            return "이번 목숨 동안 이동속도가 빨라집니다"
+        "def":
+            return "받는 피해가 줄어듭니다"
+        "hp":
+            return "최대 체력과 현재 체력이 늘어납니다"
+        "rate":
+            return "연사 속도가 빨라집니다"
+        "range":
+            return "총알이 더 멀리 나갑니다"
+        "giant":
+            return "몸이 커지고 공격과 이동이 세집니다"
+        "double_giant":
+            return "더 크게 변하고 능력치가 크게 오릅니다"
+        "shield":
+            return "잠시 보호막이 생깁니다"
+        "berserk":
+            return "공격과 연사가 잠깐 폭주합니다"
+        "sniper":
+            return "사거리가 늘어나고 한 방이 세집니다"
+        "turtle":
+            return "2초 동안 공격과 대시를 쓸 수 없습니다"
+        _:
+            return str(face.get("name", ""))
+
+func _roulette_rank_color(rank: String) -> Color:
+    if rank == "assist":
+        return Color("#4da3ff")
+    if rank == "wanted":
+        return Color("#ff3349")
+    return Color("#b84dff")
+
+func _begin_next_roulette(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var queue: Array = h.get("roulette_queue", [])
+    if queue.is_empty() or not bool(h["alive"]):
+        h["roulette_phase"] = ""
+        h["roulette_time"] = 0.0
+        h["roulette_pending"] = {}
+        heroes[slot] = h
+        return
+    var item: Dictionary = queue.pop_front()
+    h["roulette_queue"] = queue
+    var face: Dictionary = item.get("face", {})
+    var rank := str(item.get("rank", "kill"))
+    h["roulette_pending"] = face
+    h["roulette_rank"] = rank
+    h["roulette_phase"] = "bonus"
+    h["roulette_time"] = 0.25
+    h["roulette_label"] = "KILL BONUS!"
+    h["roulette_faces"] = _roulette_face_list(rank)
+    h["roulette_spin_id"] = ""
+    heroes[slot] = h
+    _announce("KILL BONUS!", 50)
+
+func _queue_roulette(slot: int, rank: String) -> void:
+    if slot < 0 or slot >= heroes.size() or not bool(heroes[slot]["alive"]):
+        return
+    var h: Dictionary = heroes[slot]
+    var queue: Array = h.get("roulette_queue", [])
+    queue.append({"rank":rank, "face":_pick_roulette_face(rank)})
+    h["roulette_queue"] = queue
+    heroes[slot] = h
+    if str(h.get("roulette_phase", "")) == "":
+        _begin_next_roulette(slot)
+
+func _grant_kill_roulettes(owner: int, target: int, bounty_kill: bool, hits: Dictionary) -> void:
+    if owner >= 0 and owner < heroes.size() and owner != target and bool(heroes[owner]["alive"]):
+        _queue_roulette(owner, "wanted" if bounty_kill else "kill")
+    for assist_slot in _assist_slots(owner, target, hits):
+        _queue_roulette(int(assist_slot), "assist")
+
+func _expire_timed_buff(h: Dictionary, buff: Dictionary) -> void:
+    var hp_drop := float(buff.get("hp", 0.0))
+    if hp_drop > 0.0:
+        h["max_hp"] = maxf(float(h["equipment"]["max_hp"]), float(h["max_hp"]) - hp_drop)
+        h["hp"] = minf(float(h["hp"]), float(h["max_hp"]))
+
+func _tick_roulette(slot: int, dt: float) -> void:
+    var h: Dictionary = heroes[slot]
+    var timed_keep: Array = []
+    for buff in h.get("rl_timed", []):
+        var left := maxf(0.0, float(buff.get("time", 0.0)) - dt)
+        if left <= 0.0:
+            _expire_timed_buff(h, buff)
+            continue
+        buff["time"] = left
+        timed_keep.append(buff)
+    h["rl_timed"] = timed_keep
+    var phase := str(h.get("roulette_phase", ""))
+    if phase == "":
+        heroes[slot] = h
+        return
+    h["roulette_time"] = maxf(0.0, float(h.get("roulette_time", 0.0)) - dt)
+    if phase == "bonus":
+        h["roulette_label"] = "KILL BONUS!"
+        if float(h["roulette_time"]) <= 0.0:
+            h["roulette_phase"] = "spin"
+            h["roulette_time"] = 0.9
+            h["roulette_spin_dur"] = 0.9
+    elif phase == "spin":
+        var faces: Array = h.get("roulette_faces", [])
+        if faces.size() > 0:
+            var dur := maxf(0.001, float(h.get("roulette_spin_dur", 0.9)))
+            var u := clampf(1.0 - float(h["roulette_time"]) / dur, 0.0, 1.0)
+            var eased := 1.0 - (1.0 - u) * (1.0 - u)
+            var flicker := int(floor(eased * 1.65 * float(faces.size()))) % faces.size()
+            var spin_face: Dictionary = faces[flicker] if typeof(faces[flicker]) == TYPE_DICTIONARY else {"id":str(faces[flicker]), "name":str(faces[flicker])}
+            h["roulette_spin_id"] = str(spin_face.get("id", ""))
+            h["roulette_label"] = str(spin_face.get("name", ""))
+        if float(h["roulette_time"]) <= 0.0:
+            var face: Dictionary = h.get("roulette_pending", {})
+            heroes[slot] = h
+            _apply_roulette_face(slot, face)
+            h = heroes[slot]
+            h["roulette_phase"] = "land"
+            h["roulette_time"] = 2.40
+            h["roulette_label"] = str(face.get("name", ""))
+            h["roulette_spin_id"] = str(face.get("id", ""))
+            h["roulette_desc"] = _roulette_face_desc(face)
+            h["roulette_pending"] = {}
+    elif phase == "land":
+        if float(h["roulette_time"]) <= 0.0:
+            heroes[slot] = h
+            _begin_next_roulette(slot)
+            return
+    heroes[slot] = h
+
+func _absorb_roulette_shield(h: Dictionary, amount: float) -> float:
+    var left := amount
+    var timed_list: Array = h.get("rl_timed", [])
+    for i in range(timed_list.size()):
+        var buff: Dictionary = timed_list[i]
+        var shield_left := float(buff.get("shield", 0.0))
+        if shield_left <= 0.0 or left <= 0.0:
+            continue
+        var take := minf(shield_left, left)
+        buff["shield"] = shield_left - take
+        timed_list[i] = buff
+        left -= take
+    h["rl_timed"] = timed_list
+    return left
+
+func _note_life_hitter(target: int, owner: int) -> void:
+    _note_life_damage(target, owner, 1.0)
+
+func _note_life_damage(target: int, owner: int, amount: float) -> void:
+    if owner < 0 or owner == target or target < 0 or target >= heroes.size():
+        return
+    if amount <= 0.5:
+        return
+    var h: Dictionary = heroes[target]
+    var hits: Dictionary = h.get("life_hits", {})
+    var key := str(owner)
+    var rec: Dictionary = hits.get(key, {"dmg": 0.0, "tick": 0})
+    rec["dmg"] = float(rec.get("dmg", 0.0)) + amount
+    rec["tick"] = tick
+    hits[key] = rec
+    h["life_hits"] = hits
+    heroes[target] = h
+
+func _assist_slots(owner: int, target: int, hits: Dictionary) -> Array:
+    var need := 28.0
+    if target >= 0 and target < heroes.size():
+        need = maxf(28.0, float(heroes[target]["max_hp"]) * 0.25)
+    elif target < 0 and bool(mid_tower.get("spawned", false)):
+        need = maxf(28.0, float(mid_tower.get("max_hp", TOWER_MAX_HP)) * 0.18)
+    var window := int(8.0 / FIXED_DT)
+    var out: Array = []
+    for key in hits.keys():
+        var slot := int(key)
+        if slot == owner or slot == target:
+            continue
+        if slot < 0 or slot >= heroes.size() or not bool(heroes[slot]["alive"]):
+            continue
+        var rec: Dictionary = hits[key]
+        if float(rec.get("dmg", 0.0)) + 0.001 < need:
+            continue
+        if tick - int(rec.get("tick", 0)) > window:
+            continue
+        out.append(slot)
+    return out
+
 
 func _attack_direction(direction: Vector2) -> Vector2:
     var dir := direction.normalized()
     return Vector2.RIGHT if dir.length_squared() < 0.1 else dir
+
+
+func _muzzle_spawn_pos(slot: int, _direction: Vector2) -> Vector2:
+    var h: Dictionary = heroes[slot]
+    var pos: Vector2 = h["pos"]
+    var hop_lift := 0.0
+    var hop_time := float(h.get("hop_time", 0.0))
+    if hop_time > 0.0:
+        var hop_max := maxf(0.001, float(h.get("hop_max", 0.30)))
+        var hop_t := clampf(1.0 - hop_time / hop_max, 0.0, 1.0)
+        hop_lift = float(h.get("hop_height", 19.0)) * sin(PI * hop_t)
+    var body_pos := pos + Vector2(0.0, -hop_lift)
+    var equip_id := "burst"
+    var held = h.get("equipment", {})
+    if typeof(held) == TYPE_DICTIONARY:
+        equip_id = str(held.get("id", "burst"))
+    var look: Vector2 = h["aim"]
+    if look.length_squared() < 0.0001:
+        look = h["facing"]
+    if look.length_squared() < 0.0001:
+        look = Vector2.RIGHT
+    return GunSig.muzzle_world_pos(body_pos, look, equip_id)
 
 func _spawn_projectile(slot: int, direction: Vector2, damage: float, speed: float, radius: float, ttl: float, source: StringName, splash: float = 0.0, leech: bool = false, pierce: int = 0, cc_time: float = 0.0, knockback: float = 0.0, kind: StringName = &"bolt", homing: float = 0.0, label: String = "", combo_finisher: bool = false, control_kind: StringName = &"slow") -> void:
     var dir := _attack_direction(direction)
     projectiles.append({
         "id":next_entity_id,
         "owner":slot,
-        "pos":Vector2(heroes[slot]["pos"]) + dir * 28.0,
+        "pos":_muzzle_spawn_pos(slot, dir),
         "vel":dir * speed,
         "damage":damage,
         "radius":radius,
@@ -1146,14 +1979,14 @@ func _spawn_projectile(slot: int, direction: Vector2, damage: float, speed: floa
         "combo_finisher":combo_finisher,
         "control_kind":control_kind,
         "hit_targets":[],
-        "trail":[Vector2(heroes[slot]["pos"]) + dir * 28.0],
+        "trail":[_muzzle_spawn_pos(slot, dir)],
         "source":source
     })
     next_entity_id += 1
 
 func _spawn_arc_bomb(slot: int, direction: Vector2, distance: float, flight_time: float, damage: float, blast_radius: float, cc_time: float, knockback: float, combo_finisher: bool) -> void:
     var dir := _attack_direction(direction)
-    var start := Vector2(heroes[slot]["pos"]) + dir * 28.0
+    var start := _muzzle_spawn_pos(slot, dir)
     var landing := Vector2(heroes[slot]["pos"]) + dir * distance
     projectiles.append({
         "id":next_entity_id, "owner":slot, "pos":start,
@@ -1161,95 +1994,22 @@ func _spawn_arc_bomb(slot: int, direction: Vector2, distance: float, flight_time
         "landing_pos":landing, "arc":true, "max_ttl":flight_time,
         "damage":damage, "radius":11.0, "ttl":flight_time,
         "splash":blast_radius, "leech":false, "pierce":0,
-        "cc_time":cc_time, "knockback":knockback, "kind":&"bomb_arc",
+        "cc_time":cc_time, "knockback":knockback, "kind":&"shell",
         "homing":0.0, "label":"", "combo_finisher":combo_finisher,
         "hit_targets":[], "trail":[start], "source":&"normal"
     })
     next_entity_id += 1
 
-func _normal_combo_pattern(equipment_id: String) -> Array:
-    match equipment_id:
-        "scatter": return [
-            {"interval":0.20, "damage":0.68, "count":1, "spread":0.0, "knockback":8.0},
-            {"interval":0.20, "damage":0.68, "count":1, "spread":0.0, "knockback":8.0},
-            {"interval":0.13, "damage":0.46, "count":2, "spread":0.07, "knockback":7.0},
-            {"interval":0.48, "damage":1.25, "count":3, "spread":0.10, "knockback":38.0, "finisher":true}
-        ]
-        "rail": return [
-            {"interval":0.31, "damage":0.58, "count":1, "spread":0.018, "knockback":8.0},
-            {"interval":0.28, "damage":0.72, "count":1, "spread":0.010, "knockback":12.0},
-            {"interval":0.64, "damage":1.42, "count":1, "spread":0.0, "knockback":52.0, "finisher":true}
-        ]
-        "burst": return [
-            {"interval":0.12, "damage":0.42, "count":1, "spread":0.018, "knockback":5.0},
-            {"interval":0.12, "damage":0.42, "count":1, "spread":-0.018, "knockback":5.0},
-            {"interval":0.12, "damage":0.48, "count":1, "spread":0.012, "knockback":6.0},
-            {"interval":0.17, "damage":0.38, "count":2, "spread":0.06, "knockback":6.0},
-            {"interval":0.42, "damage":0.72, "count":3, "spread":0.075, "knockback":34.0, "finisher":true}
-        ]
-        "brawler": return [
-            {"interval":0.09, "damage":0.34, "reach":58.0, "radius":42.0, "lunge":15.0},
-            {"interval":0.09, "damage":0.34, "reach":62.0, "radius":42.0, "lunge":15.0},
-            {"interval":0.09, "damage":0.38, "reach":58.0, "radius":44.0, "lunge":16.0},
-            {"interval":0.09, "damage":0.38, "reach":62.0, "radius":44.0, "lunge":16.0},
-            {"interval":0.13, "damage":0.46, "reach":64.0, "radius":46.0, "lunge":18.0},
-            {"interval":0.40, "damage":1.65, "reach":74.0, "radius":52.0, "lunge":34.0, "knockback":48.0, "finisher":true}
-        ]
-        "blade": return [
-            {"interval":0.16, "damage":0.64, "reach":82.0, "radius":55.0, "lunge":25.0},
-            {"interval":0.16, "damage":0.66, "reach":86.0, "radius":57.0, "lunge":28.0},
-            {"interval":0.20, "damage":0.82, "reach":94.0, "radius":61.0, "lunge":34.0},
-            {"interval":0.43, "damage":1.42, "reach":108.0, "radius":68.0, "lunge":52.0, "knockback":54.0, "finisher":true}
-        ]
-        "breaker": return [
-            {"interval":0.27, "damage":0.62, "reach":82.0, "radius":64.0, "lunge":20.0},
-            {"interval":0.31, "damage":0.78, "reach":88.0, "radius":72.0, "lunge":25.0},
-            {"interval":0.58, "damage":1.28, "reach":96.0, "radius":82.0, "lunge":42.0, "knockback":68.0, "finisher":true}
-        ]
-        "shield": return [
-            {"interval":0.24, "damage":0.58, "reach":70.0, "radius":66.0, "lunge":24.0},
-            {"interval":0.28, "damage":0.72, "reach":78.0, "radius":72.0, "lunge":30.0},
-            {"interval":0.55, "damage":1.25, "reach":88.0, "radius":82.0, "lunge":46.0, "knockback":58.0, "finisher":true}
-        ]
-        "spear": return [
-            {"interval":0.18, "damage":0.58, "reach":112.0, "radius":42.0, "lunge":24.0},
-            {"interval":0.18, "damage":0.62, "reach":126.0, "radius":42.0, "lunge":28.0},
-            {"interval":0.23, "damage":0.78, "reach":142.0, "radius":45.0, "lunge":34.0},
-            {"interval":0.48, "damage":1.38, "reach":168.0, "radius":50.0, "lunge":58.0, "knockback":56.0, "finisher":true}
-        ]
-        "chain", "leech": return [
-            {"interval":0.20, "damage":0.58, "reach":132.0, "radius":54.0, "knockback":-8.0},
-            {"interval":0.20, "damage":0.62, "reach":154.0, "radius":56.0, "knockback":-10.0},
-            {"interval":0.24, "damage":0.78, "reach":176.0, "radius":60.0, "knockback":-14.0},
-            {"interval":0.48, "damage":1.34, "reach":192.0, "radius":68.0, "knockback":-58.0, "finisher":true}
-        ]
-        "mortar": return [
-            {"interval":0.42, "damage":0.78, "reach":270.0, "radius":58.0, "flight":0.50},
-            {"interval":0.46, "damage":0.86, "reach":315.0, "radius":66.0, "flight":0.56},
-            {"interval":0.78, "damage":1.48, "reach":370.0, "radius":94.0, "flight":0.66, "knockback":62.0, "finisher":true}
-        ]
-        "bomb": return [
-            {"interval":0.62, "damage":1.02, "reach":330.0, "radius":76.0, "flight":0.46},
-            {"interval":0.66, "damage":1.08, "reach":360.0, "radius":82.0, "flight":0.50},
-            {"interval":0.92, "damage":1.72, "reach":400.0, "radius":108.0, "flight":0.58, "knockback":72.0, "finisher":true}
-        ]
-        _: return [{"interval":0.35, "damage":1.0, "reach":90.0, "radius":55.0, "finisher":true}]
+func _normal_combo_pattern(_equipment_id: String) -> Array:
+    return []
 
-func _normal_step_reach(slot: int, step: Dictionary) -> float:
-    var equipment: Dictionary = heroes[slot]["equipment"]
-    if str(equipment["id"]) in ["scatter", "rail", "burst"]:
-        return float(equipment["normal_speed"]) * float(equipment["normal_range"]) * 0.82
-    return float(step.get("reach", 90.0)) + float(step.get("radius", 55.0)) + HERO_RADIUS
+func _normal_step_reach(slot: int, _step: Dictionary) -> float:
+    return _normal_reach(slot)
 
 func _normal_auto_target(slot: int, facing: Vector2, reach: float) -> int:
+    return -1
     var h: Dictionary = heroes[slot]
     var origin: Vector2 = h["pos"]
-    var locked := int(h.get("combo_target", -1))
-    if locked >= 0 and locked < heroes.size() and locked != slot and bool(heroes[locked]["alive"]):
-        var locked_pos: Vector2 = heroes[locked]["pos"]
-        var locked_dir := origin.direction_to(locked_pos)
-        if origin.distance_to(locked_pos) <= reach + 90.0 and facing.dot(locked_dir) >= -0.10 and not _line_blocked(origin, locked_pos):
-            return locked
     var best := -1
     var best_score := -999.0
     for target in range(heroes.size()):
@@ -1269,96 +2029,125 @@ func _normal_auto_target(slot: int, facing: Vector2, reach: float) -> int:
             best = target
     return best
 
+func _try_start_reload(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    if not bool(h["alive"]):
+        return
+    if float(h.get("reload_left", 0.0)) > 0.0:
+        return
+    if float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
+        return
+    var cap := int(h["equipment"].get("mag_size", 1))
+    if int(h.get("mag", cap)) >= cap:
+        return
+    var reload_dur := float(h["equipment"].get("reload_time", 1.2))
+    h["reload_left"] = maxf(0.20, reload_dur)
+    h["reload_flash"] = 0.0
+    h["spray_index"] = 0.0
+    h["spray_idle"] = 1.0
+    h["action"] = &"RELOAD"
+    heroes[slot] = h
+
+
+func _stamp_gun_fire(h: Dictionary, slot: int, equipment_id: String) -> void:
+    var fx: Dictionary = GunSig.fx_for_equipment(equipment_id)
+    var frames := maxi(1, int(fx.get("frames", 2)))
+    h["muzzle_row"] = int(fx.get("row", 0))
+    h["muzzle_time"] = float(frames) * 0.055
+    h["muzzle_scale"] = float(fx.get("scale", 1.0))
+    if slot == local_slot:
+        local_fire_shake = int(fx.get("shake", 3))
+
 func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    if not bool(h["alive"]) or float(h["fire_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
+    if not bool(h["alive"]) or float(h["fire_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
+        return
+    if _hero_has_timed(h, "turtle"):
+        return
+    if float(h.get("reload_left", 0.0)) > 0.0:
+        return
+    if int(h.get("mag", 1)) <= 0:
+        _try_start_reload(slot)
         return
     var equipment: Dictionary = h["equipment"]
     var equipment_id := str(equipment["id"])
-    var pattern := _normal_combo_pattern(equipment_id)
-    var step_index := int(h["normal_step"]) if float(h["normal_chain_time"]) > 0.0 else 0
-    step_index = posmod(step_index, pattern.size())
-    var step: Dictionary = pattern[step_index]
     var base_dir := _attack_direction(direction)
     h["facing"] = base_dir
     h["aim"] = base_dir
-    var assisted_target := _normal_auto_target(slot, base_dir, _normal_step_reach(slot, step))
-    if assisted_target >= 0:
-        base_dir = Vector2(h["pos"]).direction_to(Vector2(heroes[assisted_target]["pos"]))
-        h["combo_target"] = assisted_target
-        h["facing"] = base_dir
-        h["aim"] = base_dir
-    elif step_index == 0:
-        h["combo_target"] = -1
-    var projectile_count := int(step.get("count", 0))
-    var spread := float(step.get("spread", 0.0))
-    var center_jitter: float = rng.rangef(-spread * 0.15, spread * 0.15)
-    var damage := float(equipment["normal_damage"]) * float(step.get("damage", 1.0))
-    var knockback := float(step.get("knockback", float(equipment["normal_knockback"])))
-    var finisher := bool(step.get("finisher", false))
-    if equipment_id in ["bomb", "mortar"]:
-        var bomb_distance := float(step.get("reach", 330.0))
-        if assisted_target >= 0:
-            bomb_distance = clampf(Vector2(h["pos"]).distance_to(Vector2(heroes[assisted_target]["pos"])), 95.0, bomb_distance)
-        _spawn_arc_bomb(slot, base_dir, bomb_distance, float(step.get("flight", 0.50)), damage, float(step.get("radius", 76.0)), float(equipment["normal_cc"]), knockback, finisher)
-    elif equipment_id in ["scatter", "rail", "burst"]:
-        for index in range(projectile_count):
-            var offset: float = (float(index) - float(projectile_count - 1) * 0.5) * spread + center_jitter
-            _spawn_projectile(slot, base_dir.rotated(offset), damage, float(equipment["normal_speed"]), float(equipment["normal_radius"]), float(equipment["normal_range"]), &"normal", 0.0, false, 0, float(equipment["normal_cc"]), knockback, StringName(equipment["normal_kind"]), 0.0, "", finisher)
+    var pellet_count := maxi(1, int(equipment.get("normal_projectiles", 1)))
+    var spread := float(equipment.get("normal_spread", 0.0))
+    var damage := float(equipment.get("normal_damage", 6.0))
+    var knockback := float(equipment.get("normal_knockback", 6.0))
+    var kind := StringName(equipment.get("normal_kind", "bolt"))
+    if equipment_id == "rail":
+        kind = &"tracer"
+    elif kind != &"pellet" and kind != &"bolt" and kind != &"shell":
+        kind = &"bolt"
+    var speed := float(equipment.get("normal_speed", 980.0))
+    var ttl := float(equipment.get("normal_range", 0.6))
+    var pierce := int(equipment.get("normal_pierce", 0))
+    var splash := float(equipment.get("normal_splash", 0.0))
+    var radius := float(equipment.get("normal_radius", 5.0))
+    var interval := float(equipment.get("normal_interval", 0.2))
+    interval *= maxf(0.35, 1.0 - _roulette_stat(slot, "rate"))
+    ttl *= 1.0 + _roulette_stat(slot, "range")
+    var spray_i := int(floor(float(h.get("spray_index", 0.0))))
+    var kick: Vector2 = GunSig.spray_kick(equipment_id, spray_i)
+    h["spray_index"] = float(spray_i + 1)
+    h["spray_idle"] = 0.0
+    if slot == local_slot:
+        local_mouse_kick = kick
+    if equipment_id == "mortar":
+        var bomb_distance := speed * ttl
+        _spawn_arc_bomb(slot, base_dir, bomb_distance, maxf(0.35, bomb_distance / maxf(1.0, speed)), damage, splash if splash > 1.0 else 120.0, 0.0, knockback, false)
     else:
-        var lunge := float(step.get("lunge", 0.0))
-        if lunge > 0.0:
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), base_dir * lunge)
-        heroes[slot] = h
-        var reach := float(step.get("reach", 90.0))
-        var radius := float(step.get("radius", 55.0))
-        var strike_pos := Vector2(h["pos"]) + base_dir * reach
-        var effect_kind := _projectile_impact_kind(str(equipment["normal_kind"]))
-        var strike_delay := float(step.get("delay", 0.01))
-        _add_zone(slot, strike_pos, radius, strike_delay, damage, &"normal", float(equipment["normal_cc"]), knockback, "", Color("#ffffff"), bool(equipment["normal_leech"]), effect_kind, finisher)
-        if strike_delay > 0.06:
-            _add_effect(&"fuse", strike_pos, radius * 0.42, strike_delay, Color("#ffb85c"), "", base_dir)
-        else:
-            _add_effect(effect_kind, strike_pos, radius * (1.12 if finisher else 0.88), 0.14 if finisher else 0.10, Color("#ffffff"), "", base_dir)
-    var interval := float(step["interval"])
-    h["fire_cd"] = interval
-    h["attack_lock_time"] = minf(0.20, interval * 0.62)
-    h["normal_step"] = 0 if finisher else step_index + 1
-    h["normal_chain_time"] = 0.0 if finisher else maxf(0.72, interval + 0.42)
-    h["normal_interval"] = interval
-    if finisher:
+        for index in range(pellet_count):
+            var offset: float = 0.0
+            if pellet_count > 1:
+                offset = (float(index) - float(pellet_count - 1) * 0.5) * spread
+            _spawn_projectile(slot, base_dir.rotated(offset), damage, speed, radius, ttl, &"normal", splash, false, pierce, 0.0, knockback, kind, 0.0, "", false)
+    var burst_cap := int(equipment.get("burst_shots", 0))
+    var mag_cap := int(equipment.get("mag_size", 0))
+    if burst_cap > 0 and mag_cap <= 0:
+        var left := int(h.get("burst_left", burst_cap)) - 1
+        if left <= 0:
+            interval = float(equipment.get("reload_time", 1.1))
+            left = burst_cap
+        h["burst_left"] = left
+    h["mag"] = maxi(0, int(h.get("mag", mag_cap)) - 1)
+    if int(h["mag"]) <= 0:
+        h["fire_cd"] = interval
+        h["attack_lock_time"] = minf(0.12, interval * 0.45)
+        h["normal_step"] = 0
+        h["normal_chain_time"] = 0.0
+        h["normal_interval"] = interval
         h["combo_target"] = -1
-    h["action"] = &"NORMAL_COMBO"
+        h["action"] = &"GUN_FIRE"
+        _stamp_gun_fire(h, slot, equipment_id)
+        heroes[slot] = h
+        event_log.emit(tick, &"gun_fire", slot, -1, {"equipment":equipment_id, "gun":equipment.get("name", ""), "mode":equipment.get("fire_mode", "auto")})
+        _try_start_reload(slot)
+        return
+    h["fire_cd"] = interval
+    h["attack_lock_time"] = minf(0.12, interval * 0.45)
+    h["normal_step"] = 0
+    h["normal_chain_time"] = 0.0
+    h["normal_interval"] = interval
+    h["combo_target"] = -1
+    h["action"] = &"GUN_FIRE"
+    _stamp_gun_fire(h, slot, equipment_id)
     heroes[slot] = h
-    event_log.emit(tick, &"normal_combo_step", slot, -1, {"step":step_index + 1, "steps":pattern.size(), "finisher":finisher, "equipment":equipment_id})
+    event_log.emit(tick, &"gun_fire", slot, -1, {"equipment":equipment_id, "gun":equipment.get("name", ""), "mode":equipment.get("fire_mode", "auto")})
 
 func _normal_reach(slot: int) -> float:
     var equipment: Dictionary = heroes[slot]["equipment"]
-    if str(equipment["id"]) in ["scatter", "rail", "burst"]:
-        return float(equipment["normal_speed"]) * float(equipment["normal_range"]) * 0.82
-    var reach := 0.0
-    for step in _normal_combo_pattern(str(equipment["id"])):
-        reach = maxf(reach, float(step.get("reach", 90.0)) + float(step.get("radius", 55.0)))
-    return reach
+    return float(equipment["normal_speed"]) * float(equipment["normal_range"]) * 0.92 * (1.0 + _roulette_stat(slot, "range"))
 
-func _normal_combo_length(slot: int) -> int:
-    return _normal_combo_pattern(str(heroes[slot]["equipment"]["id"])).size()
+func _normal_combo_length(_slot: int) -> int:
+    return 1
 
 func _equipment_reach(slot: int) -> float:
-    var equipment_id := str(heroes[slot]["equipment"]["id"])
-    match equipment_id:
-        "scatter": return 500.0
-        "rail": return 940.0
-        "mortar": return 680.0
-        "leech": return 650.0
-        "breaker": return 600.0
-        "burst": return 700.0
-        "blade": return 310.0
-        "brawler": return 250.0
-        "bomb": return 610.0
-        "spear": return 820.0
-        "chain": return 710.0
-        _: return 270.0
+    return _normal_reach(slot)
 
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void:
     effects.append({"kind":kind, "pos":pos, "radius":radius, "time":duration, "max_time":duration, "color":color, "label":label, "direction":direction})
@@ -1565,7 +2354,9 @@ func _break_incoming_combo(slot: int) -> void:
 
 func _try_mobility(slot: int, direction: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    if not bool(h["alive"]) or float(h["mobility_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["cc_time"]) > 0.65 or float(h["hitstun_time"]) > 0.0 or float(h["root_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
+    if not bool(h["alive"]) or float(h["mobility_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["root_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
+        return
+    if _hero_has_timed(h, "turtle"):
         return
     var escaped_combo := float(h["combo_capture_time"]) > 0.0
     if escaped_combo:
@@ -1649,216 +2440,125 @@ func _cancel_skill_charge(slot: int) -> void:
     h["charge_time"] = 0.0
     heroes[slot] = h
 
-func _begin_skill_charge(slot: int, direction: Vector2) -> void:
-    var h: Dictionary = heroes[slot]
-    if not bool(h["alive"]) or bool(h["charging_skill"]) or float(h["equipment_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["hitstun_time"]) > 0.0 or float(h["combo_capture_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
-        return
-    _cancel_attack_recovery(slot)
-    h = heroes[slot]
-    h["charging_skill"] = true
-    h["charge_time"] = 0.0
-    h["charge_dir"] = _attack_direction(direction)
-    h["action"] = &"CHARGING_SKILL"
-    heroes[slot] = h
-    event_log.emit(tick, &"skill_charge_started", slot, -1, {"equipment":h["equipment"]["id"]})
+func _begin_skill_charge(_slot: int, _direction: Vector2) -> void:
+    return
 
-func _continue_skill_charge(slot: int, dt: float, direction: Vector2) -> void:
-    var h: Dictionary = heroes[slot]
-    if not bool(h["charging_skill"]):
-        return
-    if not bool(h["alive"]) or float(h["launch_time"]) > 0.0 or float(h["hitstun_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
-        _cancel_skill_charge(slot)
-        return
-    h["charge_time"] = minf(1.15, float(h["charge_time"]) + dt)
-    h["charge_dir"] = _attack_direction(direction)
-    heroes[slot] = h
+func _continue_skill_charge(_slot: int, _dt: float, _direction: Vector2) -> void:
+    return
 
-func _release_skill_charge(slot: int, direction: Vector2) -> void:
-    var h: Dictionary = heroes[slot]
-    if not bool(h["charging_skill"]):
-        return
-    var charge_ratio := clampf(float(h["charge_time"]) / 1.15, 0.0, 1.0)
-    var charge_dir := _attack_direction(direction) if direction.length_squared() > 0.1 else Vector2(h["charge_dir"])
-    h["charging_skill"] = false
-    h["charge_time"] = 0.0
-    heroes[slot] = h
-    _try_equipment_attack(slot, charge_dir, charge_ratio)
+func _release_skill_charge(_slot: int, _direction: Vector2) -> void:
+    return
 
-func _try_equipment_attack(slot: int, direction: Vector2, charge_ratio: float = 1.0) -> void:
-    var h: Dictionary = heroes[slot]
-    if not bool(h["alive"]) or float(h["equipment_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["hitstun_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
-        return
-    var equipment: Dictionary = h["equipment"]
-    var dir := _attack_direction(direction)
-    charge_ratio = clampf(charge_ratio, 0.0, 1.0)
-    var power := lerpf(0.65, 1.25, charge_ratio)
-    var reach_scale := lerpf(0.80, 1.18, charge_ratio)
-    var radius_scale := lerpf(0.84, 1.22, charge_ratio)
-    h["action"] = &"CHARGED_SKILL"
-    _add_effect(&"charge_release", Vector2(h["pos"]), 54.0 + charge_ratio * 28.0, 0.22, Color("#dff8ff"), "", dir)
-    match str(equipment["id"]):
-        "scatter":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), -dir * lerpf(65.0, 120.0, charge_ratio))
-            heroes[slot] = h
-            var pellet_count := 3 + roundi(charge_ratio * 4.0)
-            for pellet in range(pellet_count):
-                var offset := (float(pellet) - float(pellet_count - 1) * 0.5) * 0.085
-                _spawn_projectile(slot, dir.rotated(offset), float(equipment["damage"]) * power, float(equipment["speed"]), 7.0, float(equipment["range"]) * reach_scale, &"equipment", 0.0, false, 0, 0.0, 28.0 + 34.0 * charge_ratio, &"pellet", 0.0, "BACKBLAST", pellet == 0)
-            _add_effect(&"cast", Vector2(h["pos"]), 92.0 + 34.0 * charge_ratio, 0.26, Color("#ffb45c"), "", dir)
-        "rail":
-            _spawn_projectile(slot, dir, float(equipment["damage"]) * power, float(equipment["speed"]) * reach_scale, 7.0, float(equipment["range"]) * reach_scale, &"equipment", 0.0, false, 1 + roundi(charge_ratio * 3.0), 0.55 + 0.65 * charge_ratio, 90.0 + 70.0 * charge_ratio, &"beam", 0.0, "ANCHOR BREAK", true)
-            _add_effect(&"line", Vector2(h["pos"]), 620.0 + 220.0 * charge_ratio, 0.30, Color("#71e7ff"), "", dir)
-        "mortar":
-            var blast_pos := Vector2(h["pos"]) + dir * 430.0 * reach_scale
-            _add_zone(slot, blast_pos, 120.0 * radius_scale, lerpf(0.90, 0.62, charge_ratio), float(equipment["damage"]) * power, &"equipment", 0.80 + 0.70 * charge_ratio, 95.0 + 80.0 * charge_ratio, "SKYFALL", Color("#ff795c"), false, &"explosion", true)
-        "leech":
-            var leech_pos := Vector2(h["pos"]) + dir * 190.0 * reach_scale
-            _add_zone(slot, leech_pos, 68.0 * radius_scale, 0.05, float(equipment["damage"]) * power, &"equipment", 0.45 + 0.45 * charge_ratio, -105.0 - 80.0 * charge_ratio, "BLOOD HARPOON", Color("#dc72ff"), true, &"drain", true)
-            _add_effect(&"line", Vector2(h["pos"]), 360.0 + 240.0 * charge_ratio, 0.24, Color("#dc72ff"), "", dir)
-        "breaker":
-            h["super_armor_time"] = maxf(float(h["super_armor_time"]), 0.38 + 0.30 * charge_ratio)
-            h["super_armor_strength"] = maxf(float(h["super_armor_strength"]), 0.58)
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 175.0 * reach_scale)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 112.0 * radius_scale, 0.08, float(equipment["damage"]) * power, &"equipment", 0.85 + 0.75 * charge_ratio, 125.0 + 100.0 * charge_ratio, "CRASH ENTRY", Color("#ffd166"), false, &"shockwave", true)
-        "burst":
-            var seeker_count := 2 + roundi(charge_ratio * 4.0)
-            for seeker in range(seeker_count):
-                var offset := (float(seeker) - float(seeker_count - 1) * 0.5) * 0.055
-                _spawn_projectile(slot, dir.rotated(offset), float(equipment["damage"]) * power, float(equipment["speed"]), 8.0, float(equipment["range"]) * reach_scale, &"equipment", 18.0 + 16.0 * charge_ratio, false, 0, 0.0, 28.0 + 30.0 * charge_ratio, &"seeker", 2.4 + 2.0 * charge_ratio, "SEEKER SALVO", seeker == 0)
-            _add_effect(&"cast", Vector2(h["pos"]), 78.0 + 24.0 * charge_ratio, 0.26, Color("#ff5da2"), "", dir)
-        "blade":
-            h["evade_time"] = maxf(float(h["evade_time"]), 0.24 + 0.20 * charge_ratio)
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 190.0 * reach_scale)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 92.0 * radius_scale, 0.03, float(equipment["damage"]) * power, &"equipment", 0.22 + 0.28 * charge_ratio, 78.0 + 70.0 * charge_ratio, "CROSS STEP", Color("#b9f3ff"), false, &"slashwave", true)
-        "brawler":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 130.0 * reach_scale)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 88.0 * radius_scale, 0.02, float(equipment["damage"]) * power, &"equipment", 0.38 + 0.42 * charge_ratio, 65.0 + 75.0 * charge_ratio, "LIVER SHOT", Color("#ff9466"), false, &"fist_burst", true)
-        "bomb":
-            var mine_pos := Vector2(h["pos"]) + dir * 320.0 * reach_scale
-            _place_mine(slot, mine_pos, float(equipment["damage"]) * power, 118.0 * radius_scale, lerpf(0.72, 0.52, charge_ratio), 8.0, 0.38, false)
-        "spear":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 150.0 * reach_scale)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]) + dir * 120.0 * reach_scale, 58.0 * radius_scale, 0.03, float(equipment["damage"]) * power, &"equipment", 0.38 + 0.42 * charge_ratio, 95.0 + 85.0 * charge_ratio, "VAULT IMPALE", Color("#ffe27a"), false, &"spear_line", true)
-            _add_effect(&"spear_line", Vector2(h["pos"]), 440.0 + 230.0 * charge_ratio, 0.26, Color("#ffe27a"), "", dir)
-        "chain":
-            _add_zone(slot, Vector2(h["pos"]) + dir * 175.0 * reach_scale, 76.0 * radius_scale, 0.18, float(equipment["damage"]) * power, &"equipment", 0.75 + 0.80 * charge_ratio, -105.0 - 75.0 * charge_ratio, "CHAIN LOCK", Color("#b78cff"), false, &"chain_arc", true, &"root")
-            _add_effect(&"chain_arc", Vector2(h["pos"]), 390.0 + 250.0 * charge_ratio, 0.28, Color("#b78cff"), "", dir)
-        "shield":
-            h["guard_time"] = 0.42 + 0.48 * charge_ratio
-            heroes[slot] = h
-            var wall_pos := Vector2(h["pos"]) + dir * (84.0 + 20.0 * charge_ratio)
-            _place_bounce_wall(
-                slot, wall_pos, dir,
-                lerpf(96.0, 142.0, charge_ratio),
-                lerpf(0.92, 1.24, charge_ratio),
-                lerpf(520.0, 720.0, charge_ratio),
-                lerpf(10.0, 16.0, charge_ratio),
-                lerpf(185.0, 255.0, charge_ratio)
-            )
-    h["equipment_cd"] = float(equipment["cooldown"])
-    heroes[slot] = h
-    if slot == 0:
-        impact_ticks = maxi(impact_ticks, 8)
-    event_log.emit(tick, &"equipment_used", slot, -1, {"equipment":equipment["id"], "charge":charge_ratio})
+func _try_equipment_attack(_slot: int, _direction: Vector2, _charge_ratio: float = 1.0) -> void:
+    return
 
-func _try_ultimate(slot: int, direction: Vector2) -> void:
-    var h: Dictionary = heroes[slot]
-    if not bool(h["alive"]) or float(h["ultimate_charge"]) < ULTIMATE_MAX or float(h["launch_time"]) > 0.0 or float(h["hitstun_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
+func _try_ultimate(slot: int, _direction: Vector2) -> void:
+    if slot < 0 or slot >= heroes.size():
         return
-    var escaped_combo := float(h["combo_capture_time"]) > 0.0
-    if escaped_combo:
-        _break_incoming_combo(slot)
-        h = heroes[slot]
-    _cancel_skill_charge(slot)
-    _cancel_attack_recovery(slot)
-    h = heroes[slot]
-    var equipment_id := str(h["equipment"]["id"])
-    var dir := _attack_direction(direction)
+    var h: Dictionary = heroes[slot]
+    if not bool(h.get("alive", false)):
+        return
+    if float(h.get("ultimate_charge", 0.0)) < ULTIMATE_MAX - 0.5:
+        return
+    var animal := posmod(int(h.get("animal", slot)), 12)
+    if animal != 8:
+        return
     h["ultimate_charge"] = 0.0
-    h["ultimates"] = int(h["ultimates"]) + 1
-    var armor := _ultimate_armor(equipment_id)
-    h["super_armor_time"] = float(armor["duration"])
-    h["super_armor_strength"] = float(armor["strength"])
+    h["ultimates"] = int(h.get("ultimates", 0)) + 1
+    h["ult_clone_time"] = 8.0
+    var origin: Vector2 = h["pos"]
+    var clones: Array = []
+    for i in range(1, 8):
+        var ang := TAU * 0.125 * float(i)
+        clones.append({
+            "alive": true,
+            "ang": ang,
+            "pos": origin,
+            "facing": Vector2(h.get("facing", Vector2.RIGHT)).rotated(ang),
+            "aim": Vector2(h.get("aim", Vector2.RIGHT)).rotated(ang),
+            "hop_time": float(h.get("hop_time", 0.0)),
+            "hop_height": float(h.get("hop_height", HOP_LIFT_DEFAULT)),
+            "animal": int(h.get("animal", slot)),
+            "owner": slot
+        })
+    h["ult_clones"] = clones
     heroes[slot] = h
-    if escaped_combo:
-        _add_effect(&"combo_break", Vector2(h["pos"]), 82.0, 0.32, Color("#ff8dac"), "REVERSAL", dir)
-    match equipment_id:
-        "scatter":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 145.0)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 115.0, 0.22, 18.0, &"ultimate", 0.85, 135.0, "ROOM CLEARER", Color("#ff9a45"), false, &"shockwave")
-            for index in range(20):
-                _spawn_projectile(slot, Vector2.RIGHT.rotated(TAU * float(index) / 20.0), 11.0, 780.0, 8.0, 0.90, &"ultimate", 0.0, false, 0, 0.55, 52.0, &"pellet")
-        "rail":
-            for strike in range(3):
-                var strike_pos := Vector2(h["pos"]) + dir * (300.0 + 250.0 * strike)
-                _add_zone(slot, strike_pos, 88.0, 0.35 + strike * 0.16, 34.0, &"ultimate", 1.85, 145.0, "DEADLINE %d" % (strike + 1), Color("#71e7ff"), false, &"rail_strike")
-        "mortar":
-            var target_pos := Vector2(h["pos"]) + dir * 500.0
-            var offsets := [Vector2.ZERO, Vector2(130.0, 0.0), Vector2(-130.0, 0.0), Vector2(0.0, 130.0), Vector2(0.0, -130.0)]
-            for strike in range(offsets.size()):
-                _add_zone(slot, target_pos + offsets[strike], 105.0, 0.72 + strike * 0.18, 22.0, &"ultimate", 1.35, 145.0, "NO SAFE PLACE", Color("#ff604f"), false, &"explosion")
-        "leech":
-            for pulse in range(3):
-                _add_zone(slot, Vector2(h["pos"]), 245.0, 0.20 + pulse * 0.34, 19.0, &"ultimate", 0.80, -145.0, "BLOOD AUCTION", Color("#d45cff"), true, &"drain")
-        "breaker":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 260.0)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 215.0, 0.30, 48.0, &"ultimate", 2.40, 270.0, "TABLE FLIP", Color("#ffe06a"), false, &"shockwave")
-        "burst":
-            for index in range(12):
-                var launch_dir := dir.rotated((float(index) - 5.5) * 0.11)
-                _spawn_projectile(slot, launch_dir, 12.0, 850.0, 8.0, 1.45, &"ultimate", 32.0, false, 0, 0.35, 48.0, &"seeker", 5.2, "HUNTER STORM")
-        "blade":
-            for cut in range(5):
-                var cut_dir := dir.rotated((float(cut) - 2.0) * 0.09)
-                _spawn_projectile(slot, cut_dir, 12.0, 1180.0, 28.0, 0.62, &"ultimate", 0.0, false, 1, 0.28, 58.0 + cut * 18.0, &"slash", 0.0, "THOUSANDTH EDGE")
-        "brawler":
-            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), dir * 240.0)
-            heroes[slot] = h
-            for punch in range(6):
-                _spawn_projectile(slot, dir.rotated((float(punch) - 2.5) * 0.07), 7.0, 900.0, 19.0, 0.28, &"ultimate", 0.0, false, 0, 0.16, 24.0, &"fist", 0.0, "TEN COUNT")
-            _add_zone(slot, Vector2(h["pos"]), 125.0, 0.22, 34.0, &"ultimate", 0.85, 230.0, "FINAL UPPERCUT", Color("#ff7d55"), false, &"fist_burst")
-        "bomb":
-            var minefield_center := Vector2(h["pos"]) + dir * 300.0
-            for mine_index in range(5):
-                var mine_offset := Vector2.ZERO if mine_index == 0 else Vector2.RIGHT.rotated(TAU * float(mine_index - 1) / 4.0) * 128.0
-                _place_mine(slot, minefield_center + mine_offset, 23.0, 128.0, 0.34 + mine_index * 0.04, 5.5, 0.32, true, 1.35 + mine_index * 0.10)
-        "spear":
-            for thrust in range(3):
-                _spawn_projectile(slot, dir.rotated((float(thrust) - 1.0) * 0.045), 26.0, 1420.0, 14.0, 1.05, &"ultimate", 0.0, false, 4, 0.72, 150.0, &"spear", 0.0, "DRAGON LINE")
-        "chain":
-            _add_zone(slot, Vector2(h["pos"]), 300.0, 0.36, 11.0, &"ultimate", 0.58, -105.0, "CAROUSEL PULL I", Color("#a86cff"), false, &"chain_vortex", false, &"root")
-            _add_zone(slot, Vector2(h["pos"]), 300.0, 0.68, 13.0, &"ultimate", 0.72, -150.0, "CAROUSEL PULL II", Color("#b78cff"), false, &"chain_vortex", false, &"root")
-            _add_zone(slot, Vector2(h["pos"]), 300.0, 1.02, 26.0, &"ultimate", 0.82, 235.0, "BLACK CAROUSEL", Color("#f2d7ff"), false, &"chain_vortex", true, &"stun")
-        "shield":
-            h["guard_time"] = 2.40
-            h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + 20.0)
-            heroes[slot] = h
-            _add_zone(slot, Vector2(h["pos"]), 230.0, 0.34, 42.0, &"ultimate", 1.10, 320.0, "LAST ONE STANDING", Color("#8de1ff"), false, &"shield_bash")
-    _add_effect(&"charge_release", Vector2(h["pos"]), 76.0, 0.24, Color("#ff8dac"), "", dir)
-    if slot == 0:
-        impact_ticks = maxi(impact_ticks, 8)
-        impact_pos = Vector2(h["pos"])
-    if slot == 0:
-        ultimate_focus_slot = slot
-        ultimate_focus_time = ultimate_focus_max
-        _announce("P%d  %s" % [slot + 1, h["equipment"]["ultimate_name"]], 58)
-    event_log.emit(tick, &"ultimate_used", slot, -1, {"equipment":equipment_id})
+    ultimate_focus_slot = slot
+    ultimate_focus_time = 0.28
+    event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "mirage", "clones": 7})
 
-func _ultimate_armor(equipment_id: String) -> Dictionary:
-    match equipment_id:
-        "shield": return {"duration":1.15, "strength":1.0}
-        "breaker": return {"duration":0.95, "strength":0.90}
-        "brawler": return {"duration":0.82, "strength":0.82}
-        "blade", "spear": return {"duration":0.64, "strength":0.68}
-        "chain": return {"duration":1.08, "strength":0.68}
-        "scatter", "leech": return {"duration":0.52, "strength":0.55}
-        _: return {"duration":0.40, "strength":0.42}
+func _sync_ult_clones(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        var left := float(h.get("ult_clone_time", 0.0))
+        if left <= 0.0:
+            if h.get("ult_clones", []):
+                h["ult_clones"] = []
+                heroes[slot] = h
+            continue
+        left = maxf(0.0, left - dt)
+        h["ult_clone_time"] = left
+        if left <= 0.0 or not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+            h["ult_clones"] = []
+            heroes[slot] = h
+            continue
+        var vel: Vector2 = h.get("vel", Vector2.ZERO)
+        var facing: Vector2 = h.get("facing", Vector2.RIGHT)
+        var aim: Vector2 = h.get("aim", facing)
+        var clones: Array = h.get("ult_clones", [])
+        var kept: Array = []
+        for clone in clones:
+            if not bool(clone.get("alive", true)):
+                continue
+            var ang := float(clone.get("ang", 0.0))
+            var mirrored: Vector2 = vel.rotated(ang)
+            var next_pos: Vector2 = _resolve_cover_motion(Vector2(clone.get("pos", h["pos"])), mirrored * dt)
+            next_pos = _clamp_arena_point(next_pos, HERO_RADIUS)
+            clone["pos"] = next_pos
+            clone["facing"] = facing.rotated(ang)
+            clone["aim"] = aim.rotated(ang)
+            clone["hop_time"] = h.get("hop_time", 0.0)
+            clone["hop_height"] = h.get("hop_height", HOP_LIFT_DEFAULT)
+            clone["animal"] = int(h.get("animal", slot))
+            clone["owner"] = slot
+            kept.append(clone)
+        h["ult_clones"] = kept
+        heroes[slot] = h
+
+func _pop_ult_clone(slot: int, index: int) -> void:
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    var clones: Array = h.get("ult_clones", [])
+    if index < 0 or index >= clones.size():
+        return
+    var c: Dictionary = clones[index]
+    var pos: Vector2 = c.get("pos", h.get("pos", Vector2.ZERO))
+    clones.remove_at(index)
+    h["ult_clones"] = clones
+    heroes[slot] = h
+    _add_effect(&"hit_spark", pos, 42.0, 0.22, Color("#c9e7ff"), "")
+    event_log.emit(tick, &"clone_pop", slot, -1, {})
+
+func _hit_ult_clone(owner: int, ppos: Vector2, radius: float) -> bool:
+    for slot in range(heroes.size()):
+        if slot == owner:
+            continue
+        var h: Dictionary = heroes[slot]
+        if float(h.get("ult_clone_time", 0.0)) <= 0.0:
+            continue
+        var clones: Array = h.get("ult_clones", [])
+        for i in range(clones.size()):
+            var c: Dictionary = clones[i]
+            if not bool(c.get("alive", true)):
+                continue
+            if ppos.distance_to(Vector2(c.get("pos", Vector2.ZERO))) < radius + HERO_RADIUS:
+                _pop_ult_clone(slot, i)
+                return true
+    return false
+
+func _ultimate_armor(_equipment_id: String) -> Dictionary:
+    return {"duration":0.0, "strength":0.0}
 
 func _highest_threat_except(excluded: int) -> int:
     var best := -1
@@ -1902,7 +2602,8 @@ func _update_projectiles(dt: float) -> void:
             if float(p["ttl"]) <= 0.0:
                 var landing: Vector2 = p["landing_pos"]
                 _add_zone(int(p["owner"]), landing, float(p["splash"]), 0.01, float(p["damage"]), &"normal", float(p["cc_time"]), float(p["knockback"]), "", Color("#ff554a"), false, &"explosion", bool(p["combo_finisher"]))
-                _add_effect(&"explosion", landing, float(p["splash"]), 0.32, Color("#ff554a"), "")
+                var boom_t := 34.0 / 60.0 if str(heroes[int(p["owner"])]["equipment"].get("id", "")) == "mortar" else 0.32
+                _add_effect(&"explosion", landing, float(p["splash"]), boom_t, Color("#ff554a"), "")
                 continue
             kept.append(p)
             continue
@@ -1942,7 +2643,10 @@ func _update_projectiles(dt: float) -> void:
             if target in p["hit_targets"]:
                 continue
             if bool(heroes[target]["alive"]) and Vector2(p["pos"]).distance_to(Vector2(heroes[target]["pos"])) < float(p["radius"]) + HERO_RADIUS:
-                _damage_hero(owner, target, float(p["damage"]), StringName(p["source"]), float(p["cc_time"]), float(p.get("knockback", 0.0)), Vector2(heroes[owner]["pos"]), str(p.get("label", "")), _projectile_impact_kind(str(p.get("kind", "bolt"))), bool(p.get("combo_finisher", false)), StringName(p.get("control_kind", &"slow")))
+                var from_pos: Vector2 = Vector2(p["pos"])
+                if owner >= 0 and owner < heroes.size():
+                    from_pos = Vector2(heroes[owner]["pos"])
+                _damage_hero(owner, target, float(p["damage"]), StringName(p["source"]), float(p["cc_time"]), float(p.get("knockback", 0.0)), from_pos, str(p.get("label", "")), _projectile_impact_kind(str(p.get("kind", "bolt"))), bool(p.get("combo_finisher", false)), StringName(p.get("control_kind", &"slow")))
                 if float(p["splash"]) > 0.0:
                     _splash_damage(owner, Vector2(p["pos"]), float(p["splash"]), float(p["damage"]) * 0.55, target, StringName(p["source"]), float(p["cc_time"]) * 0.65, float(p.get("knockback", 0.0)) * 0.65)
                 if bool(p["leech"]):
@@ -1955,10 +2659,30 @@ func _update_projectiles(dt: float) -> void:
                     continue
                 hit = true
                 break
-            if Vector2(p["pos"]).distance_to(Vector2(cores[target]["pos"])) < float(p["radius"]) + CORE_RADIUS:
+            if owner >= 0 and Vector2(p["pos"]).distance_to(Vector2(cores[target]["pos"])) < float(p["radius"]) + CORE_RADIUS:
                 _damage_core(owner, target, float(p["damage"]) * 0.78, StringName(p["source"]))
                 hit = true
                 break
+        if not hit:
+            if _hit_ult_clone(owner, Vector2(p["pos"]), float(p["radius"])):
+                hit = true
+        if not hit:
+            for crate_i in range(crates.size()):
+                var crate_hit: Dictionary = crates[crate_i]
+                if not bool(crate_hit["alive"]):
+                    continue
+                if Vector2(p["pos"]).distance_to(Vector2(crate_hit["pos"])) < float(p["radius"]) + CRATE_RADIUS:
+                    _hurt_crate(crate_i, float(p["damage"]))
+                    if float(p["splash"]) > 0.0:
+                        _damage_crates_at(Vector2(p["pos"]), float(p["splash"]), float(p["damage"]))
+                    hit = true
+                    break
+        if not hit and owner >= 0 and bool(mid_tower.get("alive", false)):
+            if Vector2(p["pos"]).distance_to(Vector2(mid_tower["pos"])) < float(p["radius"]) + TOWER_RADIUS:
+                _hurt_tower(owner, float(p["damage"]))
+                if float(p["splash"]) > 0.0:
+                    _hurt_tower(owner, float(p["damage"]) * 0.35)
+                hit = true
         var projectile_pos: Vector2 = p["pos"]
         if not hit and float(p["ttl"]) > 0.0 and projectile_pos.x >= 0.0 and projectile_pos.x <= ARENA_SIZE.x and projectile_pos.y >= 0.0 and projectile_pos.y <= ARENA_SIZE.y:
             kept.append(p)
@@ -1970,6 +2694,7 @@ func _splash_damage(owner: int, center: Vector2, radius: float, damage: float, p
             continue
         if center.distance_to(Vector2(heroes[target]["pos"])) <= radius:
             _damage_hero(owner, target, damage, source, cc_time, knockback, center, "SPLASH", &"explosion")
+    _damage_crates_at(center, radius, damage)
 
 func _update_zones(dt: float) -> void:
     var kept: Array[Dictionary] = []
@@ -1998,6 +2723,7 @@ func _update_zones(dt: float) -> void:
                 zone_direction = Vector2(heroes[owner]["aim"])
             if StringName(z.get("source", &"equipment")) != &"normal" or bool(z.get("telegraphed", false)):
                 _add_effect(StringName(z.get("effect_kind", &"explosion")), Vector2(z["pos"]), float(z["radius"]), 0.34, Color(z.get("color", Color.WHITE)), "", zone_direction)
+            _damage_crates_at(Vector2(z["pos"]), float(z["radius"]), float(z["damage"]))
         z["time"] = float(z["time"]) - dt
         if float(z["time"]) > 0.0:
             kept.append(z)
@@ -2016,6 +2742,8 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     var h: Dictionary = heroes[target]
     if not bool(h["alive"]):
         return
+    if float(h.get("spawn_protect_time", 0.0)) > 0.0:
+        return
     if float(h["evade_time"]) > 0.0:
         h["evade_time"] = 0.0
         heroes[target] = h
@@ -2025,6 +2753,8 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     var attacker: Dictionary = heroes[owner]
     var attacker_id := str(attacker["equipment"]["id"])
     amount *= _streak_damage_multiplier(owner)
+    if float(attacker.get("dmg_orb_time", 0.0)) > 0.0:
+        amount *= CRATE_ORB_DMG_MUL
     if attacker_id == "brawler" and float(attacker["hp"]) <= float(attacker["max_hp"]) * 0.5:
         amount *= 1.12
     elif attacker_id == "rail" and Vector2(attacker["pos"]).distance_to(Vector2(h["pos"])) >= 430.0:
@@ -2047,6 +2777,9 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
         h["combo_owner"] = owner
         h["combo_time"] = 0.38 if attack_finisher else 1.05
         amount *= 1.0 + minf(0.12, float(combo_hit - 1) * 0.06)
+    amount += _roulette_stat(owner, "atk")
+    amount *= maxf(0.05, 1.0 - _roulette_stat(target, "def"))
+    amount = _absorb_roulette_shield(h, amount)
     if float(h["guard_time"]) > 0.0:
         amount *= 0.55
         knockback *= 0.52
@@ -2062,6 +2795,14 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     h["hp"] = float(h["hp"]) - amount
     h["recent_attacker"] = owner
     h["grudge"] = minf(1.0, float(h["grudge"]) + amount / 100.0)
+    if owner >= 0:
+        var hits: Dictionary = h.get("life_hits", {})
+        var key := str(owner)
+        var rec: Dictionary = hits.get(key, {"dmg": 0.0, "tick": 0})
+        rec["dmg"] = float(rec.get("dmg", 0.0)) + amount
+        rec["tick"] = tick
+        hits[key] = rec
+        h["life_hits"] = hits
     if not armor_active and cc_time > 0.0:
         h["cc_time"] = maxf(float(h["cc_time"]), cc_time)
         match control_kind:
@@ -2075,22 +2816,23 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
                 h["charging_skill"] = false
                 h["charge_time"] = 0.0
                 _add_effect(&"stun_burst", Vector2(h["pos"]), 58.0, minf(0.52, cc_time), Color("#ffe27a"), "STUNNED")
-    if combo_hit > 0:
+    var gun_combat := source == &"normal"
+    var heavy_blast := effect_kind == &"explosion" or effect_label == "SPLASH"
+    if combo_hit > 0 and not gun_combat:
         var hitstun := 0.04 if float(h["combo_immunity"]) > 0.0 else minf(0.28, 0.07 + combo_hit * 0.055)
-        if source == &"normal":
-            var attack_interval := maxf(0.09, float(attacker.get("normal_interval", 0.24)))
-            hitstun = 0.04 if float(h["combo_immunity"]) > 0.0 else clampf(attack_interval * 0.52, 0.045, 0.16)
-            if attack_finisher:
-                h["combo_capture_time"] = 0.0
-            elif float(h["combo_immunity"]) <= 0.0 and not armor_active:
-                h["combo_capture_time"] = maxf(float(h["combo_capture_time"]), attack_interval + 0.20)
-        elif attacker_id == "chain":
+        if attacker_id == "chain":
             hitstun += 0.05
         if not armor_active:
             h["hitstun_time"] = maxf(float(h["hitstun_time"]), hitstun)
     var launch_knockback := knockback
-    if source == &"normal" and not attack_finisher:
+    if gun_combat and not heavy_blast and not attack_finisher:
         launch_knockback = 0.0
+        if absf(knockback) > 0.01 and not armor_active:
+            var shove_dir := impact_origin.direction_to(Vector2(h["pos"])) if impact_origin != Vector2.ZERO else Vector2(heroes[owner]["pos"]).direction_to(Vector2(h["pos"]))
+            if shove_dir.length_squared() < 0.1:
+                shove_dir = Vector2(heroes[owner]["aim"])
+            var shove := clampf(5.0 + absf(knockback) * 0.35, 5.0, 16.0)
+            h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), shove_dir * shove)
         if attacker_id == "chain" and not armor_active:
             var tug_distance := Vector2(h["pos"]).distance_to(Vector2(attacker["pos"]))
             var tug_direction := Vector2(h["pos"]).direction_to(Vector2(attacker["pos"]))
@@ -2134,12 +2876,25 @@ func _damage_hero(owner: int, target: int, amount: float, source: StringName = &
     var impact_radius := clampf(24.0 + amount * 1.4 + absf(knockback) * 0.12, 32.0, 125.0)
     var effect_direction := Vector2(h["launch_vel"]).normalized() if Vector2(h["launch_vel"]).length_squared() > 0.1 else Vector2(heroes[owner]["pos"]).direction_to(Vector2(h["pos"]))
     _add_effect(effect_kind, Vector2(h["pos"]), impact_radius, 0.22 if source == &"normal" else 0.42, Color("#ffffff"), effect_label, effect_direction)
+    if amount > 0.01 and source != &"safe_zone":
+        h["hit_flash"] = 0.11
+        heroes[target] = h
+        if target == local_slot:
+            local_hit_shake = 10
+        if owner == local_slot:
+            local_hit_shake = maxi(local_hit_shake, 8)
     event_log.emit(tick, &"hero_hit", owner, target, {"damage":amount, "knockback":launch_knockback, "label":effect_label, "source":source, "combo":combo_hit})
     if owner == 0 or target == 0:
         impact_ticks = maxi(impact_ticks, 4 if source == &"normal" else (11 if source == &"equipment" else 18))
         impact_pos = Vector2(h["pos"])
-    if float(h["hp"]) <= 0.0:
-        _down_hero(owner, target)
+    if bool(h.get("downed", false)):
+        h["hp"] = 0.0
+        h["down_taken"] = float(h.get("down_taken", 0.0)) + amount
+        heroes[target] = h
+        if float(h["down_taken"]) >= DOWN_FINISH_HP:
+            _down_hero(owner, target)
+    elif float(h["hp"]) <= 0.0:
+        _enter_down(owner, target)
 
 func _damage_core(owner: int, target: int, amount: float, source: StringName = &"normal") -> void:
     var core: Dictionary = cores[target]
@@ -2173,25 +2928,302 @@ func _award_charge(slot: int, amount: float, source: StringName) -> void:
     if source == &"ultimate" or source == &"mobility" or slot < 0 or slot >= heroes.size():
         return
     var h: Dictionary = heroes[slot]
-    var previous := float(h["ultimate_charge"])
-    var gain := minf(7.0, 1.5 + amount * 0.38)
     if source == &"equipment":
-        gain = minf(18.0, 7.0 + amount * 0.28)
         h["equipment_hits"] = int(h["equipment_hits"]) + 1
     else:
         h["normal_hits"] = int(h["normal_hits"]) + 1
-    h["ultimate_charge"] = minf(ULTIMATE_MAX, previous + gain)
+    h["ultimate_charge"] = minf(ULTIMATE_MAX, float(h.get("ultimate_charge", 0.0)) + maxf(4.0, amount * 0.12))
     heroes[slot] = h
-    if previous < ULTIMATE_MAX and float(h["ultimate_charge"]) >= ULTIMATE_MAX:
-        if slot == 0:
-            _announce("ULTIMATE READY", 48)
-        event_log.emit(tick, &"ultimate_ready", slot, -1, {})
 
 func _heal_hero(slot: int, amount: float) -> void:
     var h: Dictionary = heroes[slot]
-    if bool(h["alive"]):
-        h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + amount)
+    if not bool(h["alive"]):
+        return
+    var before := float(h["hp"])
+    h["hp"] = minf(float(h["max_hp"]), before + amount)
+    heroes[slot] = h
+    var gained := float(h["hp"]) - before
+    if gained > 0.4:
+        event_log.emit(tick, &"hero_heal", slot, -1, {"amount": gained})
+
+func _item_kind_color(kind: String) -> Color:
+    match kind:
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        _:
+            return Color("#6ef3a5")
+
+func _roll_pickup_kind(pickup: Dictionary) -> void:
+    var roll: float = rng.rangef(0.0, 1.0)
+    var kind := "medkit"
+    if roll < 0.30:
+        kind = "medkit"
+    elif roll < 0.48:
+        kind = "spring"
+    elif roll < 0.66:
+        kind = "slide"
+    elif roll < 0.80:
+        kind = "pull"
+    elif roll < 0.90:
+        kind = "pocket"
+    else:
+        kind = "decoy"
+    pickup["kind"] = kind
+    if kind == "decoy":
+        var faces := ["medkit", "spring", "slide", "pull", "pocket"]
+        pickup["disguise"] = str(faces[rng.rangei(0, faces.size() - 1)])
+    else:
+        pickup["disguise"] = kind
+
+func _spawn_dropped_pickup(pos: Vector2, kind: String, ignore_slot: int = -1) -> void:
+    if kind == "" or kind == "decoy":
+        return
+    var drop_pos: Vector2 = _clamp_arena_point(pos, HEALTH_PICKUP_RADIUS)
+    for pickup_index in range(health_pickups.size()):
+        var old_pickup: Dictionary = health_pickups[pickup_index]
+        if bool(old_pickup.get("ephemeral", false)) and not bool(old_pickup["active"]):
+            old_pickup["pos"] = drop_pos
+            old_pickup["home"] = drop_pos
+            old_pickup["kind"] = kind
+            old_pickup["disguise"] = kind
+            old_pickup["active"] = true
+            old_pickup["respawn"] = 0.0
+            old_pickup["magnet_slot"] = -1
+            old_pickup["ignore_slot"] = ignore_slot
+            old_pickup["ignore_time"] = ITEM_DROP_IGNORE if ignore_slot >= 0 else 0.0
+            health_pickups[pickup_index] = old_pickup
+            return
+    health_pickups.append({
+        "id":health_pickups.size(),
+        "pos":drop_pos,
+        "home":drop_pos,
+        "magnet_slot":-1,
+        "active":true,
+        "respawn":0.0,
+        "kind":kind,
+        "disguise":kind,
+        "ephemeral":true,
+        "ignore_slot":ignore_slot,
+        "ignore_time":ITEM_DROP_IGNORE if ignore_slot >= 0 else 0.0
+    })
+
+func _explode_decoy(slot: int, origin: Vector2) -> void:
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    if not bool(h["alive"]):
+        return
+    if float(h.get("spawn_protect_time", 0.0)) > 0.0:
+        return
+    if float(h.get("evade_time", 0.0)) > 0.0:
+        h["evade_time"] = 0.0
         heroes[slot] = h
+        _add_effect(&"afterimage", Vector2(h["pos"]), 105.0, 0.38, Color("#b9f3ff"), "EVADE")
+        event_log.emit(tick, &"attack_evaded", -1, slot, {"source":&"decoy"})
+        return
+    h["hp"] = float(h["hp"]) - DECOY_DAMAGE
+    var push: Vector2 = origin.direction_to(Vector2(h["pos"]))
+    if push.length_squared() < 0.1:
+        push = Vector2(h.get("facing", Vector2.RIGHT))
+    var launch_speed: float = (900.0 + DECOY_KNOCK * 9.8) / maxf(0.35, float(h["equipment"]["weight"]))
+    h["launch_vel"] = push * launch_speed
+    h["launch_time"] = 0.28
+    h["vel"] = Vector2.ZERO
+    h["launch_owner"] = -1
+    heroes[slot] = h
+    _add_effect(&"explosion", origin, 78.0, 0.40, Color("#ff665a"), "DECOY")
+    event_log.emit(tick, &"decoy_exploded", -1, slot, {"damage":DECOY_DAMAGE})
+    _apply_lethal_or_down(-1, slot, DECOY_DAMAGE)
+
+func _collect_item_pickup(slot: int, pickup: Dictionary) -> Dictionary:
+    var kind := str(pickup.get("kind", "medkit"))
+    var target_pos: Vector2 = heroes[slot]["pos"]
+    if kind == "decoy":
+        _explode_decoy(slot, Vector2(pickup["pos"]))
+        pickup["active"] = false
+        pickup["respawn"] = 99999.0 if bool(pickup.get("ephemeral", false)) else HEALTH_PICKUP_RESPAWN
+        pickup["magnet_slot"] = -1
+        pickup["pos"] = Vector2(pickup["home"])
+        return pickup
+    var h: Dictionary = heroes[slot]
+    var old_item := str(h.get("held_item", ""))
+    if old_item != "":
+        var drop_pos: Vector2 = target_pos - Vector2(h.get("facing", Vector2.RIGHT)) * 36.0
+        _spawn_dropped_pickup(drop_pos, old_item, slot)
+    h["held_item"] = kind
+    heroes[slot] = h
+    pickup["active"] = false
+    pickup["respawn"] = 99999.0 if bool(pickup.get("ephemeral", false)) else HEALTH_PICKUP_RESPAWN
+    pickup["magnet_slot"] = -1
+    pickup["pos"] = Vector2(pickup["home"])
+    _add_effect(&"heal_pickup", target_pos, 64.0, 0.38, _item_kind_color(kind), kind.to_upper())
+    event_log.emit(tick, &"item_collected", slot, -1, {"kind":kind, "dropped":old_item})
+    return pickup
+
+func _steer_slide(slot: int, h: Dictionary, wish: Vector2, control_speed: float, dt: float) -> void:
+    var vel: Vector2 = h["vel"]
+    var max_speed: float = _hero_move_speed(slot) * control_speed * _streak_move_multiplier(slot)
+    if wish.length_squared() > 0.04:
+        var wish_dir: Vector2 = wish.normalized()
+        vel = vel + wish_dir * SLIDE_ACCEL * dt
+        var cap: float = maxf(40.0, max_speed * 1.15)
+        if vel.length() > cap:
+            vel = vel.normalized() * cap
+    else:
+        vel = vel.move_toward(Vector2.ZERO, SLIDE_FRICTION * dt)
+    h["vel"] = vel
+    h["slide_wish"] = wish
+
+func _apply_cpu_move(slot: int, h: Dictionary, wish_dir: Vector2, speed_scale: float) -> void:
+    h["slide_wish"] = wish_dir
+    if float(h.get("slide_time", 0.0)) > 0.0:
+        return
+    var cruise: Vector2 = wish_dir * _hero_move_speed(slot) * speed_scale * _streak_move_multiplier(slot)
+    h["vel"] = cruise
+    if float(h.get("spring_time", 0.0)) > 0.0 and wish_dir.length_squared() > 0.1:
+        var boosted: Vector2 = Vector2(h["vel"]) + wish_dir.normalized() * SPRING_BOOST
+        h["vel"] = boosted
+
+func _pull_target_toward(target: int, user_pos: Vector2) -> void:
+    var h: Dictionary = heroes[target]
+    var to_user: Vector2 = Vector2(h["pos"]).direction_to(user_pos)
+    if to_user.length_squared() < 0.01:
+        return
+    h["launch_vel"] = to_user * PULL_LAUNCH
+    h["launch_time"] = maxf(float(h["launch_time"]), 0.20)
+    h["vel"] = Vector2.ZERO
+    heroes[target] = h
+
+func _apply_pull_pulse(slot: int, dt: float) -> void:
+    var user_pos: Vector2 = heroes[slot]["pos"]
+    for target in range(heroes.size()):
+        if target == slot:
+            continue
+        if not bool(heroes[target]["alive"]) or bool(heroes[target]["eliminated"]):
+            continue
+        if Vector2(heroes[target]["pos"]).distance_to(user_pos) > PULL_RADIUS:
+            continue
+        _pull_target_toward(target, user_pos)
+    for pickup_index in range(health_pickups.size()):
+        var pickup: Dictionary = health_pickups[pickup_index]
+        if not bool(pickup["active"]):
+            continue
+        var pickup_pos: Vector2 = pickup["pos"]
+        if pickup_pos.distance_to(user_pos) > PULL_RADIUS:
+            continue
+        var pulled: Vector2 = pickup_pos.move_toward(user_pos, 520.0 * dt)
+        pickup["pos"] = pulled
+        health_pickups[pickup_index] = pickup
+
+func _update_item_pulses(dt: float) -> void:
+    if mode != ITEM_POOL_MODE:
+        return
+    for slot in range(heroes.size()):
+        if not bool(heroes[slot]["alive"]) or bool(heroes[slot]["eliminated"]):
+            continue
+        if float(heroes[slot].get("pull_time", 0.0)) > 0.0:
+            _apply_pull_pulse(slot, dt)
+
+func _hero_in_own_pocket(slot: int) -> bool:
+    if slot < 0 or slot >= heroes.size():
+        return false
+    if float(heroes[slot].get("pocket_time", 0.0)) <= 0.0:
+        return false
+    var hero_pos: Vector2 = heroes[slot]["pos"]
+    return hero_pos.distance_to(Vector2(heroes[slot]["pos"])) <= POCKET_RADIUS
+
+func _try_use_active_item(slot: int) -> void:
+    if mode != ITEM_POOL_MODE:
+        _try_use_medkit(slot)
+        return
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    if not bool(h["alive"]) or bool(h["eliminated"]):
+        return
+    if _hero_has_timed(h, "turtle"):
+        return
+    var kind := str(h.get("held_item", ""))
+    if kind == "":
+        return
+    match kind:
+        "medkit":
+            if float(h["hp"]) >= float(h["max_hp"]) - 0.5:
+                return
+            h["held_item"] = ""
+            heroes[slot] = h
+            var heal_amount := float(h["max_hp"]) * MEDKIT_HEAL_RATIO
+            _heal_hero(slot, heal_amount)
+            _add_effect(&"heal_pickup", Vector2(h["pos"]), 72.0, 0.45, Color("#6ef3a5"), "MEDKIT")
+            event_log.emit(tick, &"medkit_used", slot, -1, {"amount":heal_amount, "left":0})
+        "spring":
+            h["held_item"] = ""
+            h["hop_time"] = SPRING_AIR
+            h["hop_max"] = SPRING_AIR
+            h["hop_height"] = SPRING_LIFT
+            h["evade_time"] = maxf(float(h["evade_time"]), SPRING_EVADE)
+            h["spring_time"] = SPRING_AIR
+            var boost_dir: Vector2 = Vector2(h["vel"])
+            if boost_dir.length_squared() < 0.1:
+                boost_dir = Vector2(h["facing"])
+            if boost_dir.length_squared() > 0.1:
+                var boosted: Vector2 = Vector2(h["vel"]) + boost_dir.normalized() * SPRING_BOOST
+                h["vel"] = boosted
+            heroes[slot] = h
+            _add_effect(&"speed_streak", Vector2(h["pos"]), 90.0, 0.34, Color("#ffe066"), "SPRING", boost_dir)
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"spring"})
+        "slide":
+            h["held_item"] = ""
+            h["slide_time"] = SLIDE_DURATION
+            heroes[slot] = h
+            _add_effect(&"speed_streak", Vector2(h["pos"]), 70.0, 0.28, Color("#70e7ff"), "SLIDE")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"slide"})
+        "pull":
+            h["held_item"] = ""
+            h["pull_time"] = PULL_DURATION
+            heroes[slot] = h
+            _apply_pull_pulse(slot, FIXED_DT)
+            _add_effect(&"chain_vortex", Vector2(h["pos"]), PULL_RADIUS, 0.55, Color("#b78cff"), "PULL")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"pull"})
+        "pocket":
+            h["held_item"] = ""
+            h["pocket_time"] = POCKET_DURATION
+            heroes[slot] = h
+            _add_effect(&"guard", Vector2(h["pos"]), POCKET_RADIUS, 0.45, Color("#f4e2ff"), "POCKET")
+            event_log.emit(tick, &"item_used", slot, -1, {"kind":"pocket"})
+
+func _cpu_consider_held_item(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    var kind := str(h.get("held_item", ""))
+    if kind == "":
+        return
+    var hp_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
+    var should_use := false
+    match kind:
+        "medkit":
+            should_use = hp_ratio < 0.5 and rng.chance(0.30)
+        "pocket":
+            should_use = (not _hero_in_safe_zone(slot)) and rng.chance(0.22)
+        "pull":
+            var near := 0
+            for other in range(heroes.size()):
+                if other == slot or not bool(heroes[other]["alive"]):
+                    continue
+                if Vector2(h["pos"]).distance_to(Vector2(heroes[other]["pos"])) <= PULL_RADIUS:
+                    near += 1
+            should_use = near > 0 and rng.chance(0.12)
+        "spring":
+            should_use = rng.chance(0.06) and (hp_ratio < 0.42 or float(h["mobility_cd"]) > 0.8)
+        "slide":
+            should_use = rng.chance(0.08) and (h["action"] == &"CLOSE_RANGE" or h["action"] == &"SEEK_HEAL")
+    if should_use:
+        _try_use_active_item(slot)
 
 func _try_use_medkit(slot: int) -> void:
     if slot < 0 or slot >= heroes.size():
@@ -2223,6 +3255,12 @@ func _try_gun_loot(owner: int, attacker: Dictionary) -> Dictionary:
     if next_id.is_empty() or next_id == current_id:
         return attacker
     attacker["equipment"] = _make_equipment(next_id)
+    attacker["burst_left"] = int(attacker["equipment"].get("burst_shots", 0))
+    if int(attacker["burst_left"]) <= 0:
+        attacker["burst_left"] = 2
+    attacker["mag"] = int(attacker["equipment"].get("mag_size", 1))
+    attacker["reload_left"] = 0.0
+    attacker["reload_flash"] = 0.0
     event_log.emit(tick, &"gun_upgraded", owner, -1, {"equipment":next_id})
     _announce("P%d %s 획득!" % [owner + 1, str(attacker["equipment"]["name"])], 90)
     return attacker
@@ -2244,6 +3282,77 @@ func _streak_title(streak: int) -> String:
         return "연속 처치!"
     return "더블 킬!"
 
+
+func _apply_lethal_or_down(owner: int, target: int, extra: float) -> void:
+    if target < 0 or target >= heroes.size():
+        return
+    var h: Dictionary = heroes[target]
+    if not bool(h.get("alive", false)):
+        return
+    if bool(h.get("downed", false)):
+        h["hp"] = 0.0
+        h["down_taken"] = float(h.get("down_taken", 0.0)) + maxf(0.0, extra)
+        heroes[target] = h
+        if float(h["down_taken"]) >= DOWN_FINISH_HP:
+            _down_hero(owner, target)
+        return
+    if float(h.get("hp", 0.0)) <= 0.0:
+        _enter_down(owner, target)
+
+func _enter_down(owner: int, target: int) -> void:
+    var h: Dictionary = heroes[target]
+    if not bool(h.get("alive", false)) or bool(h.get("downed", false)):
+        return
+    h["downed"] = true
+    h["down_left"] = DOWN_BLEED_TIME
+    h["down_taken"] = 0.0
+    h["hp"] = 0.0
+    h["vel"] = Vector2.ZERO
+    h["launch_time"] = 0.0
+    h["launch_vel"] = Vector2.ZERO
+    h["ult_clones"] = []
+    h["ult_clone_time"] = 0.0
+    h["charging_skill"] = false
+    heroes[target] = h
+    last_down_slot = target
+    last_down_ticks = 90
+    _add_effect(&"hit_spark", Vector2(h["pos"]), 70.0, 0.35, Color("#ff8d93"), "DOWN")
+    if owner >= 0:
+        _announce("P%d DOWNED P%d" % [owner + 1, target + 1], 70)
+        event_log.emit(tick, &"hero_bled", owner, target, {})
+    else:
+        _announce("P%d DOWNED" % [target + 1], 70)
+        event_log.emit(tick, &"hero_bled", -1, target, {})
+
+func _stand_up(slot: int) -> void:
+    var h: Dictionary = heroes[slot]
+    if not bool(h.get("downed", false)):
+        return
+    h["downed"] = false
+    h["down_left"] = 0.0
+    h["down_taken"] = 0.0
+    h["alive"] = true
+    h["hp"] = maxf(1.0, float(h["max_hp"]) * 0.5)
+    h["spawn_protect_time"] = 1.2
+    h["vel"] = Vector2.ZERO
+    heroes[slot] = h
+    _add_effect(&"respawn", Vector2(h["pos"]), 56.0, 0.40, Color("#6ef3a5"), "UP")
+    event_log.emit(tick, &"hero_stood", slot, -1, {})
+
+func _tick_downs(dt: float) -> void:
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if not bool(h.get("downed", false)):
+            continue
+        if not bool(h.get("alive", false)):
+            h["downed"] = false
+            heroes[slot] = h
+            continue
+        h["down_left"] = maxf(0.0, float(h.get("down_left", 0.0)) - dt)
+        heroes[slot] = h
+        if float(h["down_left"]) <= 0.0:
+            _stand_up(slot)
+
 func _down_hero(owner: int, target: int) -> void:
     var h: Dictionary = heroes[target]
     var defeated_streak := int(h.get("kill_streak", 0))
@@ -2260,10 +3369,31 @@ func _down_hero(owner: int, target: int) -> void:
     else:
         death_velocity = death_velocity.normalized() * maxf(1550.0, death_velocity.length() * 1.35)
     knockouts.append({"slot":target, "pos":Vector2(h["pos"]), "vel":death_velocity, "time":2.15, "max_time":2.15, "bounces":0, "finished":false, "trail":[Vector2(h["pos"])], "equipment":str(h["equipment"]["id"])})
+    var death_drop := str(h.get("held_item", ""))
+    var death_pos: Vector2 = h["pos"]
     h["alive"] = false
     h["hp"] = 0.0
-    h["respawn"] = 0.0
-    h["eliminated"] = true
+    h["downed"] = false
+    h["down_left"] = 0.0
+    h["down_taken"] = 0.0
+    h["spawn_protect_time"] = 0.0
+    var bounty_victim := (target == wanted_slot)
+    var life_hits: Dictionary = h.get("life_hits", {})
+    _clear_roulette_buffs(h)
+    h["life_hitters"] = []
+    h["life_hits"] = {}
+    var used := int(h.get("revives_used", 0))
+    var final_out := used >= MAX_REVIVES
+    if final_out:
+        h["eliminated"] = true
+        h["respawn"] = 0.0
+        h["respawn_left"] = 0.0
+    else:
+        h["eliminated"] = false
+        h["revives_used"] = used + 1
+        var wait := _respawn_delay_for(target)
+        h["respawn"] = wait
+        h["respawn_left"] = wait
     h["vel"] = Vector2.ZERO
     h["launch_vel"] = Vector2.ZERO
     h["launch_time"] = 0.0
@@ -2280,9 +3410,18 @@ func _down_hero(owner: int, target: int) -> void:
     h["attack_lock_time"] = 0.0
     h["charging_skill"] = false
     h["charge_time"] = 0.0
+    h["reload_left"] = 0.0
+    h["reload_flash"] = 0.0
     h["deaths"] = int(h["deaths"]) + 1
     h["kill_streak"] = 0
+    h["held_item"] = ""
+    h["slide_time"] = 0.0
+    h["pull_time"] = 0.0
+    h["pocket_time"] = 0.0
+    h["spring_time"] = 0.0
     heroes[target] = h
+    if mode == ITEM_POOL_MODE and death_drop != "" and death_drop != "decoy":
+        _spawn_dropped_pickup(death_pos, death_drop, -1)
     _add_effect(&"death_burst", Vector2(h["pos"]), 260.0, 1.25, Color("#ff3349"), "", death_velocity.normalized())
     impact_ticks = maxi(impact_ticks, 32)
     last_down_slot = target
@@ -2304,7 +3443,7 @@ func _down_hero(owner: int, target: int) -> void:
             attacker["hp"] = minf(float(attacker["max_hp"]), float(attacker["hp"]) + momentum_heal)
             attacker["equipment_cd"] = maxf(0.0, float(attacker["equipment_cd"]) - (0.50 + float(streak_after) * 0.10))
             attacker["mobility_cd"] = maxf(0.0, float(attacker["mobility_cd"]) - (0.35 + float(streak_after) * 0.08))
-            attacker["ultimate_charge"] = minf(ULTIMATE_MAX, float(attacker["ultimate_charge"]) + 7.0 + minf(5.0, float(streak_after)))
+            attacker["ultimate_charge"] = minf(ULTIMATE_MAX, float(attacker.get("ultimate_charge", 0.0)) + 35.0)
             attacker["score"] = float(attacker["score"]) + maxf(0.0, float(streak_after - 1) * 15.0)
         if defeated_streak >= 3:
             shutdown_bonus = minf(230.0, 90.0 + float(defeated_streak - 3) * 35.0)
@@ -2314,7 +3453,7 @@ func _down_hero(owner: int, target: int) -> void:
                 attacker["hp"] = minf(float(attacker["max_hp"]), float(attacker["hp"]) + float(attacker["max_hp"]) * 0.14)
                 attacker["equipment_cd"] *= 0.50
                 attacker["mobility_cd"] *= 0.50
-                attacker["ultimate_charge"] = minf(ULTIMATE_MAX, float(attacker["ultimate_charge"]) + minf(30.0, 14.0 + float(defeated_streak) * 2.0))
+                attacker["ultimate_charge"] = minf(ULTIMATE_MAX, float(attacker.get("ultimate_charge", 0.0)) + 20.0)
             var attacker_name := str(attacker["equipment"]["character_name"])
             var defeated_name := str(h["equipment"]["character_name"])
             _show_streak_callout("연속 처치 종료!", "P%d %s님이 P%d %s님의 %d연속 처치를 끝냈습니다." % [owner + 1, attacker_name, target + 1, defeated_name, defeated_streak], true)
@@ -2325,13 +3464,20 @@ func _down_hero(owner: int, target: int) -> void:
             event_log.emit(tick, &"kill_streak", owner, target, {"streak":streak_after})
         attacker = _try_gun_loot(owner, attacker)
         heroes[owner] = attacker
+        _grant_kill_roulettes(owner, target, bounty_victim, life_hits)
     impact_pos = Vector2(h["pos"])
-    event_log.emit(tick, &"hero_downed", owner, target, {"streak":streak_after, "ended_streak":defeated_streak, "shutdown_bonus":shutdown_bonus})
-    event_log.emit(tick, &"player_eliminated", owner, target, {"source":&"death"})
-    if owner >= 0:
-        _announce("P%d ELIMINATED P%d!" % [owner + 1, target + 1], 140)
+    event_log.emit(tick, &"hero_downed", owner, target, {"streak":streak_after, "ended_streak":defeated_streak, "shutdown_bonus":shutdown_bonus, "revives_used":int(h.get("revives_used", 0)), "eliminated":bool(h["eliminated"])})
+    if bool(h["eliminated"]):
+        event_log.emit(tick, &"player_eliminated", owner, target, {"source":&"death"})
+        if owner >= 0:
+            _announce("P%d ELIMINATED P%d!" % [owner + 1, target + 1], 140)
+        else:
+            _announce("P%d ELIMINATED BY ZONE!" % [target + 1], 140)
     else:
-        _announce("P%d ELIMINATED BY ZONE!" % [target + 1], 140)
+        if owner >= 0:
+            _announce("P%d DOWNED P%d" % [owner + 1, target + 1], 90)
+        else:
+            _announce("P%d DOWNED BY ZONE" % [target + 1], 90)
     impact_ticks = maxi(impact_ticks, 32)
 
 func _eliminate(owner: int, target: int) -> void:
@@ -2361,10 +3507,11 @@ func _update_threat(dt: float) -> void:
         h["bounty"] = maxf(0.0, float(h["bounty"]) - dt * 0.22)
         h["grudge"] = maxf(0.0, float(h["grudge"]) - dt * 0.05)
         heroes[i] = h
-    var new_wanted := _highest_threat_except(-1)
+    var new_wanted := _standing_leader()
     if new_wanted != wanted_slot and new_wanted >= 0:
         wanted_slot = new_wanted
-        _announce("BOUNTY: EVERYONE GET P%d!" % (wanted_slot + 1), 105)
+        _announce("WANTED P%d" % (wanted_slot + 1), 90)
+        event_log.emit(tick, &"bounty_moved", wanted_slot, -1, {"score":float(heroes[wanted_slot]["score"])})
 
 func _hero_in_safe_zone(slot: int) -> bool:
     if slot < 0 or slot >= heroes.size():
@@ -2413,19 +3560,32 @@ func _apply_safe_zone_damage(dt: float) -> void:
             continue
         if _hero_in_safe_zone(slot):
             continue
+        if _hero_in_own_pocket(slot):
+            continue
         _damage_hero_environment(slot, amount, show_tick)
+    for crate_i in range(crates.size()):
+        var crate: Dictionary = crates[crate_i]
+        if not bool(crate.get("alive", false)):
+            continue
+        if Vector2(crate["pos"]).distance_to(safe_zone_center) <= safe_zone_radius:
+            continue
+        var shown := SAFE_ZONE_DAMAGE_PER_SEC * SAFE_ZONE_TICK_INTERVAL if show_tick else 0.0
+        _hurt_crate(crate_i, amount, show_tick and shown > 0.4)
+        if show_tick:
+            _add_effect(&"hit_spark", Vector2(crate["pos"]), 28.0, 0.16, Color("#ff4f68"), "ZONE")
 
 func _damage_hero_environment(target: int, amount: float, show_tick: bool) -> void:
     var h: Dictionary = heroes[target]
     if not bool(h["alive"]) or amount <= 0.0:
+        return
+    if float(h.get("spawn_protect_time", 0.0)) > 0.0:
         return
     h["hp"] = float(h["hp"]) - amount
     heroes[target] = h
     if show_tick:
         _add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
         event_log.emit(tick, &"hero_hit", -1, target, {"damage":SAFE_ZONE_DAMAGE_PER_SEC * SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
-    if float(h["hp"]) <= 0.0:
-        _down_hero(-1, target)
+    _apply_lethal_or_down(-1, target, amount)
 
 func _hero_hp_ratio(slot: int) -> float:
     if slot < 0 or slot >= heroes.size() or bool(heroes[slot]["eliminated"]):
@@ -2509,7 +3669,7 @@ func final_standings() -> Array[Dictionary]:
 func _check_end() -> void:
     var alive_slots: Array[int] = []
     for hero in heroes:
-        if bool(hero["alive"]) and not bool(hero["eliminated"]):
+        if not bool(hero["eliminated"]):
             alive_slots.append(int(hero["slot"]))
     if alive_slots.size() == 1:
         _declare_winner(alive_slots[0], &"last_survivor")
@@ -2529,7 +3689,7 @@ func summary() -> Dictionary:
     var ultimate_uses := 0
     var equipment_hits := 0
     for hero in heroes:
-        if bool(hero["alive"]) and not bool(hero["eliminated"]):
+        if not bool(hero["eliminated"]):
             alive += 1
         ultimate_uses += int(hero["ultimates"])
         equipment_hits += int(hero["equipment_hits"])
@@ -2551,3 +3711,180 @@ func has_invalid_numbers() -> bool:
         if not is_finite(pos.x) or not is_finite(pos.y):
             return true
     return false
+
+
+func cycle_local_animal(delta: int) -> void:
+    if local_slot < 0 or local_slot >= heroes.size():
+        return
+    if result != &"playing":
+        return
+    var h: Dictionary = heroes[local_slot]
+    if not bool(h.get("alive", false)):
+        return
+    var animal := posmod(int(h.get("animal", local_slot)) + delta, 12)
+    set_hero_animal(local_slot, animal)
+
+func set_hero_animal(slot: int, animal: int) -> void:
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    animal = posmod(animal, 12)
+    h["animal"] = animal
+    var equipment_id := GunSig.equipment_for_animal(animal)
+    var equipment := _make_equipment(equipment_id)
+    h["equipment"] = equipment
+    h["max_hp"] = float(equipment["max_hp"])
+    h["hp"] = float(equipment["max_hp"])
+    h["mag"] = int(equipment.get("mag_size", 1))
+    h["reload_left"] = 0.0
+    h["fire_cd"] = 0.0
+    heroes[slot] = h
+    _announce("P%d %s" % [slot + 1, str(equipment.get("name", equipment_id))], 70)
+
+
+func _reset_mid_tower() -> void:
+    mid_tower = {
+        "alive": false,
+        "spawned": false,
+        "pos": ARENA_CENTER,
+        "hp": TOWER_MAX_HP,
+        "max_hp": TOWER_MAX_HP,
+        "fire_cd": 0.8,
+        "pattern": 0,
+        "boing": 0.0,
+        "hits": {},
+        "last_hit": -1
+    }
+
+func _update_mid_tower(dt: float) -> void:
+    if result != &"playing":
+        return
+    if not bool(mid_tower.get("spawned", false)) and match_time >= TOWER_SPAWN_TIME:
+        mid_tower["spawned"] = true
+        mid_tower["alive"] = true
+        mid_tower["hp"] = TOWER_MAX_HP
+        mid_tower["max_hp"] = TOWER_MAX_HP
+        mid_tower["hits"] = {}
+        mid_tower["last_hit"] = -1
+        mid_tower["fire_cd"] = 1.2
+        mid_tower["pattern"] = 0
+        mid_tower["boing"] = 0.0
+        _announce("BOUNTY TOWER", 90)
+        _add_effect(&"explosion", ARENA_CENTER, 90.0, 0.45, Color("#ffb347"), "TOWER")
+        event_log.emit(tick, &"tower_spawned", -1, -1, {"hp":TOWER_MAX_HP})
+        return
+    if not bool(mid_tower.get("alive", false)):
+        return
+    mid_tower["boing"] = maxf(0.0, float(mid_tower.get("boing", 0.0)) - dt)
+    mid_tower["fire_cd"] = maxf(0.0, float(mid_tower.get("fire_cd", 0.0)) - dt)
+    if float(mid_tower["fire_cd"]) > 0.0:
+        return
+    var best := -1
+    var best_d := TOWER_RANGE
+    var tpos: Vector2 = mid_tower["pos"]
+    for slot in range(heroes.size()):
+        if not bool(heroes[slot]["alive"]) or bool(heroes[slot].get("eliminated", false)):
+            continue
+        var d := tpos.distance_to(Vector2(heroes[slot]["pos"]))
+        if d < best_d:
+            best_d = d
+            best = slot
+    if best < 0:
+        return
+    var aim := tpos.direction_to(Vector2(heroes[best]["pos"]))
+    if aim.length_squared() < 0.0001:
+        aim = Vector2.RIGHT
+    var pattern := int(mid_tower.get("pattern", 0)) % 3
+    mid_tower["boing"] = 0.22
+    if pattern == 0:
+        _tower_ring_shot(tpos, 10, 0.0)
+        mid_tower["fire_cd"] = TOWER_INTERVAL
+    elif pattern == 1:
+        _tower_fan_shot(tpos, aim, 7)
+        mid_tower["fire_cd"] = TOWER_INTERVAL * 0.82
+    else:
+        _tower_carpet(tpos, aim)
+        mid_tower["fire_cd"] = TOWER_INTERVAL * 1.15
+    mid_tower["pattern"] = pattern + 1
+    event_log.emit(tick, &"tower_fire", -1, best, {"pattern":pattern})
+
+func _hurt_tower(owner: int, damage: float) -> void:
+    if not bool(mid_tower.get("alive", false)) or damage <= 0.0:
+        return
+    mid_tower["hp"] = float(mid_tower["hp"]) - damage
+    if owner >= 0:
+        mid_tower["last_hit"] = owner
+        var hits: Dictionary = mid_tower.get("hits", {})
+        var key := str(owner)
+        var rec: Dictionary = hits.get(key, {"dmg": 0.0, "tick": 0})
+        rec["dmg"] = float(rec.get("dmg", 0.0)) + damage
+        rec["tick"] = tick
+        hits[key] = rec
+        mid_tower["hits"] = hits
+    event_log.emit(tick, &"tower_hit", owner, -1, {"damage": damage, "hp": float(mid_tower["hp"])})
+    if float(mid_tower["hp"]) > 0.0:
+        return
+    mid_tower["hp"] = 0.0
+    mid_tower["alive"] = false
+    var killer := int(mid_tower.get("last_hit", -1))
+    var hits2: Dictionary = mid_tower.get("hits", {})
+    if killer >= 0 and killer < heroes.size() and bool(heroes[killer]["alive"]):
+        for _i in range(3):
+            _queue_roulette(killer, "wanted")
+    for assist_slot in _assist_slots(killer, -1, hits2):
+        if int(assist_slot) == killer:
+            continue
+        _queue_roulette(int(assist_slot), "wanted")
+    _announce("TOWER DOWN", 80)
+    _add_effect(&"explosion", Vector2(mid_tower["pos"]), 110.0, 0.55, Color("#ff5a4a"), "BOUNTY")
+    event_log.emit(tick, &"tower_down", killer, -1, {"killer": killer})
+
+
+
+func _tower_shell(tpos: Vector2, dir: Vector2, speed: float, splash: float, dmg: float, ttl: float) -> void:
+    if dir.length_squared() < 0.0001:
+        dir = Vector2.RIGHT
+    dir = dir.normalized()
+    projectiles.append({
+        "id": next_entity_id,
+        "owner": -1,
+        "pos": tpos + dir * (TOWER_RADIUS + 10.0),
+        "vel": dir * speed,
+        "damage": dmg,
+        "radius": 11.0,
+        "ttl": ttl,
+        "splash": splash,
+        "leech": false,
+        "pierce": 0,
+        "cc_time": 0.0,
+        "knockback": 22.0,
+        "kind": &"shell",
+        "homing": 0.0,
+        "label": "TOWER",
+        "combo_finisher": false,
+        "control_kind": &"slow",
+        "hit_targets": [],
+        "trail": [tpos],
+        "source": &"tower"
+    })
+    next_entity_id += 1
+
+func _tower_ring_shot(tpos: Vector2, count: int, rot: float) -> void:
+    for i in range(count):
+        var dir := Vector2.RIGHT.rotated(rot + TAU * float(i) / float(count))
+        _tower_shell(tpos, dir, 620.0, 46.0, TOWER_DAMAGE, 1.15)
+
+func _tower_fan_shot(tpos: Vector2, aim: Vector2, count: int) -> void:
+    var mid := (count - 1) * 0.5
+    for i in range(count):
+        var ang := (float(i) - mid) * 0.18
+        _tower_shell(tpos, aim.rotated(ang), 860.0, 58.0, TOWER_DAMAGE + 4.0, 0.95)
+
+func _tower_carpet(tpos: Vector2, aim: Vector2) -> void:
+    for i in range(6):
+        var side := -1.0 if i % 2 == 0 else 1.0
+        var dist := 170.0 + float(i) * 95.0
+        var land := tpos + aim * dist + aim.orthogonal() * side * (40.0 + float(i) * 18.0)
+        _add_zone(-1, land, 78.0, 0.42 + float(i) * 0.08, TOWER_DAMAGE + 8.0, &"tower", 0.0, 26.0, "BOOM", Color("#ff7a3a"), false, &"explosion")
+    _tower_fan_shot(tpos, aim, 3)
+
