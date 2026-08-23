@@ -24,9 +24,11 @@ var heavy_sfx: AudioStreamWAV
 var ultimate_sfx: AudioStreamWAV
 var down_sfx: AudioStreamWAV
 var core_sfx: AudioStreamWAV
+var tower_sfx: AudioStreamWAV
 var spectate_slot: int = 0
 var hud_mode: int = 0
 var previous_right_mouse: bool = false
+var previous_left_mouse: bool = false
 var phase: StringName = &"select"
 var touch: CanvasLayer = null
 var _net_banner: Label = null
@@ -152,6 +154,7 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
     last_event_id = 0
     hit_pause_frames = 0
     previous_right_mouse = false
+    previous_left_mouse = false
     camera.position = _camera_target()
     _set_phase(&"play")
 
@@ -193,6 +196,7 @@ func _set_phase(next: StringName) -> void:
     if touch != null:
         touch.set_playing(playing)
     _sync_touch_buttons()
+    Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
     if not playing:
         var page := next
         if page == &"play" or page == &"select" or page == &"intro":
@@ -242,6 +246,7 @@ func _restart() -> void:
     last_event_id = 0
     hit_pause_frames = 0
     previous_right_mouse = false
+    previous_left_mouse = false
 
 func _physics_process(_delta: float) -> void:
     if phase != &"play":
@@ -254,10 +259,11 @@ func _physics_process(_delta: float) -> void:
     if _edge(KEY_ESCAPE):
         _set_phase(&"wait")
         return
-    if not net_active and _edge(KEY_R):
-        seed += 1
-        _restart()
-        return
+    if not net_active and world != null and world.result != &"playing":
+        if _edge(KEY_R):
+            seed += 1
+            _restart()
+            return
     _sync_touch_buttons()
     if _edge(KEY_F1):
         hud_mode = (hud_mode + 1) % 3
@@ -297,28 +303,45 @@ func _physics_process(_delta: float) -> void:
         var mobility_edge := _edge(KEY_SHIFT)
         var hop_edge := _edge(KEY_SPACE)
         var medkit_edge := _edge(KEY_E)
+        var reload_edge := _edge(KEY_R)
+        if not net_active and world != null:
+            if _edge(KEY_BRACKETLEFT):
+                world.cycle_local_animal(-1)
+            if _edge(KEY_BRACKETRIGHT):
+                world.cycle_local_animal(1)
         if touch != null:
             ultimate_edge = touch.consume_ult() or ultimate_edge
             mobility_edge = touch.consume_dash() or mobility_edge
             medkit_edge = touch.consume_medkit() or medkit_edge
+        var primary_pressed := primary and not previous_left_mouse
         var command := {
             "move":move,
             "aim":aim_world,
             "primary":primary,
-            "equipment":equipment_held,
-            "equipment_pressed":equipment_held and not previous_right_mouse,
-            "equipment_released":not equipment_held and previous_right_mouse,
+            "primary_pressed":primary_pressed,
+            "equipment":false,
+            "equipment_pressed":false,
+            "equipment_released":false,
             "ultimate":ultimate_edge,
             "mobility":mobility_edge,
             "hop":hop_edge,
-            "medkit":medkit_edge
+            "medkit":medkit_edge,
+            "reload":reload_edge
         }
         previous_right_mouse = equipment_held
+        previous_left_mouse = primary
         world.step_tick(command, 1.0 / 60.0)
+        _apply_recoil_mouse()
     _play_new_events()
     _update_spectator()
     var shake := Vector2.ZERO
-    if world.impact_ticks > 0:
+    if int(world.get("local_hit_shake")) > 0:
+        var hit_n: int = int(world.local_hit_shake)
+        shake = Vector2(sin(float(world.tick) * 5.2), cos(float(world.tick) * 7.1)) * (8.2 + float(hit_n) * 1.05)
+    var fire_n: int = int(world.local_fire_shake)
+    if fire_n > 0:
+        shake += Vector2(sin(float(world.tick) * 11.0), cos(float(world.tick) * 13.4)) * (5.5 + float(fire_n) * 0.95)
+    elif world.impact_ticks > 0:
         var impact_distance := _camera_target().distance_to(Vector2(world.impact_pos))
         var attenuation := 1.0 - clampf(impact_distance / 900.0, 0.0, 0.90)
         shake = Vector2(sin(float(world.tick) * 2.8), cos(float(world.tick) * 4.1)) * (2.0 + world.impact_ticks * 0.4) * attenuation
@@ -341,6 +364,7 @@ func _build_sfx() -> void:
     ultimate_sfx = _make_impact_stream(72.0, 0.24, 0.38)
     down_sfx = _make_impact_stream(48.0, 0.34, 0.60)
     core_sfx = _make_impact_stream(255.0, 0.10, 0.12)
+    tower_sfx = _make_impact_stream(92.0, 0.16, 0.18)
 
 func _make_impact_stream(frequency: float, duration: float, noise_mix: float) -> AudioStreamWAV:
     var mix_rate := 22050
@@ -384,6 +408,8 @@ func _play_new_events() -> void:
         var target := int(event["target_id"])
         var me_slot := int(world.get("local_slot")) if world != null else 0
         var involves_player := actor == me_slot or target == me_slot
+        if event_type == &"tower_fire":
+            _play_sfx(tower_sfx, -3.0)
         if event_type == &"hero_hit" and involves_player:
             var source := StringName(event["data"].get("source", &"normal"))
             if source == &"ultimate":
@@ -480,7 +506,7 @@ func _update_spectator() -> void:
     if world == null or world.heroes.is_empty():
         return
     var me_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
-    if bool(world.heroes[me_slot]["alive"]):
+    if not bool(world.heroes[me_slot]["eliminated"]):
         spectate_slot = world.local_slot
         return
     if not _spectator_valid(spectate_slot):
@@ -494,28 +520,28 @@ func _update_spectator() -> void:
 
 func _camera_zoom_target() -> float:
     if world == null or world.heroes.is_empty():
-        return 1.0
+        return 1.38
     if world.result != &"playing" and world.winner_slot >= 0:
-        return 1.16
+        return 1.52
     if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot >= 0:
-        return 1.14
+        return 1.48
     var me_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
     if not bool(world.heroes[me_slot]["alive"]):
-        return 0.84
+        return 1.18
     var focus_pos: Vector2 = world.heroes[me_slot]["pos"]
     var nearby := 0
     for hero in world.heroes:
         if bool(hero["alive"]) and Vector2(hero["pos"]).distance_to(focus_pos) < 470.0:
             nearby += 1
     if nearby >= 4:
-        return 0.86
+        return 1.20
     if nearby >= 2:
-        return 0.93
-    return 1.0
+        return 1.28
+    return 1.38
 
 func _camera_target() -> Vector2:
     if world == null:
-        return Vector2(1960.0, 1190.0)
+        return Vector2(3920.0, 2380.0)
     if world.heroes.is_empty():
         return Vector2(world.ARENA_CENTER)
     var focus_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
@@ -523,13 +549,31 @@ func _camera_target() -> Vector2:
         focus_slot = world.winner_slot
     elif world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot >= 0 and world.ultimate_focus_slot < world.heroes.size():
         focus_slot = world.ultimate_focus_slot
-    elif not bool(world.heroes[focus_slot]["alive"]) and _spectator_valid(spectate_slot):
+    elif bool(world.heroes[focus_slot]["eliminated"]) and _spectator_valid(spectate_slot):
         focus_slot = spectate_slot
     var focus: Dictionary = world.heroes[focus_slot]
     var cinematic: bool = (world.ultimate_focus_time > 0.0 and focus_slot == world.ultimate_focus_slot) or (world.result != &"playing" and focus_slot == world.winner_slot)
     var look_ahead := Vector2(focus["aim"]) * (52.0 if cinematic else (85.0 if focus_slot != world.local_slot else 135.0))
     look_ahead += Vector2(focus["vel"]) * 0.16
-    var desired := Vector2(focus["pos"]) + look_ahead
-    var zoom_value := maxf(0.82, camera.zoom.x)
+    look_ahead.y = maxf(look_ahead.y, -28.0)
+    var zoom_value := maxf(1.10, camera.zoom.x)
+    var hud_reserve := 150.0 / zoom_value
+    var desired := Vector2(focus["pos"]) + look_ahead + Vector2(0.0, hud_reserve * 0.45)
     var half_view := Vector2(800.0, 450.0) / zoom_value
-    return Vector2(clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x), clampf(desired.y, half_view.y, world.ARENA_SIZE.y - half_view.y))
+    var min_y := half_view.y + hud_reserve * 0.15
+    return Vector2(clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x), clampf(desired.y, min_y, world.ARENA_SIZE.y - half_view.y))
+
+
+func _apply_recoil_mouse() -> void:
+    if world == null:
+        return
+    var kick: Vector2 = world.local_mouse_kick
+    world.local_mouse_kick = Vector2.ZERO
+    if kick.length_squared() < 0.01:
+        return
+    var vp := get_viewport()
+    var rect := vp.get_visible_rect()
+    var next: Vector2 = vp.get_mouse_position() + kick
+    next.x = clampf(next.x, 10.0, rect.size.x - 10.0)
+    next.y = clampf(next.y, 10.0, rect.size.y - 10.0)
+    vp.warp_mouse(next)

@@ -216,3 +216,43 @@ TTK 계산(자기 HP ÷ 그 DPS)은 시트 노란칸. 콤보 배율·가드·거
 
 숫자는 시트에 있고, 이 문서는 그 숫자의 이유다.  
 템포를 올리기로 하면 어떤 레버를 얼마만큼 올릴지 이 표에서 고른 뒤 코드와 시트를 같이 고친다.
+
+---
+
+## 7. Animal tendency vs gun combat (signature)
+
+Animals are play tendency (CPU habits, juice). Guns are the current combat kit.
+
+Kit skills and ultimates are retired. Combat is the 12 guns only (family fire + FX).
+RMB skill charge, Q ult, melee combo patterns, mines-as-gun, seekers, tethers, and walls are no-ops.
+Body `move_speed` / HP / weight stay on the animal kit. Same gun = same fire numbers.
+
+
+Rules:
+- Do not change a gun's fire interval, damage, spread, or ammo because of the animal.
+- No signature crit or damage bonus.
+- Skills must not name a gun or buff a caliber.
+
+Classic / default spawn uses that animal's signature equipment. Item mode still forces scatter. gun-semi / gun-auto keep their mode start kit. CPU may add one small preference step if a floor gun is the signature kit; it must not path across the map ignoring danger.
+
+AWM has no art in-repo. Frame 7 of Tex_Gun_4x3 is the AKM cell and is the AWM stand-in.
+
+Signature table (zodiac slot order; atlas already swaps Dragon/Snake):
+
+| slot | animal | signature equipment | gun visual | family |
+|---:|---|---|---|---|
+| 0 | Rat | burst | Glock 18 (frame 1) | pistol |
+| 1 | Ox | breaker | RPK (frame 4) | heavy |
+| 2 | Tiger | spear | AK-47 (frame 6) | rifle |
+| 3 | Rabbit | brawler | M1911 (frame 0) | pistol |
+| 4 | Dragon | mortar | M79 (frame 11) | heavy |
+| 5 | Snake | leech | MP5 (frame 2) | smg |
+| 6 | Horse | chain | M4A1 (frame 5) | rifle |
+| 7 | Goat | shield | Winchester M1873 (frame 10) | rifle |
+| 8 | Monkey | blade | Thompson (frame 3) | smg |
+| 9 | Rooster | rail | AWM / AKM stand-in (frame 7) | heavy |
+| 10 | Dog | scatter | SPAS-12 (frame 9) | shotgun |
+| 11 | Pig | bomb | Double barrel (frame 8) | shotgun |
+
+Atlas cells from game-lhj-animal Gun tscn `frame` fields: 0 M1911, 1 Glock18, 2 MP5, 3 Thompson, 4 RPK, 5 M4A1, 6 AK-47, 7 AKM (AWM stand-in), 8 DB, 9 SPAS-12, 10 Winchester, 11 M79.
+Death is 3-revive then out, not instant out. After each revive the hero has 3.0s i-frames.
