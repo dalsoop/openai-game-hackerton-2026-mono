@@ -1,5 +1,7 @@
 extends Control
 
+const GunSig = preload("res://scripts/sim/gun_signature.gd")
+
 var world
 var spectate_slot: int = 0
 var hud_mode: int = 0
@@ -16,8 +18,13 @@ const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var roulette_icons: Dictionary = {}
 
 func _ready() -> void:
+    for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
+        var icon_path := "res://assets/hud/roulette/%s.png" % icon_id
+        if ResourceLoader.exists(icon_path):
+            roulette_icons[icon_id] = load(icon_path)
     if ResourceLoader.exists("res://assets/items/gun.png"):
         gun_texture = load("res://assets/items/gun.png")
     if ResourceLoader.exists("res://assets/items/medkit.png"):
@@ -37,53 +44,69 @@ func _draw() -> void:
     var me: Dictionary = world.heroes[clampi(world.local_slot, 0, world.heroes.size() - 1)]
     if hud_mode == 0:
         _draw_status_panel(summary, me)
-        _draw_mode_chip()
+        _draw_wanted_banner()
         _draw_minimap()
         _draw_zone_timer()
         if world.result == &"playing" and bool(me["alive"]):
             _draw_hotbar(me)
+        _draw_life_status(me)
+        _draw_roulette_overlay(me)
     elif hud_mode == 1:
         _draw_status_panel(summary, me)
-        _draw_mode_chip()
+        _draw_wanted_banner()
         _draw_minimap()
         _draw_zone_timer()
         _draw_scoreboard()
         if world.result == &"playing" and bool(me["alive"]):
             _draw_hotbar(me)
+        _draw_life_status(me)
+        _draw_roulette_overlay(me)
     else:
         draw_rect(Rect2(16.0, 16.0, 112.0, 34.0), Color(0.02, 0.03, 0.05, 0.72))
         _text(Vector2(28.0, 39.0), "F1  HUD", 14, Color("#c8d5e4"))
     _draw_critical(me)
     _draw_ultimate_cinematic()
+    _draw_crosshair(me)
+
+func _draw_led_panel(rect: Rect2, accent: Color) -> void:
+    var top := Color(0.03, 0.05, 0.07, 0.38)
+    var bot := Color(0.03, 0.05, 0.07, 0.10)
+    var steps := 10
+    var slice := rect.size.y / float(steps)
+    for i in range(steps):
+        var fade := top.lerp(bot, float(i) / float(steps - 1))
+        draw_rect(Rect2(rect.position.x, rect.position.y + slice * float(i), rect.size.x, slice + 0.5), fade)
+    draw_line(rect.position, rect.position + Vector2(rect.size.x, 0.0), Color(accent, 0.35), 1.0)
+    draw_line(rect.position + Vector2(0.0, rect.size.y), rect.position + rect.size, Color(accent, 0.12), 1.0)
 
 func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
-    var panel := Rect2(16.0, 16.0, 240.0, 74.0 + float(world.heroes.size()) * 22.0)
-    draw_rect(panel, PANEL_BG)
-    draw_rect(panel, Color(0.32, 0.38, 0.48, 0.55), false, 2.0)
-    draw_rect(Rect2(panel.position, Vector2(5.0, panel.size.y)), player_colors[clampi(world.local_slot, 0, player_colors.size() - 1)])
-    _text(Vector2(34.0, 46.0), "처치 %d" % int(me["kills"]), 24, Color("#ffd166"))
-    _text(Vector2(150.0, 46.0), "생존 %d/%d" % [int(summary["alive"]), world.heroes.size()], 20, Color("#6ef3a5"))
-    _text(Vector2(34.0, 68.0), "점수 %d" % roundi(float(me["score"])), 13, Color("#aebaca"))
-    var row_y := 92.0
+    var rows_n := float(world.heroes.size())
+    var panel := Rect2(14.0, 12.0, 268.0, 92.0 + rows_n * 26.0)
+    _draw_led_panel(panel, Color("#39ff6a"))
+    _text(Vector2(28.0, 42.0), "KILLS  %d" % int(me["kills"]), 28, Color("#7dff8a"))
+    _text(Vector2(28.0, 70.0), "ALIVE  %d / %d" % [int(summary["alive"]), world.heroes.size()], 22, Color("#d4ff6a"))
+    _text(Vector2(170.0, 42.0), "%d" % roundi(float(me["score"])), 22, Color("#fff36a"))
+    var row_y := 100.0
     for slot in range(world.heroes.size()):
         var hero: Dictionary = world.heroes[slot]
         var alive := bool(hero["alive"]) and not bool(hero["eliminated"])
+        var row := Rect2(24.0, row_y - 18.0, 248.0, 24.0)
         if slot == world.local_slot:
-            draw_rect(Rect2(24.0, row_y - 14.0, 224.0, 22.0), Color(1.0, 1.0, 1.0, 0.08))
-        var dot_color: Color = player_colors[slot] if alive else Color(0.35, 0.38, 0.42, 0.9)
-        draw_circle(Vector2(34.0, row_y - 4.0), 5.0, dot_color)
-        var name_color := Color.WHITE if alive else Color("#6b7480")
+            draw_rect(row, Color(0.25, 1.0, 0.4, 0.16))
+        var dot_color: Color = player_colors[slot] if alive else Color(0.25, 0.3, 0.28, 0.9)
+        draw_circle(Vector2(38.0, row_y - 6.0), 6.0, dot_color)
+        var name_color := Color("#e8ffe8") if alive else Color("#4d6050")
         var row_name := str(hero.get("display_name", ""))
         if row_name == "":
             row_name = "P%d %s" % [slot + 1, _zodiac_name(slot)]
-        _text(Vector2(46.0, row_y), row_name, 13, name_color, 110.0)
-        var state := "%d킬" % int(hero["kills"]) if alive else "탈락"
-        var state_color := Color("#ffd166") if alive else Color("#6b7480")
+        _text(Vector2(50.0, row_y), row_name, 15, name_color, 128.0)
+        var state := "K %d" % int(hero["kills"]) if alive else "OUT"
+        var state_color := Color("#fff36a") if alive else Color("#5a6b5a")
         if bool(hero.get("parked", false)):
-            state = "끊김"
+            state = "AFK"
             state_color = Color("#ff8d93")
-        _text(Vector2(158.0, row_y), state, 12, state_color, 76.0)
-        row_y += 22.0
+        _text(Vector2(186.0, row_y), state, 15, state_color, 76.0)
+        row_y += 26.0
 
 func _draw_mode_chip() -> void:
     var title := str(MODE_TITLES.get(mode_id, mode_id))
@@ -172,20 +195,51 @@ func _draw_zone_timer() -> void:
         draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(clock_color, 0.34 + sin(float(world.tick) * 0.22) * 0.08), false, 9.0)
 
 func _draw_hotbar(me: Dictionary) -> void:
-    var equipment: Dictionary = me["equipment"]
-    var bar := Rect2(549.0, 790.0, 502.0, 98.0)
-    draw_rect(bar, Color(0.008, 0.012, 0.020, 0.84))
-    draw_rect(bar, Color(0.32, 0.38, 0.48, 0.72), false, 2.0)
-    var hp_ratio := clampf(float(me["hp"]) / float(me["max_hp"]), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2(bar.size.x - 16.0, 8.0)), Color("#252b36"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2((bar.size.x - 16.0) * hp_ratio, 8.0)), Color("#6ef3a5") if hp_ratio > 0.34 else Color("#ff5d73"))
-    var ultimate_fill := clampf(float(me["ultimate_charge"]) / float(world.ULTIMATE_MAX), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 17.0), Vector2(bar.size.x - 16.0, 5.0)), Color("#302333"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 17.0), Vector2((bar.size.x - 16.0) * ultimate_fill, 5.0)), Color("#ff5d91"))
-    var slot_y := 818.0
-    _draw_gun_slot(Rect2(563.0, slot_y, 220.0, 60.0), equipment)
-    _draw_medkit_slot(Rect2(795.0, slot_y, 130.0, 60.0), me)
-    _draw_dash_slot(Rect2(937.0, slot_y, 100.0, 60.0), me, equipment)
+    var bar := Rect2(549.0, 802.0, 502.0, 86.0)
+    draw_rect(bar, Color(0.008, 0.012, 0.020, 0.78))
+    draw_rect(bar, Color(0.32, 0.38, 0.48, 0.55), false, 1.5)
+    var hp_now := float(me["hp"])
+    var hp_max := float(me["max_hp"])
+    var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
+    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2(bar.size.x - 16.0, 18.0)), Color("#151920"))
+    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2((bar.size.x - 16.0) * hp_ratio, 18.0)), Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73"))
+    _text(bar.position + Vector2(12.0, 8.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, Color.WHITE, 300.0)
+    var ult_max := 100.0
+    var power_ratio := clampf(float(me.get("ultimate_charge", 0.0)) / maxf(1.0, ult_max), 0.0, 1.0)
+    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2(bar.size.x - 16.0, 6.0)), Color("#1b2430"))
+    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2((bar.size.x - 16.0) * power_ratio, 6.0)), Color("#4f8cff"))
+    _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
+
+func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
+    var mag_now: int = int(me.get("mag", 0))
+    var mag_max: int = int(equipment.get("mag_size", 0))
+    if mag_max <= 0:
+        mag_max = 1
+    var reloading: bool = float(me.get("reload_left", 0.0)) > 0.0
+    var just_reloaded: bool = float(me.get("reload_flash", 0.0)) > 0.0
+    var fill: float = 0.0
+    if reloading:
+        var reload_dur: float = maxf(0.20, float(equipment.get("reload_time", 1.2)))
+        fill = 1.0 - clampf(float(me.get("reload_left", 0.0)) / reload_dur, 0.0, 1.0)
+    else:
+        fill = clampf(float(mag_now) / float(mag_max), 0.0, 1.0)
+    var rim: Color = Color("#ff5d73", 0.85)
+    if reloading:
+        rim = Color("#ffd166", 0.90)
+    elif just_reloaded:
+        rim = Color("#6ef3a5", 0.90)
+    elif mag_now > 0:
+        rim = Color("#7af7ff", 0.80)
+    draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
+    draw_rect(rect, rim, false, 2.0)
+    draw_rect(Rect2(rect.position + Vector2(10.0, 44.0), Vector2(rect.size.x - 20.0, 8.0)), Color("#1b2430"))
+    draw_rect(Rect2(rect.position + Vector2(10.0, 44.0), Vector2((rect.size.x - 20.0) * fill, 8.0)), rim)
+    var label: String = "AMMO  %d / %d" % [mag_now, mag_max]
+    if reloading:
+        label = "RELOAD  %d / %d" % [mag_now, mag_max]
+    elif mag_now <= 0:
+        label = "EMPTY  0 / %d" % mag_max
+    _text(rect.position + Vector2(12.0, 28.0), label, 22, Color.WHITE, rect.size.x - 24.0)
 
 func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
@@ -198,7 +252,55 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
+func _held_item_label(kind: String) -> String:
+    match kind:
+        "medkit":
+            return "MEDKIT"
+        "spring":
+            return "SPRING"
+        "slide":
+            return "SLIDE"
+        "pull":
+            return "PULL"
+        "pocket":
+            return "POCKET"
+        "decoy":
+            return "DECOY"
+        _:
+            return "EMPTY"
+
+func _held_item_color(kind: String) -> Color:
+    match kind:
+        "medkit":
+            return Color("#6ef3a5")
+        "spring":
+            return Color("#ffe066")
+        "slide":
+            return Color("#70e7ff")
+        "pull":
+            return Color("#b78cff")
+        "pocket":
+            return Color("#f4e2ff")
+        "decoy":
+            return Color("#ff9f7a")
+        _:
+            return Color("#6b7480")
+
 func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
+    if str(world.mode) == "item":
+        var kind := str(me.get("held_item", ""))
+        var label := _held_item_label(kind)
+        var usable := label != "EMPTY"
+        var accent: Color = _held_item_color(kind)
+        draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
+        draw_rect(rect, Color(accent, 0.85 if usable else 0.25), false, 2.0)
+        if kind == "medkit" and medkit_texture != null:
+            draw_texture_rect(medkit_texture, Rect2(rect.position + Vector2(10.0, 15.0), Vector2(34.0, 34.0)), false)
+        else:
+            draw_circle(rect.position + Vector2(27.0, 34.0), 12.0, Color(accent, 0.85 if usable else 0.28))
+        _text(rect.position + Vector2(52.0, 40.0), label, 16, accent if usable else Color("#6b7480"))
+        _text(rect.position + Vector2(10.0, 15.0), "E", 11, accent if usable else Color("#6b7480"))
+        return
     var carried := int(me.get("medkits", 0))
     var usable := carried > 0
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
@@ -224,7 +326,7 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SPACE", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SHIFT", 10, chevron)
     if ready:
         _text(rect.position + Vector2(48.0, 40.0), "대시", 15, Color.WHITE)
     else:
@@ -233,15 +335,17 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
 func _draw_scoreboard() -> void:
     var rows: Array[Dictionary] = world.leaderboard()
     draw_rect(Rect2(940.0, 300.0, 644.0, 66.0 + float(rows.size()) * 31.0), Color(0.02, 0.03, 0.05, 0.91))
-    _text(Vector2(960.0, 328.0), "실시간 순위  CHARACTER / EQUIPMENT       SCORE  D/D  ZONE  STATE       ULT", 13, Color("#ffd166"))
+    _text(Vector2(960.0, 328.0), "LIVE RANK  CHARACTER / GUN            SCORE  D/D  ZONE  STATE", 13, Color("#ffd166"))
     for rank in range(rows.size()):
         var row: Dictionary = rows[rank]
         var slot := int(row["slot"])
         var hero: Dictionary = world.heroes[slot]
         var equipment: Dictionary = hero["equipment"]
         var state := "LIVE"
-        if bool(hero["eliminated"]) or not bool(hero["alive"]):
+        if bool(hero["eliminated"]):
             state = "OUT"
+        elif not bool(hero["alive"]):
+            state = "WAIT"
         elif float(hero.get("stun_time", 0.0)) > 0.0:
             state = "STUN"
         elif float(hero.get("root_time", 0.0)) > 0.0:
@@ -259,8 +363,6 @@ func _draw_scoreboard() -> void:
         _text(Vector2(1340.0, y), "%d/%d" % [int(row["kills"]), int(row["deaths"])], 13, Color("#dbe5f0"))
         _text(Vector2(1395.0, y), "%3d" % roundi(float(world.safe_zone_radius)), 13, Color("#6ef3a5"))
         _text(Vector2(1442.0, y), state, 11, Color("#ff9ca4") if state != "LIVE" else Color("#8be3ff"))
-        var ultimate_ready: bool = float(hero["ultimate_charge"]) >= float(world.ULTIMATE_MAX)
-        _text(Vector2(1512.0, y), "READY" if ultimate_ready else "%d%%" % roundi(float(hero["ultimate_charge"])), 11, Color("#ff5d91") if ultimate_ready else Color("#c8a5b8"))
 
 func _draw_match_result() -> void:
     draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.005, 0.008, 0.014, 0.72))
@@ -323,24 +425,21 @@ func _draw_critical(me: Dictionary) -> void:
         _text(Vector2(570.0, 692.0), "STUNNED  |  INPUT LOCKED", 20, Color("#ffe27a"), 460.0, HORIZONTAL_ALIGNMENT_CENTER)
     elif bool(me["alive"]) and float(me.get("root_time", 0.0)) > 0.0:
         draw_rect(Rect2(510.0, 660.0, 580.0, 48.0), Color(0.07, 0.025, 0.12, 0.90))
-        _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SPACE LOCKED - ATTACK/Q AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SHIFT/SPACE LOCKED - FIRE AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.last_down_ticks > 0 and world.last_down_slot >= 0:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]
-        draw_rect(Rect2(360.0, 190.0, 880.0, 88.0), Color(0.18, 0.0, 0.025, 0.90 * down_alpha))
-        draw_rect(Rect2(360.0, 190.0, 880.0, 88.0), Color("#ff3349", down_alpha), false, 8.0)
-        _text(Vector2(390.0, 247.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 38, Color(1.0, 1.0, 1.0, down_alpha), 820.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(520.0, 52.0, 560.0, 36.0), Color(0.12, 0.01, 0.03, 0.42 * down_alpha))
+        _text(Vector2(530.0, 76.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.callout_ticks > 0 and world.result == &"playing":
         var alpha := clampf(float(world.callout_ticks) / 24.0, 0.0, 1.0)
-        draw_rect(Rect2(560.0, 108.0, 480.0, 38.0), Color(0.025, 0.025, 0.04, 0.82 * alpha))
-        _text(Vector2(580.0, 133.0), world.callout, 15, Color(1.0, 0.74, 0.42, alpha), 440.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(560.0, 52.0, 480.0, 28.0), Color(0.04, 0.04, 0.06, 0.32 * alpha))
+        _text(Vector2(580.0, 72.0), world.callout, 13, Color(1.0, 0.74, 0.42, alpha), 440.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.streak_callout_ticks > 0 and world.result == &"playing":
         var streak_alpha := clampf(float(world.streak_callout_ticks) / 18.0, 0.0, 1.0)
         var streak_color := Color("#ff4f68") if world.streak_callout_shutdown else Color("#ffd166")
-        draw_rect(Rect2(430.0, 290.0, 740.0, 76.0), Color(0.025, 0.018, 0.025, 0.92 * streak_alpha))
-        draw_rect(Rect2(430.0, 290.0, 740.0, 76.0), Color(streak_color, streak_alpha), false, 5.0)
-        _text(Vector2(455.0, 320.0), world.streak_callout, 25, Color(streak_color, streak_alpha), 690.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(455.0, 348.0), world.streak_subtitle, 15, Color(Color.WHITE, streak_alpha), 690.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(520.0, 52.0, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
+        _text(Vector2(530.0, 78.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.start_countdown > 0.0:
         var count_text := str(ceili(world.start_countdown))
         draw_circle(Vector2(800.0, 450.0), 82.0, Color(0.02, 0.03, 0.05, 0.88))
@@ -356,3 +455,263 @@ func _draw_critical(me: Dictionary) -> void:
         _text(Vector2(475.0, 867.0), "A/D 또는 TAB: 관전 대상 변경  |  SPACE: 1위 자동 추적", 14, Color.WHITE, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.result != &"playing":
         _draw_match_result()
+
+func _draw_wanted_banner() -> void:
+    var slot := int(world.wanted_slot)
+    if slot < 0 or slot >= world.heroes.size():
+        return
+    if bool(world.heroes[slot]["eliminated"]):
+        return
+    var hero: Dictionary = world.heroes[slot]
+    var name := str(hero.get("display_name", ""))
+    if name == "":
+        name = "P%d" % (slot + 1)
+    var banner := Rect2(560.0, 14.0, 480.0, 34.0)
+    draw_rect(banner, Color(0.28, 0.04, 0.06, 0.36))
+    draw_rect(banner, Color("#ff3349", 0.85), false, 2.0)
+    _text(banner.position + Vector2(12.0, 23.0), "WANTED P%d  %s" % [slot + 1, name], 16, Color("#ffd166"), banner.size.x - 20.0)
+
+func _draw_life_status(me: Dictionary) -> void:
+    var left := maxi(0, 3 - int(me.get("revives_used", 0)))
+    if bool(me.get("eliminated", false)):
+        _text(Vector2(560.0, 782.0), "OUT", 18, Color("#ff5d73"))
+        return
+    _text(Vector2(560.0, 782.0), "%d LEFT" % left, 16, Color("#ffd166"))
+    if bool(me.get("downed", false)):
+        _text(Vector2(680.0, 782.0), "DOWN %.1f   FINISH %d/48" % [float(me.get("down_left", 0.0)), int(round(float(me.get("down_taken", 0.0))))], 16, Color("#ff8d93"))
+    elif not bool(me["alive"]) and float(me.get("respawn_left", 0.0)) > 0.0:
+        _text(Vector2(680.0, 782.0), "RESPAWN %.1f" % float(me["respawn_left"]), 16, Color("#70e7ff"))
+
+
+func _roulette_rank_color(rank: String) -> Color:
+    if rank == "assist":
+        return Color("#4da3ff")
+    if rank == "wanted":
+        return Color("#ff3349")
+    return Color("#b84dff")
+
+func _draw_perk_chips_at(me: Dictionary, origin: Vector2, width: float) -> void:
+    if not bool(me.get("alive", false)):
+        return
+    var icons: Array = _collect_buff_icons(me)
+    if icons.is_empty():
+        return
+    var step := 44.0
+    var count := mini(icons.size(), int(width / step))
+    for i in range(count):
+        _draw_buff_icon(Rect2(origin.x + float(i) * step, origin.y, 40.0, 46.0), icons[i])
+
+func _collect_buff_icons(me: Dictionary) -> Array:
+    var icons: Array = []
+    var until_stats: Dictionary = me.get("rl_until", {})
+    var until_meta := [
+        {"key":"atk", "id":"atk", "label":"ATK", "color":Color("#ff6b4a")},
+        {"key":"spd", "id":"spd", "label":"SPD", "color":Color("#70e7ff")},
+        {"key":"def", "id":"def", "label":"DEF", "color":Color("#8ad0ff")},
+        {"key":"hp", "id":"hp", "label":"HP", "color":Color("#6ef3a5")},
+        {"key":"rate", "id":"rate", "label":"RATE", "color":Color("#ffd166")},
+        {"key":"range", "id":"range", "label":"RNG", "color":Color("#e8d5ff")}
+    ]
+    for meta in until_meta:
+        var value := float(until_stats.get(str(meta["key"]), 0.0))
+        if value > 0.001:
+            var shown := ("%d%%" % int(round(value * 100.0))) if str(meta["key"]) in ["def", "rate", "range"] else ("%d" % int(round(value)))
+            icons.append({"id":str(meta["id"]), "label":str(meta["label"]), "color":meta["color"], "text":shown, "time":0.0, "kind":"until"})
+    for buff in me.get("rl_timed", []):
+        var bid := str(buff.get("id", buff.get("name", "buff"))).to_lower()
+        var left := float(buff.get("time", 0.0))
+        var extra := ""
+        if float(buff.get("shield", 0.0)) > 0.01:
+            extra = "%d" % int(round(float(buff["shield"])))
+        icons.append({"id":bid, "label":str(buff.get("name", "BUFF")), "color":_timed_buff_color(bid), "text":extra, "time":left, "kind":"timed"})
+    if float(me.get("dmg_orb_time", 0.0)) > 0.05:
+        icons.append({"id":"dmg_orb", "label":"DMG", "color":Color("#ff3349"), "text":"", "time":float(me["dmg_orb_time"]), "kind":"orb"})
+    if float(me.get("spawn_protect_time", 0.0)) > 0.05:
+        icons.append({"id":"protect", "label":"SAFE", "color":Color("#ffe36a"), "text":"", "time":float(me["spawn_protect_time"]), "kind":"item"})
+    if float(me.get("slide_time", 0.0)) > 0.05:
+        icons.append({"id":"slide", "label":"ICE", "color":Color("#70e7ff"), "text":"", "time":float(me["slide_time"]), "kind":"item"})
+    if float(me.get("pocket_time", 0.0)) > 0.05:
+        icons.append({"id":"pocket", "label":"ZONE", "color":Color("#f4e2ff"), "text":"", "time":float(me["pocket_time"]), "kind":"item"})
+    if float(me.get("spring_time", 0.0)) > 0.05:
+        icons.append({"id":"spring", "label":"HOP", "color":Color("#ffe066"), "text":"", "time":float(me["spring_time"]), "kind":"item"})
+    var held := str(me.get("held_item", ""))
+    if held != "" and str(world.mode) == "item":
+        icons.append({"id":held, "label":_held_item_label(held), "color":_held_item_color(held), "text":"E", "time":0.0, "kind":"held"})
+    return icons
+
+func _timed_buff_color(buff_id: String) -> Color:
+    match buff_id:
+        "giant", "double_giant":
+            return Color("#ff9f1c")
+        "shield":
+            return Color("#70e7ff")
+        "berserk":
+            return Color("#ff3349")
+        "turtle":
+            return Color("#6ef3a5")
+        "sniper":
+            return Color("#c8d5e4")
+        _:
+            return Color("#b84dff")
+
+func _draw_buff_icon(rect: Rect2, icon: Dictionary) -> void:
+    var accent: Color = icon.get("color", Color("#b84dff"))
+    var kind := str(icon.get("kind", "until"))
+    draw_rect(rect, Color(0.02, 0.03, 0.05, 0.88))
+    draw_rect(rect, Color(accent, 0.92 if kind != "until" else 0.70), false, 2.0)
+    var c: Vector2 = rect.get_center() + Vector2(0.0, -4.0)
+    _draw_buff_glyph(c, str(icon.get("id", "")), accent)
+    var label := str(icon.get("label", ""))
+    _text(rect.position + Vector2(2.0, 48.0), label, 9, Color(accent, 0.95), rect.size.x - 4.0, HORIZONTAL_ALIGNMENT_CENTER)
+    var extra := str(icon.get("text", ""))
+    if extra != "":
+        _text(rect.position + Vector2(2.0, 14.0), extra, 10, Color.WHITE, rect.size.x - 4.0, HORIZONTAL_ALIGNMENT_CENTER)
+    var left := float(icon.get("time", 0.0))
+    if left > 0.04:
+        _text(rect.position + Vector2(2.0, 36.0), "%.0f" % left, 11, Color.WHITE, rect.size.x - 4.0, HORIZONTAL_ALIGNMENT_CENTER)
+
+func _buff_icon_tex(buff_id: String) -> Texture2D:
+    if roulette_icons.has(buff_id):
+        return roulette_icons[buff_id]
+    return null
+
+func _draw_buff_glyph(c: Vector2, buff_id: String, accent: Color) -> void:
+    var icon_tex: Texture2D = _buff_icon_tex(buff_id)
+    if icon_tex != null:
+        draw_texture_rect(icon_tex, Rect2(c - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), false)
+        return
+    match buff_id:
+        "atk":
+            draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(7.0, 8.0), c + Vector2(-7.0, 8.0)]), accent)
+        "spd":
+            draw_line(c + Vector2(-8.0, 0.0), c + Vector2(8.0, 0.0), accent, 3.0)
+            draw_line(c + Vector2(2.0, -6.0), c + Vector2(8.0, 0.0), accent, 3.0)
+            draw_line(c + Vector2(2.0, 6.0), c + Vector2(8.0, 0.0), accent, 3.0)
+        "def", "shield":
+            draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(9.0, -4.0), c + Vector2(7.0, 8.0), c + Vector2(0.0, 11.0), c + Vector2(-7.0, 8.0), c + Vector2(-9.0, -4.0)]), accent)
+        "hp", "medkit":
+            draw_rect(Rect2(c + Vector2(-3.0, -9.0), Vector2(6.0, 18.0)), accent)
+            draw_rect(Rect2(c + Vector2(-9.0, -3.0), Vector2(18.0, 6.0)), accent)
+        "rate":
+            draw_circle(c + Vector2(-7.0, 0.0), 3.0, accent)
+            draw_circle(c, 3.0, accent)
+            draw_circle(c + Vector2(7.0, 0.0), 3.0, accent)
+        "range", "sniper":
+            draw_arc(c, 8.0, 0.0, TAU, 20, accent, 2.0)
+            draw_line(c + Vector2(-10.0, 0.0), c + Vector2(10.0, 0.0), accent, 1.5)
+            draw_line(c + Vector2(0.0, -10.0), c + Vector2(0.0, 10.0), accent, 1.5)
+        "giant", "double_giant":
+            draw_circle(c + Vector2(0.0, -6.0), 5.0, accent)
+            draw_rect(Rect2(c + Vector2(-6.0, -1.0), Vector2(12.0, 12.0)), accent)
+            if buff_id == "double_giant":
+                draw_circle(c + Vector2(8.0, -4.0), 3.5, Color.WHITE)
+        "berserk":
+            draw_colored_polygon(PackedVector2Array([c + Vector2(-2.0, 10.0), c + Vector2(-8.0, -2.0), c + Vector2(-1.0, 1.0), c + Vector2(2.0, -11.0), c + Vector2(8.0, 2.0), c + Vector2(1.0, -1.0)]), accent)
+        "turtle":
+            draw_circle(c, 9.0, accent)
+            draw_arc(c, 6.0, 0.4, PI + 0.4, 12, Color(0.02, 0.03, 0.05, 0.85), 2.0)
+        "dmg_orb":
+            draw_circle(c, 9.0, accent)
+            draw_circle(c, 4.0, Color.WHITE)
+        "protect":
+            draw_arc(c, 9.0, 0.0, TAU, 18, accent, 2.5)
+            draw_circle(c, 3.0, Color.WHITE)
+        "slide":
+            draw_colored_polygon(PackedVector2Array([c + Vector2(-9.0, 6.0), c + Vector2(9.0, 6.0), c + Vector2(5.0, -8.0), c + Vector2(-4.0, -2.0)]), accent)
+        "pocket":
+            draw_arc(c, 9.0, 0.0, TAU, 20, accent, 2.5)
+            draw_circle(c, 3.5, Color(accent, 0.55))
+        "spring":
+            draw_line(c + Vector2(-7.0, 8.0), c + Vector2(-2.0, -2.0), accent, 2.5)
+            draw_line(c + Vector2(-2.0, -2.0), c + Vector2(3.0, 6.0), accent, 2.5)
+            draw_line(c + Vector2(3.0, 6.0), c + Vector2(8.0, -8.0), accent, 2.5)
+        "pull":
+            draw_arc(c, 8.0, PI * 0.15, PI * 0.85, 10, accent, 2.5)
+            draw_line(c + Vector2(-2.0, 8.0), c + Vector2(0.0, 2.0), accent, 2.5)
+        "decoy":
+            draw_circle(c + Vector2(0.0, -3.0), 6.0, accent)
+            draw_circle(c + Vector2(-2.5, -4.5), 1.4, Color.WHITE)
+            draw_circle(c + Vector2(2.5, -4.5), 1.4, Color.WHITE)
+        _:
+            draw_circle(c, 8.0, accent)
+
+func _roulette_effect_line(buff_id: String, won: String) -> String:
+    match buff_id:
+        "atk":
+            return "이번 목숨 동안 공격력이 올라갑니다"
+        "spd":
+            return "이번 목숨 동안 이동속도가 빨라집니다"
+        "def":
+            return "받는 피해가 줄어듭니다"
+        "hp":
+            return "최대 체력과 현재 체력이 늘어납니다"
+        "rate":
+            return "연사 속도가 빨라집니다"
+        "range":
+            return "총알이 더 멀리 나갑니다"
+        "giant":
+            return "몸이 커지고 공격과 이동이 세집니다"
+        "double_giant":
+            return "더 크게 변하고 능력치가 크게 오릅니다"
+        "shield":
+            return "잠시 보호막이 생깁니다"
+        "berserk":
+            return "공격과 연사가 잠깐 폭주합니다"
+        "sniper":
+            return "사거리가 늘어나고 한 방이 세집니다"
+        "turtle":
+            return "2초 동안 공격과 대시를 쓸 수 없습니다"
+        _:
+            if won != "":
+                return won
+            return "효과를 얻었습니다"
+
+func _draw_roulette_overlay(me: Dictionary) -> void:
+    var phase := str(me.get("roulette_phase", ""))
+    if phase != "land":
+        return
+    var won := str(me.get("roulette_label", ""))
+    if won == "":
+        return
+    var spin_id := str(me.get("roulette_spin_id", ""))
+    var desc := str(me.get("roulette_desc", ""))
+    if desc == "":
+        desc = _roulette_effect_line(spin_id, won)
+    var rank := str(me.get("roulette_rank", "kill"))
+    var accent: Color = _roulette_rank_color(rank)
+    var left := maxf(0.0, float(me.get("roulette_time", 0.0)))
+    var fade := 1.0
+    if left < 0.35:
+        fade = left / 0.35
+    var pulse := 0.82 + 0.18 * absf(sin(float(world.tick) * 0.22))
+    var cx := 800.0
+    var top := 168.0
+    var icon_tex: Texture2D = _buff_icon_tex(spin_id)
+    if icon_tex != null:
+        var isz := Vector2(96.0, 96.0)
+        draw_texture_rect(icon_tex, Rect2(Vector2(cx - 48.0, top), isz), false)
+    else:
+        draw_circle(Vector2(cx, top + 48.0), 40.0, Color(accent, 0.55 * fade))
+    _text(Vector2(400.0, top + 132.0), won, 40, Color(1.0, 0.96, 0.82, fade * pulse), 800.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(360.0, top + 168.0), desc, 18, Color(accent, fade * 0.95), 880.0, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _draw_crosshair(me: Dictionary) -> void:
+    if me.is_empty():
+        return
+    var spray_i := float(me.get("spray_index", 0.0))
+    var c: Vector2 = get_local_mouse_position()
+    var climb := spray_i * 3.2
+    var gap := 8.0 + climb * 0.10
+    var arm := 11.0
+    var ink := Color(0.12, 0.07, 0.04, 0.92)
+    var fill := Color(1.0, 0.96, 0.86, 0.96)
+    var accent := Color(1.0, 0.55, 0.22, 0.95)
+    for thick in [3.4, 1.6]:
+        var col := ink if thick > 2.0 else fill
+        draw_circle(c, 2.6 if thick > 2.0 else 1.7, col if thick > 2.0 else accent)
+        draw_line(c + Vector2(0, -gap - arm), c + Vector2(0, -gap), col, thick)
+        draw_line(c + Vector2(0, gap), c + Vector2(0, gap + arm), col, thick)
+        draw_line(c + Vector2(-gap - arm, 0), c + Vector2(-gap, 0), col, thick)
+        draw_line(c + Vector2(gap, 0), c + Vector2(gap + arm, 0), col, thick)
+    draw_arc(c, 5.0 + climb * 0.04, 0.0, TAU, 28, Color(accent, 0.45), 1.4)

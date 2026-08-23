@@ -650,8 +650,8 @@ func _init() -> void:
         push_error("downed hero did not create a visible knockout trajectory")
         quit(1)
         return
-    if bool(respawn_world.heroes[1]["alive"]) or not bool(respawn_world.heroes[1]["eliminated"]):
-        push_error("downed hero was not eliminated")
+    if bool(respawn_world.heroes[1]["alive"]) or bool(respawn_world.heroes[1]["eliminated"]):
+        push_error("downed hero should wait to revive, not eliminate on first death")
         quit(1)
         return
     respawn_world.knockouts[0]["finished"] = true
@@ -668,8 +668,9 @@ func _init() -> void:
         quit(1)
         return
     respawn_world._update_timers(11.0)
-    if bool(respawn_world.heroes[1]["alive"]) or not bool(respawn_world.heroes[1]["eliminated"]):
-        push_error("eliminated hero returned after death")
+    respawn_world._update_respawns(11.0)
+    if not bool(respawn_world.heroes[1]["alive"]) or bool(respawn_world.heroes[1]["eliminated"]):
+        push_error("first-death hero did not respawn after the wait")
         quit(1)
         return
     var ranking := respawn_world.leaderboard()

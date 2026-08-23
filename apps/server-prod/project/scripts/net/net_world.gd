@@ -30,6 +30,8 @@ var effects: Array[Dictionary] = []
 var knockouts: Array[Dictionary] = []
 var covers: Array[Dictionary] = []
 var health_pickups: Array[Dictionary] = []
+var crates: Array[Dictionary] = []
+var crate_orbs: Array[Dictionary] = []
 var result: StringName = &"playing"
 var winner_slot: int = -1
 var result_reason: StringName = &""
@@ -89,6 +91,8 @@ func reset() -> void:
     projectiles.clear()
     effects.clear()
     health_pickups.clear()
+    crates.clear()
+    crate_orbs.clear()
     knockouts.clear()
     _prev_bullets.clear()
     _deaths.clear()
