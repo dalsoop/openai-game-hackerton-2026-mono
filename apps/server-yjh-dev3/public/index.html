@@ -72,7 +72,8 @@
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const proto = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${proto}://${location.host}`);
+const wsPath = location.pathname.replace(/\/[^/]*$/, "") || "";
+const ws = new WebSocket(`${proto}://${location.host}${wsPath}`);
 const params = new URLSearchParams(location.search);
 let modes = {};
 let rooms = [];
