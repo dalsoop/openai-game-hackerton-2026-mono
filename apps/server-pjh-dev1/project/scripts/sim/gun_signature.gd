@@ -84,8 +84,8 @@ static func family_of(equipment_id: String) -> String:
     return str(visual_for_equipment(equipment_id).get("family", "rifle"))
 
 const GUN_FX := {
-    "brawler": {"row": 0, "frames": 1, "scale": 1.0, "shake": 3},
-    "burst": {"row": 0, "frames": 1, "scale": 1.0, "shake": 2},
+    "brawler": {"row": 0, "frames": 2, "scale": 1.0, "shake": 3},
+    "burst": {"row": 0, "frames": 2, "scale": 1.0, "shake": 2},
     "leech": {"row": 1, "frames": 3, "scale": 1.0, "shake": 3},
     "blade": {"row": 1, "frames": 3, "scale": 1.0, "shake": 3},
     "chain": {"row": 1, "frames": 3, "scale": 1.0, "shake": 4},
