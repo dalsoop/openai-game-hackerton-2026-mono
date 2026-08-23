@@ -86,6 +86,8 @@ const snapBuf = [];
 const INTERP_MS = 100;
 let keys = {};
 let mouse = { x: 800, y: 450, down: false };
+let myPing = 0;
+let pingTs = 0;
 const nameIn = document.getElementById("name");
 nameIn.value = params.get("name") || ("웹" + Math.floor(10 + Math.random() * 89));
 
@@ -101,9 +103,12 @@ function hello() {
 
 ws.onmessage = (ev) => {
   const msg = JSON.parse(ev.data);
+  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
+  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
   if (msg.t === "welcome") {
     modes = msg.modes || {};
     document.getElementById("status").textContent = "접속됨 · 최대 8명";
+    setInterval(() => { const el = document.getElementById("status"); if (myPing > 0) el.textContent = `접속됨 · ${myPing}ms · 최대 8명`; }, 2000);
     renderModes();
     hello();
     const roomId = params.get("room");
@@ -209,6 +214,8 @@ setInterval(() => {
   });
 }, 50);
 
+setInterval(() => { send({ t: "ping", ts: Date.now() }); }, 5000);
+
 function viewSnap() {
   if (snapBuf.length === 0) return snap;
   if (snapBuf.length === 1) return snapBuf[0].snap;
@@ -274,6 +281,10 @@ function draw() {
   ctx.fillText(`생존 ${alive}/8   킬 ${me?.kills||0}   ${me?.weapon||""}`, 28, 44);
   ctx.fillStyle = "#aebaca"; ctx.font = "14px sans-serif";
   ctx.fillText(`아이템 ${me?.item || "-"}   WASD 클릭사격  SPACE대시  E아이템  ESC로비`, 28, 68);
+  const pingColor = myPing <= 50 ? "#3fb950" : myPing <= 150 ? "#d29922" : "#f85149";
+  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(1460, 16, 124, 32);
+  ctx.fillStyle = pingColor; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "right";
+  ctx.fillText(`${myPing}ms`, 1572, 38);
   if (snap.result && snap.result !== "playing") {
     ctx.fillStyle = "rgba(8,10,14,0.92)"; ctx.fillRect(430, 340, 740, 180);
     ctx.fillStyle = "#fff"; ctx.font = "36px sans-serif"; ctx.textAlign = "center";
