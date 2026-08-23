@@ -1,0 +1,78 @@
+{{- range .Values.hubs }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .folder }}-hub
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+spec:
+  replicas: {{ $.Values.hub.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "hackertone-games.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: hub
+      hackertone-games/slot: {{ .folder }}
+  template:
+    metadata:
+      labels:
+        {{- include "hackertone-games.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: hub
+        hackertone-games/slot: {{ .folder }}
+    spec:
+      enableServiceLinks: false
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: hub
+          image: "{{ .image | default $.Values.hub.image.repository }}:{{ .tag | default $.Values.hub.image.tag }}"
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          env:
+            - name: PORT
+              value: {{ $.Values.hub.env.PORT | quote }}
+            - name: SLOT_FOLDER
+              value: {{ .folder | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml $.Values.hub.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .folder }}-hub
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+spec:
+  selector:
+    {{- include "hackertone-games.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+{{- end }}

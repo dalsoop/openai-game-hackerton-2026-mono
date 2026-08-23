@@ -1,0 +1,100 @@
+[gd_scene format=3 uid="uid://bp3hrhlxieod3"]
+
+[ext_resource type="PackedScene" uid="uid://bgfykph7rgwed" path="res://Art/Prebs/Animal/Dog.tscn" id="1_fmhvt"]
+[ext_resource type="PackedScene" uid="uid://da8651txxlgwd" path="res://Art/Prebs/Animal/Dragon.tscn" id="2_n8brs"]
+[ext_resource type="PackedScene" uid="uid://bh0xwsxb4dbcm" path="res://Art/Prebs/Gun/12_M79.tscn" id="2_x2fcd"]
+[ext_resource type="PackedScene" uid="uid://7a372vyvdulx" path="res://Art/Prebs/Animal/Goat.tscn" id="3_x4mh0"]
+[ext_resource type="PackedScene" uid="uid://mcq1hr8n8h8q" path="res://Art/Prebs/Animal/Horse.tscn" id="4_600pw"]
+[ext_resource type="PackedScene" uid="uid://dduvt5o0hq1kp" path="res://Art/Prebs/Gun/11_WinchesterM1873.tscn" id="4_qhkkf"]
+[ext_resource type="PackedScene" uid="uid://44qm4be42i73" path="res://Art/Prebs/Animal/Monkey.tscn" id="5_tnuij"]
+[ext_resource type="PackedScene" uid="uid://bpa27xmclx2xb" path="res://Art/Prebs/Animal/Ox.tscn" id="6_gvfic"]
+[ext_resource type="PackedScene" uid="uid://da4xm3bpvxdiy" path="res://Art/Prebs/Gun/7_AK-47.tscn" id="6_o7ldx"]
+[ext_resource type="PackedScene" uid="uid://dnxf1da7sk0ke" path="res://Art/Prebs/Animal/Pig.tscn" id="7_xja0a"]
+[ext_resource type="PackedScene" uid="uid://b4wejc4v6qksr" path="res://Art/Prebs/Animal/Rabbit.tscn" id="8_1k7v5"]
+[ext_resource type="PackedScene" uid="uid://q3ryqs8hu61y" path="res://Art/Prebs/Gun/8_AKM.tscn" id="8_of0b4"]
+[ext_resource type="PackedScene" uid="uid://b4364t6x177wb" path="res://Art/Prebs/Animal/Rat.tscn" id="9_w42r5"]
+[ext_resource type="PackedScene" uid="uid://ihx2efxxvy2l" path="res://Art/Prebs/Animal/Rooster.tscn" id="10_kq3tu"]
+[ext_resource type="PackedScene" uid="uid://qwcw2ixgphca" path="res://Art/Prebs/Gun/9_DBShoutGun.tscn" id="10_p2uy0"]
+[ext_resource type="PackedScene" uid="uid://bfo30aii0184c" path="res://Art/Prebs/Animal/Snake.tscn" id="11_x54bm"]
+[ext_resource type="PackedScene" uid="uid://cbkf8bsv3sjl5" path="res://Art/Prebs/Gun/6_M4A1.tscn" id="12_5gp22"]
+[ext_resource type="PackedScene" uid="uid://bpyln606c2gs5" path="res://Art/Prebs/Animal/Tiger.tscn" id="12_i1jxp"]
+[ext_resource type="PackedScene" uid="uid://0e2r2qnjlim5" path="res://Art/Prebs/Gun/10_SPAS-12.tscn" id="14_jkfd1"]
+[ext_resource type="PackedScene" uid="uid://cokpjwrwdao2c" path="res://Art/Prebs/Gun/5_RPK.tscn" id="16_nfuoh"]
+[ext_resource type="PackedScene" uid="uid://xmnds76mr2eu" path="res://Art/Prebs/Gun/1_M1911.tscn" id="18_7ht67"]
+[ext_resource type="PackedScene" uid="uid://d4d8fw3fm6hkj" path="res://Art/Prebs/Gun/2_Glock18.tscn" id="20_j0k0v"]
+[ext_resource type="PackedScene" uid="uid://ge5tpwbiv1n4" path="res://Art/Prebs/Gun/3_MP5.tscn" id="22_48ubm"]
+[ext_resource type="PackedScene" uid="uid://2w3ecxix4wqg" path="res://Art/Prebs/Gun/4_Thomspson.tscn" id="24_m4vtb"]
+
+[node name="DemoScene" type="Node2D" unique_id=529509614]
+
+[node name="Dog" parent="." unique_id=1321753301 instance=ExtResource("1_fmhvt")]
+position = Vector2(625, 597)
+scale = Vector2(0.25, 0.25)
+
+[node name="12_M79" parent="Dog" unique_id=2096763628 instance=ExtResource("2_x2fcd")]
+
+[node name="Dragon" parent="." unique_id=725924344 instance=ExtResource("2_n8brs")]
+position = Vector2(387, 410)
+scale = Vector2(0.25, 0.25)
+
+[node name="11_WinchesterM1873" parent="Dragon" unique_id=1812786989 instance=ExtResource("4_qhkkf")]
+
+[node name="Goat" parent="." unique_id=1454683021 instance=ExtResource("3_x4mh0")]
+position = Vector2(816, 410)
+scale = Vector2(0.25, 0.25)
+
+[node name="7_AK-47" parent="Goat" unique_id=870963467 instance=ExtResource("6_o7ldx")]
+
+[node name="Horse" parent="." unique_id=1286603747 instance=ExtResource("4_600pw")]
+position = Vector2(608, 407)
+scale = Vector2(0.25, 0.25)
+
+[node name="8_AKM" parent="Horse" unique_id=1809489123 instance=ExtResource("8_of0b4")]
+
+[node name="Monkey" parent="." unique_id=552429487 instance=ExtResource("5_tnuij")]
+position = Vector2(167, 593)
+scale = Vector2(0.25, 0.25)
+
+[node name="9_DBShoutGun" parent="Monkey" unique_id=228876291 instance=ExtResource("10_p2uy0")]
+
+[node name="Ox" parent="." unique_id=877533107 instance=ExtResource("6_gvfic")]
+position = Vector2(385, 155)
+scale = Vector2(0.25, 0.25)
+
+[node name="6_M4A1" parent="Ox" unique_id=1168357021 instance=ExtResource("12_5gp22")]
+
+[node name="Pig" parent="." unique_id=1574808709 instance=ExtResource("7_xja0a")]
+position = Vector2(833, 600)
+scale = Vector2(0.25, 0.25)
+
+[node name="10_SPAS-12" parent="Pig" unique_id=1121434869 instance=ExtResource("14_jkfd1")]
+
+[node name="Rabbit" parent="." unique_id=326327439 instance=ExtResource("8_1k7v5")]
+position = Vector2(811, 158)
+scale = Vector2(0.25, 0.25)
+
+[node name="5_RPK" parent="Rabbit" unique_id=1770273377 instance=ExtResource("16_nfuoh")]
+
+[node name="Rat" parent="." unique_id=1305242050 instance=ExtResource("9_w42r5")]
+position = Vector2(150, 149)
+scale = Vector2(0.25, 0.25)
+
+[node name="1_M1911" parent="Rat" unique_id=1014185446 instance=ExtResource("18_7ht67")]
+
+[node name="Rooster" parent="." unique_id=2071266199 instance=ExtResource("10_kq3tu")]
+position = Vector2(391, 604)
+scale = Vector2(0.25, 0.25)
+
+[node name="2_Glock18" parent="Rooster" unique_id=1591882676 instance=ExtResource("20_j0k0v")]
+
+[node name="Snake" parent="." unique_id=237139919 instance=ExtResource("11_x54bm")]
+position = Vector2(160, 400)
+scale = Vector2(0.25, 0.25)
+
+[node name="3_MP5" parent="Snake" unique_id=820446909 instance=ExtResource("22_48ubm")]
+
+[node name="Tiger" parent="." unique_id=211295394 instance=ExtResource("12_i1jxp")]
+position = Vector2(600, 168)
+scale = Vector2(0.25, 0.25)
+
+[node name="4_Thomspson" parent="Tiger" unique_id=1572540353 instance=ExtResource("24_m4vtb")]

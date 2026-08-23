@@ -1,0 +1,12 @@
+id: prod
+kind: game
+title: 다굴 (prod)
+blurb: 제출·운영. 8인 로비 · 모드 5종 · 서버 권위 시뮬
+players: 1–8
+web:
+  enabled: true
+  exportDir: project/web
+hub:
+  enabled: true
+  pathPrefix: /gang-up
+  dockerfile: Dockerfile

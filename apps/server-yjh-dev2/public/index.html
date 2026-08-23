@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>다굴 같이하기</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0e13; --card:#151b24; --line:#2a3444; --muted:#aebaca; --blue:#1d4ed8; --green:#166534; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: #e8eef4; font-family: ui-sans-serif, system-ui, sans-serif; }
+    canvas { display: none; width: 100vw; height: 100vh; background: var(--bg); }
+    body.play canvas { display: block; }
+    body.play #hub, body.play #wait { display: none !important; }
+    #hub, #wait { min-height: 100%; padding: 28px 32px 48px; }
+    #wait { display: none; }
+    body.wait #hub { display: none; }
+    body.wait #wait { display: block; }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    .sub { color: var(--muted); margin-bottom: 22px; }
+    .bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 22px; }
+    input, button { background: var(--card); color: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 15px; }
+    button { cursor: pointer; }
+    button.primary { background: var(--blue); border-color: var(--blue); }
+    button.go { background: var(--green); border-color: var(--green); font-size: 18px; padding: 12px 22px; }
+    .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .mode { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; cursor: pointer; text-align: left; }
+    .mode:hover, .mode.on { border-color: #70e7ff; }
+    .mode b { display: block; font-size: 16px; margin-bottom: 6px; }
+    .mode span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+    h2 { font-size: 16px; margin: 8px 0 10px; color: #70e7ff; }
+    .rooms { display: flex; flex-direction: column; gap: 8px; max-width: 720px; }
+    .room { background: var(--card); padding: 14px 16px; border-radius: 12px; display: flex; justify-content: space-between; gap: 12px; align-items: center; cursor: pointer; }
+    .room:hover { outline: 1px solid #70e7ff; }
+    .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 860px; margin: 18px 0 22px; }
+    .slot { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; min-height: 88px; padding: 14px; }
+    .slot.filled { border-style: solid; border-color: #5bc0eb; }
+    .slot.host { border-color: #ffd166; }
+    .slot .who { font-size: 16px; }
+    .slot .tag { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .invite { display: flex; gap: 8px; max-width: 860px; margin-bottom: 18px; }
+    .invite input { flex: 1; }
+    #err { color: #e55934; min-height: 1.2em; }
+    #status { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1600" height="900"></canvas>
+  <section id="hub">
+    <h1>다굴 같이하기</h1>
+    <p class="sub">이름 적고 모드를 고른 뒤 방을 만들거나, 열린 방에 들어갑니다. 한 방 최대 8명.</p>
+    <div class="bar">
+      <input id="name" maxlength="12" placeholder="내 이름" />
+      <span id="status">서버 연결 중…</span>
+    </div>
+    <div class="modes" id="modes"></div>
+    <h2>열린 방</h2>
+    <div class="rooms" id="rooms"></div>
+    <div id="err"></div>
+  </section>
+  <section id="wait">
+    <h1 id="waitTitle">대기실</h1>
+    <p class="sub" id="waitSub">친구가 이 링크로 들어옵니다. 호스트가 시작하면 빈자리는 CPU입니다.</p>
+    <div class="invite">
+      <input id="invite" readonly />
+      <button class="primary" id="copy">초대 링크 복사</button>
+      <button id="leave">방 나가기</button>
+    </div>
+    <div class="slots" id="slots"></div>
+    <button class="go" id="start">같이 시작 (빈자리 CPU)</button>
+  </section>
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const proto = location.protocol === "https:" ? "wss" : "ws";
+const wsPath = location.pathname.replace(/\/[^/]*$/, "") || "";
+const ws = new WebSocket(`${proto}://${location.host}${wsPath}`);
+const params = new URLSearchParams(location.search);
+let modes = {};
+let rooms = [];
+let players = [];
+let you = 0;
+let phase = "hub";
+let selectedMode = params.get("mode") || "classic";
+let roomInfo = null;
+let snap = null;
+const snapBuf = [];
+const INTERP_MS = 100;
+let keys = {};
+let mouse = { x: 800, y: 450, down: false };
+let myPing = 0;
+let pingTs = 0;
+const nameIn = document.getElementById("name");
+nameIn.value = params.get("name") || ("웹" + Math.floor(10 + Math.random() * 89));
+
+function send(msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+function setPhase(next) {
+  phase = next;
+  document.body.className = next === "play" ? "play" : next === "wait" ? "wait" : "";
+}
+function hello() {
+  send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode });
+  send({ t: "rooms" });
+}
+
+ws.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
+  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
+  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+  if (msg.t === "welcome") {
+    modes = msg.modes || {};
+    document.getElementById("status").textContent = "접속됨 · 최대 8명";
+    setInterval(() => { const el = document.getElementById("status"); if (myPing > 0) el.textContent = `접속됨 · ${myPing}ms · 최대 8명`; }, 2000);
+    renderModes();
+    hello();
+    const roomId = params.get("room");
+    if (roomId) setTimeout(() => send({ t: "join", roomId }), 80);
+  }
+  if (msg.t === "rooms") { rooms = msg.rooms || []; renderRooms(); }
+  if (msg.t === "joined") {
+    you = msg.you;
+    players = msg.players || [];
+    roomInfo = msg.room;
+    selectedMode = msg.room.mode;
+    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}&room=${encodeURIComponent(msg.room.id)}`);
+    setPhase("wait");
+    renderWait();
+  }
+  if (msg.t === "peers") { players = msg.players || []; if (msg.room) roomInfo = msg.room; renderWait(); }
+  if (msg.t === "start") { you = msg.you; setPhase("play"); }
+  if (msg.t === "snap") {
+    snap = msg;
+    snapBuf.push({ at: performance.now(), snap: msg });
+    while (snapBuf.length > 16) snapBuf.shift();
+    if (msg.result !== "playing") document.body.className = "play";
+    setPhase("play");
+  }
+  if (msg.t === "left") {
+    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
+    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
+    setPhase("hub");
+    hello();
+  }
+  if (msg.t === "error") document.getElementById("err").textContent = msg.msg;
+};
+
+nameIn.onchange = hello;
+document.getElementById("copy").onclick = async () => {
+  const url = document.getElementById("invite").value;
+  try { await navigator.clipboard.writeText(url); document.getElementById("copy").textContent = "복사됨"; setTimeout(() => document.getElementById("copy").textContent = "초대 링크 복사", 1200); }
+  catch { document.getElementById("invite").select(); }
+};
+document.getElementById("leave").onclick = () => send({ t: "leave" });
+document.getElementById("start").onclick = () => send({ t: "start" });
+
+function renderModes() {
+  document.getElementById("modes").innerHTML = Object.values(modes).map(m =>
+    `<button class="mode ${m.id === selectedMode ? "on" : ""}" data-id="${m.id}"><b>${m.title}</b><span>${m.blurb}</span></button>`
+  ).join("");
+  document.querySelectorAll(".mode").forEach(el => {
+    el.onclick = () => {
+      selectedMode = el.dataset.id;
+      renderModes();
+      hello();
+      send({ t: "create" });
+    };
+  });
+}
+function renderRooms() {
+  const titles = { classic: "클래식", "gun-semi": "무기 · 단발", "gun-auto": "무기 · 연발", item: "아이템", full: "합본" };
+  document.getElementById("rooms").innerHTML = rooms.length
+    ? rooms.map(r => `<div class="room" data-id="${r.id}"><div><b>${r.title}</b><div class="sub" style="margin:4px 0 0">${titles[r.mode] || r.mode}</div></div><span>${r.count}/8 입장</span></div>`).join("")
+    : `<div class="room">아직 열린 방이 없습니다. 위에서 모드를 누르면 방이 만들어집니다.</div>`;
+  document.querySelectorAll(".room[data-id]").forEach(el => el.onclick = () => send({ t: "join", roomId: el.dataset.id }));
+}
+function renderWait() {
+  const titles = { classic: "클래식", "gun-semi": "무기 · 단발", "gun-auto": "무기 · 연발", item: "아이템", full: "합본" };
+  const modeName = titles[roomInfo?.mode] || "";
+  document.getElementById("waitTitle").textContent = `${roomInfo?.title || "대기실"} · ${modeName}`;
+  document.getElementById("waitSub").textContent = `${players.length}/8 모이는 중. 링크를 나눠 같이 들어오고, 호스트만 시작할 수 있습니다.`;
+  document.getElementById("invite").value = location.href;
+  document.getElementById("start").style.display = you === 0 ? "inline-block" : "none";
+  const cells = [];
+  for (let i = 0; i < 8; i++) {
+    const p = players.find(x => x.slot === i);
+    if (p) cells.push(`<div class="slot filled ${p.host ? "host" : ""}"><div class="who">${p.name}</div><div class="tag">${p.host ? "호스트 · P"+(i+1) : "P"+(i+1)}${i === you ? " · 나" : ""}</div></div>`);
+    else cells.push(`<div class="slot"><div class="who">빈자리</div><div class="tag">시작 시 CPU</div></div>`);
+  }
+  document.getElementById("slots").innerHTML = cells.join("");
+}
+
+window.addEventListener("keydown", e => {
+  keys[e.code] = true;
+  if (e.code === "Escape" && phase === "play") send({ t: "leave" });
+});
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+canvas.addEventListener("mousemove", e => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left) * canvas.width / r.width;
+  mouse.y = (e.clientY - r.top) * canvas.height / r.height;
+});
+canvas.addEventListener("mousedown", () => mouse.down = true);
+window.addEventListener("mouseup", () => mouse.down = false);
+
+setInterval(() => {
+  if (phase !== "play") return;
+  send({
+    t: "input",
+    mx: (keys.KeyD||keys.ArrowRight?1:0) - (keys.KeyA||keys.ArrowLeft?1:0),
+    my: (keys.KeyS||keys.ArrowDown?1:0) - (keys.KeyW||keys.ArrowUp?1:0),
+    fire: mouse.down,
+    dash: !!keys.Space,
+    use: !!keys.KeyE,
+    aimX: mouse.x,
+    aimY: mouse.y,
+  });
+}, 50);
+
+setInterval(() => { send({ t: "ping", ts: Date.now() }); }, 5000);
+
+function viewSnap() {
+  if (snapBuf.length === 0) return snap;
+  if (snapBuf.length === 1) return snapBuf[0].snap;
+  const renderAt = performance.now() - INTERP_MS;
+  let a = snapBuf[0];
+  let b = snapBuf[snapBuf.length - 1];
+  for (let i = 0; i < snapBuf.length - 1; i++) {
+    if (snapBuf[i + 1].at >= renderAt) {
+      a = snapBuf[i];
+      b = snapBuf[i + 1];
+      break;
+    }
+  }
+  const span = Math.max(1, b.at - a.at);
+  const t = Math.max(0, Math.min(1, (renderAt - a.at) / span));
+  const as = a.snap;
+  const bs = b.snap;
+  const mix = (p, q, k) => p + (q - p) * k;
+  const aPlayers = as.players || [];
+  const bPlayers = bs.players || [];
+  const playersView = bPlayers.map((bp) => {
+    const ap = aPlayers.find((x) => x.slot === bp.slot) || bp;
+    return { ...bp, x: mix(ap.x, bp.x, t), y: mix(ap.y, bp.y, t), aimX: mix(ap.aimX, bp.aimX, t), aimY: mix(ap.aimY, bp.aimY, t) };
+  });
+  const aBullets = as.bullets || [];
+  const bBullets = bs.bullets || [];
+  const bullets = aBullets.length === bBullets.length
+    ? bBullets.map((bb, i) => ({ ...bb, x: mix(aBullets[i].x, bb.x, t), y: mix(aBullets[i].y, bb.y, t) }))
+    : bBullets;
+  return { ...bs, zoneR: mix(as.zoneR || 420, bs.zoneR || 420, t), players: playersView, bullets };
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (phase !== "play" || !snap) return;
+  const view = viewSnap() || snap;
+  ctx.fillStyle = "#0b0e13"; ctx.fillRect(0, 0, 1600, 900);
+  const zoneR = view.zoneR || 420;
+  ctx.beginPath(); ctx.arc(800, 450, 430, 0, Math.PI*2); ctx.fillStyle = "#123047"; ctx.fill();
+  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.fillStyle = "#c4a574"; ctx.fill();
+  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.strokeStyle = view.shrinking ? "#ff4f68" : "#70e7ff"; ctx.lineWidth = 4; ctx.stroke();
+  for (const drop of view.loot || []) {
+    ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
+    ctx.fillStyle = drop.kind === "gun" ? "#ffd166" : "#6ef3a5"; ctx.fill();
+  }
+  for (const b of view.bullets || []) {
+    ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fillStyle = "#ffe066"; ctx.fill();
+  }
+  let me = null, alive = 0;
+  for (const p of view.players || []) {
+    if (p.alive) alive++;
+    ctx.globalAlpha = p.alive ? 1 : 0.25;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fillStyle = p.color || "#fff"; ctx.fill();
+    if (p.slot === you) { me = p; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(p.name, p.x, p.y - 24);
+    ctx.fillStyle = "#000"; ctx.fillRect(p.x - 18, p.y + 20, 36, 5);
+    ctx.fillStyle = "#6ef3a5"; ctx.fillRect(p.x - 18, p.y + 20, 36 * Math.max(0, p.hp/100), 5);
+  }
+  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(16, 16, 460, 70);
+  ctx.fillStyle = "#fff"; ctx.font = "18px sans-serif"; ctx.textAlign = "left";
+  ctx.fillText(`생존 ${alive}/8   킬 ${me?.kills||0}   ${me?.weapon||""}`, 28, 44);
+  ctx.fillStyle = "#aebaca"; ctx.font = "14px sans-serif";
+  ctx.fillText(`아이템 ${me?.item || "-"}   WASD 클릭사격  SPACE대시  E아이템  ESC로비`, 28, 68);
+  const pingColor = myPing <= 50 ? "#3fb950" : myPing <= 150 ? "#d29922" : "#f85149";
+  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(1460, 16, 124, 32);
+  ctx.fillStyle = pingColor; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "right";
+  ctx.fillText(`${myPing}ms`, 1572, 38);
+  if (snap.result && snap.result !== "playing") {
+    ctx.fillStyle = "rgba(8,10,14,0.92)"; ctx.fillRect(430, 340, 740, 180);
+    ctx.fillStyle = "#fff"; ctx.font = "36px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(snap.winner < 0 ? "무승부" : `P${snap.winner+1} 승리`, 800, 430);
+    ctx.font = "18px sans-serif"; ctx.fillStyle = "#aebaca";
+    ctx.fillText("ESC 로비로", 800, 480);
+  }
+}
+draw();
+</script>
+</body>
+</html>

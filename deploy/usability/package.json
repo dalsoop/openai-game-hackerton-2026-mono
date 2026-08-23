@@ -1,0 +1,11 @@
+{
+  "name": "gang-up-usability",
+  "private": true,
+  "type": "module",
+  "description": "다굴 허브 스모크·부하 점검",
+  "scripts": {
+    "smoke": "node cli.mjs smoke",
+    "load": "node cli.mjs load",
+    "load:dry": "node cli.mjs load --dry-run"
+  }
+}

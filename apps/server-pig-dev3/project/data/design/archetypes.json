@@ -1,0 +1,134 @@
+[
+  {
+    "id": "runner",
+    "name": "질주자",
+    "hp": 720,
+    "speed": 340,
+    "attack": 58,
+    "range": 105,
+    "interval": 0.52,
+    "signature": "3초마다 다음 이동이 18% 빨라진다.",
+    "budget": 99
+  },
+  {
+    "id": "bruiser",
+    "name": "난투가",
+    "hp": 1080,
+    "speed": 270,
+    "attack": 92,
+    "range": 88,
+    "interval": 0.78,
+    "signature": "연속 공격 3회째가 45% 추가 피해.",
+    "budget": 101
+  },
+  {
+    "id": "artillery",
+    "name": "포격수",
+    "hp": 650,
+    "speed": 245,
+    "attack": 118,
+    "range": 430,
+    "interval": 1.25,
+    "signature": "1.1초 정지 후 사거리 15% 증가.",
+    "budget": 100
+  },
+  {
+    "id": "assassin",
+    "name": "암습자",
+    "hp": 610,
+    "speed": 325,
+    "attack": 126,
+    "range": 90,
+    "interval": 0.9,
+    "signature": "비전투 4초 후 첫 타격 55% 추가 피해.",
+    "budget": 102
+  },
+  {
+    "id": "bulwark",
+    "name": "방벽",
+    "hp": 1450,
+    "speed": 220,
+    "attack": 54,
+    "range": 100,
+    "interval": 0.82,
+    "signature": "정면 120도에서 받는 피해 22% 감소.",
+    "budget": 100
+  },
+  {
+    "id": "summoner",
+    "name": "소환가",
+    "hp": 760,
+    "speed": 255,
+    "attack": 42,
+    "range": 310,
+    "interval": 0.86,
+    "signature": "10초마다 체력 90의 하수인 1기, 최대 3기.",
+    "budget": 99
+  },
+  {
+    "id": "leech",
+    "name": "흡수자",
+    "hp": 880,
+    "speed": 265,
+    "attack": 70,
+    "range": 115,
+    "interval": 0.65,
+    "signature": "영웅에게 준 피해의 14% 회복.",
+    "budget": 101
+  },
+  {
+    "id": "controller",
+    "name": "교란자",
+    "hp": 800,
+    "speed": 260,
+    "attack": 55,
+    "range": 280,
+    "interval": 0.78,
+    "signature": "같은 대상 4회 적중 시 0.7초 둔화.",
+    "budget": 99
+  },
+  {
+    "id": "glass",
+    "name": "유리대포",
+    "hp": 520,
+    "speed": 285,
+    "attack": 154,
+    "range": 360,
+    "interval": 1.05,
+    "signature": "체력 40% 이상일 때 피해 12% 증가.",
+    "budget": 101
+  },
+  {
+    "id": "sapper",
+    "name": "공성가",
+    "hp": 830,
+    "speed": 245,
+    "attack": 64,
+    "range": 270,
+    "interval": 0.78,
+    "signature": "코어에 주는 피해 35% 증가.",
+    "budget": 100
+  },
+  {
+    "id": "reflector",
+    "name": "반사자",
+    "hp": 970,
+    "speed": 248,
+    "attack": 62,
+    "range": 120,
+    "interval": 0.7,
+    "signature": "3초마다 다음 단일 피해의 20%를 공격자에게 반사.",
+    "budget": 100
+  },
+  {
+    "id": "supporter",
+    "name": "기회주의 지원가",
+    "hp": 850,
+    "speed": 270,
+    "attack": 50,
+    "range": 300,
+    "interval": 0.72,
+    "signature": "근처 다른 플레이어가 공격 중인 대상에게 피해 14% 증가.",
+    "budget": 98
+  }
+]

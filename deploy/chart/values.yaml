@@ -1,0 +1,60 @@
+# env·호스트는 deploy/env.yaml 이 덮어쓴다.
+env: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullPolicy: Never
+nodeSelector:
+  kubernetes.io/hostname: k3s-prod
+
+git:
+  repo: https://github.com/dalsoop/openai-game-hackerton-2026-mono
+  revision: jeongright-gang-up-multi
+  syncSeconds: 60
+  gamesHostPath: /data/hackertone/g
+
+ingress:
+  className: traefik
+  annotations: {}
+
+tls:
+  enabled: true
+  secretName: hackertone-games-tls
+  issuer:
+    create: true
+    name: letsencrypt-cloudflare-external
+    clusterIssuer: ""
+    email: urit245@gmail.com
+    dnsZones:
+      - external.kr
+    existingCloudflareSecret: cloudflare-api-token
+
+web:
+  replicaCount: 1
+  image:
+    repository: harbor.50.internal.xz/library/hackertone-games-web
+    tag: 0.1.0-dev1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+hub:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: ""
+  env:
+    PORT: "8080"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+games: []
+hubs: []

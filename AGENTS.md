@@ -36,3 +36,9 @@ cd apps/web-game && npm run dev
 
 작업 브랜치는 **`jeongright-{이름}`** 으로 만든다 (예: `jeongright-godot-web-games`).
 `{이름}`은 kebab-case 로 작업 내용이 드러나게 짓는다. main 직접 커밋 금지, PR 로 머지.
+
+## 배포
+
+`apps/`를 푸시하면 `Apps ship`이 Godot 웹 익스포트·허브 이미지·Helm을 올린다. wasm/pck는 git에 넣지 않는다. 보드는 `https://server-board.external.kr/`.
+
+PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.
