@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import http from "node:http";
 import crypto from "node:crypto";
 import { WebSocketServer } from "ws";
-import client from "prom-client";
+import promClient from "prom-client";
 import { MAX_PLAYERS, MODES, TICK_HZ } from "./modes.js";
 import { applyInput, createMatch, snapshot, step } from "./sim.js";
 
@@ -14,33 +14,17 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 const GRACE_LOBBY_MS = 20_000;
 const GRACE_PLAY_MS = 60_000;
 const SERVER_START = Date.now();
-const SLOT = process.env.SLOT_FOLDER || "yjh-dev1";
-
-const register = new client.Registry();
-register.setDefaultLabels({ slot: SLOT });
-client.collectDefaultMetrics({ register });
-
-const gaugeClients = new client.Gauge({ name: "gangup_clients_total", help: "Connected clients", registers: [register] });
-const gaugeClientsPlaying = new client.Gauge({ name: "gangup_clients_playing", help: "Clients in active matches", registers: [register] });
-const gaugeRooms = new client.Gauge({ name: "gangup_rooms_total", help: "Total rooms", registers: [register] });
-const gaugeRoomsPlaying = new client.Gauge({ name: "gangup_rooms_playing", help: "Rooms in playing phase", registers: [register] });
-const gaugeRoomsLobby = new client.Gauge({ name: "gangup_rooms_lobby", help: "Rooms in lobby phase", registers: [register] });
-const histRtt = new client.Histogram({ name: "gangup_rtt_ms", help: "Player RTT in ms", buckets: [5, 10, 25, 50, 100, 200, 500, 1000], registers: [register] });
-const gaugeUptime = new client.Gauge({ name: "gangup_uptime_seconds", help: "Server uptime in seconds", registers: [register] });
-
-setInterval(() => {
-  const alive = [...clients.values()].filter((c) => !c.dead);
-  gaugeClients.set(alive.length);
-  gaugeClientsPlaying.set(alive.filter((c) => rooms.get(c.roomId)?.phase === "playing").length);
-  gaugeRooms.set(rooms.size);
-  gaugeRoomsPlaying.set([...rooms.values()].filter((r) => r.phase === "playing").length);
-  gaugeRoomsLobby.set([...rooms.values()].filter((r) => r.phase === "lobby").length);
-  gaugeUptime.set(Math.floor((Date.now() - SERVER_START) / 1000));
-  for (const c of alive) {
-    if (c.rtt > 0) histRtt.observe(c.rtt);
-  }
-}, 5_000);
-
+const SLOT = process.env.SLOT_FOLDER || "server-yjh-dev1";
+const promRegister = new promClient.Registry();
+promRegister.setDefaultLabels({ slot: SLOT });
+promClient.collectDefaultMetrics({ register: promRegister });
+const gaugeClients = new promClient.Gauge({ name: "gangup_clients_total", help: "Connected clients", registers: [promRegister] });
+const gaugeClientsPlaying = new promClient.Gauge({ name: "gangup_clients_playing", help: "Clients in active matches", registers: [promRegister] });
+const gaugeRooms = new promClient.Gauge({ name: "gangup_rooms_total", help: "Total rooms", registers: [promRegister] });
+const gaugeRoomsPlaying = new promClient.Gauge({ name: "gangup_rooms_playing", help: "Rooms in playing phase", registers: [promRegister] });
+const gaugeRoomsLobby = new promClient.Gauge({ name: "gangup_rooms_lobby", help: "Rooms in lobby phase", registers: [promRegister] });
+const histRtt = new promClient.Histogram({ name: "gangup_rtt_ms", help: "Player RTT in ms", buckets: [5, 10, 25, 50, 100, 200, 500, 1000], registers: [promRegister] });
+const gaugeUptime = new promClient.Gauge({ name: "gangup_uptime_seconds", help: "Server uptime in seconds", registers: [promRegister] });
 let nextId = 1;
 let nextRoom = 1;
 const clients = new Map();
@@ -293,12 +277,8 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (pathname === "/metrics" || pathname === "/gang-up/metrics") {
-    register.metrics().then((metrics) => {
-      res.writeHead(200, {
-        "content-type": register.contentType,
-        "access-control-allow-origin": "*",
-        "cache-control": "no-store",
-      });
+    promRegister.metrics().then((metrics) => {
+      res.writeHead(200, { "content-type": promRegister.contentType, "access-control-allow-origin": "*", "cache-control": "no-store" });
       res.end(metrics);
     });
     return;
@@ -306,38 +286,13 @@ const server = http.createServer((req, res) => {
   if (pathname === "/status" || pathname === "/gang-up/status") {
     const alive = [...clients.values()].filter((c) => !c.dead);
     const rtts = alive.map((c) => c.rtt).filter((r) => r > 0);
-    const playerPings = alive.map((c) => ({
-      id: c.id,
-      name: c.name,
-      rtt: c.rtt,
-      roomId: c.roomId,
-      phase: c.roomId ? rooms.get(c.roomId)?.phase ?? null : null,
-    }));
-    const roomList = [...rooms.values()].map((r) => ({
-      id: r.id,
-      mode: r.mode,
-      title: r.title,
-      phase: r.phase,
-      playerCount: livingIds(r).length,
-    }));
-    res.writeHead(200, {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "cache-control": "no-store",
-    });
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
     res.end(JSON.stringify({
-      ok: true,
-      slot: process.env.SLOT_FOLDER || "yjh-dev1",
-      uptime: Math.floor((Date.now() - SERVER_START) / 1000),
-      tickHz: TICK_HZ,
+      ok: true, slot: SLOT, uptime: Math.floor((Date.now() - SERVER_START) / 1000), tickHz: TICK_HZ,
       clients: { total: alive.length, playing: alive.filter((c) => rooms.get(c.roomId)?.phase === "playing").length },
-      ping: {
-        avg: rtts.length ? Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length) : 0,
-        min: rtts.length ? Math.min(...rtts) : 0,
-        max: rtts.length ? Math.max(...rtts) : 0,
-      },
-      players: playerPings,
-      rooms: roomList,
+      ping: { avg: rtts.length ? Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length) : 0, min: rtts.length ? Math.min(...rtts) : 0, max: rtts.length ? Math.max(...rtts) : 0 },
+      players: alive.map((c) => ({ id: c.id, name: c.name, rtt: c.rtt, roomId: c.roomId, phase: c.roomId ? rooms.get(c.roomId)?.phase ?? null : null })),
+      rooms: [...rooms.values()].map((r) => ({ id: r.id, mode: r.mode, title: r.title, phase: r.phase, playerCount: livingIds(r).length })),
     }));
     return;
   }
@@ -398,18 +353,18 @@ wss.on("connection", (ws) => {
   ws.on("error", () => {
     /* close follows */
   });
+
+  ws.on("pong", (data) => {
+    const session = clientByWs(ws);
+    if (!session || data.length < 8) return;
+    session.rtt = Number(Date.now() - Number(data.readBigInt64BE(0)));
+  });
 });
 
 function handleMessage(client, msg) {
   const t = msg.t;
   if (t === "ping") {
     send(client.ws, { t: "pong", ts: msg.ts });
-    return;
-  }
-  if (t === "pong") {
-    if (typeof msg.ts === "number") {
-      client.rtt = Date.now() - msg.ts;
-    }
     return;
   }
   if (t === "hello") {
@@ -529,11 +484,21 @@ function handleMessage(client, msg) {
 }
 
 setInterval(() => {
+  const alive = [...clients.values()].filter((c) => !c.dead);
+  gaugeClients.set(alive.length);
+  gaugeClientsPlaying.set(alive.filter((c) => rooms.get(c.roomId)?.phase === "playing").length);
+  gaugeRooms.set(rooms.size);
+  gaugeRoomsPlaying.set([...rooms.values()].filter((r) => r.phase === "playing").length);
+  gaugeRoomsLobby.set([...rooms.values()].filter((r) => r.phase === "lobby").length);
+  gaugeUptime.set(Math.floor((Date.now() - SERVER_START) / 1000));
+  for (const c of alive) { if (c.rtt > 0) histRtt.observe(c.rtt); }
+}, 5_000);
+
+setInterval(() => {
   for (const c of clients.values()) {
     if (!c.dead && c.ws.readyState === 1) {
       try {
-        c.ws.ping();
-        send(c.ws, { t: "ping", ts: Date.now() });
+        const pingTs = Buffer.alloc(8); pingTs.writeBigInt64BE(BigInt(Date.now())); c.ws.ping(pingTs);
       } catch {
         /* ignore */
       }

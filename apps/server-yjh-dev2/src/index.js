@@ -353,16 +353,18 @@ wss.on("connection", (ws) => {
   ws.on("error", () => {
     /* close follows */
   });
+
+  ws.on("pong", (data) => {
+    const session = clientByWs(ws);
+    if (!session || data.length < 8) return;
+    session.rtt = Number(Date.now() - Number(data.readBigInt64BE(0)));
+  });
 });
 
 function handleMessage(client, msg) {
   const t = msg.t;
   if (t === "ping") {
     send(client.ws, { t: "pong", ts: msg.ts });
-    return;
-  }
-  if (t === "pong") {
-    if (typeof msg.ts === "number") client.rtt = Date.now() - msg.ts;
     return;
   }
   if (t === "hello") {
@@ -496,8 +498,7 @@ setInterval(() => {
   for (const c of clients.values()) {
     if (!c.dead && c.ws.readyState === 1) {
       try {
-        c.ws.ping();
-        send(c.ws, { t: "ping", ts: Date.now() });
+        const pingTs = Buffer.alloc(8); pingTs.writeBigInt64BE(BigInt(Date.now())); c.ws.ping(pingTs);
       } catch {
         /* ignore */
       }
