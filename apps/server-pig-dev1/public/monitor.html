@@ -123,7 +123,7 @@ function renderCard(srv, data) {
 
 async function fetchStatus(srv) {
   try {
-    const r = await fetch(srv.url + '/status', { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(srv.url + '/gang-up/status', { signal: AbortSignal.timeout(5000) });
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
