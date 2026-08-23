@@ -2466,14 +2466,25 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
     h["ultimate_charge"] = 0.0
     h["ultimates"] = int(h.get("ultimates", 0)) + 1
     h["ult_clone_time"] = 8.0
+    var origin: Vector2 = h["pos"]
     var clones: Array = []
-    for i in range(7):
-        var ang := TAU * float(i) / 7.0
-        clones.append({"off": Vector2.RIGHT.rotated(ang) * 86.0, "alive": true})
+    for i in range(1, 8):
+        var ang := TAU * 0.125 * float(i)
+        clones.append({
+            "alive": true,
+            "ang": ang,
+            "pos": origin,
+            "facing": Vector2(h.get("facing", Vector2.RIGHT)).rotated(ang),
+            "aim": Vector2(h.get("aim", Vector2.RIGHT)).rotated(ang),
+            "hop_time": float(h.get("hop_time", 0.0)),
+            "hop_height": float(h.get("hop_height", HOP_LIFT_DEFAULT)),
+            "animal": int(h.get("animal", slot)),
+            "owner": slot
+        })
     h["ult_clones"] = clones
     heroes[slot] = h
     ultimate_focus_slot = slot
-    ultimate_focus_time = 0.35
+    ultimate_focus_time = 0.28
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "mirage", "clones": 7})
 
 func _sync_ult_clones(dt: float) -> void:
@@ -2487,20 +2498,25 @@ func _sync_ult_clones(dt: float) -> void:
             continue
         left = maxf(0.0, left - dt)
         h["ult_clone_time"] = left
-        if left <= 0.0 or not bool(h.get("alive", false)):
+        if left <= 0.0 or not bool(h.get("alive", false)) or bool(h.get("downed", false)):
             h["ult_clones"] = []
             heroes[slot] = h
             continue
-        var origin: Vector2 = h["pos"]
+        var vel: Vector2 = h.get("vel", Vector2.ZERO)
+        var facing: Vector2 = h.get("facing", Vector2.RIGHT)
+        var aim: Vector2 = h.get("aim", facing)
         var clones: Array = h.get("ult_clones", [])
         var kept: Array = []
         for clone in clones:
             if not bool(clone.get("alive", true)):
                 continue
-            var off: Vector2 = clone.get("off", Vector2.ZERO)
-            clone["pos"] = origin + off
-            clone["facing"] = h.get("facing", Vector2.RIGHT)
-            clone["aim"] = h.get("aim", clone["facing"])
+            var ang := float(clone.get("ang", 0.0))
+            var mirrored: Vector2 = vel.rotated(ang)
+            var next_pos: Vector2 = _resolve_cover_motion(Vector2(clone.get("pos", h["pos"])), mirrored * dt)
+            next_pos = _clamp_arena_point(next_pos, HERO_RADIUS)
+            clone["pos"] = next_pos
+            clone["facing"] = facing.rotated(ang)
+            clone["aim"] = aim.rotated(ang)
             clone["hop_time"] = h.get("hop_time", 0.0)
             clone["hop_height"] = h.get("hop_height", HOP_LIFT_DEFAULT)
             clone["animal"] = int(h.get("animal", slot))
