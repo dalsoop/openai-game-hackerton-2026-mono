@@ -60,7 +60,7 @@ const SOURCE_HEALTH_PICKUP_POINTS := [
     Vector2(2040.0, 850.0)
 ]
 const SAFE_ZONE_INITIAL_RADIUS := 3304.0
-const SAFE_ZONE_DAMAGE_PER_SEC := 8.0
+const SAFE_ZONE_DAMAGE_PER_SEC := 16.0
 const SAFE_ZONE_TICK_INTERVAL := 0.50
 const SAFE_ZONE_EDGE_BUFFER := 252.0
 const SAFE_ZONE_PHASES := [
@@ -2128,7 +2128,10 @@ func _stamp_gun_fire(h: Dictionary, slot: int, equipment_id: String) -> void:
     h["muzzle_time"] = float(frames) * 0.055
     h["muzzle_scale"] = float(fx.get("scale", 1.0))
     if slot == local_slot:
-        local_fire_shake = int(fx.get("shake", 3))
+        var shake := int(fx.get("shake", 3))
+        if bool(h.get("heavy_shot", false)):
+            shake = maxi(shake * 3, 10)
+        local_fire_shake = shake
 
 func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var h: Dictionary = heroes[slot]
@@ -2160,6 +2163,14 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var pierce := int(equipment.get("normal_pierce", 0))
     var splash := float(equipment.get("normal_splash", 0.0))
     var radius := float(equipment.get("normal_radius", 5.0))
+    var heavy := false
+    if equipment_id == "brawler":
+        var n := int(h.get("brawler_shot", 0)) + 1
+        h["brawler_shot"] = n
+        if n % 3 == 0:
+            damage *= 2.0
+            radius *= 2.5
+            heavy = true
     var interval := float(equipment.get("normal_interval", 0.2))
     interval *= maxf(0.35, 1.0 - _roulette_stat(slot, "rate"))
     ttl *= 1.0 + _roulette_stat(slot, "range")
@@ -2167,6 +2178,11 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var kick: Vector2 = GunSig.spray_kick(equipment_id, spray_i)
     h["spray_index"] = float(spray_i + 1)
     h["spray_idle"] = 0.0
+    h["heavy_shot"] = heavy
+    if heavy:
+        kick *= 2.7
+        kick += Vector2(0.0, -7.0)
+        h["spray_index"] = float(spray_i + 3)
     if slot == local_slot:
         local_mouse_kick = kick
     if equipment_id == "mortar":
@@ -2177,6 +2193,8 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
             if pellet_count > 1:
                 offset = (float(index) - float(pellet_count - 1) * 0.5) * spread
             _spawn_projectile(slot, base_dir.rotated(offset), damage, speed, radius, ttl, &"normal", splash, false, pierce, 0.0, knockback, kind, 0.0, "", false)
+            if heavy:
+                projectiles[projectiles.size() - 1]["heavy"] = true
     var burst_cap := int(equipment.get("burst_shots", 0))
     var mag_cap := int(equipment.get("mag_size", 0))
     if burst_cap > 0 and mag_cap <= 0:
@@ -2525,9 +2543,9 @@ func _try_equipment_attack(_slot: int, _direction: Vector2, _charge_ratio: float
 
 
 
-func _begin_ox_gore(slot: int, direction: Vector2) -> void:
+func _begin_ox_gore(slot: int, aim_pos: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    var dir: Vector2 = direction
+    var dir: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
     if dir.length_squared() < 0.05:
         dir = Vector2(h.get("facing", Vector2.RIGHT))
     if dir.length_squared() < 0.05:
@@ -2587,9 +2605,9 @@ func _tick_ox_charges(dt: float) -> void:
                 h["vel"] = Vector2.ZERO
         heroes[slot] = h
 
-func _begin_rat_tide(slot: int, direction: Vector2) -> void:
+func _begin_rat_tide(slot: int, aim_pos: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    var dir: Vector2 = direction
+    var dir: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
     if dir.length_squared() < 0.05:
         dir = Vector2(h.get("facing", Vector2.RIGHT))
     if dir.length_squared() < 0.05:
@@ -2653,11 +2671,11 @@ func _cpu_try_ultimate(slot: int) -> bool:
     var animal := posmod(int(h.get("animal", slot)), 12)
     var tslot := int(h.get("target", -1))
     var dist := 99999.0
-    var aim: Vector2 = Vector2(h.get("aim", Vector2(h.get("facing", Vector2.RIGHT))))
+    var aim: Vector2 = Vector2(h["pos"]) + Vector2(h.get("facing", Vector2.RIGHT)) * 240.0
     if tslot >= 0 and _target_valid(tslot):
         var tpos := _target_position(tslot)
         dist = Vector2(h["pos"]).distance_to(tpos)
-        aim = Vector2(h["pos"]).direction_to(tpos)
+        aim = tpos
     var hp_ratio := 1.0
     if float(h.get("max_hp", 1.0)) > 1.0:
         hp_ratio = float(h.get("hp", 0.0)) / float(h["max_hp"])
@@ -2739,7 +2757,7 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
         _begin_snake_shed(slot)
         return
     if animal == 6:
-        _begin_horse_kick(slot)
+        _begin_horse_kick(slot, _direction)
         return
     if animal == 7:
         _begin_wool_shield(slot)
@@ -3127,9 +3145,11 @@ func _explode_rooster_egg(egg: Dictionary) -> void:
     _add_effect(&"stun_burst", origin, 70.0, 0.36, Color("#ffe27a"), "EGG")
     event_log.emit(tick, &"rooster_egg_boom", owner, -1, {})
 
-func _begin_horse_kick(slot: int) -> void:
+func _begin_horse_kick(slot: int, aim_pos: Vector2 = Vector2.ZERO) -> void:
     var h: Dictionary = heroes[slot]
-    var face: Vector2 = Vector2(h.get("facing", Vector2.RIGHT))
+    var face: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
+    if face.length_squared() < 0.05:
+        face = Vector2(h.get("facing", Vector2.RIGHT))
     if face.length_squared() < 0.05:
         face = Vector2.RIGHT
     face = face.normalized()
@@ -3260,7 +3280,7 @@ func _begin_dragon_smoke(slot: int) -> void:
     dragon_smokes.append({
         "owner": slot,
         "pos": Vector2(h["pos"]),
-        "radius": 560.0,
+        "radius": 300.0,
         "ttl": 15.0
     })
     _set_ultimate_focus(slot, 0.22)
@@ -4270,7 +4290,10 @@ func _tick_downs(dt: float) -> void:
         h["down_left"] = maxf(0.0, float(h.get("down_left", 0.0)) - dt)
         heroes[slot] = h
         if float(h["down_left"]) <= 0.0:
-            _stand_up(slot)
+            if not _hero_in_safe_zone(slot):
+                _down_hero(-1, slot)
+            else:
+                _stand_up(slot)
 
 func _down_hero(owner: int, target: int) -> void:
     var h: Dictionary = heroes[target]
@@ -4497,14 +4520,15 @@ func _damage_hero_environment(target: int, amount: float, show_tick: bool) -> vo
     var h: Dictionary = heroes[target]
     if not bool(h["alive"]) or amount <= 0.0:
         return
-    if float(h.get("spawn_protect_time", 0.0)) > 0.0:
-        return
-    h["hp"] = float(h["hp"]) - amount
+    var zone_amt := amount
+    if bool(h.get("downed", false)):
+        zone_amt *= 3.0
+    h["hp"] = float(h["hp"]) - zone_amt
     heroes[target] = h
     if show_tick:
         _add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
         event_log.emit(tick, &"hero_hit", -1, target, {"damage":SAFE_ZONE_DAMAGE_PER_SEC * SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
-    _apply_lethal_or_down(-1, target, amount)
+    _apply_lethal_or_down(-1, target, zone_amt)
 
 func _hero_hp_ratio(slot: int) -> float:
     if slot < 0 or slot >= heroes.size() or bool(heroes[slot]["eliminated"]):
@@ -4696,6 +4720,7 @@ func _update_mid_tower(dt: float) -> void:
         return
     mid_tower["boing"] = maxf(0.0, float(mid_tower.get("boing", 0.0)) - dt)
     mid_tower["fire_cd"] = maxf(0.0, float(mid_tower.get("fire_cd", 0.0)) - dt)
+    _tower_point_blank(dt)
     if float(mid_tower["fire_cd"]) > 0.0:
         return
     var best := -1
@@ -4787,6 +4812,35 @@ func _tower_shell(tpos: Vector2, dir: Vector2, speed: float, splash: float, dmg:
         "source": &"tower"
     })
     next_entity_id += 1
+
+
+func _tower_point_blank(dt: float) -> void:
+    if not bool(mid_tower.get("alive", false)):
+        return
+    mid_tower["crush_cd"] = maxf(0.0, float(mid_tower.get("crush_cd", 0.0)) - dt)
+    if float(mid_tower.get("crush_cd", 0.0)) > 0.0:
+        return
+    var tpos: Vector2 = mid_tower["pos"]
+    var reach := TOWER_RADIUS + HERO_RADIUS + 26.0
+    var hit_any := false
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if not bool(h.get("alive", false)) or bool(h.get("eliminated", false)):
+            continue
+        if Vector2(h["pos"]).distance_to(tpos) > reach:
+            continue
+        hit_any = true
+        _damage_hero_environment(slot, TOWER_DAMAGE * 0.85, true)
+        var push := tpos.direction_to(Vector2(h["pos"]))
+        if push.length_squared() < 0.05:
+            push = Vector2.RIGHT.rotated(float(slot))
+        h = heroes[slot]
+        h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), push * 34.0)
+        heroes[slot] = h
+        _add_effect(&"explosion", Vector2(h["pos"]), 42.0, 0.18, Color("#ff7a3a"), "TOWER")
+    if hit_any:
+        mid_tower["crush_cd"] = 0.32
+        mid_tower["boing"] = 0.16
 
 func _tower_ring_shot(tpos: Vector2, count: int, rot: float) -> void:
     for i in range(count):

@@ -337,12 +337,12 @@ func _bullet_src_rect(kind: String, tick: int) -> Rect2:
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
 
 
-func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String) -> void:
+func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String, scale: float = 1.0) -> void:
     if bullet_atlas == null:
         return
     var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
     var src := _bullet_src_rect(kind, int(world.tick))
-    var dest := Rect2(Vector2(-28.0, -10.0), Vector2(56.0, 20.0))
+    var dest := Rect2(Vector2(-28.0, -10.0) * scale, Vector2(56.0, 20.0) * scale)
     draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
     draw_texture_rect_region(bullet_atlas, dest, src)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -645,7 +645,7 @@ func _draw_projectiles() -> void:
                 draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
                 draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
             "pellet", "burst", "bolt":
-                _draw_lhj_bullet(projectile_pos, direction, kind)
+                _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
             _:
                 if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
                     _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
@@ -1224,19 +1224,10 @@ func _draw_dragon_smokes() -> void:
         return
     for smoke in world.dragon_smokes:
         var pos: Vector2 = smoke.get("pos", Vector2.ZERO)
-        var rad := float(smoke.get("radius", 560.0))
+        var rad := float(smoke.get("radius", 300.0))
         var life := clampf(float(smoke.get("ttl", 0.0)) / 15.0, 0.0, 1.0)
-        var puff := rad * 0.72
-        for i in range(7):
-            var ang := float(i) * TAU / 7.0 + float(world.tick) * 0.008
-            var wob := 1.0 + 0.06 * sin(float(world.tick) * 0.07 + float(i))
-            var p: Vector2 = pos + Vector2(cos(ang), sin(ang)) * (rad * 0.28)
-            var sz := puff * wob
-            draw_set_transform(p, ang * 0.15, Vector2.ONE)
-            draw_texture_rect(dragon_smoke_tex, Rect2(Vector2(-sz * 0.5, -sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.55 * life + 0.22))
-            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-        var core := puff * 1.05
-        draw_texture_rect(dragon_smoke_tex, Rect2(pos - Vector2(core * 0.5, core * 0.5), Vector2(core, core)), false, Color(1.0, 1.0, 1.0, 0.62 * life + 0.18))
+        var sz := rad * 2.0
+        draw_texture_rect(dragon_smoke_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.78 * life + 0.18))
 
 func _draw_snake_skins() -> void:
     for skin in world.snake_skins:
