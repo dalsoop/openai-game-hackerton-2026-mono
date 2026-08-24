@@ -277,7 +277,7 @@ func _restart() -> void:
 	world = WorldScript.new(seed)
 	world.set_mode(screens.selected_mode)
 	world.reset()
-	world.human_slots[0] = true
+	world.human_slots[world.local_slot] = true
 	world_view.world = world
 	hud.world = world
 	hud.mode_id = screens.selected_mode
