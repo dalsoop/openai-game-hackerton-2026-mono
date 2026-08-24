@@ -8,7 +8,7 @@ func _init(world) -> void:
 
 func update_cpus(dt: float) -> void:
 	for slot in range(w.heroes.size()):
-		if slot == w.local_slot or w.human_slots.has(slot):
+		if w.human_slots.has(slot):
 			continue
 		var h: Dictionary = w.heroes[slot]
 		if bool(h["eliminated"]):
