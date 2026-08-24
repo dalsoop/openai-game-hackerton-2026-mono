@@ -48,7 +48,7 @@ func _ready() -> void:
 	AudioServer.set_bus_mute(0, not sound_on)
 	_build()
 	_sync_settings_ui()
-	_name_edit.text = "플레이어%02d" % (randi() % 90 + 10)
+	_name_edit.text = tr("FLOW_DEFAULT_NAME") % (randi() % 90 + 10)
 	show_page(&"lobby")
 
 func show_page(which: StringName) -> void:
@@ -145,7 +145,7 @@ func _build() -> void:
 
 func _display_name() -> String:
 	var typed := _name_edit.text.strip_edges() if _name_edit != null else ""
-	return typed if typed != "" else "플레이어"
+	return typed if typed != "" else tr("FLOW_FALLBACK_NAME")
 
 func _push_identity() -> void:
 	if hub == null:
@@ -175,7 +175,7 @@ func _on_lobby_refresh() -> void:
 
 func _on_create_pressed() -> void:
 	if hub == null:
-		_lobby_error.text = "허브 클라이언트가 없습니다."
+		_lobby_error.text = tr("FLOW_NO_HUB")
 		return
 	_push_identity()
 	if hub.is_open():
@@ -183,8 +183,8 @@ func _on_create_pressed() -> void:
 		hub.create_room()
 		return
 	_pending_create = true
-	_lobby_error.text = "허브에 연결하는 중입니다."
-	if hub.status == "오프라인 로컬" or hub.status == "끊김":
+	_lobby_error.text = tr("FLOW_CONNECTING")
+	if hub.status == NetworkManager.STATUS_OFFLINE or hub.status == NetworkManager.STATUS_CLOSED:
 		hub.reconnect_now()
 	else:
 		hub.ensure_connected()
@@ -195,10 +195,10 @@ func _rebuild_room_list() -> void:
 	for child in _room_list.get_children():
 		child.queue_free()
 	if hub == null or not hub.is_open():
-		_room_list.add_child(UiTheme.lbl("허브 연결을 기다리는 중입니다.", 15, UiTheme.MUTED))
+		_room_list.add_child(UiTheme.lbl(tr("FLOW_WAITING_HUB"), 15, UiTheme.MUTED))
 		return
 	if hub.rooms.is_empty():
-		var empty := UiTheme.lbl("열린 방이 없습니다. 방을 만들어 시작하세요!", 16, UiTheme.MUTED)
+		var empty := UiTheme.lbl(tr("FLOW_NO_ROOMS"), 16, UiTheme.MUTED)
 		empty.custom_minimum_size = Vector2(0, 60)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_room_list.add_child(empty)
@@ -246,7 +246,7 @@ func _on_hub_left() -> void:
 
 func _on_hub_notice(message: String) -> void:
 	if _chat_log != null and page == &"wait":
-		_chat_log.append_text("[color=#C47B17][시스템] %s[/color]\n" % message)
+		_chat_log.append_text("[color=#C47B17][%s] %s[/color]\n" % [tr("FLOW_SYSTEM"), message])
 	elif _lobby_error != null and page == &"lobby":
 		_lobby_error.text = message
 
@@ -255,28 +255,28 @@ func _on_hub_status(next: String) -> void:
 		var mode_text := UiTheme.mode_title(selected_mode)
 		_lobby_status.text = "%s  |  %s" % [mode_text, next]
 		var status_color := UiTheme.MUTED
-		if next == "로비":
+		if next == NetworkManager.STATUS_LOBBY:
 			status_color = UiTheme.GREEN
-		elif next == "오프라인 로컬" or next == "끊김":
+		elif next == NetworkManager.STATUS_OFFLINE or next == NetworkManager.STATUS_CLOSED:
 			status_color = Color("C0392B")
-		elif next == "다시 연결 중" or next == "연결 중":
+		elif next == NetworkManager.STATUS_RECONNECTING or next == NetworkManager.STATUS_CONNECTING:
 			status_color = Color("C47B17")
 		_lobby_status.add_theme_color_override("font_color", status_color)
 	if _local_button != null:
 		_local_button.visible = true
 	if _retry_button != null:
-		_retry_button.visible = next == "오프라인 로컬" or next == "끊김"
-	if page == &"lobby" and next == "로비" and hub != null:
+		_retry_button.visible = next == NetworkManager.STATUS_OFFLINE or next == NetworkManager.STATUS_CLOSED
+	if page == &"lobby" and next == NetworkManager.STATUS_LOBBY and hub != null:
 		hub.request_rooms()
 		if _pending_create:
 			_pending_create = false
 			_lobby_error.text = ""
 			_push_identity()
 			hub.create_room()
-	elif next == "오프라인 로컬" and _pending_create:
+	elif next == NetworkManager.STATUS_OFFLINE and _pending_create:
 		_pending_create = false
 		if _lobby_error != null:
-			_lobby_error.text = "허브에 연결하지 못했습니다. 다시 연결을 눌러 주세요."
+			_lobby_error.text = tr("FLOW_HUB_FAIL")
 	if page == &"wait":
 		_fill_wait()
 
@@ -284,7 +284,7 @@ func _on_hub_error(message: String) -> void:
 	if _lobby_error != null:
 		_lobby_error.text = message
 	if _chat_log != null and page == &"wait":
-		_chat_log.append_text("[color=#C0392B][시스템] %s[/color]\n" % message)
+		_chat_log.append_text("[color=#C0392B][%s] %s[/color]\n" % [tr("FLOW_SYSTEM"), message])
 
 func open_settings(return_to: StringName) -> void:
 	_settings_return = return_to
@@ -334,9 +334,9 @@ func _on_wait_mode_pressed(mode_id: String) -> void:
 	_sync_wait_modes()
 	if _wait_mode_label != null:
 		if hub != null and hub.in_room:
-			_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(mode_id)]
+			_wait_mode_label.text = "%s  |  %s  |  %s" % [str(hub.room.get("title", "")), UiTheme.mode_title(mode_id), tr("FLOW_LAST_STANDING")]
 		else:
-			_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(mode_id)
+			_wait_mode_label.text = "%s  |  %s  |  %s" % [UiTheme.mode_title(mode_id), tr("FLOW_OFFLINE_LOCAL"), tr("FLOW_LAST_STANDING")]
 
 func _host_can_change_mode() -> bool:
 	if hub == null:
@@ -375,38 +375,38 @@ func _fill_wait() -> void:
 			var peer: Dictionary = hub.players[i]
 			var peer_name := str(peer.get("name", "?"))
 			if i == hub.you:
-				peer_name = "%s (나)" % peer_name
+				peer_name = "%s %s" % [peer_name, tr("FLOW_PEER_ME")]
 			nick.text = peer_name
 			if bool(peer.get("dropped", false)):
-				ready.text = "재접속 대기"
+				ready.text = tr("FLOW_RECONNECT_WAIT")
 				ready.add_theme_color_override("font_color", Color("C0392B"))
 			elif bool(peer.get("host", false)):
-				ready.text = "호스트"
+				ready.text = tr("FLOW_HOST")
 				ready.add_theme_color_override("font_color", UiTheme.BLUE)
 			else:
-				ready.text = "대기 중"
+				ready.text = tr("FLOW_WAITING")
 				ready.add_theme_color_override("font_color", UiTheme.GREEN)
 		elif not online and i == 0:
-			nick.text = "%s (나)" % _display_name()
-			ready.text = "호스트"
+			nick.text = "%s %s" % [_display_name(), tr("FLOW_PEER_ME")]
+			ready.text = tr("FLOW_HOST")
 			ready.add_theme_color_override("font_color", UiTheme.BLUE)
 		else:
 			nick.text = "CPU"
-			ready.text = "시작 시 참여"
+			ready.text = tr("FLOW_JOIN_ON_START")
 			ready.add_theme_color_override("font_color", UiTheme.MUTED)
 	_count_label.text = "%d / 8" % count
 	if _wait_mode_label != null:
 		if online:
-			_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(str(hub.room.get("mode", selected_mode)))]
+			_wait_mode_label.text = "%s  |  %s  |  %s" % [str(hub.room.get("title", "")), UiTheme.mode_title(str(hub.room.get("mode", selected_mode))), tr("FLOW_LAST_STANDING")]
 		else:
-			_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(selected_mode)
+			_wait_mode_label.text = "%s  |  %s  |  %s" % [UiTheme.mode_title(selected_mode), tr("FLOW_OFFLINE_LOCAL"), tr("FLOW_LAST_STANDING")]
 	_sync_wait_modes()
 	if _chat_log != null and _chat_log.get_total_character_count() == 0:
 		if online:
-			_chat_log.append_text("[color=#1F9D55][시스템] 방에 입장했습니다. %d/8명.[/color]\n" % count)
-			_chat_log.append_text("[color=#6B7380][시스템] 호스트가 게임을 바꿀 수 있습니다. 빈 자리는 시작 시 CPU가 채웁니다.[/color]\n")
+			_chat_log.append_text("[color=#1F9D55][%s] %s[/color]\n" % [tr("FLOW_SYSTEM"), tr("FLOW_ENTERED_ROOM") % count])
+			_chat_log.append_text("[color=#6B7380][%s] %s[/color]\n" % [tr("FLOW_SYSTEM"), tr("FLOW_HOST_CAN_CHANGE")])
 		else:
-			_chat_log.append_text("[color=#6B7380][시스템] 오프라인 로컬 매치입니다. CPU 7명과 시작합니다.[/color]\n")
+			_chat_log.append_text("[color=#6B7380][%s] %s[/color]\n" % [tr("FLOW_SYSTEM"), tr("FLOW_OFFLINE_MATCH")])
 	_update_start_button()
 
 func _update_start_button() -> void:
@@ -415,15 +415,15 @@ func _update_start_button() -> void:
 	var online: bool = hub != null and hub.in_room
 	if not online:
 		_start_button.visible = true
-		_start_button.text = "게임 시작"
+		_start_button.text = tr("FLOW_START_GAME")
 		_start_hint.visible = false
 	elif hub.match_running:
 		_start_button.visible = true
-		_start_button.text = "게임으로 돌아가기"
+		_start_button.text = tr("FLOW_RETURN_GAME")
 		_start_hint.visible = false
 	elif hub.you == 0:
 		_start_button.visible = true
-		_start_button.text = "게임 시작"
+		_start_button.text = tr("FLOW_START_GAME")
 		_start_hint.visible = false
 	else:
 		_start_button.visible = false
@@ -482,5 +482,5 @@ func _on_hub_chat(from_name: String, slot: int, text: String) -> void:
 		return
 	var color: Color = UiTheme.SLOT_COLORS[slot] if slot >= 0 and slot < UiTheme.SLOT_COLORS.size() else UiTheme.INK
 	var mine: bool = hub != null and slot == hub.you
-	var shown := from_name + " (나)" if mine else from_name
+	var shown := from_name + " " + tr("FLOW_PEER_ME") if mine else from_name
 	_chat_log.append_text("[color=#%s][b]%s[/b][/color]: %s\n" % [color.to_html(false), shown, text.replace("[", "[lb]")])

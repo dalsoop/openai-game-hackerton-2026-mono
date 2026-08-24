@@ -3,6 +3,24 @@ extends RefCounted
 
 static func build(callbacks: Dictionary) -> Dictionary:
 	var root := UiTheme.full(Control.new())
+	var wait_mode_label := _build_header(root, callbacks)
+	var mode_refs := _build_mode_row(root, callbacks)
+	var slot_host := _build_slots(root, callbacks)
+	var center_refs := _build_center(root)
+	var footer_refs := _build_footer(root, callbacks)
+	return {
+		"root": root,
+		"slot_host": slot_host,
+		"count_label": center_refs["count_label"],
+		"ready_label": center_refs["ready_label"],
+		"wait_mode_label": wait_mode_label,
+		"wait_mode_buttons": mode_refs,
+		"chat_log": footer_refs["chat_log"],
+		"start_button": footer_refs["start_button"],
+		"start_hint": footer_refs["start_hint"],
+	}
+
+static func _build_header(root: Control, callbacks: Dictionary) -> Label:
 	var header := HBoxContainer.new()
 	header.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	header.offset_left = 36
@@ -26,7 +44,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	header.add_child(sound)
 	header.add_child(gear)
 	root.add_child(header)
+	return wait_mode_label
 
+static func _build_mode_row(root: Control, callbacks: Dictionary) -> Array[Button]:
 	var mode_row := HBoxContainer.new()
 	mode_row.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	mode_row.offset_left = 36
@@ -43,7 +63,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 		wait_mode_buttons.append(chip)
 		mode_row.add_child(chip)
 	root.add_child(mode_row)
+	return wait_mode_buttons
 
+static func _build_slots(root: Control, callbacks: Dictionary) -> Control:
 	var slot_host := Control.new()
 	slot_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slot_host.offset_top = 150
@@ -52,7 +74,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	root.add_child(slot_host)
 	for i in UiTheme.SLOT_COUNT:
 		slot_host.add_child(_make_slot_card(i, callbacks.get("on_kick", Callable())))
+	return slot_host
 
+static func _build_center(root: Control) -> Dictionary:
 	var center_box := VBoxContainer.new()
 	center_box.set_anchors_preset(Control.PRESET_CENTER)
 	center_box.offset_left = -160
@@ -73,7 +97,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	center_box.add_child(ready_label)
 	center_box.add_child(bot)
 	root.add_child(center_box)
+	return {"count_label": count_label, "ready_label": ready_label}
 
+static func _build_footer(root: Control, callbacks: Dictionary) -> Dictionary:
 	var footer := HBoxContainer.new()
 	footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	footer.offset_left = 28
@@ -95,17 +121,7 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	footer.add_child(start_box)
 	footer.add_child(_build_tip())
 	root.add_child(footer)
-	return {
-		"root": root,
-		"slot_host": slot_host,
-		"count_label": count_label,
-		"ready_label": ready_label,
-		"wait_mode_label": wait_mode_label,
-		"wait_mode_buttons": wait_mode_buttons,
-		"chat_log": chat_refs["chat_log"],
-		"start_button": start_button,
-		"start_hint": start_hint,
-	}
+	return {"chat_log": chat_refs["chat_log"], "start_button": start_button, "start_hint": start_hint}
 
 static func _build_chat() -> Dictionary:
 	var panel := Panel.new()
@@ -171,6 +187,19 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
 	col.add_theme_constant_override("separation", 4)
+	var row := _make_slot_badge(index)
+	var ready := UiTheme.lbl("준비 완료", 13, UiTheme.GREEN)
+	ready.name = "Ready"
+	var art := _make_slot_art(index)
+	var kick := _make_kick_button(index, on_kick)
+	col.add_child(row)
+	col.add_child(ready)
+	col.add_child(art)
+	col.add_child(kick)
+	card.add_child(col)
+	return card
+
+static func _make_slot_badge(index: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	var badge := ColorRect.new()
 	badge.custom_minimum_size = Vector2(22, 22)
@@ -182,8 +211,9 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	nick.name = "Nick"
 	row.add_child(badge)
 	row.add_child(nick)
-	var ready := UiTheme.lbl("준비 완료", 13, UiTheme.GREEN)
-	ready.name = "Ready"
+	return row
+
+static func _make_slot_art(index: int) -> Control:
 	var portrait := _animal_portrait(index)
 	var art: Control
 	if portrait != null:
@@ -197,15 +227,18 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	else:
 		art = UiTheme.lbl(UiTheme.ANIMALS[index], 28, UiTheme.SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
 	art.name = "Art"
+	return art
+
+static func _make_kick_button(index: int, on_kick: Callable) -> Button:
 	var kick := Button.new()
 	kick.name = "Kick"
 	kick.text = "내보내기"
 	kick.visible = false
 	kick.custom_minimum_size = Vector2(0, 26)
 	kick.add_theme_font_size_override("font_size", 12)
-	kick.add_theme_color_override("font_color", Color("C0392B"))
-	kick.add_theme_color_override("font_hover_color", Color("C0392B"))
-	kick.add_theme_color_override("font_pressed_color", Color("C0392B"))
+	kick.add_theme_color_override("font_color", UiTheme.ERROR)
+	kick.add_theme_color_override("font_hover_color", UiTheme.ERROR)
+	kick.add_theme_color_override("font_pressed_color", UiTheme.ERROR)
 	kick.add_theme_stylebox_override("normal", UiTheme.card_box())
 	kick.add_theme_stylebox_override("hover", UiTheme.card_box())
 	kick.add_theme_stylebox_override("pressed", UiTheme.card_box())
@@ -213,9 +246,4 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	if on_kick.is_valid():
 		var idx := index
 		kick.pressed.connect(func(): on_kick.call(idx))
-	col.add_child(row)
-	col.add_child(ready)
-	col.add_child(art)
-	col.add_child(kick)
-	card.add_child(col)
-	return card
+	return kick

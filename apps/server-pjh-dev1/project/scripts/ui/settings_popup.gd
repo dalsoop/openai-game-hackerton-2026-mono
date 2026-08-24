@@ -21,8 +21,8 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
 	col.add_theme_constant_override("separation", 12)
-	col.add_child(UiTheme.lbl("설정", 24, UiTheme.INK))
-	col.add_child(UiTheme.lbl("조작 방식", 15, UiTheme.INK))
+	col.add_child(UiTheme.lbl(tr("SETTINGS_TITLE"), 24, UiTheme.INK))
+	col.add_child(UiTheme.lbl(tr("SETTINGS_CONTROL_MODE"), 15, UiTheme.INK))
 	var mode_row := HBoxContainer.new()
 	mode_row.add_theme_constant_override("separation", 8)
 	var mode_group := ButtonGroup.new()
@@ -37,9 +37,9 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	var mode_desc := UiTheme.lbl("", 13, UiTheme.MUTED)
 	mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(mode_desc)
-	col.add_child(UiTheme.lbl("소리", 15, UiTheme.INK))
+	col.add_child(UiTheme.lbl(tr("SETTINGS_SOUND"), 15, UiTheme.INK))
 	var sound_check := CheckButton.new()
-	sound_check.text = "효과음 켜기"
+	sound_check.text = tr("SETTINGS_SOUND_ON")
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
 		sound_check.add_theme_color_override(state, UiTheme.INK)
 	sound_check.button_pressed = sound_on
@@ -50,9 +50,9 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	col.add_child(spacer)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
-	var back := UiTheme.btn("닫기", Color("3D4654"), Vector2(160, 44))
+	var back := UiTheme.btn(tr("SETTINGS_CLOSE"), Color("3D4654"), Vector2(160, 44))
 	back.pressed.connect(close_callback)
-	var intro := UiTheme.btn("로비로 나가기", Color("8A93A3"), Vector2(160, 44))
+	var intro := UiTheme.btn(tr("SETTINGS_EXIT_LOBBY"), Color("8A93A3"), Vector2(160, 44))
 	intro.pressed.connect(quit_callback)
 	actions.add_child(back)
 	actions.add_child(intro)

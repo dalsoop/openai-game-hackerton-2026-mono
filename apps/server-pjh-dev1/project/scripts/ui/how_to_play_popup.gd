@@ -13,18 +13,18 @@ static func build(close_callback: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
 	col.add_theme_constant_override("separation", 10)
-	col.add_child(UiTheme.lbl("로비  >  조작", 14, UiTheme.MUTED))
-	col.add_child(UiTheme.lbl("조작", 28, UiTheme.INK))
+	col.add_child(UiTheme.lbl(tr("HOW_BREADCRUMB"), 14, UiTheme.MUTED))
+	col.add_child(UiTheme.lbl(tr("HOW_TITLE"), 28, UiTheme.INK))
 	for line in [
-		"가로 화면 기준입니다.",
-		"키보드: WASD 이동  ·  마우스 조준",
-		"터치: 왼쪽 스틱 이동  ·  오른쪽 스틱 조준",
-		"LMB / 공격 버튼 기본 공격  ·  RMB / 스킬 버튼",
+		tr("HOW_LINE1"),
+		tr("HOW_LINE2"),
+		tr("HOW_LINE3"),
+		tr("HOW_LINE4"),
 		"SHIFT / dash button flash  ·  SPACE hop  ·  Q / ult button  ·  E / item button",
-		"최후의 1인이 이깁니다. 안전 구역은 줄어듭니다.",
+		tr("HOW_LINE5"),
 	]:
 		col.add_child(UiTheme.lbl(line, 18, UiTheme.MUTED))
-	var back := UiTheme.btn("뒤로", Color("3D4654"), Vector2(140, 48))
+	var back := UiTheme.btn(tr("HOW_BACK"), Color("3D4654"), Vector2(140, 48))
 	back.pressed.connect(close_callback)
 	col.add_child(back)
 	panel.add_child(col)

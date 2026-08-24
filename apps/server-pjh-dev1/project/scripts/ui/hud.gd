@@ -10,7 +10,7 @@ var net_rtt_ms: int = -1
 var net_connected: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
-const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
+var ZODIAC_NAMES := [tr("ZODIAC_RAT"), tr("ZODIAC_OX"), tr("ZODIAC_TIGER"), tr("ZODIAC_RABBIT"), tr("ZODIAC_DRAGON"), tr("ZODIAC_SNAKE"), tr("ZODIAC_HORSE"), tr("ZODIAC_SHEEP"), tr("ZODIAC_MONKEY"), tr("ZODIAC_ROOSTER"), tr("ZODIAC_DOG"), tr("ZODIAC_PIG")]
 const PANEL_BG := Color(0.012, 0.018, 0.028, 0.86)
 const ZONE_PURPLE := Color("#c65cff")
 
@@ -149,16 +149,16 @@ func _draw_zone_timer() -> void:
     var status_color := ZONE_PURPLE
     var status_text := ""
     if bool(world.safe_zone_shrinking):
-        status_text = "안전 구역 축소 중"
+        status_text = tr("HUD_ZONE_SHRINKING")
         status_color = Color("#e05cff")
     elif bool(world.safe_zone_complete):
-        status_text = "최종 안전 구역"
+        status_text = tr("HUD_ZONE_FINAL")
         status_color = Color("#d8b4ff")
     else:
         var phase := int(world.safe_zone_phase)
         if phase < world.SAFE_ZONE_PHASES.size():
             var wait := float(world.SAFE_ZONE_PHASES[phase]["wait"])
-            status_text = "축소까지 %d초" % maxi(0, ceili(wait - float(world.safe_zone_phase_time)))
+            status_text = tr("HUD_ZONE_COUNTDOWN") % maxi(0, ceili(wait - float(world.safe_zone_phase_time)))
             status_color = Color("#c9a6ff")
     if bool(world.safe_zone_shrinking):
         status_color.a = 0.75 + sin(float(world.tick) * 0.22) * 0.25
@@ -225,7 +225,7 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
         draw_texture_rect(gun_texture, Rect2(rect.position + Vector2(10.0, 17.0), Vector2(52.0, 30.0)), false)
     else:
         draw_line(rect.position + Vector2(12.0, 30.0), rect.position + Vector2(52.0, 30.0), Color("#ffd166"), 8.0)
-    _text(rect.position + Vector2(10.0, 15.0), "공격" if touch_hints else "LMB", 11, Color("#ffd166"))
+    _text(rect.position + Vector2(10.0, 15.0), tr("HUD_ATTACK") if touch_hints else "LMB", 11, Color("#ffd166"))
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
@@ -255,8 +255,8 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
         draw_rect(Rect2(rect.position + Vector2(22.0, 18.0), Vector2(10.0, 28.0)), tint)
         draw_rect(Rect2(rect.position + Vector2(13.0, 27.0), Vector2(28.0, 10.0)), tint)
     _text(rect.position + Vector2(52.0, 40.0), "x%d" % carried, 22, Color("#6ef3a5") if usable else Color("#6b7480"))
-    _text(rect.position + Vector2(10.0, 15.0), "약" if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
-    _text(rect.position + Vector2(52.0, 55.0), "메드킷", 11, Color("#aebaca"))
+    _text(rect.position + Vector2(10.0, 15.0), tr("HUD_MEDKIT_KEY") if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
+    _text(rect.position + Vector2(52.0, 55.0), tr("HUD_MEDKIT"), 11, Color("#aebaca"))
 
 func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
     var mobility_cd: float = float(me["mobility_cd"])
@@ -269,9 +269,9 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SHIFT", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), tr("HUD_DASH") if touch_hints else "SHIFT", 10, chevron)
     if ready:
-        _text(rect.position + Vector2(48.0, 40.0), "대시", 15, Color.WHITE)
+        _text(rect.position + Vector2(48.0, 40.0), tr("HUD_DASH"), 15, Color.WHITE)
     else:
         _text(rect.position + Vector2(48.0, 40.0), "%.1f" % mobility_cd, 15, Color("#c5ccd6"))
 
@@ -342,7 +342,7 @@ func _draw_match_result() -> void:
         _text(Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"), 112.0)
         _text(Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), 15, Color("#ffd166"), 86.0, HORIZONTAL_ALIGNMENT_RIGHT)
     if bool(world.get("is_net")):
-        _text(Vector2(450.0, 701.0), "대기실로 버튼을 누르세요" if touch_hints else "대기실로 버튼 또는 ESC", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(450.0, 701.0), tr("HUD_RETURN_TOUCH") if touch_hints else tr("HUD_RETURN_KB"), 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
     else:
         if not touch_hints:
             _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
@@ -373,7 +373,7 @@ func _draw_critical(me: Dictionary) -> void:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]
         draw_rect(Rect2(520.0, 52.0, 560.0, 36.0), Color(0.12, 0.01, 0.03, 0.42 * down_alpha))
-        _text(Vector2(530.0, 76.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 76.0), tr("HUD_PLAYER_DOWN") % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.callout_ticks > 0 and world.result == &"playing":
         var alpha := clampf(float(world.callout_ticks) / 24.0, 0.0, 1.0)
         draw_rect(Rect2(560.0, 52.0, 480.0, 28.0), Color(0.04, 0.04, 0.06, 0.32 * alpha))
@@ -393,9 +393,9 @@ func _draw_critical(me: Dictionary) -> void:
         var target: Dictionary = world.heroes[target_slot]
         var target_equipment: Dictionary = target["equipment"]
         draw_rect(Rect2(455.0, 786.0, 690.0, 90.0), Color(0.04, 0.02, 0.06, 0.88))
-        _text(Vector2(475.0, 816.0), "관전 P%d %s / %s" % [target_slot + 1, target_equipment["character_name"], target_equipment["name"]], 20, Color("#d8b4ff"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(475.0, 843.0), "탈락 - 관전 중", 16, Color("#ff8d93"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(475.0, 867.0), "A/D 또는 TAB: 관전 대상 변경  |  SPACE: 1위 자동 추적", 14, Color.WHITE, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(475.0, 816.0), tr("HUD_SPECTATE_TARGET") % [target_slot + 1, target_equipment["character_name"], target_equipment["name"]], 20, Color("#d8b4ff"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(475.0, 843.0), tr("HUD_SPECTATE_ELIMINATED"), 16, Color("#ff8d93"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(475.0, 867.0), tr("HUD_SPECTATE_HINT"), 14, Color.WHITE, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.result != &"playing":
         _draw_match_result()
 

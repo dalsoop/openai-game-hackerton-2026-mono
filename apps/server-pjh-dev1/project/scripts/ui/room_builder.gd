@@ -9,19 +9,19 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	header.offset_right = -36
 	header.offset_top = 18
 	header.offset_bottom = 92
-	var back := UiTheme.icon_btn("뒤로")
+	var back := UiTheme.icon_btn(tr("ROOM_BACK"))
 	back.pressed.connect(callbacks["on_back"])
 	header.add_child(back)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_child(UiTheme.lbl("2 / 2  로비  >  방", 14, UiTheme.MUTED))
-	titles.add_child(UiTheme.lbl("멤버와 게임을 고르세요", 30, UiTheme.INK))
+	titles.add_child(UiTheme.lbl(tr("ROOM_STEP"), 14, UiTheme.MUTED))
+	titles.add_child(UiTheme.lbl(tr("ROOM_SUBTITLE"), 30, UiTheme.INK))
 	var wait_mode_label := UiTheme.lbl("", 15, UiTheme.MUTED)
 	titles.add_child(wait_mode_label)
 	header.add_child(titles)
-	var sound := UiTheme.icon_btn("소리")
+	var sound := UiTheme.icon_btn(tr("ROOM_SOUND"))
 	sound.pressed.connect(callbacks["on_sound"])
-	var gear := UiTheme.icon_btn("설정")
+	var gear := UiTheme.icon_btn(tr("ROOM_SETTINGS"))
 	gear.pressed.connect(callbacks["on_settings"])
 	header.add_child(sound)
 	header.add_child(gear)
@@ -61,13 +61,13 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	center_box.offset_bottom = 90
 	center_box.add_theme_constant_override("separation", 8)
 	var count_label := UiTheme.lbl("1 / 8", 22, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER)
-	var ready_label := UiTheme.lbl("빈 자리는 시작 시 CPU가 채웁니다", 13, UiTheme.GREEN, HORIZONTAL_ALIGNMENT_CENTER)
+	var ready_label := UiTheme.lbl(tr("ROOM_EMPTY_HINT"), 13, UiTheme.GREEN, HORIZONTAL_ALIGNMENT_CENTER)
 	var bot := Panel.new()
 	bot.custom_minimum_size = Vector2(200, 52)
 	bot.add_theme_stylebox_override("panel", UiTheme.card_box())
 	var bot_row := HBoxContainer.new()
 	bot_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
-	bot_row.add_child(UiTheme.lbl("CPU  자동 참여", 16, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER))
+	bot_row.add_child(UiTheme.lbl(tr("ROOM_CPU_AUTO"), 16, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER))
 	bot.add_child(bot_row)
 	center_box.add_child(count_label)
 	center_box.add_child(ready_label)
@@ -85,10 +85,10 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	footer.add_child(chat_refs["root"])
 	var start_box := VBoxContainer.new()
 	start_box.add_theme_constant_override("separation", 6)
-	var start_button := UiTheme.btn("게임 시작", UiTheme.BLUE, Vector2(280, 72))
+	var start_button := UiTheme.btn(tr("ROOM_START_GAME"), UiTheme.BLUE, Vector2(280, 72))
 	start_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	start_button.pressed.connect(callbacks["on_start"])
-	var start_hint := UiTheme.lbl("호스트가 시작하면 출발합니다", 14, UiTheme.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	var start_hint := UiTheme.lbl(tr("ROOM_HOST_HINT"), 14, UiTheme.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	start_hint.visible = false
 	start_box.add_child(start_button)
 	start_box.add_child(start_hint)
@@ -114,7 +114,7 @@ static func _build_chat() -> Dictionary:
 	panel.add_theme_stylebox_override("panel", UiTheme.card_box())
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
-	col.add_child(UiTheme.lbl("채팅", 14, UiTheme.INK))
+	col.add_child(UiTheme.lbl(tr("ROOM_CHAT"), 14, UiTheme.INK))
 	var chat_log := RichTextLabel.new()
 	chat_log.bbcode_enabled = true
 	chat_log.fit_content = true
@@ -124,10 +124,10 @@ static func _build_chat() -> Dictionary:
 	col.add_child(chat_log)
 	var row := HBoxContainer.new()
 	var edit := LineEdit.new()
-	edit.placeholder_text = "메시지를 입력하세요..."
+	edit.placeholder_text = tr("ROOM_CHAT_PLACEHOLDER")
 	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var send := Button.new()
-	send.text = "전송"
+	send.text = tr("ROOM_CHAT_SEND")
 	row.add_child(edit)
 	row.add_child(send)
 	col.add_child(row)
@@ -141,8 +141,8 @@ static func _build_tip() -> Control:
 	panel.add_theme_stylebox_override("panel", UiTheme.card_box())
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
-	col.add_child(UiTheme.lbl("참고", 14, UiTheme.INK))
-	var tip := UiTheme.lbl("안전 구역은 시간이 지날수록 줄어듭니다. 마지막까지 생존하세요!", 14, UiTheme.MUTED)
+	col.add_child(UiTheme.lbl(tr("ROOM_NOTE"), 14, UiTheme.INK))
+	var tip := UiTheme.lbl(tr("ROOM_TIP"), 14, UiTheme.MUTED)
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(tip)
 	panel.add_child(col)
@@ -182,7 +182,7 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	nick.name = "Nick"
 	row.add_child(badge)
 	row.add_child(nick)
-	var ready := UiTheme.lbl("준비 완료", 13, UiTheme.GREEN)
+	var ready := UiTheme.lbl(tr("ROOM_READY"), 13, UiTheme.GREEN)
 	ready.name = "Ready"
 	var portrait := _animal_portrait(index)
 	var art: Control
@@ -199,7 +199,7 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	art.name = "Art"
 	var kick := Button.new()
 	kick.name = "Kick"
-	kick.text = "내보내기"
+	kick.text = tr("ROOM_KICK")
 	kick.visible = false
 	kick.custom_minimum_size = Vector2(0, 26)
 	kick.add_theme_font_size_override("font_size", 12)

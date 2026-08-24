@@ -131,6 +131,10 @@ static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, acc
 	if icon_tex != null:
 		canvas.draw_texture_rect(icon_tex, Rect2(c - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), false)
 		return
+	if not _draw_stat_glyph(canvas, c, buff_id, accent):
+		_draw_effect_glyph(canvas, c, buff_id, accent)
+
+static func _draw_stat_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color) -> bool:
 	match buff_id:
 		"atk":
 			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(7.0, 8.0), c + Vector2(-7.0, 8.0)]), accent)
@@ -161,6 +165,12 @@ static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, acc
 		"turtle":
 			canvas.draw_circle(c, 9.0, accent)
 			canvas.draw_arc(c, 6.0, 0.4, PI + 0.4, 12, Color(0.02, 0.03, 0.05, 0.85), 2.0)
+		_:
+			return false
+	return true
+
+static func _draw_effect_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color) -> void:
+	match buff_id:
 		"dmg_orb":
 			canvas.draw_circle(c, 9.0, accent)
 			canvas.draw_circle(c, 4.0, Color.WHITE)

@@ -25,7 +25,7 @@ static func build(hud_node: Node, on_exit: Callable, on_rematch: Callable) -> Di
 	layer.name = "TouchMenu"
 	layer.layer = 3
 	hud_node.add_child(layer)
-	var exit_btn := make_button("나가기", Color("3D4654"))
+	var exit_btn := make_button("나가기", UiTheme.BTN_DARK)
 	exit_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	exit_btn.offset_left = -120
 	exit_btn.offset_right = -16
@@ -33,7 +33,7 @@ static func build(hud_node: Node, on_exit: Callable, on_rematch: Callable) -> Di
 	exit_btn.offset_bottom = 58
 	exit_btn.pressed.connect(on_exit)
 	layer.add_child(exit_btn)
-	var rematch_btn := make_button("재경기", Color("2F6BFF"))
+	var rematch_btn := make_button("재경기", UiTheme.BLUE)
 	rematch_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	rematch_btn.offset_left = -110
 	rematch_btn.offset_right = 110

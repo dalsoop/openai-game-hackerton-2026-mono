@@ -9,19 +9,19 @@ const LINE := Color("E4DDD2")
 const BLUE := Color("2F6BFF")
 const GREEN := Color("1F9D55")
 const SLOT_COUNT := 8
-const ANIMALS := ["토끼", "쥐", "호랑이", "황소", "용", "말", "닭", "돼지"]
+static var ANIMALS := [tr("THEME_ANIMAL_RABBIT"), tr("THEME_ANIMAL_RAT"), tr("THEME_ANIMAL_TIGER"), tr("THEME_ANIMAL_OX"), tr("THEME_ANIMAL_DRAGON"), tr("THEME_ANIMAL_HORSE"), tr("THEME_ANIMAL_ROOSTER"), tr("THEME_ANIMAL_PIG")]
 const LOBBY_ANIMAL_FRAME := [3, 0, 2, 1, 5, 6, 9, 11]
-const NICKS := ["토토", "찍찍", "호랑", "황소", "용용", "말말", "꼬끼오", "꿀꿀"]
+static var NICKS := [tr("THEME_NICK_RABBIT"), tr("THEME_NICK_RAT"), tr("THEME_NICK_TIGER"), tr("THEME_NICK_OX"), tr("THEME_NICK_DRAGON"), tr("THEME_NICK_HORSE"), tr("THEME_NICK_ROOSTER"), tr("THEME_NICK_PIG")]
 const SLOT_COLORS := [
 	Color("5bc0eb"), Color("9bc53d"), Color("e55934"), Color("fa7921"),
 	Color("b084cc"), Color("70e7ff"), Color("ffd166"), Color("ff8dac")
 ]
-const MODES := [
-	{"id":"classic", "title":"클래식", "desc":"시작부터 각자 다른 총. 필드 힐만.", "art":"mode_classic.png"},
-	{"id":"gun-semi", "title":"단발", "desc":"모두 단발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_semi.png"},
-	{"id":"gun-auto", "title":"연발", "desc":"모두 연발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_auto.png"},
-	{"id":"item", "title":"아이템", "desc":"같은 총 고정. 액티브 하나. E 사용. 사망 시 드롭.", "art":"mode_item.png"},
-	{"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
+static var MODES := [
+	{"id":"classic", "title":tr("MODE_CLASSIC_TITLE"), "desc":tr("MODE_CLASSIC_DESC"), "art":"mode_classic.png"},
+	{"id":"gun-semi", "title":tr("MODE_SEMI_TITLE"), "desc":tr("MODE_SEMI_DESC"), "art":"mode_gun_semi.png"},
+	{"id":"gun-auto", "title":tr("MODE_AUTO_TITLE"), "desc":tr("MODE_AUTO_DESC"), "art":"mode_gun_auto.png"},
+	{"id":"item", "title":tr("MODE_ITEM_TITLE"), "desc":tr("MODE_ITEM_DESC"), "art":"mode_item.png"},
+	{"id":"full", "title":tr("MODE_FULL_TITLE"), "desc":tr("MODE_FULL_DESC"), "art":"mode_full.png"},
 ]
 
 static func full(node: Control) -> Control:

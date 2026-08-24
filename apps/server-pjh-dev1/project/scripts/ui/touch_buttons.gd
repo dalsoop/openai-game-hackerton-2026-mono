@@ -25,7 +25,7 @@ static func build(hud_node: Node, on_exit: Callable, on_rematch: Callable) -> Di
 	layer.name = "TouchMenu"
 	layer.layer = 3
 	hud_node.add_child(layer)
-	var exit_btn := make_button("나가기", Color("3D4654"))
+	var exit_btn := make_button(tr("TOUCH_EXIT"), Color("3D4654"))
 	exit_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	exit_btn.offset_left = -120
 	exit_btn.offset_right = -16
@@ -33,7 +33,7 @@ static func build(hud_node: Node, on_exit: Callable, on_rematch: Callable) -> Di
 	exit_btn.offset_bottom = 58
 	exit_btn.pressed.connect(on_exit)
 	layer.add_child(exit_btn)
-	var rematch_btn := make_button("재경기", Color("2F6BFF"))
+	var rematch_btn := make_button(tr("TOUCH_REMATCH"), Color("2F6BFF"))
 	rematch_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	rematch_btn.offset_left = -110
 	rematch_btn.offset_right = 110
@@ -50,7 +50,7 @@ static func sync(exit_btn: Button, rematch_btn: Button, touch, phase: StringName
 	var touch_on: bool = touch != null and touch.has_method("is_enabled") and bool(touch.is_enabled())
 	var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
 	exit_btn.visible = playing and (touch_on or finished)
-	exit_btn.text = "대기실로" if finished else "나가기"
+	exit_btn.text = tr("TOUCH_TO_LOBBY") if finished else tr("TOUCH_EXIT")
 	rematch_btn.visible = playing and finished and not net_active
 	if touch != null and touch.has_method("set_playing"):
 		touch.set_playing(playing and not finished)

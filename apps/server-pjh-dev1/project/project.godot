@@ -18,6 +18,7 @@ theme/custom_font="res://assets/fonts/GmarketSansMedium.otf"
 [internationalization]
 
 locale/include_text_server_data=true
+locale/translations=PackedStringArray("res://locale/ko.csv")
 
 [display]
 

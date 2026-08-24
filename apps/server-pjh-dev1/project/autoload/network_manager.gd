@@ -26,7 +26,7 @@ const RETRY_BASE := 1.0
 const RETRY_MAX := 6.0
 const PING_EVERY := 2.0
 
-var player_name := "플레이어"
+var player_name := tr("NET_DEFAULT_PLAYER")
 var mode := "classic"
 var status := STATUS_OFFLINE
 var client_id := ""
@@ -329,10 +329,10 @@ func _on_msg(msg: Dictionary) -> void:
         "left":
             _give_up_seat()
         "kicked":
-            hub_error.emit(str(msg.get("msg", "방에서 내보내졌습니다.")))
+            hub_error.emit(str(msg.get("msg", tr("NET_KICKED"))))
             _give_up_seat()
         "dropped":
-            var drop_msg := str(msg.get("msg", "연결이 만료되었습니다"))
+            var drop_msg := str(msg.get("msg", tr("NET_DROPPED")))
             hub_error.emit(drop_msg)
             _give_up_seat()
             var fresh := str(msg.get("resume", ""))

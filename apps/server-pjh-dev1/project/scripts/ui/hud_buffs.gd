@@ -98,33 +98,33 @@ static func held_item_color(kind: String) -> Color:
 static func roulette_effect_line(buff_id: String, won: String) -> String:
 	match buff_id:
 		"atk":
-			return "이번 목숨 동안 공격력이 올라갑니다"
+			return tr("BUFF_ATTACK_UP")
 		"spd":
-			return "이번 목숨 동안 이동속도가 빨라집니다"
+			return tr("BUFF_SPEED_UP")
 		"def":
-			return "받는 피해가 줄어듭니다"
+			return tr("BUFF_DEFENSE")
 		"hp":
-			return "최대 체력과 현재 체력이 늘어납니다"
+			return tr("BUFF_MAX_HP")
 		"rate":
-			return "연사 속도가 빨라집니다"
+			return tr("BUFF_FIRE_RATE")
 		"range":
-			return "총알이 더 멀리 나갑니다"
+			return tr("BUFF_RANGE")
 		"giant":
-			return "몸이 커지고 공격과 이동이 세집니다"
+			return tr("BUFF_GROW")
 		"double_giant":
-			return "더 크게 변하고 능력치가 크게 오릅니다"
+			return tr("BUFF_MEGA_GROW")
 		"shield":
-			return "잠시 보호막이 생깁니다"
+			return tr("BUFF_SHIELD")
 		"berserk":
-			return "공격과 연사가 잠깐 폭주합니다"
+			return tr("BUFF_BERSERK")
 		"sniper":
-			return "사거리가 늘어나고 한 방이 세집니다"
+			return tr("BUFF_SNIPER")
 		"turtle":
-			return "2초 동안 공격과 대시를 쓸 수 없습니다"
+			return tr("BUFF_STUN")
 		_:
 			if won != "":
 				return won
-			return "효과를 얻었습니다"
+			return tr("BUFF_DEFAULT")
 
 static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color, roulette_icons: Dictionary) -> void:
 	var icon_tex: Texture2D = roulette_icons.get(buff_id) as Texture2D

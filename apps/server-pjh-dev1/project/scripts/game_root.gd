@@ -13,15 +13,13 @@ var world
 var hub: Node  # → NetworkManager autoload
 var _host_ctrl: NetworkHost = null
 var _sfx: SfxManager = null
-var previous_keys: Dictionary = {}
+var _input: PlayerInput = null
+var _spectator: Spectator = null
+var _match_cam: MatchCamera = null
 var seed: int = 2222
 var last_event_id: int = 0
 var hit_pause_frames: int = 0
-var spectate_slot: int = 0
 var hud_mode: int = 0
-var previous_right_mouse: bool = false
-var previous_left_mouse: bool = false
-var phase: StringName = &"select"
 var touch: CanvasLayer = null
 var _net_banner: Label = null
 var _touch_exit: Button = null
@@ -31,6 +29,8 @@ func _ready() -> void:
 	_sfx = SfxManager.new()
 	_sfx.setup(self)
 	_attach_touch()
+	_input = PlayerInput.new(touch)
+	_spectator = Spectator.new()
 	_build_touch_buttons()
 	hub = get_node("/root/NetworkManager")
 	screens.bind_hub(hub)
@@ -39,9 +39,10 @@ func _ready() -> void:
 	hub.snapshot_received.connect(_on_net_snapshot)
 	hub.status_changed.connect(_on_hub_status)
 	_restart()
-	camera.position = _camera_target()
+	_match_cam = MatchCamera.new(camera)
+	camera.position = _match_cam.target(world, _spectator.slot, _spectator.is_valid.bind(world))
 	screens.start_match.connect(_on_start_match)
-	screens.request_resume.connect(func(): _set_phase(&"play"))
+	screens.request_resume.connect(func(): _set_phase(GameState.State.PLAYING))
 	screens.request_quit_to_intro.connect(func(): _return_to_hub())
 	screens.control_mode_changed.connect(_apply_control_mode)
 	_apply_control_mode(screens.control_mode)
@@ -52,9 +53,8 @@ func _ready() -> void:
 		hud.visible = false
 		hub.left_room.connect(func(): _return_to_hub())
 		hub.hub_error.connect(func(_msg: String): _return_to_hub())
-		hub.joined_room.connect(func(_r, _p, _y): pass)
 	else:
-		_set_phase(&"lobby")
+		_set_phase(GameState.State.LOBBY)
 
 # --- Touch controls ---
 
@@ -77,7 +77,7 @@ func _apply_control_mode(mode: String) -> void:
 	_sync_touch_buttons()
 
 func _build_touch_buttons() -> void:
-	var refs := TouchButtons.build($HUD, func(): _set_phase(&"wait"), func():
+	var refs := TouchButtons.build($HUD, func(): _set_phase(GameState.State.ROOM_WAIT), func():
 		seed += 1
 		_restart()
 	)
@@ -86,7 +86,16 @@ func _build_touch_buttons() -> void:
 	_sync_touch_buttons()
 
 func _sync_touch_buttons() -> void:
-	TouchButtons.sync(_touch_exit, _touch_rematch, touch, phase, world, GameState.net_active)
+	var phase_name := _phase_name()
+	TouchButtons.sync(_touch_exit, _touch_rematch, touch, phase_name, world, GameState.net_active)
+
+## Map GameState enum back to the StringName TouchButtons expects.
+func _phase_name() -> StringName:
+	match GameState.current_state:
+		GameState.State.LOBBY: return &"lobby"
+		GameState.State.ROOM_WAIT: return &"wait"
+		GameState.State.PLAYING: return &"play"
+		_: return &"select"
 
 # --- Phase management ---
 
@@ -94,7 +103,7 @@ func _on_start_match() -> void:
 	GameState.net_active = false
 	seed += 1
 	_restart()
-	_set_phase(&"play")
+	_set_phase(GameState.State.PLAYING)
 
 func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_active = true
@@ -126,15 +135,15 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	world_view.world = world
 	hud.world = world
 	hud.mode_id = str(room.get("mode", screens.selected_mode))
-	spectate_slot = you
-	hud.spectate_slot = spectate_slot
+	_spectator.slot = you
+	hud.spectate_slot = _spectator.slot
 	hud.hud_mode = hud_mode
 	last_event_id = 0
 	hit_pause_frames = 0
-	previous_right_mouse = false
-	previous_left_mouse = false
-	camera.position = _camera_target()
-	_set_phase(&"play")
+	_input.previous_right_mouse = false
+	_input.previous_left_mouse = false
+	camera.position = _match_cam.target(world, _spectator.slot, _spectator.is_valid.bind(world))
+	_set_phase(GameState.State.PLAYING)
 
 func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
 	GameState.net_active = true
@@ -142,41 +151,41 @@ func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void
 		_on_net_match_started(you, room)
 	else:
 		world.local_slot = you
-		spectate_slot = you
-		hud.spectate_slot = spectate_slot
+		_spectator.slot = you
+		hud.spectate_slot = _spectator.slot
 	if not snap.is_empty() and world != null and bool(world.get("is_net")):
 		world.push_snap(snap)
 		world.present(0.0)
-	_set_phase(&"play")
+	_set_phase(GameState.State.PLAYING)
 
 func _on_net_snapshot(snap: Dictionary) -> void:
 	if GameState.net_active and world != null and bool(world.get("is_net")):
 		world.push_snap(snap)
 
 func _on_hub_status(next_status: String) -> void:
-	if next_status == "다시 연결 중":
-		_set_net_banner("연결이 끊겼습니다. 같은 자리로 다시 붙는 중입니다.")
+	if next_status == NetworkManager.STATUS_RECONNECTING:
+		_set_net_banner(tr("GAME_RECONNECTING"))
 		return
 	_set_net_banner("")
-	if next_status != "끊김" and next_status != "오프라인 로컬":
+	if next_status != NetworkManager.STATUS_CLOSED and next_status != NetworkManager.STATUS_OFFLINE:
 		return
 	if GameState.hub_launched:
 		_return_to_hub()
 		return
 	if GameState.net_active:
 		GameState.net_active = false
-		if phase == &"play":
+		if GameState.is_state(GameState.State.PLAYING):
 			_return_to_hub()
 
 func _return_to_hub() -> void:
 	if GameState.hub_launched and OS.has_feature("web"):
 		JavaScriptBridge.eval("location.href='/gang-up/'")
 	else:
-		_set_phase(&"lobby")
+		_set_phase(GameState.State.LOBBY)
 
-func _set_phase(next: StringName) -> void:
-	phase = next
-	var playing := next == &"play"
+func _set_phase(next: GameState.State) -> void:
+	GameState.request(next)
+	var playing := next == GameState.State.PLAYING
 	world_view.visible = playing
 	hud.visible = playing
 	screens.visible = not playing
@@ -185,7 +194,7 @@ func _set_phase(next: StringName) -> void:
 	_sync_touch_buttons()
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
 	if not playing:
-		var page := next
+		var page := _phase_name()
 		if page == &"play" or page == &"select" or page == &"intro":
 			page = &"lobby"
 		screens.show_page(page)
@@ -227,64 +236,54 @@ func _restart() -> void:
 	world_view.world = world
 	hud.world = world
 	hud.mode_id = screens.selected_mode
-	spectate_slot = 0
-	hud.spectate_slot = spectate_slot
+	if _spectator != null:
+		_spectator.slot = 0
+	hud.spectate_slot = 0
 	hud.hud_mode = hud_mode
 	last_event_id = 0
 	hit_pause_frames = 0
-	previous_right_mouse = false
-	previous_left_mouse = false
+	if _input != null:
+		_input.previous_right_mouse = false
+		_input.previous_left_mouse = false
 
 # --- Physics process ---
 
 func _physics_process(_delta: float) -> void:
-	if phase != &"play":
-		if _edge(KEY_ESCAPE):
+	if not GameState.is_state(GameState.State.PLAYING):
+		if _input.edge(KEY_ESCAPE):
 			if screens.page == &"wait":
 				_escape_wait()
 			else:
 				screens.pop_page()
 		return
-	if _edge(KEY_ESCAPE):
+	if _input.edge(KEY_ESCAPE):
 		if world != null and bool(world.finish_cine.get("on", false)):
 			world.finish_cine = {}
 			return
-		_set_phase(&"wait")
+		_set_phase(GameState.State.ROOM_WAIT)
 		return
 	if not GameState.net_active and world != null and world.result != &"playing":
-		if _edge(KEY_R):
+		if _input.edge(KEY_R):
 			seed += 1
 			_restart()
 			return
 	_sync_touch_buttons()
-	if _edge(KEY_F1):
+	if _input.edge(KEY_F1):
 		hud_mode = (hud_mode + 1) % 3
 		hud.hud_mode = hud_mode
 		hud.queue_redraw()
-	_update_spectator()
+	_spectator.update(world, _input)
 	if hit_pause_frames > 0:
 		hit_pause_frames -= 1
 		world_view.queue_redraw()
 		hud.queue_redraw()
 		return
-	var keyboard_move := Vector2(
-		float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
-		float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
-	)
-	if keyboard_move.length_squared() > 1.0:
-		keyboard_move = keyboard_move.normalized()
-	var move := keyboard_move
-	if touch != null and keyboard_move.length() <= 0.1:
-		move = touch.move
-	var aim_world := get_viewport().get_canvas_transform().affine_inverse() * get_viewport().get_mouse_position()
-	if touch != null and touch.aiming:
-		aim_world = _local_player_pos() + touch.aim_dir * 400.0
-	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
-	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
+	var move := _input.read_move()
+	var aim_world := _input.read_aim(get_viewport(), _local_player_pos())
+	var primary := _input.read_primary()
+	var equipment_held := _input.read_equipment()
 	if GameState.net_active and GameState.net_host:
-		var command := _build_command(move, aim_world, primary, equipment_held)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
+		var command := _input.build_command(move, aim_world, primary, equipment_held)
 		world.step_tick(command, 1.0 / 60.0)
 		if _host_ctrl != null:
 			_host_ctrl.tick(1.0 / 60.0)
@@ -292,23 +291,21 @@ func _physics_process(_delta: float) -> void:
 		hud.net_connected = bool(hub.is_open())
 		_apply_recoil_mouse()
 	elif GameState.net_active:
-		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
-		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
+		var dash_held := _input.read_dash()
+		var use_held := _input.read_use()
 		world.present(1.0 / 60.0)
 		hud.net_rtt_ms = int(hub.rtt_ms)
 		hud.net_connected = bool(hub.is_open())
 		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
 		hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
-		previous_right_mouse = equipment_held
+		_input.previous_right_mouse = equipment_held
 	else:
-		var command := _build_command(move, aim_world, primary, equipment_held)
+		var command := _input.build_command(move, aim_world, primary, equipment_held)
 		if not GameState.net_active and world != null:
-			if _edge(KEY_BRACKETLEFT):
+			if _input.edge(KEY_BRACKETLEFT):
 				world.cycle_local_animal(-1)
-			if _edge(KEY_BRACKETRIGHT):
+			if _input.edge(KEY_BRACKETRIGHT):
 				world.cycle_local_animal(1)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
 		world.step_tick(command, 1.0 / 60.0)
 		_apply_recoil_mouse()
 	# SFX
@@ -316,59 +313,13 @@ func _physics_process(_delta: float) -> void:
 	last_event_id = sfx_result["last_event_id"]
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
 	# Camera
-	_update_spectator()
-	var shake := _compute_shake()
-	var zoom_target := _camera_zoom_target()
-	camera.zoom = camera.zoom.lerp(Vector2.ONE * zoom_target, 0.065)
-	var camera_follow := 0.24 if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot else 0.42
-	camera.position = camera.position.lerp(_camera_target(), camera_follow) + shake
-	hud.spectate_slot = spectate_slot
+	_spectator.update(world, _input)
+	_match_cam.update(world, _spectator.slot, _spectator.is_valid.bind(world))
+	hud.spectate_slot = _spectator.slot
 	world_view.queue_redraw()
 	hud.queue_redraw()
 
 # --- Helpers ---
-
-func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool) -> Dictionary:
-	var ultimate_edge := _edge(KEY_Q)
-	var mobility_edge := _edge(KEY_SHIFT)
-	var hop_edge := _edge(KEY_SPACE)
-	var medkit_edge := _edge(KEY_E)
-	var reload_edge := _edge(KEY_R)
-	if touch != null:
-		ultimate_edge = touch.consume_ult() or ultimate_edge
-		mobility_edge = touch.consume_dash() or mobility_edge
-		medkit_edge = touch.consume_medkit() or medkit_edge
-	return {
-		"move": move, "aim": aim,
-		"primary": primary,
-		"primary_pressed": primary and not previous_left_mouse,
-		"equipment": equipment_held,
-		"equipment_pressed": equipment_held and not previous_right_mouse,
-		"equipment_released": not equipment_held and previous_right_mouse,
-		"ultimate": ultimate_edge, "mobility": mobility_edge,
-		"hop": hop_edge, "medkit": medkit_edge,
-		"reload": reload_edge, "finish": _edge(KEY_F)
-	}
-
-func _compute_shake() -> Vector2:
-	var shake := Vector2.ZERO
-	if int(world.get("local_hit_shake")) > 0:
-		var hit_n: int = int(world.local_hit_shake)
-		shake = Vector2(sin(float(world.tick) * 5.2), cos(float(world.tick) * 7.1)) * (8.2 + float(hit_n) * 1.05)
-	var fire_n: int = int(world.local_fire_shake)
-	if fire_n > 0:
-		shake += Vector2(sin(float(world.tick) * 11.0), cos(float(world.tick) * 13.4)) * (5.5 + float(fire_n) * 0.95)
-	elif world.impact_ticks > 0:
-		var impact_distance := _camera_target().distance_to(Vector2(world.impact_pos))
-		var attenuation := 1.0 - clampf(impact_distance / 900.0, 0.0, 0.90)
-		shake = Vector2(sin(float(world.tick) * 2.8), cos(float(world.tick) * 4.1)) * (2.0 + world.impact_ticks * 0.4) * attenuation
-	return shake
-
-func _edge(keycode: int) -> bool:
-	var now := Input.is_key_pressed(keycode) or Input.is_physical_key_pressed(keycode)
-	var was := bool(previous_keys.get(keycode, false))
-	previous_keys[keycode] = now
-	return now and not was
 
 func _local_player_pos() -> Vector2:
 	if world == null or world.heroes.is_empty():
@@ -398,88 +349,3 @@ func _apply_recoil_mouse() -> void:
 	next.x = clampf(next.x, 10.0, rect.size.x - 10.0)
 	next.y = clampf(next.y, 10.0, rect.size.y - 10.0)
 	vp.warp_mouse(next)
-
-# --- Spectator ---
-
-func _spectator_valid(slot: int) -> bool:
-	return slot >= 0 and slot != world.local_slot and slot < world.heroes.size() and bool(world.heroes[slot]["alive"]) and not bool(world.heroes[slot]["eliminated"])
-
-func _best_spectator() -> int:
-	var best := -1
-	var best_score := -1.0
-	for slot in range(world.heroes.size()):
-		if _spectator_valid(slot) and float(world.heroes[slot]["score"]) > best_score:
-			best = slot
-			best_score = float(world.heroes[slot]["score"])
-	return best
-
-func _cycle_spectator(direction: int) -> void:
-	var current: int = spectate_slot if spectate_slot >= 0 else world.local_slot
-	for offset in range(1, world.heroes.size() + 1):
-		var candidate := posmod(current + direction * offset, world.heroes.size())
-		if _spectator_valid(candidate):
-			spectate_slot = candidate
-			return
-
-func _update_spectator() -> void:
-	if world == null or world.heroes.is_empty():
-		return
-	var me_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
-	if not bool(world.heroes[me_slot]["eliminated"]):
-		spectate_slot = world.local_slot
-		return
-	if not _spectator_valid(spectate_slot):
-		spectate_slot = _best_spectator()
-	if _edge(KEY_A):
-		_cycle_spectator(-1)
-	if _edge(KEY_D) or _edge(KEY_TAB):
-		_cycle_spectator(1)
-	if _edge(KEY_SPACE):
-		spectate_slot = _best_spectator()
-
-# --- Camera ---
-
-func _camera_zoom_target() -> float:
-	if world == null or world.heroes.is_empty():
-		return 1.38
-	if world.result != &"playing" and world.winner_slot >= 0:
-		return 1.52
-	if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot:
-		return 1.48
-	var me_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
-	if not bool(world.heroes[me_slot]["alive"]):
-		return 1.18
-	var focus_pos: Vector2 = world.heroes[me_slot]["pos"]
-	var nearby := 0
-	for hero in world.heroes:
-		if bool(hero["alive"]) and Vector2(hero["pos"]).distance_to(focus_pos) < 470.0:
-			nearby += 1
-	if nearby >= 4:
-		return 1.20
-	if nearby >= 2:
-		return 1.28
-	return 1.38
-
-func _camera_target() -> Vector2:
-	if world == null:
-		return Vector2(3920.0, 2380.0)
-	if world.heroes.is_empty():
-		return Vector2(world.ARENA_CENTER)
-	var focus_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
-	if world.result != &"playing" and world.winner_slot >= 0:
-		focus_slot = world.winner_slot
-	elif world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot:
-		focus_slot = world.local_slot
-	elif bool(world.heroes[focus_slot]["eliminated"]) and _spectator_valid(spectate_slot):
-		focus_slot = spectate_slot
-	var focus: Dictionary = world.heroes[focus_slot]
-	var cinematic: bool = (world.ultimate_focus_time > 0.0 and focus_slot == world.ultimate_focus_slot) or (world.result != &"playing" and focus_slot == world.winner_slot)
-	var look_ahead := Vector2(focus["aim"]) * (52.0 if cinematic else (85.0 if focus_slot != world.local_slot else 135.0))
-	look_ahead += Vector2(focus["vel"]) * 0.16
-	look_ahead.y = maxf(look_ahead.y, -28.0)
-	var zoom_value := maxf(1.10, camera.zoom.x)
-	var hud_reserve := 150.0 / zoom_value
-	var desired := Vector2(focus["pos"]) + look_ahead + Vector2(0.0, hud_reserve * 0.45)
-	var half_view := Vector2(800.0, 450.0) / zoom_value
-	var min_y := half_view.y + hud_reserve * 0.15
-	return Vector2(clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x), clampf(desired.y, min_y, world.ARENA_SIZE.y - half_view.y))

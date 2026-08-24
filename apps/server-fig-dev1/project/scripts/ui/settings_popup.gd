@@ -3,6 +3,24 @@ extends RefCounted
 
 static func build(close_callback: Callable, quit_callback: Callable, control_mode: String, sound_on: bool, on_mode_changed: Callable, on_sound_changed: Callable) -> Dictionary:
 	var root := UiTheme.full(Control.new())
+	_add_dim(root, close_callback)
+	var panel := _make_panel()
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
+	col.add_theme_constant_override("separation", 12)
+	col.add_child(UiTheme.lbl("설정", 24, UiTheme.INK))
+	var mode_refs := _build_mode_section(col, on_mode_changed)
+	var sound_check := _build_sound_section(col, sound_on, on_sound_changed)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(spacer)
+	_build_actions(col, close_callback, quit_callback)
+	panel.add_child(col)
+	root.add_child(panel)
+	_sync_initial(mode_refs["buttons"], control_mode, mode_refs["desc"])
+	return {"root": root, "mode_buttons": mode_refs["buttons"], "mode_desc": mode_refs["desc"], "sound_check": sound_check}
+
+static func _add_dim(root: Control, close_callback: Callable) -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.28)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -11,6 +29,8 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 			close_callback.call()
 	)
 	root.add_child(dim)
+
+static func _make_panel() -> Panel:
 	var panel := Panel.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.offset_left = -270
@@ -18,10 +38,9 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	panel.offset_top = -165
 	panel.offset_bottom = 165
 	panel.add_theme_stylebox_override("panel", UiTheme.card_box())
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
-	col.add_theme_constant_override("separation", 12)
-	col.add_child(UiTheme.lbl("설정", 24, UiTheme.INK))
+	return panel
+
+static func _build_mode_section(col: VBoxContainer, on_mode_changed: Callable) -> Dictionary:
 	col.add_child(UiTheme.lbl("조작 방식", 15, UiTheme.INK))
 	var mode_row := HBoxContainer.new()
 	mode_row.add_theme_constant_override("separation", 8)
@@ -37,6 +56,9 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	var mode_desc := UiTheme.lbl("", 13, UiTheme.MUTED)
 	mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(mode_desc)
+	return {"buttons": mode_buttons, "desc": mode_desc}
+
+static func _build_sound_section(col: VBoxContainer, sound_on: bool, on_sound_changed: Callable) -> CheckButton:
 	col.add_child(UiTheme.lbl("소리", 15, UiTheme.INK))
 	var sound_check := CheckButton.new()
 	sound_check.text = "효과음 켜기"
@@ -45,25 +67,21 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	sound_check.button_pressed = sound_on
 	sound_check.toggled.connect(func(on): on_sound_changed.call(on))
 	col.add_child(sound_check)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(spacer)
+	return sound_check
+
+static func _build_actions(col: VBoxContainer, close_callback: Callable, quit_callback: Callable) -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
-	var back := UiTheme.btn("닫기", Color("3D4654"), Vector2(160, 44))
+	var back := UiTheme.btn("닫기", UiTheme.BTN_DARK, Vector2(160, 44))
 	back.pressed.connect(close_callback)
-	var intro := UiTheme.btn("로비로 나가기", Color("8A93A3"), Vector2(160, 44))
+	var intro := UiTheme.btn("로비로 나가기", UiTheme.BTN_MUTED, Vector2(160, 44))
 	intro.pressed.connect(quit_callback)
 	actions.add_child(back)
 	actions.add_child(intro)
 	col.add_child(actions)
-	panel.add_child(col)
-	root.add_child(panel)
 
-	# Sync initial state
+static func _sync_initial(mode_buttons: Dictionary, control_mode: String, mode_desc: Label) -> void:
 	for m in mode_buttons.keys():
 		var b: Button = mode_buttons[m]
 		b.set_pressed_no_signal(m == control_mode)
 	mode_desc.text = SettingsStore.mode_desc(control_mode)
-
-	return {"root": root, "mode_buttons": mode_buttons, "mode_desc": mode_desc, "sound_check": sound_check}

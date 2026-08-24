@@ -110,10 +110,11 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 		host_world.reset()
 		for p in hub.players:
 			var s := int(p.get("slot", -1))
-			if s >= 0 and not bool(p.get("dropped", false)):
-				host_world.human_slots[s] = true
-				if s < host_world.heroes.size():
-					host_world.heroes[s]["display_name"] = str(p.get("name", ""))
+			if s < 0 or bool(p.get("dropped", false)):
+				continue
+			host_world.human_slots[s] = true
+			if s < host_world.heroes.size():
+				host_world.heroes[s]["display_name"] = str(p.get("name", ""))
 		world = host_world
 		_host_ctrl = NetworkHost.new(hub, world)
 		_host_ctrl.connect_signals()
@@ -197,7 +198,7 @@ func _set_net_banner(text: String) -> void:
 		_net_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_net_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_net_banner.add_theme_font_size_override("font_size", 20)
-		_net_banner.add_theme_color_override("font_color", Color("FFF6E5"))
+		_net_banner.add_theme_color_override("font_color", UiTheme.BANNER_TEXT)
 		var wrap := Panel.new()
 		wrap.name = "NetBannerWrap"
 		wrap.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -281,36 +282,7 @@ func _physics_process(_delta: float) -> void:
 		aim_world = _local_player_pos() + touch.aim_dir * 400.0
 	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
 	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
-	if GameState.net_active and GameState.net_host:
-		var command := _build_command(move, aim_world, primary, equipment_held)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
-		world.step_tick(command, 1.0 / 60.0)
-		if _host_ctrl != null:
-			_host_ctrl.tick(1.0 / 60.0)
-		hud.net_rtt_ms = int(hub.rtt_ms)
-		hud.net_connected = bool(hub.is_open())
-		_apply_recoil_mouse()
-	elif GameState.net_active:
-		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
-		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
-		world.present(1.0 / 60.0)
-		hud.net_rtt_ms = int(hub.rtt_ms)
-		hud.net_connected = bool(hub.is_open())
-		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
-		hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
-		previous_right_mouse = equipment_held
-	else:
-		var command := _build_command(move, aim_world, primary, equipment_held)
-		if not GameState.net_active and world != null:
-			if _edge(KEY_BRACKETLEFT):
-				world.cycle_local_animal(-1)
-			if _edge(KEY_BRACKETRIGHT):
-				world.cycle_local_animal(1)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
-		world.step_tick(command, 1.0 / 60.0)
-		_apply_recoil_mouse()
+	_tick_world(move, aim_world, primary, equipment_held)
 	# SFX
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
 	last_event_id = sfx_result["last_event_id"]
@@ -325,6 +297,39 @@ func _physics_process(_delta: float) -> void:
 	hud.spectate_slot = spectate_slot
 	world_view.queue_redraw()
 	hud.queue_redraw()
+
+func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_held: bool) -> void:
+	if GameState.net_active and GameState.net_host:
+		var command := _build_command(move, aim_world, primary, equipment_held)
+		previous_right_mouse = equipment_held
+		previous_left_mouse = primary
+		world.step_tick(command, 1.0 / 60.0)
+		if _host_ctrl != null:
+			_host_ctrl.tick(1.0 / 60.0)
+		hud.net_rtt_ms = int(hub.rtt_ms)
+		hud.net_connected = bool(hub.is_open())
+		_apply_recoil_mouse()
+		return
+	if GameState.net_active:
+		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
+		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
+		world.present(1.0 / 60.0)
+		hud.net_rtt_ms = int(hub.rtt_ms)
+		hud.net_connected = bool(hub.is_open())
+		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
+		hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
+		previous_right_mouse = equipment_held
+		return
+	var command := _build_command(move, aim_world, primary, equipment_held)
+	if world != null:
+		if _edge(KEY_BRACKETLEFT):
+			world.cycle_local_animal(-1)
+		if _edge(KEY_BRACKETRIGHT):
+			world.cycle_local_animal(1)
+	previous_right_mouse = equipment_held
+	previous_left_mouse = primary
+	world.step_tick(command, 1.0 / 60.0)
+	_apply_recoil_mouse()
 
 # --- Helpers ---
 

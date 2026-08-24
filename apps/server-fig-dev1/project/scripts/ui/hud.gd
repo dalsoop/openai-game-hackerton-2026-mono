@@ -258,7 +258,7 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
     _text(rect.position + Vector2(10.0, 15.0), "약" if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
     _text(rect.position + Vector2(52.0, 55.0), "메드킷", 11, Color("#aebaca"))
 
-func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
+func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> void:
     var mobility_cd: float = float(me["mobility_cd"])
     var ready := mobility_cd <= 0.0
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
