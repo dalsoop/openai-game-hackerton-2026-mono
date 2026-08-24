@@ -37,8 +37,8 @@ static func _build_header(callbacks: Dictionary) -> Dictionary:
 	header.add_child(back)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_child(UiTheme.lbl("2 / 2  로비  >  방", 14, UiTheme.MUTED))
-	titles.add_child(UiTheme.lbl("멤버와 게임을 고르세요", 30, UiTheme.INK))
+	titles.add_child(UiTheme.lbl("대기실", 14, UiTheme.MUTED))
+	titles.add_child(UiTheme.lbl("멤버를 모으세요", 30, UiTheme.INK))
 	var wait_mode_label := UiTheme.lbl("", 15, UiTheme.MUTED)
 	titles.add_child(wait_mode_label)
 	header.add_child(titles)
@@ -50,28 +50,15 @@ static func _build_header(callbacks: Dictionary) -> Dictionary:
 	header.add_child(gear)
 	return {"node": header, "wait_mode_label": wait_mode_label}
 
-static func _build_mode_row(callbacks: Dictionary) -> Dictionary:
-	var mode_row := HBoxContainer.new()
-	mode_row.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	mode_row.offset_left = 36
-	mode_row.offset_right = -36
-	mode_row.offset_top = 96
-	mode_row.offset_bottom = 148
-	mode_row.add_theme_constant_override("separation", 8)
-	var wait_mode_buttons: Array[Button] = []
-	var wait_group := ButtonGroup.new()
-	for mode in UiTheme.MODES:
-		var chip := UiTheme.chip(str(mode["title"]), wait_group)
-		var mode_id := str(mode["id"])
-		chip.pressed.connect(func(): callbacks["on_mode"].call(mode_id))
-		wait_mode_buttons.append(chip)
-		mode_row.add_child(chip)
-	return {"node": mode_row, "buttons": wait_mode_buttons}
+static func _build_mode_row(_callbacks: Dictionary) -> Dictionary:
+	var mode_row := Control.new()
+	mode_row.visible = false
+	return {"node": mode_row, "buttons": [] as Array[Button]}
 
 static func _build_slots(callbacks: Dictionary) -> Control:
 	var slot_host := Control.new()
 	slot_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	slot_host.offset_top = 150
+	slot_host.offset_top = 96
 	slot_host.offset_bottom = -150
 	slot_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in UiTheme.SLOT_COUNT:

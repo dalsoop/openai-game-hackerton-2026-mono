@@ -44,6 +44,7 @@ var _settings_mode_buttons: Dictionary = {}
 var _settings_mode_desc: Label
 var _settings_sound: CheckButton
 var _pending_create := false
+var _intro_name_edit: LineEdit
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -56,8 +57,10 @@ func _ready() -> void:
 	AudioServer.set_bus_mute(0, not sound_on)
 	_build()
 	_sync_settings_ui()
-	_name_edit.text = "플레이어%02d" % (randi() % 90 + 10)
-	show_page(&"lobby")
+	var default_name := "플레이어%02d" % (randi() % 90 + 10)
+	_intro_name_edit.text = default_name
+	_name_edit.text = default_name
+	show_page(&"intro")
 
 func show_page(which: StringName) -> void:
 	page = which
@@ -82,7 +85,7 @@ func pop_page() -> void:
 		&"select":
 			show_page(&"lobby")
 		&"lobby":
-			return
+			show_page(&"intro")
 		&"wait":
 			if hub != null and hub.in_room:
 				hub.leave_room()
@@ -105,13 +108,74 @@ func _build() -> void:
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(bg)
 	_select = UiTheme.full(Control.new())
-	_intro = UiTheme.full(Control.new())
+	_intro = _build_intro()
 	_how = HowToPlayPopup.build(func(): pop_page())
 	_build_lobby()
 	_build_room()
 	_settings = _build_settings()
 	for node in [_select, _intro, _how, _lobby, _wait, _settings]:
 		add_child(node)
+
+func _build_intro() -> Control:
+	var root := UiTheme.full(Control.new())
+	var center := VBoxContainer.new()
+	center.set_anchors_and_offsets_preset(PRESET_CENTER)
+	center.offset_left = -220
+	center.offset_right = 220
+	center.offset_top = -200
+	center.offset_bottom = 200
+	center.add_theme_constant_override("separation", 16)
+	var title := UiTheme.lbl("다굴", 64, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER)
+	center.add_child(title)
+	var subtitle := UiTheme.lbl("8인 배틀로얄", 20, UiTheme.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	center.add_child(subtitle)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 24)
+	center.add_child(spacer)
+	center.add_child(UiTheme.lbl("닉네임", 15, UiTheme.INK))
+	_intro_name_edit = LineEdit.new()
+	_intro_name_edit.max_length = 12
+	_intro_name_edit.custom_minimum_size = Vector2(0, 48)
+	_intro_name_edit.placeholder_text = "이름을 입력하세요"
+	center.add_child(_intro_name_edit)
+	var spacer2 := Control.new()
+	spacer2.custom_minimum_size = Vector2(0, 12)
+	center.add_child(spacer2)
+	var play_btn := UiTheme.btn("바로 시작", UiTheme.BLUE, Vector2(0, 60))
+	play_btn.pressed.connect(_on_intro_play)
+	center.add_child(play_btn)
+	var find_btn := UiTheme.btn("방 찾기", UiTheme.GREEN, Vector2(0, 54))
+	find_btn.pressed.connect(_on_intro_find)
+	center.add_child(find_btn)
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 8)
+	var how_btn := UiTheme.btn("조작법", UiTheme.BTN_DARK, Vector2(0, 46))
+	how_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	how_btn.pressed.connect(func():
+		_how_return = &"intro"
+		show_page(&"how"))
+	btn_row.add_child(how_btn)
+	var rules_btn := UiTheme.btn("게임 규칙", UiTheme.BTN_MUTED, Vector2(0, 46))
+	rules_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rules_btn.pressed.connect(_show_rules_card)
+	btn_row.add_child(rules_btn)
+	center.add_child(btn_row)
+	root.add_child(center)
+	return root
+
+func _on_intro_play() -> void:
+	_sync_intro_name()
+	start_match.emit()
+
+func _on_intro_find() -> void:
+	_sync_intro_name()
+	show_page(&"lobby")
+
+func _sync_intro_name() -> void:
+	var name := _intro_name_edit.text.strip_edges()
+	if name != "":
+		_name_edit.text = name
+	_push_identity()
 
 func _build_lobby() -> void:
 	var lobby_refs = LobbyBuilder.build({
@@ -192,7 +256,7 @@ func _on_lobby_refresh() -> void:
 
 func _on_create_pressed() -> void:
 	if hub == null:
-		_lobby_error.text = "허브 클라이언트가 없습니다."
+		_lobby_error.text = "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
 		return
 	_push_identity()
 	if hub.is_open():
@@ -200,7 +264,7 @@ func _on_create_pressed() -> void:
 		hub.create_room()
 		return
 	_pending_create = true
-	_lobby_error.text = "허브에 연결하는 중입니다."
+	_lobby_error.text = "서버에 연결하는 중입니다."
 	if hub.status == "오프라인 로컬" or hub.status == "끊김":
 		hub.reconnect_now()
 	else:
@@ -212,7 +276,7 @@ func _rebuild_room_list() -> void:
 	for child in _room_list.get_children():
 		child.queue_free()
 	if hub == null or not hub.is_open():
-		_room_list.add_child(UiTheme.lbl("허브 연결을 기다리는 중입니다.", 15, UiTheme.MUTED))
+		_room_list.add_child(UiTheme.lbl("서버에 연결하는 중입니다.", 15, UiTheme.MUTED))
 		return
 	if hub.rooms.is_empty():
 		var empty := UiTheme.lbl("열린 방이 없습니다. 방을 만들어 시작하세요!", 16, UiTheme.MUTED)
@@ -297,7 +361,7 @@ func _try_pending_create(status: String) -> void:
 		return
 	_pending_create = false
 	if _lobby_error != null:
-		_lobby_error.text = "허브에 연결하지 못했습니다. 다시 연결을 눌러 주세요."
+		_lobby_error.text = "연결에 실패했습니다. 다시 연결을 눌러 주세요."
 
 func _on_hub_error(message: String) -> void:
 	if _lobby_error != null:
@@ -353,13 +417,13 @@ func _on_wait_mode_pressed(mode_id: String) -> void:
 	_sync_wait_modes()
 	_update_wait_mode_label(mode_id)
 
-func _update_wait_mode_label(mode_id: String) -> void:
+func _update_wait_mode_label(_mode_id: String) -> void:
 	if _wait_mode_label == null:
 		return
 	if hub != null and hub.in_room:
-		_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(mode_id)]
+		_wait_mode_label.text = "%s  |  최후의 1인이 승리합니다!" % str(hub.room.get("title", "방"))
 	else:
-		_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(mode_id)
+		_wait_mode_label.text = "오프라인 연습  |  최후의 1인이 승리합니다!"
 
 func _host_can_change_mode() -> bool:
 	if hub == null:
@@ -484,7 +548,7 @@ func _toggle_sound() -> void:
 func _quit_to_select() -> void:
 	if hub != null and hub.in_room:
 		hub.leave_room()
-	show_page(&"lobby")
+	show_page(&"intro")
 	request_quit_to_intro.emit()
 
 func _send_chat(text: String) -> void:
@@ -503,3 +567,54 @@ func _on_hub_chat(from_name: String, slot: int, text: String) -> void:
 	var mine: bool = hub != null and slot == hub.you
 	var shown := from_name + " (나)" if mine else from_name
 	_chat_log.append_text("[color=#%s][b]%s[/b][/color]: %s\n" % [color.to_html(false), shown, text.replace("[", "[lb]")])
+
+func _show_rules_card() -> void:
+	var popup := Control.new()
+	popup.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	popup.mouse_filter = MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.6)
+	dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	dim.mouse_filter = MOUSE_FILTER_STOP
+	popup.add_child(dim)
+	var card := Panel.new()
+	card.set_anchors_preset(PRESET_CENTER)
+	card.offset_left = -260
+	card.offset_right = 260
+	card.offset_top = -220
+	card.offset_bottom = 220
+	var sb := UiTheme.card_box()
+	sb.bg_color = UiTheme.CARD
+	card.add_theme_stylebox_override("panel", sb)
+	popup.add_child(card)
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	vbox.offset_left = 24
+	vbox.offset_right = -24
+	vbox.offset_top = 20
+	vbox.offset_bottom = -20
+	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_child(UiTheme.lbl("게임 규칙", 28, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER))
+	var rules := [
+		"목표: 8명 중 최후의 1인이 승리합니다",
+		"체력이 0이 되면 다운됩니다 (부활 3회)",
+		"적을 처치하면 킬 룰렛이 돌아갑니다 (버프 획득)",
+		"세이프존이 점점 좁아집니다 — 밖에 있으면 데미지!",
+		"75초에 중앙 타워가 등장합니다",
+		"WASD 이동 · 마우스 조준 · 좌클릭 공격",
+		"Shift 대시 · 우클릭(홀드) 장비 스킬",
+		"Q 궁극기 · E 아이템 사용 · R 장전",
+	]
+	for r in rules:
+		vbox.add_child(UiTheme.lbl(r, 16, UiTheme.INK))
+	card.add_child(vbox)
+	var close_btn := UiTheme.btn("닫기", UiTheme.BLUE, Vector2(120, 44))
+	close_btn.set_anchors_preset(PRESET_BOTTOM_RIGHT)
+	close_btn.offset_left = -140
+	close_btn.offset_top = -56
+	close_btn.offset_right = -20
+	close_btn.offset_bottom = -12
+	close_btn.pressed.connect(func(): popup.queue_free())
+	card.add_child(close_btn)
+	dim.gui_input.connect(func(_ev): popup.queue_free())
+	add_child(popup)

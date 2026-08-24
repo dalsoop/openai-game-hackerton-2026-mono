@@ -154,7 +154,7 @@ func update_projectiles(dt: float) -> void:
 				hit = true
 				break
 		if not hit:
-			if w.ult_animal.hit_snake_skin(owner, Vector2(p["pos"]), float(p["radius"]), float(p["damage"])):
+			if w.ult_summon.hit_snake_skin(owner, Vector2(p["pos"]), float(p["radius"]), float(p["damage"])):
 				hit = true
 		if not hit:
 			if w.ult_effect.hit_ult_clone(owner, Vector2(p["pos"]), float(p["radius"])):
@@ -195,7 +195,7 @@ func splash_damage(owner: int, center: Vector2, radius: float, damage: float, pr
 		if int(sk.get("owner", -1)) == owner:
 			continue
 		if center.distance_to(Vector2(sk.get("pos", Vector2.ZERO))) <= radius + w.HERO_RADIUS * float(sk.get("scale", 1.5)):
-			w.ult_animal.hurt_snake_skin(si, damage)
+			w.ult_summon.hurt_snake_skin(si, damage)
 
 func update_zones(dt: float) -> void:
 	var kept: Array[Dictionary] = []

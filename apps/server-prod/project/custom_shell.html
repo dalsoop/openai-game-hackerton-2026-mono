@@ -251,13 +251,25 @@ const engine = new Engine(GODOT_CONFIG);
 				if (current > 0 && total > 0) {
 					statusProgress.value = current;
 					statusProgress.max = total;
+					var sizeMB = (current / 1024 / 1024).toFixed(1);
+					var totalMB = (total / 1024 / 1024).toFixed(1);
+					var bootEm = document.querySelector('#boot-copy em');
+					if (bootEm) {
+						if (current >= total) {
+							bootEm.textContent = '게임을 준비하는 중입니다...';
+						} else {
+							bootEm.textContent = '다운로드 중 ' + sizeMB + ' / ' + totalMB + ' MB';
+						}
+					}
 				} else {
 					statusProgress.removeAttribute('value');
 					statusProgress.removeAttribute('max');
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			statusOverlay.style.transition = 'opacity 0.4s ease-out';
+			statusOverlay.style.opacity = '0';
+			setTimeout(() => setStatusMode('hidden'), 400);
 		}, displayFailureNotice);
 	}
 }());

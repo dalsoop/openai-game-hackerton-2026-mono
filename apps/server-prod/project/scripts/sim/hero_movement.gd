@@ -176,7 +176,7 @@ func move_heroes(dt: float) -> void:
 		var old_pos: Vector2 = h["pos"]
 		var motion: Vector2 = Vector2(h["vel"]) * dt
 		var pos = w.arena.resolve_cover_motion(old_pos, motion)
-		var wall_hit = w.act_item.deployable_wall_hit(i, old_pos, pos)
+		var wall_hit = w.deploy.deployable_wall_hit(i, old_pos, pos)
 		if not wall_hit.is_empty():
 			h["pos"] = old_pos
 			w.heroes[i] = h
@@ -185,7 +185,7 @@ func move_heroes(dt: float) -> void:
 			var bounced: Dictionary = w.heroes[i]
 			bounced["wall_hit_cd"] = 0.78
 			w.heroes[i] = bounced
-			w.act_item.mark_wall_hit(int(wall_hit["id"]), i)
+			w.deploy.mark_wall_hit(int(wall_hit["id"]), i)
 			w.proj.add_effect(&"wall_impact", Vector2(wall_hit["pos"]), 102.0, 0.30, Color("#8de1ff"), "SLAM", wall_normal)
 			continue
 		pos.x = clampf(pos.x, w.ARENA_MARGIN + w.HERO_RADIUS, w.ARENA_SIZE.x - w.ARENA_MARGIN - w.HERO_RADIUS)
@@ -336,8 +336,8 @@ func hero_move_speed(slot: int) -> float:
 	if slot < 0 or slot >= w.heroes.size():
 		return w.HERO_SPEED
 	var speed = float(w.heroes[slot]["equipment"]["move_speed"]) + w.roul.roulette_stat(slot, "spd")
-	if posmod(int(w.heroes[slot].get("animal", slot)), 12) == 4 and w.ult_animal.pos_in_dragon_smoke(Vector2(w.heroes[slot]["pos"])):
+	if posmod(int(w.heroes[slot].get("animal", slot)), 12) == 4 and w.ult_summon.pos_in_dragon_smoke(Vector2(w.heroes[slot]["pos"])):
 		speed *= 1.30
-	if w.ult_animal.pos_in_enemy_mud(slot):
+	if w.ult_summon.pos_in_enemy_mud(slot):
 		speed *= 0.48
 	return speed

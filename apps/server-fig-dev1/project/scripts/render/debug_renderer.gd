@@ -378,46 +378,60 @@ func _draw_motion_trail(trail: Array, color: Color, width: float, opacity: float
         draw_line(from, to, Color(color, fade * 0.76), segment_width, true)
 
 func _draw_hero_gun(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, extra_squash: float = 0.0) -> void:
+    var dir := aim if aim.length_squared() > 0.0001 else Vector2.RIGHT
     var equip_id := "burst"
-    if slot < world.heroes.size():
+    if world != null and slot >= 0 and slot < world.heroes.size():
         var held = world.heroes[slot].get("equipment", {})
         if typeof(held) == TYPE_DICTIONARY:
             equip_id = str(held.get("id", "burst"))
     var vis: Dictionary = GunSig.visual_for_equipment(equip_id)
-    var gun_frame := int(vis.get("gun_frame", 0))
-    var gun_scale := float(vis.get("gun_scale", 1.0))
-    var muzzle_row := int(vis.get("muzzle_row", 0))
+    var family := str(vis.get("family", "rifle"))
     var kick := 0.0
-    var rot := 0.0
-    var strap := 0.0
-    var ml := 0.0
-    if slot < recoil_kick.size():
+    var rot_kick := 0.0
+    var strap_kick := 0.0
+    if slot >= 0 and slot < recoil_kick.size():
         kick = float(recoil_kick[slot])
-        rot = float(recoil_rot[slot])
-        strap = float(recoil_strap[slot])
-        ml = float(muzzle_life[slot])
-    var flip: float = -1.0 if aim.x < -0.05 else 1.0
-    var ang := aim.angle()
-    var base_offset := Vector2(28.0, 8.0)
-    var recoil_offset := Vector2(-kick * 3.8, strap * 0.7)
-    var gun_pos := pos + base_offset.rotated(ang) * Vector2(flip, 1.0) + recoil_offset.rotated(ang)
-    var squash_scale := Vector2(1.0 + extra_squash * 0.4, 1.0 - extra_squash * 0.3)
+        rot_kick = float(recoil_rot[slot])
+        strap_kick = float(recoil_strap[slot])
+    if extra_squash > 0.0 and posmod(slot, 12) == 11:
+        extra_squash += 0.04
+    var flip := -1.0 if dir.x < 0.0 else 1.0
+    var mount: Vector2 = pos + Vector2(flip * 6.0, 4.0) + dir * (18.0 - kick)
+    var angle := dir.angle() + rot_kick * (-1.0 if flip < 0.0 else 1.0)
+    const GUN_TSCN_SCALE := 0.645
+    const MUZZLE_LOCAL := Vector2(49.536, 0.0)
+    const MUZZLE_TSCN_SCALE := 0.74175
     if gun_atlas != null:
-        draw_set_transform(gun_pos, ang + rot * flip, Vector2(flip * gun_scale, gun_scale) * squash_scale)
-        draw_texture_rect_region(gun_atlas, Rect2(Vector2(-36.0, -20.0), Vector2(72.0, 40.0)), _gun_src_rect(gun_frame), Color(1.0, 1.0, 1.0, opacity))
+        var src := _gun_src_rect(int(vis.get("frame", 0)))
+        var cell := Vector2(float(gun_atlas.get_width()) / 4.0, float(gun_atlas.get_height()) / 3.0)
+        var world_s := 72.0 / (cell.x * GUN_TSCN_SCALE)
+        draw_set_transform(mount, angle, Vector2(world_s, world_s * flip))
+        var off := Vector2(float(vis.get("ox", 0.0)), float(vis.get("oy", 0.0)))
+        var gun_rect := Rect2((-cell * 0.5 + off) * GUN_TSCN_SCALE, cell * GUN_TSCN_SCALE)
+        draw_texture_rect_region(gun_atlas, gun_rect, src, Color(1.0, 1.0, 1.0, opacity))
+        var hero_muzzle := 0.0
+        var hero_mrow := 0
+        if world != null and slot >= 0 and slot < world.heroes.size():
+            hero_muzzle = float(world.heroes[slot].get("muzzle_time", 0.0))
+            hero_mrow = int(world.heroes[slot].get("muzzle_row", 0))
+        if muzzle_atlas != null and (hero_muzzle > 0.0 or (slot >= 0 and slot < muzzle_life.size() and float(muzzle_life[slot]) > 0.0)):
+            var counts := [2, 3, 4]
+            var row := hero_mrow if hero_muzzle > 0.0 else int(vis.get("muzzle_row", 0))
+            var n := int(counts[clampi(row, 0, 2)])
+            var life := hero_muzzle if hero_muzzle > 0.0 else float(muzzle_life[slot])
+            var played := maxf(0.0, float(feel_muzzle_max(row)) - life)
+            var col := clampi(int(played / 0.055), 0, n - 1)
+            var mcell := Vector2(float(muzzle_atlas.get_width()) / 4.0, float(muzzle_atlas.get_height()) / 3.0)
+            var mscale := 1.0
+            if world != null and slot >= 0 and slot < world.heroes.size():
+                mscale = float(world.heroes[slot].get("muzzle_scale", 1.0))
+            var msize := mcell * MUZZLE_TSCN_SCALE * mscale
+            var mcenter := Vector2(float(vis.get("mx", 90.0)), float(vis.get("my", -18.0))) + MUZZLE_LOCAL
+            draw_texture_rect_region(muzzle_atlas, Rect2(mcenter - msize * 0.5, msize), _muzzle_src_rect(row, col), Color(1.0, 1.0, 1.0, opacity))
         draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-    else:
-        draw_line(pos, gun_pos, Color(_slot_color(slot), opacity), 5.0)
-        draw_circle(gun_pos, 6.0, Color(_slot_color(slot), opacity))
-    if ml > 0.0 and muzzle_atlas != null:
-        var muzzle_pos := gun_pos + Vector2(32.0 * gun_scale, 0.0).rotated(ang)
-        var frame_count := [2, 3, 4]
-        var n: int = int(frame_count[clampi(muzzle_row, 0, 2)])
-        var max_time := feel_muzzle_max(muzzle_row)
-        var col := clampi(int((1.0 - ml / max_time) * float(n)), 0, n - 1)
-        var mscale := lerpf(1.4, 0.9, 1.0 - ml / max_time)
-        draw_set_transform(muzzle_pos, ang, Vector2(flip * mscale, mscale))
-        draw_texture_rect_region(muzzle_atlas, Rect2(Vector2(-38.0, -38.0), Vector2(76.0, 76.0)), _muzzle_src_rect(muzzle_row, col), Color(1.0, 1.0, 1.0, opacity))
+    elif gun_texture != null:
+        draw_set_transform(mount, angle, Vector2(1.0, flip))
+        draw_texture_rect(gun_texture, Rect2(Vector2(-5.0, -9.0), Vector2(34.0, 18.0)), false, Color(1.0, 1.0, 1.0, opacity))
         draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _push_combat_text(pos: Vector2, text: String, color: Color) -> void:
@@ -430,6 +444,286 @@ func _tick_combat_texts(dt: float) -> void:
         if float(ct["time"]) < 0.75:
             keep.append(ct)
     combat_texts = keep
+
+
+func _draw_projectiles() -> void:
+    for projectile in world.projectiles:
+        var source := StringName(projectile["source"])
+        var projectile_color: Color = Color.WHITE if source == &"ultimate" else _projectile_color(projectile)
+        var projectile_pos: Vector2 = projectile["pos"]
+        var direction := Vector2(projectile["vel"]).normalized()
+        var kind := str(projectile.get("kind", "bolt"))
+        if bool(projectile.get("arc", false)):
+            _draw_motion_trail(projectile.get("trail", []), projectile_color, 5.0)
+            var arc_progress := clampf(1.0 - float(projectile["ttl"]) / maxf(0.01, float(projectile["max_ttl"])), 0.0, 1.0)
+            var bomb_scale := 0.72 + sin(arc_progress * PI) * 0.95
+            var landing: Vector2 = projectile["landing_pos"]
+            draw_circle(projectile_pos + Vector2(7.0, 9.0), 13.0 * bomb_scale, Color(0.0, 0.0, 0.0, 0.23))
+            draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
+            draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
+            draw_circle(landing, float(projectile["splash"]), Color(0.35, 0.04, 0.03, 0.07))
+            draw_arc(landing, float(projectile["splash"]) * lerpf(1.0, 0.78, arc_progress), 0.0, TAU, 36, Color(1.0, 0.34, 0.22, 0.68), 3.0)
+            continue
+        match kind:
+            "beam":
+                draw_line(projectile_pos - direction * 125.0, projectile_pos + direction * 18.0, Color(projectile_color, 0.28), 18.0)
+                draw_line(projectile_pos - direction * 145.0, projectile_pos + direction * 22.0, Color.WHITE, 3.5)
+                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 18.0, projectile_pos + direction.orthogonal() * 7.0, projectile_pos - direction * 16.0, projectile_pos - direction.orthogonal() * 7.0]), projectile_color)
+            "shell":
+                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
+                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 15.0, projectile_pos + direction.orthogonal() * 10.0, projectile_pos - direction * 11.0, projectile_pos - direction.orthogonal() * 10.0]), Color("#ff503f"))
+                draw_line(projectile_pos - direction * 34.0, projectile_pos - direction * 8.0, Color("#ffcf66"), 8.0)
+            "tether":
+                for segment in range(3):
+                    var center := projectile_pos - direction * float(segment * 13)
+                    draw_line(center - direction.orthogonal() * 7.0, center + direction.orthogonal() * 7.0, projectile_color, 4.0)
+            "seeker":
+                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
+                var star := PackedVector2Array()
+                for point in range(8):
+                    star.append(projectile_pos + Vector2.RIGHT.rotated(TAU * float(point) / 8.0) * (12.0 if point % 2 == 0 else 5.0))
+                draw_colored_polygon(star, projectile_color)
+            "slash":
+                var slash_angle := direction.angle()
+                draw_arc(projectile_pos - direction * 8.0, 31.0, slash_angle - 1.05, slash_angle + 1.05, 18, Color("#b9f3ff"), 10.0)
+                draw_arc(projectile_pos - direction * 8.0, 25.0, slash_angle - 0.95, slash_angle + 0.95, 16, Color.WHITE, 3.0)
+            "fist":
+                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 18.0, projectile_pos + direction.orthogonal() * 13.0, projectile_pos - direction * 13.0 + direction.orthogonal() * 9.0, projectile_pos - direction * 13.0 - direction.orthogonal() * 9.0]), Color("#ff9466"))
+                draw_line(projectile_pos - direction * 38.0, projectile_pos - direction * 8.0, Color("#ffd0ac"), 9.0)
+            "bomb":
+                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
+                draw_circle(projectile_pos, 13.0, Color("#2c1115"))
+                draw_arc(projectile_pos, 14.0, 0.0, TAU, 22, Color("#ff554a"), 5.0)
+                draw_line(projectile_pos - direction.orthogonal() * 12.0, projectile_pos - direction.orthogonal() * 23.0 - direction * 7.0, Color("#ffe36a"), 4.0)
+            "spear":
+                draw_line(projectile_pos - direction * 66.0, projectile_pos + direction * 24.0, Color("#d0a447"), 7.0)
+                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 36.0, projectile_pos + direction * 17.0 + direction.orthogonal() * 10.0, projectile_pos + direction * 17.0 - direction.orthogonal() * 10.0]), Color("#fff1a8"))
+            "chain":
+                draw_arc(projectile_pos, 14.0, -direction.angle() - PI * 0.6, -direction.angle() + PI * 0.7, 14, Color("#e2c8ff"), 6.0)
+            "shield":
+                var shield_side := direction.orthogonal()
+                draw_colored_polygon(PackedVector2Array([projectile_pos - shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 14.0 + direction * 17.0, projectile_pos + direction * 26.0, projectile_pos - shield_side * 14.0 + direction * 17.0]), Color("#8de1ff"))
+            "tracer":
+                var origin: Vector2 = projectile_pos
+                var trail: Array = projectile.get("trail", [])
+                if trail.size() > 0:
+                    origin = trail[0]
+                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
+                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
+            "pellet", "burst", "bolt":
+                _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
+            _:
+                if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
+                    _draw_lhj_bullet(projectile_pos, direction, kind)
+                else:
+                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
+                    draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
+                    draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
+                    draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
+
+func _draw_zones() -> void:
+    var max_zones := 4 if lite_draw else 999
+    var zone_drawn := 0
+    for zone in world.zones:
+        if lite_draw and zone_drawn >= max_zones:
+            break
+        zone_drawn += 1
+        var zone_color: Color = zone.get("color", _slot_color(int(zone["owner"])))
+        var delay := float(zone.get("delay", 0.0))
+        var warning_duration := maxf(0.01, float(zone.get("warning_duration", delay)))
+        var warning_ratio := clampf(delay / warning_duration, 0.0, 1.0)
+        var impact_progress := 1.0 - warning_ratio
+        var warning_alpha := 0.08 + impact_progress * 0.18 + 0.04 * sin(float(world.tick) * 0.32)
+        var zone_pos: Vector2 = zone["pos"]
+        var zone_radius := float(zone["radius"])
+        var zone_kind := StringName(zone.get("effect_kind", &"explosion"))
+        if delay <= 0.06:
+            continue
+        draw_circle(zone_pos, zone_radius, Color("#15090b", warning_alpha * 1.35) if zone_kind == &"explosion" else Color(zone_color, warning_alpha * 0.72))
+        draw_arc(zone_pos, zone_radius, 0.0, TAU, 42, Color(zone_color, 0.78), 4.0)
+        if zone_kind == &"rail_strike":
+            draw_line(zone_pos - Vector2(zone_radius * 1.6, 0.0), zone_pos + Vector2(zone_radius * 1.6, 0.0), Color(zone_color, 0.75), 5.0)
+            draw_line(zone_pos - Vector2(0.0, zone_radius * 1.6), zone_pos + Vector2(0.0, zone_radius * 1.6), Color.WHITE, 2.0)
+        elif zone_kind == &"drain":
+            for ring in range(3):
+                draw_arc(zone_pos, zone_radius * (0.35 + ring * 0.23), float(world.tick) * 0.05 + ring, float(world.tick) * 0.05 + ring + PI * 1.35, 24, Color(zone_color, 0.72), 4.0)
+        elif zone_kind == &"shockwave":
+            for spoke in range(8):
+                var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 8.0)
+                draw_line(zone_pos + radial * zone_radius * 0.45, zone_pos + radial * zone_radius, Color(zone_color, 0.75), 4.0)
+        elif zone_kind == &"slashwave":
+            for slash in range(3):
+                var slash_angle := float(world.tick) * 0.08 + slash * PI / 3.0
+                draw_arc(zone_pos, zone_radius * (0.55 + slash * 0.16), slash_angle, slash_angle + PI * 0.85, 18, Color(zone_color, 0.82), 6.0)
+        elif zone_kind == &"fist_burst":
+            for fist_ray in range(6):
+                var fist_dir := Vector2.RIGHT.rotated(TAU * float(fist_ray) / 6.0)
+                draw_line(zone_pos + fist_dir * 18.0, zone_pos + fist_dir * zone_radius, Color(zone_color, 0.82), 10.0)
+        elif zone_kind == &"chain_vortex":
+            for ring in range(3):
+                draw_arc(zone_pos, zone_radius * (0.42 + ring * 0.22), float(world.tick) * -0.08 + ring, float(world.tick) * -0.08 + ring + PI * 1.55, 28, Color(zone_color, 0.86), 7.0)
+        elif zone_kind == &"shield_bash":
+            draw_arc(zone_pos, zone_radius * 0.82, -PI * 0.75, PI * 0.75, 28, Color(zone_color, 0.92), 15.0)
+            draw_line(zone_pos - Vector2(0.0, zone_radius * 0.8), zone_pos + Vector2(0.0, zone_radius * 0.8), Color.WHITE, 4.0)
+        if delay > 0.0:
+            var timer_radius := float(zone["radius"]) * lerpf(0.28, 1.0, warning_ratio)
+            draw_arc(zone_pos, timer_radius, 0.0, TAU, 36, Color.WHITE, 3.0 + impact_progress * 2.0)
+            for warning_tick in range(8):
+                var tick_dir := Vector2.RIGHT.rotated(TAU * float(warning_tick) / 8.0)
+                draw_line(zone_pos + tick_dir * (zone_radius + 5.0), zone_pos + tick_dir * (zone_radius + 13.0), Color(zone_color, 0.82), 3.0)
+            var warning_label := str(zone.get("label", ""))
+            if not warning_label.is_empty() and zone_radius >= 90.0:
+                draw_rect(Rect2(zone_pos + Vector2(-72.0, -13.0), Vector2(144.0, 25.0)), Color(0.04, 0.02, 0.03, 0.76))
+                draw_string(GameFont.get_font(), zone_pos + Vector2(-68.0, 6.0), "%s  %.1f" % [warning_label, delay], HORIZONTAL_ALIGNMENT_CENTER, 136.0, 13, Color.WHITE)
+
+func _draw_effects() -> void:
+    var max_effects := 8 if lite_draw else 999
+    var drawn := 0
+    for effect in world.effects:
+        if lite_draw and drawn >= max_effects:
+            break
+        drawn += 1
+        var effect_color: Color = effect["color"]
+        var ratio := clampf(float(effect["time"]) / float(effect["max_time"]), 0.0, 1.0)
+        var effect_pos: Vector2 = effect["pos"]
+        var effect_radius := float(effect["radius"])
+        var effect_kind := StringName(effect["kind"])
+        var direction := Vector2(effect["direction"]).normalized()
+        var progress := 1.0 - ratio
+        match effect_kind:
+            &"line", &"beam_hit", &"beam_step":
+                var line_start := effect_pos - direction * effect_radius * (0.75 if effect_kind == &"beam_hit" else 1.0)
+                var line_end := effect_pos + direction * effect_radius * (0.65 if effect_kind == &"beam_hit" else 0.05)
+                draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
+                draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
+            &"explosion":
+                var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
+                draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
+                draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
+                draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
+            &"drain":
+                for arc_index in range(4):
+                    var arc_radius := effect_radius * (0.28 + float(arc_index) * 0.18) * (0.65 + progress * 0.35)
+                    var arc_start := progress * TAU * (1.0 if arc_index % 2 == 0 else -1.0) + arc_index
+                    draw_arc(effect_pos, arc_radius, arc_start, arc_start + PI * 1.25, 22, Color(effect_color, ratio), 5.0)
+            &"shockwave":
+                var shock_radius := effect_radius * lerpf(0.25, 1.18, progress)
+                draw_arc(effect_pos, shock_radius, 0.0, TAU, 32, Color(effect_color, ratio), 10.0 * ratio + 2.0)
+                for spoke in range(10):
+                    var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 10.0)
+                    draw_line(effect_pos + radial * shock_radius * 0.48, effect_pos + radial * shock_radius, Color(Color.WHITE, ratio * 0.85), 3.0)
+            &"wall_impact", &"hit_spark":
+                for spark in range(9):
+                    var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
+                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
+            &"speed_streak":
+                for streak in range(5):
+                    var side := direction.orthogonal() * (float(streak) - 2.0) * 9.0
+                    draw_line(effect_pos + side, effect_pos + side + direction * effect_radius, Color(effect_color, ratio * 0.8), 4.0)
+            &"slashwave", &"slash_dash":
+                var slash_angle := direction.angle()
+                var slash_radius := effect_radius * lerpf(0.72, 1.04, progress)
+                draw_arc(effect_pos, slash_radius, slash_angle - 1.05, slash_angle + 1.05, 20, Color(effect_color, ratio), 8.0)
+                draw_arc(effect_pos, slash_radius - 9.0, slash_angle - 0.86, slash_angle + 0.86, 16, Color(Color.WHITE, ratio * 0.72), 2.0)
+            &"fist_burst":
+                draw_line(effect_pos - direction * effect_radius * 0.38, effect_pos + direction * effect_radius * 0.52, Color(effect_color, ratio * 0.42), 18.0)
+                draw_line(effect_pos - direction * 8.0, effect_pos + direction * effect_radius * 0.64, Color.WHITE, ratio, 6.0)
+                draw_line(effect_pos - direction * 2.0, effect_pos + direction.rotated(0.26) * effect_radius * 0.48, Color(effect_color, ratio * 0.74), 5.0)
+            &"hammer_slam":
+                var hammer_side := direction.orthogonal()
+                draw_line(effect_pos - direction * effect_radius * 0.56, effect_pos + direction * effect_radius * 0.16, Color(effect_color, ratio * 0.72), 20.0)
+                draw_line(effect_pos - hammer_side * effect_radius * 0.42, effect_pos + hammer_side * effect_radius * 0.42, Color.WHITE, ratio, 7.0)
+                draw_line(effect_pos, effect_pos + direction.rotated(0.55) * effect_radius * 0.56, Color(effect_color, ratio), 5.0)
+                draw_line(effect_pos, effect_pos + direction.rotated(-0.55) * effect_radius * 0.56, Color(effect_color, ratio), 5.0)
+            &"spear_line":
+                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius * 0.18, Color(effect_color, ratio * 0.34), 22.0)
+                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius * 0.22, Color.WHITE, ratio, 4.0)
+                draw_colored_polygon(PackedVector2Array([effect_pos + direction * effect_radius * 0.28, effect_pos + direction * effect_radius * 0.08 + direction.orthogonal() * 14.0, effect_pos + direction * effect_radius * 0.08 - direction.orthogonal() * 14.0]), Color(effect_color, ratio))
+            &"chain_arc":
+                for link in range(9):
+                    var link_angle := progress * PI * 1.4 + float(link) * 0.19
+                    var link_pos := effect_pos - direction * effect_radius * (float(link) / 9.0) + direction.orthogonal() * sin(link_angle) * 24.0
+                    draw_arc(link_pos, 7.0, 0.0, TAU, 10, Color(effect_color, ratio), 3.0)
+            &"fuse":
+                draw_line(effect_pos, effect_pos + Vector2.UP.rotated(progress * 2.0) * effect_radius * 0.7, Color("#ffe36a", ratio), 5.0)
+                for spark in range(6):
+                    var spark_dir := Vector2.RIGHT.rotated(TAU * float(spark) / 6.0 + progress * 4.0)
+                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * 0.45, Color(effect_color, ratio), 4.0)
+            &"shield_bash":
+                var shield_angle := direction.angle()
+                draw_arc(effect_pos, effect_radius * lerpf(0.55, 1.15, progress), shield_angle - 1.15, shield_angle + 1.15, 30, Color(effect_color, ratio), 18.0)
+                draw_line(effect_pos - direction.orthogonal() * effect_radius * 0.7, effect_pos + direction.orthogonal() * effect_radius * 0.7, Color.WHITE, ratio, 5.0)
+            &"combo_finisher":
+                for ray in range(5):
+                    var ray_dir := (-direction).rotated((float(ray) - 2.0) * 0.13)
+                    draw_line(effect_pos - direction * 10.0, effect_pos + ray_dir * effect_radius * (0.62 + float(ray) * 0.08), Color("#fff2b2", ratio * 0.82), 7.0 - absf(float(ray) - 2.0))
+                draw_line(effect_pos - direction.orthogonal() * 34.0, effect_pos + direction.orthogonal() * 34.0, Color.WHITE, ratio, 6.0)
+            &"charge_release":
+                draw_arc(effect_pos, effect_radius * (0.75 + progress * 0.18), direction.angle() - 0.65, direction.angle() + 0.65, 20, Color(effect_color, ratio), 5.0)
+                draw_line(effect_pos - direction * effect_radius * 0.45, effect_pos + direction * effect_radius * 0.28, Color.WHITE, ratio * 0.8, 3.0)
+            &"victory":
+                for victory_ring in range(3):
+                    var ring_radius := effect_radius * (0.26 + float(victory_ring) * 0.19 + progress * 0.32)
+                    draw_arc(effect_pos, ring_radius, progress * TAU + victory_ring, progress * TAU + victory_ring + PI * 1.45, 42, Color(effect_color, ratio * (0.86 - victory_ring * 0.18)), 7.0 - victory_ring)
+                for victory_ray in range(10):
+                    var ray_dir := Vector2.UP.rotated(TAU * float(victory_ray) / 10.0)
+                    var ray_start := effect_pos + ray_dir * effect_radius * 0.38
+                    draw_line(ray_start, ray_start + ray_dir * effect_radius * (0.22 + progress * 0.26), Color(Color.WHITE, ratio * 0.72), 5.0)
+            &"combo_break", &"afterimage":
+                draw_arc(effect_pos, effect_radius * lerpf(0.45, 1.20, progress), 0.0, TAU, 34, Color(effect_color, ratio), 8.0)
+                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius, Color(effect_color, ratio * 0.72), 5.0)
+            &"death_burst":
+                var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
+                draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
+                draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
+                draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+                draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+            &"guard":
+                draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
+                draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
+            &"heal_pickup":
+                var heal_lift := progress * effect_radius * 0.55
+                draw_line(effect_pos + Vector2(-12.0, -heal_lift), effect_pos + Vector2(12.0, -heal_lift), Color(effect_color, ratio), 7.0)
+                draw_line(effect_pos + Vector2(0.0, -12.0 - heal_lift), effect_pos + Vector2(0.0, 12.0 - heal_lift), Color(effect_color, ratio), 7.0)
+            &"heal_ready":
+                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), -PI * 0.35, PI * 0.35, 18, Color(effect_color, ratio), 5.0)
+                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), PI * 0.65, PI * 1.35, 18, Color(effect_color, ratio), 5.0)
+            &"respawn":
+                for beam in range(3):
+                    var beam_x := (float(beam) - 1.0) * 16.0
+                    draw_line(effect_pos + Vector2(beam_x, effect_radius * 0.48), effect_pos + Vector2(beam_x, -effect_radius * (0.35 + progress * 0.48)), Color(effect_color, ratio * (0.55 + float(beam) * 0.18)), 5.0)
+            &"mine_place":
+                draw_arc(effect_pos, effect_radius * lerpf(1.0, 0.35, progress), 0.0, TAU, 28, Color(effect_color, ratio), 7.0)
+                for bolt in range(4):
+                    var bolt_dir := Vector2.RIGHT.rotated(TAU * float(bolt) / 4.0)
+                    draw_line(effect_pos + bolt_dir * 12.0, effect_pos + bolt_dir * effect_radius, Color.WHITE, ratio, 3.0)
+            &"mine_fizzle":
+                for smoke in range(5):
+                    var smoke_dir := Vector2.UP.rotated((float(smoke) - 2.0) * 0.28)
+                    draw_circle(effect_pos + smoke_dir * effect_radius * progress, 7.0 + smoke * 1.5, Color(effect_color, ratio * 0.32))
+            _:
+                var flash_radius := maxf(5.0, effect_radius * lerpf(0.12, 0.28, progress))
+                draw_circle(effect_pos, flash_radius, Color(effect_color, ratio * 0.46))
+                draw_line(effect_pos - Vector2(flash_radius * 1.8, 0.0), effect_pos + Vector2(flash_radius * 1.8, 0.0), Color(Color.WHITE, ratio * 0.7), 2.0)
+        if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
+            draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
+
+func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
+    var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
+    var size_mul: float = lerpf(1.0, 0.52, height_t)
+    var alpha_mul: float = lerpf(1.0, 0.38, height_t)
+    var radius_x: float = 26.0 * size_mul
+    var radius_y: float = 11.5 * size_mul
+    var center: Vector2 = ground_pos + Vector2(1.5, 34.0)
+    draw_set_transform(center, 0.0, Vector2(1.0, radius_y / radius_x))
+    var rings: Array = [
+        [1.00, 0.07], [0.88, 0.10], [0.74, 0.13],
+        [0.58, 0.16], [0.40, 0.17], [0.22, 0.14]
+    ]
+    for ring in rings:
+        draw_circle(Vector2.ZERO, radius_x * float(ring[0]), Color(0.0, 0.0, 0.0, float(ring[1]) * alpha_mul * opacity))
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw() -> void:
     if world == null:
@@ -450,10 +744,10 @@ func _draw() -> void:
     _env.draw_pickups()
     _env.draw_cores()
     _proj.draw_deployables()
-    _proj.draw_zones()
-    _proj.draw_projectiles()
+    _draw_zones()
+    _draw_projectiles()
     _proj.draw_impact_flashes()
-    _proj.draw_effects()
+    _draw_effects()
     _heroes.draw_knockouts()
     _overlay.draw_pocket_bubbles()
     _heroes.draw_dog_bones()

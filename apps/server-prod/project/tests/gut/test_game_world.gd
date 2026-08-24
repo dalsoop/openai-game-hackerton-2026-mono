@@ -19,7 +19,7 @@ func test_reset() -> void:
 	for i in 8:
 		var h: Dictionary = w.heroes[i]
 		assert(float(h.get("hp", 0)) > 0.0, "hero %d should have hp > 0" % i)
-		assert(h.has("x") and h.has("y"), "hero %d should have position" % i)
+		assert(h.has("pos"), "hero %d should have pos" % i)
 	print("  test_reset PASSED")
 
 func test_step_tick() -> void:

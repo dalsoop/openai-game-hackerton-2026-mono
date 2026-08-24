@@ -368,6 +368,8 @@ func draw_heroes() -> void:
 		draw_nametag(body_pos, slot, hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
 		if int(hero.get("kill_streak", 0)) >= 2:
 			r.draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
+		r._overlay.draw_reload_bubble(body_pos, hero)
+		r._overlay.draw_head_roulette(body_pos, hero)
 
 func _draw_hero_status_arcs(pos: Vector2, hero: Dictionary, slot: int) -> void:
 	if float(hero["cc_time"]) > 0.0:

@@ -31,8 +31,6 @@ func update_post_match_visuals(dt: float) -> void:
 	w.mov.update_knockouts(dt)
 	w.proj.update_effects(dt)
 
-func settle_match_visuals() -> void: w._szl.settle_match_visuals()
-
 func update_timers(dt: float) -> void:
 	_decay_ui_ticks(dt)
 	for i in range(w.heroes.size()):
@@ -327,7 +325,7 @@ func tick_downs(dt: float) -> void:
 		h["down_left"] = maxf(0.0, float(h.get("down_left", 0.0)) - dt)
 		w.heroes[slot] = h
 		if float(h["down_left"]) <= 0.0:
-			if not hero_in_safe_zone(slot):
+			if not w._szl.hero_in_safe_zone(slot):
 				down_hero(-1, slot)
 			else:
 				stand_up(slot)
@@ -455,15 +453,6 @@ func update_threat(dt: float) -> void:
 		w.wanted_slot = new_wanted
 		w._announce("WANTED P%d" % (w.wanted_slot + 1), 90)
 		w.event_log.emit(w.tick, &"bounty_moved", w.wanted_slot, -1, {"score":float(w.heroes[w.wanted_slot]["score"])})
-
-func hero_in_safe_zone(slot: int) -> bool: return w._szl.hero_in_safe_zone(slot)
-func update_safe_zone(dt: float) -> void: w._szl.update_safe_zone(dt)
-func hero_hp_ratio(slot: int) -> float: return w._szl.hero_hp_ratio(slot)
-func core_hp_ratio(slot: int) -> float: return w._szl.core_hp_ratio(slot)
-func declare_winner(slot: int, reason: StringName) -> void: w._szl.declare_winner(slot, reason)
-func resolve_time_limit() -> void: w._szl.resolve_time_limit()
-func final_standings() -> Array[Dictionary]: return w._szl.final_standings()
-func check_end() -> void: w._szl.check_end()
 
 func _reward_attacker(owner: int, target: int, defeated_streak: int, bounty_victim: bool, life_hits: Dictionary, victim: Dictionary) -> Dictionary:
 	if owner < 0 or owner >= w.heroes.size() or owner == target:

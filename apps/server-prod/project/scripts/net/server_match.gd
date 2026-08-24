@@ -160,7 +160,7 @@ func _check_disconnection_timeouts() -> void:
 					_token_slot.erase(token)
 					break
 
-func _validate_input(slot: int, input_data: Dictionary) -> bool:
+func _validate_input(_slot: int, input_data: Dictionary) -> bool:
 	var mx := float(input_data.get("mx", 0.0))
 	var my := float(input_data.get("my", 0.0))
 	var move := Vector2(mx, my)

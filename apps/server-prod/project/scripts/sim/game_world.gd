@@ -17,6 +17,8 @@ const MatchLife = preload("res://scripts/sim/match_lifecycle.gd")
 const MidTowerMod = preload("res://scripts/sim/mid_tower.gd")
 const CpuBeh = preload("res://scripts/sim/cpu_behavior.gd")
 const DeploySys = preload("res://scripts/sim/deployable_system.gd")
+const SafeZone = preload("res://scripts/sim/safe_zone_logic.gd")
+const UltSummon = preload("res://scripts/sim/ultimate_summon.gd")
 
 const PLAYER_COUNT := 8
 const HERO_RADIUS := 20.0
@@ -176,6 +178,8 @@ var lifecycle
 var tower
 var cpu
 var deploy
+var _szl
+var ult_summon
 var equipment_defs: Array:
     get: return equip.defs
 
@@ -196,6 +200,8 @@ func _init(seed: int = 2222) -> void:
     tower = MidTowerMod.new(self)
     cpu = CpuBeh.new(self)
     deploy = DeploySys.new(self)
+    _szl = SafeZone.new(self)
+    ult_summon = UltSummon.new(self)
     reset()
 
 func set_mode(next_mode: String) -> void:
@@ -273,21 +279,21 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
         time_limit_warning_emitted = true; _announce("10 SECONDS TO HP DECISION", 90)
         event_log.emit(tick, &"time_limit_warning", -1, -1, {"remaining":10.0})
     if match_time >= MATCH_TIME_LIMIT:
-        match_time = MATCH_TIME_LIMIT; lifecycle.resolve_time_limit(); return
-    lifecycle.update_timers(dt); act_item.update_item_pulses(dt); lifecycle.update_safe_zone(dt)
+        match_time = MATCH_TIME_LIMIT; _szl.resolve_time_limit(); return
+    lifecycle.update_timers(dt); act_item.update_item_pulses(dt); _szl.update_safe_zone(dt)
     mov.apply_human(command); mov.apply_peer_humans()
     ult_effect.tick_finish_cine(command, dt); cpu.update_cpus(dt)
-    ult_animal.tick_ox_charges(dt); ult_animal.apply_rat_tides(dt); ult_animal.tick_snake_skins(dt)
-    ult_animal.tick_dragon_smokes(dt); ult_animal.tick_tiger_roars(dt); ult_animal.tick_rabbit_burrows(dt)
+    ult_animal.tick_ox_charges(dt); ult_summon.apply_rat_tides(dt); ult_summon.tick_snake_skins(dt)
+    ult_summon.tick_dragon_smokes(dt); ult_animal.tick_tiger_roars(dt); ult_animal.tick_rabbit_burrows(dt)
     ult_animal.tick_horse_kicks(dt); ult_animal.tick_dog_rush(dt)
     mov.move_heroes(dt)
-    ult_animal.tick_rooster_eggs(dt); ult_animal.tick_pig_muds(dt); ult_effect.tick_wool_shields(dt)
+    ult_summon.tick_rooster_eggs(dt); ult_summon.tick_pig_muds(dt); ult_effect.tick_wool_shields(dt)
     lifecycle.tick_downs(dt); ult_effect.sync_ult_clones(dt)
     crate.update_health_pickups(dt); crate.update_crate_orbs(dt)
-    lifecycle.update_respawns(dt); mov.update_knockouts(dt); act_item.update_deployables(dt)
+    lifecycle.update_respawns(dt); mov.update_knockouts(dt); deploy.update_deployables(dt)
     tower.update_mid_tower(dt)
     proj.update_projectiles(dt); proj.update_zones(dt); proj.update_effects(dt)
-    lifecycle.update_threat(dt); lifecycle.check_end()
+    lifecycle.update_threat(dt); _szl.check_end()
 
 func _target_valid(slot: int) -> bool:
     return slot >= 0 and slot < PLAYER_COUNT and bool(heroes[slot]["alive"]) and not bool(heroes[slot]["eliminated"])
@@ -304,14 +310,21 @@ func _announce(text: String, ticks: int) -> void:
 func _begin_skill_charge(_s: int, _d: Vector2) -> void: return
 func _continue_skill_charge(_s: int, _d: float, _v: Vector2) -> void: return
 func _release_skill_charge(_s: int, _d: Vector2) -> void: return
+func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void: proj.add_effect(kind, pos, radius, duration, color, label, direction)
 func _cancel_finish_cine() -> void: finish_cine = {}
-func _wool_shield_pos(h: Dictionary) -> Vector2: return Vector2(h["pos"])
-func _ultimate_armor(_e: String) -> Dictionary: return {"duration":0.0,"strength":0.0}
 func _note_life_hitter(target: int, owner: int) -> void: lifecycle.note_life_damage(target, owner, 1.0)
-func hero_hidden_in_smoke(slot: int) -> bool: return ult_animal.hero_hidden_in_smoke(slot)
-func local_is_dragon() -> bool: return ult_animal.local_is_dragon()
-func _pos_in_dragon_smoke(pos: Vector2) -> bool: return ult_animal.pos_in_dragon_smoke(pos)
-func final_standings() -> Array[Dictionary]: return lifecycle.final_standings()
+func hero_hidden_in_smoke(slot: int) -> bool: return ult_summon.hero_hidden_in_smoke(slot)
+func _pos_in_dragon_smoke(pos: Vector2) -> bool: return ult_summon.pos_in_dragon_smoke(pos)
+func final_standings() -> Array[Dictionary]: return _szl.final_standings()
+func _apply_roulette_face(slot: int, face: Dictionary) -> void: roul.apply_roulette_face(slot, face)
+func _begin_wool_shield(slot: int) -> void: ult_effect.begin_wool_shield(slot)
+func _clamp_arena_point(point: Vector2, radius: float) -> Vector2: return arena.clamp_arena_point(point, radius)
+func _damage_hero_environment(target: int, amount: float, show_tick: bool) -> void: dmg.damage_hero_environment(target, amount, show_tick)
+func _hero_in_own_pocket(slot: int) -> bool: return act_item.hero_in_own_pocket(slot)
+func _hero_move_speed(slot: int) -> float: return mov.hero_move_speed(slot)
+func _hurt_crate(index: int, damage: float, show_number: bool = true) -> void: crate.hurt_crate(index, damage, show_number)
+func _nudge_out_of_cover(point: Vector2, radius: float) -> Vector2: return arena.nudge_out_of_cover(point, radius)
+func _resolve_cover_motion(old_pos: Vector2, motion: Vector2) -> Vector2: return arena.resolve_cover_motion(old_pos, motion)
 
 func summary() -> Dictionary:
     var alive := 0; var core_hps: Array[float] = []; var ult_uses := 0; var eq_hits := 0

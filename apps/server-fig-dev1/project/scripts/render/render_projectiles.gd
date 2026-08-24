@@ -73,15 +73,6 @@ func _draw_mine(mine: Dictionary, mine_pos: Vector2, mine_owner: int, mine_color
 	r.draw_circle(mine_pos, 7.0 + (sin(float(world.tick) * 0.28) * 2.0 if armed else 0.0), Color.WHITE if triggered else mine_color)
 	r.draw_string(GameFont.get_font(), mine_pos + Vector2(-30.0, 34.0), "P%d MINE" % (mine_owner + 1), HORIZONTAL_ALIGNMENT_CENTER, 60.0, 10, Color.WHITE)
 
-func draw_projectiles() -> void:
-	r._draw_projectiles()
-
-func draw_zones() -> void:
-	r._draw_zones()
-
-func draw_effects() -> void:
-	r._draw_effects()
-
 func draw_impact_flashes() -> void:
 	if r.impact_atlas == null:
 		return

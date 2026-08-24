@@ -37,5 +37,5 @@ func _run_sim(seed_val: int, ticks: int) -> Array[Vector2]:
 		w.step_tick(cmd)
 	var positions: Array[Vector2] = []
 	for h in w.heroes:
-		positions.append(Vector2(float(h.get("x", 0)), float(h.get("y", 0))))
+		positions.append(Vector2(h["pos"]))
 	return positions

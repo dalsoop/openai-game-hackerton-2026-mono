@@ -35,7 +35,7 @@ func update_cpus(dt: float) -> void:
 					w.act_item.try_mobility(slot, -Vector2(h["facing"]))
 					h = w.heroes[slot]
 		if w.mode == w.ITEM_POOL_MODE:
-			w.cpu.cpu_consider_held_item(slot)
+			cpu_consider_held_item(slot)
 			h = w.heroes[slot]
 		elif int(h.get("medkits", 0)) > 0 and float(h["hp"]) < float(h["max_hp"]) * 0.5 and w.rng.chance(0.30):
 			w.act_item.try_use_medkit(slot)
@@ -61,7 +61,7 @@ func update_cpus(dt: float) -> void:
 					w.event_log.emit(w.tick, &"target_changed", slot, target, {"from":old_target})
 					if old_target == int(w.heroes[target]["target"]):
 						w.event_log.emit(w.tick, &"betrayal", slot, target, {"previous_target":old_target})
-			var heal_index = w.cpu.best_health_pickup(slot)
+			var heal_index = best_health_pickup(slot)
 			var tslot = int(h["target"])
 			var orb_index = w.crate.best_crate_orb(slot)
 			var crate_index = w.crate.best_crate(slot)
@@ -415,3 +415,30 @@ func highest_threat_except(excluded: int) -> int:
 			best_value = value
 			best = slot
 	return best
+
+func cpu_consider_held_item(slot: int) -> void:
+	var h: Dictionary = w.heroes[slot]
+	var kind := str(h.get("held_item", ""))
+	if kind == "":
+		return
+	var hp_ratio := float(h["hp"]) / maxf(1.0, float(h["max_hp"]))
+	var should_use := false
+	match kind:
+		"medkit":
+			should_use = hp_ratio < 0.5 and w.rng.chance(0.30)
+		"pocket":
+			should_use = (not w._szl.hero_in_safe_zone(slot)) and w.rng.chance(0.22)
+		"pull":
+			var near := 0
+			for other in range(w.heroes.size()):
+				if other == slot or not bool(w.heroes[other]["alive"]):
+					continue
+				if Vector2(h["pos"]).distance_to(Vector2(w.heroes[other]["pos"])) <= w.PULL_RADIUS:
+					near += 1
+			should_use = near > 0 and w.rng.chance(0.12)
+		"spring":
+			should_use = w.rng.chance(0.06) and (hp_ratio < 0.42 or float(h["mobility_cd"]) > 0.8)
+		"slide":
+			should_use = w.rng.chance(0.08) and (h["action"] == &"CLOSE_RANGE" or h["action"] == &"SEEK_HEAL")
+	if should_use:
+		w.act_item.try_use_active_item(slot)

@@ -23,27 +23,6 @@ const POCKET_RADIUS := 150.0
 const HOP_LIFT_DEFAULT := 19.0
 const ITEM_DROP_IGNORE := 0.45
 
-func place_mine(owner: int, desired_pos: Vector2, damage: float, blast_radius: float, arm_time: float = 0.62, lifetime: float = 8.0, fuse_time: float = 0.38, ultimate_mine: bool = false, auto_detonate: float = -1.0) -> void:
-	w.deploy.place_mine(owner, desired_pos, damage, blast_radius, arm_time, lifetime, fuse_time, ultimate_mine, auto_detonate)
-
-func place_bounce_wall(owner: int, desired_pos: Vector2, facing: Vector2, half_length: float, lifetime: float, speed: float, damage: float, knockback: float) -> void:
-	w.deploy.place_bounce_wall(owner, desired_pos, facing, half_length, lifetime, speed, damage, knockback)
-
-func moving_wall_sweep(wall: Dictionary, old_pos: Vector2, new_pos: Vector2) -> Dictionary:
-	return w.deploy.moving_wall_sweep(wall, old_pos, new_pos)
-
-func mine_has_target(mine: Dictionary) -> bool:
-	return w.deploy.mine_has_target(mine)
-
-func update_deployables(dt: float) -> void:
-	w.deploy.update_deployables(dt)
-
-func deployable_wall_hit(slot: int, old_pos: Vector2, new_pos: Vector2) -> Dictionary:
-	return w.deploy.deployable_wall_hit(slot, old_pos, new_pos)
-
-func mark_wall_hit(wall_id: int, slot: int) -> void:
-	w.deploy.mark_wall_hit(wall_id, slot)
-
 func try_mobility(slot: int, direction: Vector2) -> void:
 	var h: Dictionary = w.heroes[slot]
 	if not bool(h["alive"]) or float(h["mobility_cd"]) > 0.0 or float(h["launch_time"]) > 0.0 or float(h["root_time"]) > 0.0 or float(h["stun_time"]) > 0.0:
@@ -54,8 +33,8 @@ func try_mobility(slot: int, direction: Vector2) -> void:
 	if escaped_combo:
 		w.dmg.break_incoming_combo(slot)
 		h = w.heroes[slot]
-	w.act_item.cancel_skill_charge(slot)
-	w.act_item.cancel_attack_recovery(slot)
+	cancel_skill_charge(slot)
+	cancel_attack_recovery(slot)
 	h = w.heroes[slot]
 	var equipment: Dictionary = h["equipment"]
 	var equipment_id := str(equipment["id"])

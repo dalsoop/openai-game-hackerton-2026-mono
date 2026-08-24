@@ -30,6 +30,7 @@ var touch: CanvasLayer = null
 var _net_banner: Label = null
 var _touch_exit: Button = null
 var _touch_rematch: Button = null
+var _tutorial: TutorialOverlay = null
 
 func _ready() -> void:
 	_is_server_mode = "--server" in OS.get_cmdline_user_args()
@@ -40,6 +41,10 @@ func _ready() -> void:
 	_sfx.setup(self)
 	_attach_touch()
 	_build_touch_buttons()
+	_tutorial = TutorialOverlay.new()
+	_tutorial.name = "TutorialOverlay"
+	$HUD.add_child(_tutorial)
+	_tutorial.z_index = 30
 	hub = get_node("/root/NetworkManager")
 	screens.bind_hub(hub)
 	hub.match_started.connect(_on_net_match_started)
@@ -62,7 +67,7 @@ func _ready() -> void:
 		hub.hub_error.connect(func(_msg: String): _return_to_hub())
 		hub.joined_room.connect(func(_r, _p, _y): pass)
 	else:
-		_set_phase(&"lobby")
+		_set_phase(&"intro")
 
 func _start_dedicated_server() -> void:
 	world_view.visible = false
@@ -112,6 +117,8 @@ func _on_start_match() -> void:
 	seed += 1
 	_restart()
 	_set_phase(&"play")
+	if _tutorial != null and TutorialOverlay.is_first_play():
+		_tutorial.start_tutorial()
 
 func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_active = true
@@ -218,7 +225,7 @@ func _return_to_hub() -> void:
 	if GameState.hub_launched and OS.has_feature("web"):
 		JavaScriptBridge.eval("location.href='/gang-up/'")
 	else:
-		_set_phase(&"lobby")
+		_set_phase(&"intro")
 
 func _set_phase(next: StringName) -> void:
 	phase = next
@@ -232,7 +239,7 @@ func _set_phase(next: StringName) -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
 	if not playing:
 		var page := next
-		if page == &"play" or page == &"select" or page == &"intro":
+		if page == &"play" or page == &"select":
 			page = &"lobby"
 		screens.show_page(page)
 
@@ -332,6 +339,7 @@ func _physics_process(_delta: float) -> void:
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
 	last_event_id = sfx_result["last_event_id"]
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
+	_check_tutorial_hints()
 	# Camera
 	_update_spectator()
 	var shake := _compute_shake()
@@ -380,6 +388,26 @@ func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_hel
 	previous_left_mouse = primary
 	world.step_tick(command, 1.0 / 60.0)
 	_apply_recoil_mouse()
+
+func _check_tutorial_hints() -> void:
+	if _tutorial == null or world == null:
+		return
+	var ls: int = clampi(int(world.get("local_slot")), 0, world.heroes.size() - 1)
+	if ls >= world.heroes.size():
+		return
+	var h: Dictionary = world.heroes[ls]
+	if bool(h.get("downed", false)):
+		_tutorial.show_hint("down")
+	if float(h.get("hp", 999)) < float(h.get("max_hp", 999)):
+		_tutorial.show_hint("hit")
+	if float(h.get("ultimate_charge", 0)) >= 100.0:
+		_tutorial.show_hint("ultimate_ready")
+	if world.has_method("hero_hidden_in_smoke"):
+		pass
+	var safe_r := float(world.get("safe_zone_radius"))
+	var safe_c: Vector2 = world.get("safe_zone_center")
+	if safe_r > 0.0 and Vector2(h["pos"]).distance_to(safe_c) > safe_r:
+		_tutorial.show_hint("outside_zone")
 
 # --- Helpers ---
 
@@ -491,7 +519,7 @@ func _update_spectator() -> void:
 		spectate_slot = _best_spectator()
 	if _edge(KEY_A):
 		_cycle_spectator(-1)
-	if _edge(KEY_D) or _edge(KEY_TAB):
+	if _edge(KEY_D):
 		_cycle_spectator(1)
 	if _edge(KEY_SPACE):
 		spectate_slot = _best_spectator()

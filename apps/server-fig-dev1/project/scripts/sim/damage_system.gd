@@ -47,7 +47,7 @@ func normal_combo_pattern(_equipment_id: String) -> Array:
 func normal_step_reach(slot: int, _step: Dictionary) -> float:
 	return normal_reach(slot)
 
-func normal_auto_target(slot: int, facing: Vector2, reach: float) -> int:
+func normal_auto_target(_slot: int, _facing: Vector2, _reach: float) -> int:
 	return -1
 
 func try_start_reload(slot: int) -> void:
@@ -206,8 +206,6 @@ func break_incoming_combo(slot: int) -> void:
 			attacker["normal_chain_time"] = 0.0
 			w.heroes[owner] = attacker
 
-func absorb_roulette_shield(h: Dictionary, amount: float) -> float:
-	return w.roul.absorb_roulette_shield(h, amount)
 
 func damage_hero(owner: int, target: int, amount: float, source: StringName = &"normal", cc_time: float = 0.0, knockback: float = 0.0, impact_origin: Vector2 = Vector2.ZERO, effect_label: String = "", effect_kind: StringName = &"hit_spark", attack_finisher: bool = false, control_kind: StringName = &"slow") -> void:
 	var h: Dictionary = w.heroes[target]

@@ -303,6 +303,10 @@ func _on_msg(msg: Dictionary) -> void:
             is_host = bool(msg.get("host", false))
             if msg.has("room"):
                 room = msg.get("room", room)
+            if msg.has("gameServerUrl"):
+                room["game_url"] = str(msg["gameServerUrl"])
+            if msg.has("seed"):
+                room["seed"] = int(msg["seed"])
             match_started.emit(you, room)
         "snap":
             snapshot_received.emit(msg)

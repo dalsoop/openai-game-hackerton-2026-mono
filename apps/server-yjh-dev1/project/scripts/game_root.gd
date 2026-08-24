@@ -519,7 +519,7 @@ func _update_spectator() -> void:
 		spectate_slot = _best_spectator()
 	if _edge(KEY_A):
 		_cycle_spectator(-1)
-	if _edge(KEY_D) or _edge(KEY_TAB):
+	if _edge(KEY_D):
 		_cycle_spectator(1)
 	if _edge(KEY_SPACE):
 		spectate_slot = _best_spectator()

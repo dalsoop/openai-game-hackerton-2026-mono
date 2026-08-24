@@ -49,8 +49,8 @@ static func _build_header(callbacks: Dictionary) -> Dictionary:
 	head.add_child(how)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_child(UiTheme.lbl("1 / 2  로비", 14, UiTheme.MUTED))
-	titles.add_child(UiTheme.lbl("방을 만들거나 들어갑니다", 30, UiTheme.INK))
+	titles.add_child(UiTheme.lbl("다굴 — 8인 배틀로얄", 14, UiTheme.MUTED))
+	titles.add_child(UiTheme.lbl("방을 만들거나 들어가세요", 30, UiTheme.INK))
 	var lobby_status := UiTheme.lbl("", 15, UiTheme.MUTED)
 	titles.add_child(lobby_status)
 	head.add_child(titles)
