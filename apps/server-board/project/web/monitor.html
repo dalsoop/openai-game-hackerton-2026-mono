@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-store"/>
+<title>Dagul Monitor</title>
+<style>
+  :root {
+    --bg-0:#0b0e14; --bg-1:#12161f; --bg-2:#1a2029; --bg-3:#232b38;
+    --line:#2a3342;
+    --tx-0:#f2f5fa; --tx-1:#aeb8c9; --tx-2:#67728a;
+    --acc:#ffd23e; --cyan:#3ee6d2; --red:#ff5d5d; --green:#5dd97c;
+    --radius:14px; --radius-s:8px;
+    --shadow:0 8px 32px rgba(0,0,0,.45);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg-0); color:var(--tx-0); font:14px/1.5 -apple-system,'Noto Sans KR',sans-serif; padding:24px; }
+  body::before { content:""; position:fixed; inset:0; z-index:-1; background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(255,210,62,.05),transparent),var(--bg-0); }
+
+  h1 { font-size:clamp(22px,3vw,32px); font-weight:900; margin-bottom:4px; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--tx-2); font-size:12px; margin-bottom:20px; }
+  .updated { color:var(--tx-2); font-size:11px; text-align:right; margin-bottom:16px; }
+
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:24px; }
+  .sum-card { background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius); padding:16px; text-align:center; }
+  .sum-val { font-size:28px; font-weight:800; font-family:ui-monospace,monospace; color:var(--cyan); }
+  .sum-label { font-size:11px; color:var(--tx-2); text-transform:uppercase; letter-spacing:.08em; margin-top:4px; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+  .card { background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); padding:16px; transition:.2s; }
+  .card:hover { border-color:var(--tx-2); box-shadow:var(--shadow); }
+  .card.offline { opacity:.5; border-color:var(--red); }
+  .card.online { border-left:3px solid var(--green); }
+
+  .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .card-name { font-weight:700; font-size:15px; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
+  .badge.on { background:rgba(93,217,124,.15); color:var(--green); }
+  .badge.off { background:rgba(255,93,93,.15); color:var(--red); }
+
+  .stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px; }
+  .stat { text-align:center; }
+  .stat-val { font-size:20px; font-weight:700; color:var(--acc); font-family:ui-monospace,monospace; }
+  .stat-label { font-size:10px; color:var(--tx-2); text-transform:uppercase; }
+
+  .ping-row { display:flex; justify-content:space-between; font-size:12px; margin:2px 0; }
+  .ping-val { font-weight:600; font-family:ui-monospace,monospace; }
+  .pg { color:var(--green); } .py { color:var(--acc); } .pr { color:var(--red); }
+
+  .player-list { margin-top:8px; border-top:1px solid var(--line); padding-top:6px; }
+  .player-row { display:flex; justify-content:space-between; font-size:12px; padding:1px 0; }
+  .player-name { color:var(--tx-1); }
+
+  .rooms-section { margin-top:8px; display:flex; flex-wrap:wrap; gap:4px; }
+  .room-chip { font-size:11px; background:var(--bg-3); border:1px solid var(--line); border-radius:4px; padding:2px 6px; }
+  .room-chip.playing { border-color:var(--acc); color:var(--acc); }
+  .room-chip.lobby { border-color:var(--cyan); color:var(--cyan); }
+
+  .spark { display:flex; align-items:flex-end; gap:1px; height:32px; margin-top:8px; }
+  .spark i { flex:1; background:var(--cyan); opacity:.6; border-radius:1px; min-height:2px; transition:height .3s; }
+
+  .feed { margin-top:24px; }
+  .feed h2 { font-size:13px; color:var(--tx-2); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+  .feed-list { max-height:200px; overflow-y:auto; font-size:12px; color:var(--tx-1); }
+  .feed-item { padding:3px 0; border-bottom:1px solid var(--bg-3); }
+  .feed-time { color:var(--tx-2); font-family:ui-monospace,monospace; margin-right:8px; }
+
+  @media(max-width:640px) { .summary { grid-template-columns:1fr 1fr; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Dagul <span>Monitor</span></h1>
+<p class="sub">실시간 게임 서버 모니터링 (dev1 + prod)</p>
+<div class="updated" id="updated"></div>
+
+<div class="summary" id="summary">
+  <div class="sum-card"><div class="sum-val" id="s-servers">-</div><div class="sum-label">Servers</div></div>
+  <div class="sum-card"><div class="sum-val" id="s-online">-</div><div class="sum-label">Online</div></div>
+  <div class="sum-card"><div class="sum-val" id="s-players">-</div><div class="sum-label">Players</div></div>
+  <div class="sum-card"><div class="sum-val" id="s-playing">-</div><div class="sum-label">Playing</div></div>
+  <div class="sum-card"><div class="sum-val" id="s-rooms">-</div><div class="sum-label">Rooms</div></div>
+  <div class="sum-card"><div class="sum-val" id="s-avgping">-</div><div class="sum-label">Avg Ping</div></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="feed">
+  <h2>Activity Feed</h2>
+  <div class="feed-list" id="feed"></div>
+</div>
+
+<script>
+const SERVERS = [
+  { name: 'server-yjh-dev1', label: 'YJH Dev1', url: 'https://server-yjh-dev1.external.kr' },
+  { name: 'server-pjh-dev1', label: 'PJH Dev1', url: 'https://server-pjh-dev1.external.kr' },
+  { name: 'server-pig-dev1', label: 'PIG Dev1', url: 'https://server-pig-dev1.external.kr' },
+  { name: 'server-prod',     label: 'Production', url: 'https://server-prod.external.kr' },
+];
+
+const history = new Map();
+const prevState = new Map();
+const feedItems = [];
+
+function pingClass(ms) {
+  if (ms <= 50) return 'pg';
+  if (ms <= 150) return 'py';
+  return 'pr';
+}
+
+function fmtUptime(s) {
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h + 'h ' + m + 'm';
+}
+
+function sparkHTML(points, max) {
+  if (!points.length) return '';
+  const m = max || Math.max(...points, 1);
+  return '<div class="spark">' + points.map(p =>
+    '<i style="height:' + Math.round(p/m*100) + '%"></i>'
+  ).join('') + '</div>';
+}
+
+function addFeed(msg) {
+  const now = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+  feedItems.unshift({ time: now, msg });
+  if (feedItems.length > 50) feedItems.length = 50;
+  const el = document.getElementById('feed');
+  el.innerHTML = feedItems.map(f =>
+    '<div class="feed-item"><span class="feed-time">' + f.time + '</span>' + f.msg + '</div>'
+  ).join('');
+}
+
+function diffState(srv, data) {
+  const key = srv.name;
+  const prev = prevState.get(key);
+  if (!prev && data) { addFeed(srv.label + ': <b style="color:var(--green)">ONLINE</b>'); }
+  if (prev && !data) { addFeed(srv.label + ': <b style="color:var(--red)">OFFLINE</b>'); }
+  if (prev && data) {
+    const dr = data.rooms.length - (prev.rooms?.length || 0);
+    if (dr > 0) addFeed(srv.label + ': 방 +' + dr);
+    if (dr < 0) addFeed(srv.label + ': 방 ' + dr);
+    const dp = data.clients.total - (prev.clients?.total || 0);
+    if (dp > 0) addFeed(srv.label + ': 접속자 +' + dp);
+    if (dp < 0) addFeed(srv.label + ': 접속자 ' + dp);
+  }
+  prevState.set(key, data);
+}
+
+function renderCard(srv, data) {
+  const online = !!data;
+  const cls = online ? 'online' : 'offline';
+  let html = '<div class="card ' + cls + '"><div class="card-head">' +
+    '<span class="card-name">' + srv.label + '</span>' +
+    '<span class="badge ' + (online ? 'on' : 'off') + '">' + (online ? 'ONLINE' : 'OFFLINE') + '</span></div>';
+
+  if (!data) return html + '<div style="color:var(--tx-2)">연결 불가</div></div>';
+
+  html += '<div class="stats">' +
+    '<div class="stat"><div class="stat-val">' + data.clients.total + '</div><div class="stat-label">접속</div></div>' +
+    '<div class="stat"><div class="stat-val">' + data.clients.playing + '</div><div class="stat-label">게임중</div></div>' +
+    '<div class="stat"><div class="stat-val">' + fmtUptime(data.uptime) + '</div><div class="stat-label">Uptime</div></div>' +
+  '</div>';
+
+  html += '<div class="ping-row"><span>Avg</span><span class="ping-val ' + pingClass(data.ping.avg) + '">' + data.ping.avg + 'ms</span></div>' +
+    '<div class="ping-row"><span>Min / Max</span><span class="ping-val">' + data.ping.min + 'ms / ' + data.ping.max + 'ms</span></div>';
+
+  if (data.players.length > 0) {
+    html += '<div class="player-list">';
+    for (const p of data.players) {
+      html += '<div class="player-row"><span class="player-name">' + p.name + '</span><span class="ping-val ' + pingClass(p.rtt) + '">' + p.rtt + 'ms</span></div>';
+    }
+    html += '</div>';
+  }
+
+  if (data.rooms.length > 0) {
+    html += '<div class="rooms-section">';
+    for (const r of data.rooms) {
+      html += '<span class="room-chip ' + r.phase + '">' + r.title + ' (' + r.playerCount + 'P)</span>';
+    }
+    html += '</div>';
+  }
+
+  const hist = history.get(srv.name) || [];
+  html += sparkHTML(hist, 8);
+
+  return html + '</div>';
+}
+
+async function tick() {
+  if (document.hidden) return;
+  const results = [];
+  for (const srv of SERVERS) {
+    try {
+      const r = await fetch(srv.url + '/gang-up/status', { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) { results.push({ srv, data: null }); continue; }
+      const data = await r.json();
+      results.push({ srv, data });
+
+      const hist = history.get(srv.name) || [];
+      hist.push(data.clients.total);
+      if (hist.length > 24) hist.shift();
+      history.set(srv.name, hist);
+
+      diffState(srv, data);
+    } catch {
+      results.push({ srv, data: null });
+      diffState(srv, null);
+    }
+  }
+
+  document.getElementById('grid').innerHTML = results.map(r => renderCard(r.srv, r.data)).join('');
+
+  const online = results.filter(r => r.data);
+  document.getElementById('s-servers').textContent = SERVERS.length;
+  document.getElementById('s-online').textContent = online.length;
+  document.getElementById('s-players').textContent = online.reduce((s,r) => s + r.data.clients.total, 0);
+  document.getElementById('s-playing').textContent = online.reduce((s,r) => s + r.data.clients.playing, 0);
+  document.getElementById('s-rooms').textContent = online.reduce((s,r) => s + r.data.rooms.length, 0);
+  const pings = online.flatMap(r => r.data.players.map(p => p.rtt)).filter(r => r > 0);
+  document.getElementById('s-avgping').textContent = pings.length ? Math.round(pings.reduce((a,b) => a+b, 0) / pings.length) + 'ms' : '-';
+  document.getElementById('updated').textContent = 'Updated: ' + new Date().toLocaleTimeString('ko-KR', { hour12: false });
+}
+
+(async function loop() {
+  while (true) {
+    await tick();
+    await new Promise(r => setTimeout(r, 5000));
+  }
+})();
+</script>
+</body>
+</html>
