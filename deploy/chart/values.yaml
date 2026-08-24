@@ -10,7 +10,7 @@ nodeSelector:
 
 git:
   repo: https://github.com/dalsoop/openai-game-hackerton-2026-mono
-  revision: jeongright-gang-up-multi
+  revision: main
   syncSeconds: 60
   gamesHostPath: /data/hackertone/g
 
