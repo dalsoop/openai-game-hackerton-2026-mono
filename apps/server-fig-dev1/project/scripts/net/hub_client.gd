@@ -316,6 +316,14 @@ func _on_msg(msg: Dictionary) -> void:
         "pong":
             if _ping_sent_ms > 0:
                 rtt_ms = Time.get_ticks_msec() - _ping_sent_ms
+        "lobby":
+            match_running = false
+            if msg.has("room"):
+                room = msg.get("room", room)
+            joined_room.emit(room, players, you)
+            var lobby_notice := str(msg.get("notice", ""))
+            if lobby_notice != "":
+                hub_notice.emit(lobby_notice)
         "left":
             _give_up_seat()
         "kicked":

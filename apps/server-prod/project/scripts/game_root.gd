@@ -165,6 +165,8 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
             var s := int(p.get("slot", -1))
             if s >= 0 and not bool(p.get("dropped", false)):
                 host_world.human_slots[s] = true
+                if s < host_world.heroes.size():
+                    host_world.heroes[s]["display_name"] = str(p.get("name", ""))
         world = host_world
         _snap_timer = 0.0
         if not hub.peer_input_received.is_connected(_on_peer_input):
