@@ -799,16 +799,16 @@ func _apply_peer_humans() -> void:
             _try_use_medkit(slot)
         if bool(cmd.get("fire", false)):
             _try_normal_attack(slot, Vector2(h["facing"]))
-    for key in consumed:
-        peer_commands.erase(key)
     for slot in human_slots:
         if slot == local_slot or slot < 0 or slot >= heroes.size():
             continue
-        if not peer_commands.has(slot):
+        if not consumed.has(slot) and not peer_commands.has(slot):
             var h: Dictionary = heroes[slot]
             if bool(h["alive"]) and not bool(h["eliminated"]):
                 h["vel"] = Vector2.ZERO
                 heroes[slot] = h
+    for key in consumed:
+        peer_commands.erase(key)
 
 func _update_cpus(dt: float) -> void:
     for slot in range(heroes.size()):

@@ -318,6 +318,8 @@ function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void 
     if (wasDead || client.ws.readyState !== WebSocket.OPEN) clients.delete(client.id);
     return;
   }
+  // NEW-H1 fix: parkPlayer before vacating so indexOf still finds the slot
+  parkPlayer(room, client.id);
   // C1: during PLAYING, mark slot vacant instead of splicing to preserve index stability
   if (room.phase === Phase.PLAYING) {
     const idx = room.members.indexOf(client.id);
@@ -325,7 +327,6 @@ function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void 
   } else {
     room.members = room.members.filter((id) => id !== client.id);
   }
-  parkPlayer(room, client.id);
   // C2: if the leaving player is the host during play, end the match
   if (room.phase === Phase.PLAYING && client.id === room.hostClientId) {
     if (!silent) notifyRoom(room, { notice: `호스트(${client.name})가 나가서 게임이 종료됩니다.` });
@@ -728,9 +729,14 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
       if (id !== client.id) sendTo(id, text); // don't echo back to host
     }
     // Check for match end — host signals result in the snapshot
-    // M1: only set timer once, clear startMatch timeout first
-    if (snapData.result && snapData.result !== Phase.PLAYING && !room.timer) {
-      room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
+    const isEnded = snapData.result && snapData.result !== Phase.PLAYING;
+    if (isEnded) {
+      if (!room.prevSnap || room.prevSnap["result"] === Phase.PLAYING) {
+        // First end snap: clear any existing timer (H1 startup), set reset timer
+        if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+        room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
+      }
+      // Subsequent end snaps: keep existing reset timer
     } else if (snapData.result === Phase.PLAYING && room.timer) {
       // First valid snap arrived — clear the H1 startup timeout
       clearTimeout(room.timer);

@@ -144,6 +144,11 @@ describe("5. 게임 종료", () => {
     await guest.waitFor("start");
     guest.inbox.length = 0;
 
+    // Send a playing snap first to clear H1 startup timeout
+    host.send({ t: "host_snap", tick: 1, time: 0.05, result: "playing", winner: -1, heroes: [{ slot: 0, hp: 100 }] });
+    await guest.waitFor("snap");
+    guest.inbox.length = 0;
+
     host.send({ t: "host_snap", tick: 999, time: 60, result: "won", winner: 0, heroes: [] });
     const snap = await guest.waitFor("snap");
     assert.equal(snap.result, "won");

@@ -146,6 +146,8 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
     net_active = true
     net_host = hub.is_host
     if net_host:
+        _cleanup_host_signals()
+        _peer_seq.clear()
         seed += 1
         var host_world = WorldScript.new(seed)
         host_world.set_mode(str(room.get("mode", screens.selected_mode)))
@@ -159,9 +161,12 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
                 host_world.human_slots[s] = true
         world = host_world
         _snap_timer = 0.0
-        hub.peer_input_received.connect(_on_peer_input)
-        hub.peer_parked_received.connect(_on_peer_parked)
-        hub.peer_reclaimed_received.connect(_on_peer_reclaimed)
+        if not hub.peer_input_received.is_connected(_on_peer_input):
+            hub.peer_input_received.connect(_on_peer_input)
+        if not hub.peer_parked_received.is_connected(_on_peer_parked):
+            hub.peer_parked_received.connect(_on_peer_parked)
+        if not hub.peer_reclaimed_received.is_connected(_on_peer_reclaimed):
+            hub.peer_reclaimed_received.connect(_on_peer_reclaimed)
     else:
         var net_world = NetWorldScript.new()
         net_world.local_slot = you
