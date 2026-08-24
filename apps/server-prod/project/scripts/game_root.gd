@@ -65,7 +65,12 @@ func _ready() -> void:
         var hub_name: String = hub.get_hub_name()
         if hub_name != "":
             hub.player_name = hub_name
-    _set_phase(&"lobby")
+        # Hide Godot lobby entirely — web hub handles everything
+        screens.visible = false
+        world_view.visible = false
+        hud.visible = false
+    else:
+        _set_phase(&"lobby")
 
 func _attach_touch() -> void:
     if not ResourceLoader.exists(TOUCH_CONTROLS_PATH):
