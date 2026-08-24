@@ -51,6 +51,9 @@ var rtt_ms: int = -1
 
 func _ready() -> void:
     resume_token = _load_resume()
+    var hub_name := get_hub_name()
+    if hub_name != "":
+        player_name = hub_name
     ensure_connected()
 
 func _js_text(code: String) -> String:
@@ -70,12 +73,12 @@ func _resolve_url() -> String:
     if OS.has_feature("web"):
         var origin := _js_text("String(window.location.origin)")
         if origin.begins_with("https://"):
-            return "wss://%s/gang-up/ws" % origin.substr(8)
+            return "wss://%s/gang-up" % origin.substr(8)
         if origin.begins_with("http://"):
-            return "ws://%s/gang-up/ws" % origin.substr(7)
+            return "ws://%s/gang-up" % origin.substr(7)
         var host := _js_text("String(window.location.host)")
         if host != "":
-            return "wss://%s/gang-up/ws" % host
+            return "wss://%s/gang-up" % host
     return "ws://127.0.0.1:9120"
 
 func is_open() -> bool:
