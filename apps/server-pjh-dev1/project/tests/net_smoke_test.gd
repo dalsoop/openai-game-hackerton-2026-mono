@@ -1,6 +1,6 @@
 extends SceneTree
 
-const HubClientScript = preload("res://scripts/net/hub_client.gd")
+const HubClientScript = preload("res://autoload/network_manager.gd")
 const NetWorldScript = preload("res://scripts/net/net_world.gd")
 
 var _hub
@@ -43,7 +43,7 @@ func _run() -> void:
     var frames := 0
     while frames < 150:
         await process_frame
-        _hub.send_input(Vector2.RIGHT.rotated(float(frames) * 0.05), true, frames % 40 == 0, false, Vector2(800, 450))
+        _hub.send_input(Vector2.RIGHT.rotated(float(frames) * 0.05), true, frames % 40 == 0, false, Vector2(3920, 2380))
         frames += 1
     _expect(_snaps >= 10, "snap 10개 이상 수신 (got %d)" % _snaps)
     if _world != null:

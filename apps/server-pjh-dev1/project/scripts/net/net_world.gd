@@ -3,15 +3,16 @@ extends RefCounted
 const EventLogScript = preload("res://scripts/sim/event_log.gd")
 
 const PLAYER_COUNT := 8
-const ARENA_SIZE := Vector2(1600.0, 900.0)
-const ARENA_CENTER := Vector2(800.0, 450.0)
+const ARENA_SIZE := Vector2(7840.0, 4760.0)
+const ARENA_CENTER := Vector2(3920.0, 2380.0)
+const ARENA_MARGIN := 104.0
+const HERO_RADIUS := 20.0
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
 const INTERP_SEC := 0.06
 const MOVE_SPEED := 210.0
 const DASH_SPEED := 520.0
 const DASH_COOLDOWN := 1.6
-const ISLAND_RADIUS := 402.0
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
@@ -237,7 +238,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
-        hero["pos"] = _clamp_island(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
+        hero["pos"] = _clamp_arena(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
     for shot in projectiles:
         shot["pos"] = Vector2(shot["pos"]) + Vector2(shot.get("vel", Vector2.ZERO)) * extra
 
@@ -268,16 +269,15 @@ func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> v
     var mlen := move.length()
     if mlen > 0.05:
         _pred_pos += move / maxf(1.0, mlen) * speed * dt
-    _pred_pos = _clamp_island(_pred_pos)
+    _pred_pos = _clamp_arena(_pred_pos)
     if aim.distance_squared_to(_pred_pos) > 1.0:
         _pred_aim = _pred_pos.direction_to(aim)
 
-func _clamp_island(pos: Vector2) -> Vector2:
-    var delta := pos - ARENA_CENTER
-    var length := delta.length()
-    if length > ISLAND_RADIUS:
-        return ARENA_CENTER + delta / length * ISLAND_RADIUS
-    return pos
+func _clamp_arena(pos: Vector2) -> Vector2:
+    return Vector2(
+        clampf(pos.x, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS),
+        clampf(pos.y, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS)
+    )
 
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():
