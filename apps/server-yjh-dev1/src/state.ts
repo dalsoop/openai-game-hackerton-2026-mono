@@ -145,6 +145,13 @@ export function startMatch(room: Room): void {
   if (room.phase !== Phase.LOBBY) return;
   room.phase = Phase.PLAYING;
   room.hostClientId = hostId(room);
+  const seed = Math.floor(Math.random() * 999999) + 1;
+  const players = room.members.map((id, slot) => {
+    const c = clients.get(id);
+    return { slot, name: c?.name ?? "?", resume_token: c?.resume ?? "" };
+  });
+  notifyGameServer(room.id, players, room.mode, seed);
+  const gameWsUrl = deriveGameWsUrl();
   for (const id of room.members) {
     const c = clients.get(id);
     if (c?.dead) {
@@ -152,7 +159,7 @@ export function startMatch(room: Room): void {
     } else {
       const slot = room.members.indexOf(id);
       const isHost = id === room.hostClientId;
-      sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room) });
+      sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room), gameServerUrl: gameWsUrl, seed });
     }
   }
   room.timer = setTimeout(() => {
@@ -162,6 +169,23 @@ export function startMatch(room: Room): void {
     }
   }, CONFIG.hostBootTimeoutMs);
   broadcastRooms();
+}
+
+function notifyGameServer(roomId: string, players: { slot: number; name: string; resume_token: string }[], mode: string, seed: number): void {
+  const body = JSON.stringify({ room_id: roomId, players, mode, seed });
+  fetch(`${CONFIG.gameServerUrl}/start-match`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    signal: AbortSignal.timeout(5000),
+  }).catch((err: Error) => console.error(`[gang-up] game server notify failed: ${err.message}`));
+}
+
+function deriveGameWsUrl(): string {
+  const base = CONFIG.gameServerUrl;
+  const host = new URL(base).hostname;
+  const port = 9121;
+  return `wss://${host}:${port}/game-ws`;
 }
 
 export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void {

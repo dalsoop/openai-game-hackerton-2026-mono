@@ -24,7 +24,7 @@ static func build(close_callback: Callable) -> Control:
 		"최후의 1인이 이깁니다. 안전 구역은 줄어듭니다.",
 	]:
 		col.add_child(UiTheme.lbl(line, 18, UiTheme.MUTED))
-	var back := UiTheme.btn("뒤로", UiTheme.BTN_DARK, Vector2(140, 48))
+	var back := UiTheme.btn("뒤로", Color("3D4654"), Vector2(140, 48))
 	back.pressed.connect(close_callback)
 	col.add_child(back)
 	panel.add_child(col)

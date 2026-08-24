@@ -3,24 +3,29 @@ extends RefCounted
 
 static func build(callbacks: Dictionary) -> Dictionary:
 	var root := UiTheme.full(Control.new())
-	var wait_mode_label := _build_header(root, callbacks)
-	var mode_refs := _build_mode_row(root, callbacks)
-	var slot_host := _build_slots(root, callbacks)
-	var center_refs := _build_center(root)
-	var footer_refs := _build_footer(root, callbacks)
+	var header := _build_header(callbacks)
+	root.add_child(header["node"])
+	var mode_refs := _build_mode_row(callbacks)
+	root.add_child(mode_refs["node"])
+	var slot_host := _build_slots(callbacks)
+	root.add_child(slot_host)
+	var center := _build_center()
+	root.add_child(center["node"])
+	var footer_refs := _build_footer(callbacks)
+	root.add_child(footer_refs["node"])
 	return {
 		"root": root,
 		"slot_host": slot_host,
-		"count_label": center_refs["count_label"],
-		"ready_label": center_refs["ready_label"],
-		"wait_mode_label": wait_mode_label,
-		"wait_mode_buttons": mode_refs,
+		"count_label": center["count_label"],
+		"ready_label": center["ready_label"],
+		"wait_mode_label": header["wait_mode_label"],
+		"wait_mode_buttons": mode_refs["buttons"],
 		"chat_log": footer_refs["chat_log"],
 		"start_button": footer_refs["start_button"],
 		"start_hint": footer_refs["start_hint"],
 	}
 
-static func _build_header(root: Control, callbacks: Dictionary) -> Label:
+static func _build_header(callbacks: Dictionary) -> Dictionary:
 	var header := HBoxContainer.new()
 	header.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	header.offset_left = 36
@@ -43,10 +48,9 @@ static func _build_header(root: Control, callbacks: Dictionary) -> Label:
 	gear.pressed.connect(callbacks["on_settings"])
 	header.add_child(sound)
 	header.add_child(gear)
-	root.add_child(header)
-	return wait_mode_label
+	return {"node": header, "wait_mode_label": wait_mode_label}
 
-static func _build_mode_row(root: Control, callbacks: Dictionary) -> Array[Button]:
+static func _build_mode_row(callbacks: Dictionary) -> Dictionary:
 	var mode_row := HBoxContainer.new()
 	mode_row.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	mode_row.offset_left = 36
@@ -62,21 +66,19 @@ static func _build_mode_row(root: Control, callbacks: Dictionary) -> Array[Butto
 		chip.pressed.connect(func(): callbacks["on_mode"].call(mode_id))
 		wait_mode_buttons.append(chip)
 		mode_row.add_child(chip)
-	root.add_child(mode_row)
-	return wait_mode_buttons
+	return {"node": mode_row, "buttons": wait_mode_buttons}
 
-static func _build_slots(root: Control, callbacks: Dictionary) -> Control:
+static func _build_slots(callbacks: Dictionary) -> Control:
 	var slot_host := Control.new()
 	slot_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slot_host.offset_top = 150
 	slot_host.offset_bottom = -150
 	slot_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(slot_host)
 	for i in UiTheme.SLOT_COUNT:
 		slot_host.add_child(_make_slot_card(i, callbacks.get("on_kick", Callable())))
 	return slot_host
 
-static func _build_center(root: Control) -> Dictionary:
+static func _build_center() -> Dictionary:
 	var center_box := VBoxContainer.new()
 	center_box.set_anchors_preset(Control.PRESET_CENTER)
 	center_box.offset_left = -160
@@ -96,10 +98,9 @@ static func _build_center(root: Control) -> Dictionary:
 	center_box.add_child(count_label)
 	center_box.add_child(ready_label)
 	center_box.add_child(bot)
-	root.add_child(center_box)
-	return {"count_label": count_label, "ready_label": ready_label}
+	return {"node": center_box, "count_label": count_label, "ready_label": ready_label}
 
-static func _build_footer(root: Control, callbacks: Dictionary) -> Dictionary:
+static func _build_footer(callbacks: Dictionary) -> Dictionary:
 	var footer := HBoxContainer.new()
 	footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	footer.offset_left = 28
@@ -120,8 +121,7 @@ static func _build_footer(root: Control, callbacks: Dictionary) -> Dictionary:
 	start_box.add_child(start_hint)
 	footer.add_child(start_box)
 	footer.add_child(_build_tip())
-	root.add_child(footer)
-	return {"chat_log": chat_refs["chat_log"], "start_button": start_button, "start_hint": start_hint}
+	return {"node": footer, "chat_log": chat_refs["chat_log"], "start_button": start_button, "start_hint": start_hint}
 
 static func _build_chat() -> Dictionary:
 	var panel := Panel.new()
@@ -187,7 +187,12 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
 	col.add_theme_constant_override("separation", 4)
-	var row := _make_slot_badge(index)
+	var row := HBoxContainer.new()
+	var badge := _make_slot_badge(index)
+	var nick := UiTheme.lbl(UiTheme.NICKS[index], 15, UiTheme.INK)
+	nick.name = "Nick"
+	row.add_child(badge)
+	row.add_child(nick)
 	var ready := UiTheme.lbl("준비 완료", 13, UiTheme.GREEN)
 	ready.name = "Ready"
 	var art := _make_slot_art(index)
@@ -199,23 +204,17 @@ static func _make_slot_card(index: int, on_kick: Callable) -> Panel:
 	card.add_child(col)
 	return card
 
-static func _make_slot_badge(index: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
+static func _make_slot_badge(index: int) -> ColorRect:
 	var badge := ColorRect.new()
 	badge.custom_minimum_size = Vector2(22, 22)
 	badge.color = UiTheme.SLOT_COLORS[index]
 	var num := UiTheme.lbl(str(index + 1), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	num.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	badge.add_child(num)
-	var nick := UiTheme.lbl(UiTheme.NICKS[index], 15, UiTheme.INK)
-	nick.name = "Nick"
-	row.add_child(badge)
-	row.add_child(nick)
-	return row
+	return badge
 
 static func _make_slot_art(index: int) -> Control:
 	var portrait := _animal_portrait(index)
-	var art: Control
 	if portrait != null:
 		var pic := TextureRect.new()
 		pic.texture = portrait
@@ -223,9 +222,9 @@ static func _make_slot_art(index: int) -> Control:
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pic.custom_minimum_size = Vector2(88, 88)
 		pic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		art = pic
-	else:
-		art = UiTheme.lbl(UiTheme.ANIMALS[index], 28, UiTheme.SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
+		pic.name = "Art"
+		return pic
+	var art := UiTheme.lbl(UiTheme.ANIMALS[index], 28, UiTheme.SLOT_COLORS[index], HORIZONTAL_ALIGNMENT_CENTER)
 	art.name = "Art"
 	return art
 

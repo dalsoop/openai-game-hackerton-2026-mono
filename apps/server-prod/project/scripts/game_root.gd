@@ -2,6 +2,8 @@ extends Node
 
 const WorldScript = preload("res://scripts/sim/game_world.gd")
 const NetWorldScript = preload("res://scripts/net/net_world.gd")
+const GameServerScript = preload("res://scripts/net/game_server.gd")
+const GameClientScript = preload("res://scripts/net/game_client.gd")
 const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
 
 @onready var world_view: Node2D = $WorldView
@@ -13,6 +15,8 @@ var world
 var hub: Node  # → NetworkManager autoload
 var _host_ctrl: NetworkHost = null
 var _sfx: SfxManager = null
+var _game_client: GameClient = null
+var _is_server_mode := false
 var previous_keys: Dictionary = {}
 var seed: int = 2222
 var last_event_id: int = 0
@@ -28,6 +32,10 @@ var _touch_exit: Button = null
 var _touch_rematch: Button = null
 
 func _ready() -> void:
+	_is_server_mode = "--server" in OS.get_cmdline_user_args()
+	if _is_server_mode:
+		_start_dedicated_server()
+		return
 	_sfx = SfxManager.new()
 	_sfx.setup(self)
 	_attach_touch()
@@ -55,6 +63,15 @@ func _ready() -> void:
 		hub.joined_room.connect(func(_r, _p, _y): pass)
 	else:
 		_set_phase(&"lobby")
+
+func _start_dedicated_server() -> void:
+	world_view.visible = false
+	hud.visible = false
+	screens.visible = false
+	var server_node := GameServerScript.new()
+	server_node.name = "GameServer"
+	add_child(server_node)
+	print("Dedicated server mode active")
 
 # --- Touch controls ---
 
@@ -99,30 +116,13 @@ func _on_start_match() -> void:
 func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_active = true
 	GameState.net_host = hub.is_host
-	if GameState.net_host:
-		if _host_ctrl != null:
-			_host_ctrl.disconnect_signals()
-		seed += 1
-		var host_world = WorldScript.new(seed)
-		host_world.set_mode(str(room.get("mode", screens.selected_mode)))
-		host_world.local_slot = you
-		host_world.is_net = true
-		host_world.reset()
-		for p in hub.players:
-			var s := int(p.get("slot", -1))
-			if s >= 0 and not bool(p.get("dropped", false)):
-				host_world.human_slots[s] = true
-				if s < host_world.heroes.size():
-					host_world.heroes[s]["display_name"] = str(p.get("name", ""))
-		world = host_world
-		_host_ctrl = NetworkHost.new(hub, world)
-		_host_ctrl.connect_signals()
+	var game_url = str(room.get("game_url", ""))
+	if game_url != "" and not GameState.net_host:
+		_start_with_game_server(you, room, game_url)
+	elif GameState.net_host:
+		_start_as_host(you, room)
 	else:
-		var net_world = NetWorldScript.new()
-		net_world.local_slot = you
-		net_world.set_mode(str(room.get("mode", screens.selected_mode)))
-		net_world.reset()
-		world = net_world
+		_start_as_hub_client(you, room)
 	world_view.world = world
 	hud.world = world
 	hud.mode_id = str(room.get("mode", screens.selected_mode))
@@ -135,6 +135,52 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	previous_left_mouse = false
 	camera.position = _camera_target()
 	_set_phase(&"play")
+
+func _start_with_game_server(you: int, room: Dictionary, game_url: String) -> void:
+	var net_world = NetWorldScript.new()
+	net_world.local_slot = you
+	net_world.set_mode(str(room.get("mode", screens.selected_mode)))
+	net_world.reset()
+	world = net_world
+	if _game_client != null:
+		_game_client.disconnect_from_server()
+		_game_client.queue_free()
+	_game_client = GameClientScript.new()
+	_game_client.name = "GameClient"
+	add_child(_game_client)
+	_game_client.snapshot_received.connect(_on_game_server_snapshot)
+	_game_client.connect_to_server(game_url, hub.resume_token)
+
+func _start_as_host(you: int, room: Dictionary) -> void:
+	if _host_ctrl != null:
+		_host_ctrl.disconnect_signals()
+	seed += 1
+	var host_world = WorldScript.new(seed)
+	host_world.set_mode(str(room.get("mode", screens.selected_mode)))
+	host_world.local_slot = you
+	host_world.is_net = true
+	host_world.reset()
+	for p in hub.players:
+		var s := int(p.get("slot", -1))
+		if s < 0 or bool(p.get("dropped", false)):
+			continue
+		host_world.human_slots[s] = true
+		if s < host_world.heroes.size():
+			host_world.heroes[s]["display_name"] = str(p.get("name", ""))
+	world = host_world
+	_host_ctrl = NetworkHost.new(hub, world)
+	_host_ctrl.connect_signals()
+
+func _start_as_hub_client(you: int, room: Dictionary) -> void:
+	var net_world = NetWorldScript.new()
+	net_world.local_slot = you
+	net_world.set_mode(str(room.get("mode", screens.selected_mode)))
+	net_world.reset()
+	world = net_world
+
+func _on_game_server_snapshot(snap: Dictionary) -> void:
+	if GameState.net_active and world != null and bool(world.get("is_net")):
+		world.push_snap(snap)
 
 func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
 	GameState.net_active = true
@@ -197,7 +243,7 @@ func _set_net_banner(text: String) -> void:
 		_net_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_net_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_net_banner.add_theme_font_size_override("font_size", 20)
-		_net_banner.add_theme_color_override("font_color", Color("FFF6E5"))
+		_net_banner.add_theme_color_override("font_color", UiTheme.BANNER_TEXT)
 		var wrap := Panel.new()
 		wrap.name = "NetBannerWrap"
 		wrap.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -238,12 +284,12 @@ func _restart() -> void:
 # --- Physics process ---
 
 func _physics_process(_delta: float) -> void:
+	if _is_server_mode:
+		return
 	if phase != &"play":
 		if _edge(KEY_ESCAPE):
-			if screens.page == &"wait":
-				_escape_wait()
-			else:
-				screens.pop_page()
+			if screens.page == &"wait": _escape_wait()
+			else: screens.pop_page()
 		return
 	if _edge(KEY_ESCAPE):
 		if world != null and bool(world.finish_cine.get("on", false)):
@@ -281,36 +327,7 @@ func _physics_process(_delta: float) -> void:
 		aim_world = _local_player_pos() + touch.aim_dir * 400.0
 	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
 	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
-	if GameState.net_active and GameState.net_host:
-		var command := _build_command(move, aim_world, primary, equipment_held)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
-		world.step_tick(command, 1.0 / 60.0)
-		if _host_ctrl != null:
-			_host_ctrl.tick(1.0 / 60.0)
-		hud.net_rtt_ms = int(hub.rtt_ms)
-		hud.net_connected = bool(hub.is_open())
-		_apply_recoil_mouse()
-	elif GameState.net_active:
-		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
-		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
-		world.present(1.0 / 60.0)
-		hud.net_rtt_ms = int(hub.rtt_ms)
-		hud.net_connected = bool(hub.is_open())
-		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
-		hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
-		previous_right_mouse = equipment_held
-	else:
-		var command := _build_command(move, aim_world, primary, equipment_held)
-		if not GameState.net_active and world != null:
-			if _edge(KEY_BRACKETLEFT):
-				world.cycle_local_animal(-1)
-			if _edge(KEY_BRACKETRIGHT):
-				world.cycle_local_animal(1)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
-		world.step_tick(command, 1.0 / 60.0)
-		_apply_recoil_mouse()
+	_tick_world(move, aim_world, primary, equipment_held)
 	# SFX
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
 	last_event_id = sfx_result["last_event_id"]
@@ -325,6 +342,44 @@ func _physics_process(_delta: float) -> void:
 	hud.spectate_slot = spectate_slot
 	world_view.queue_redraw()
 	hud.queue_redraw()
+
+func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_held: bool) -> void:
+	if _is_server_mode:
+		return
+	if GameState.net_active and GameState.net_host:
+		var command := _build_command(move, aim_world, primary, equipment_held)
+		previous_right_mouse = equipment_held
+		previous_left_mouse = primary
+		world.step_tick(command, 1.0 / 60.0)
+		if _host_ctrl != null:
+			_host_ctrl.tick(1.0 / 60.0)
+		hud.net_rtt_ms = int(hub.rtt_ms)
+		hud.net_connected = bool(hub.is_open())
+		_apply_recoil_mouse()
+		return
+	if GameState.net_active:
+		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
+		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
+		world.present(1.0 / 60.0)
+		hud.net_rtt_ms = int(hub.rtt_ms)
+		hud.net_connected = bool(hub.is_open())
+		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
+		if _game_client != null and _game_client.is_connected_to_server():
+			_game_client.send_input({"mx":move.x, "my":move.y, "fire":primary, "dash":dash_held, "use":use_held, "aimX":aim_world.x, "aimY":aim_world.y, "seq":seq})
+		else:
+			hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
+		previous_right_mouse = equipment_held
+		return
+	var command := _build_command(move, aim_world, primary, equipment_held)
+	if world != null:
+		if _edge(KEY_BRACKETLEFT):
+			world.cycle_local_animal(-1)
+		if _edge(KEY_BRACKETRIGHT):
+			world.cycle_local_animal(1)
+	previous_right_mouse = equipment_held
+	previous_left_mouse = primary
+	world.step_tick(command, 1.0 / 60.0)
+	_apply_recoil_mouse()
 
 # --- Helpers ---
 
@@ -375,6 +430,10 @@ func _local_player_pos() -> Vector2:
 		return Vector2.ZERO
 	var me: Dictionary = world.heroes[clampi(world.local_slot, 0, world.heroes.size() - 1)]
 	return Vector2(me["pos"])
+
+@rpc("authority", "call_remote", "unreliable")
+func _receive_snapshot(snap: Dictionary) -> void:
+	_on_game_server_snapshot(snap)
 
 func _escape_wait() -> void:
 	if _host_ctrl != null:

@@ -5,8 +5,16 @@ signal request_quit_to_intro
 signal request_resume
 signal control_mode_changed(mode: String)
 
+const _STATUS_COLORS := {
+	"로비": UiTheme.GREEN,
+	"오프라인 로컬": UiTheme.ERROR,
+	"끊김": UiTheme.ERROR,
+	"다시 연결 중": UiTheme.WARN,
+	"연결 중": UiTheme.WARN,
+}
+
 var page := &"lobby"
-var selected_mode := "classic"
+var selected_mode := "full"
 var sound_on := true
 var control_mode := SettingsStore.MODE_AUTO
 var hub = null
@@ -106,7 +114,7 @@ func _build() -> void:
 		add_child(node)
 
 func _build_lobby() -> void:
-	var lobby_refs := LobbyBuilder.build({
+	var lobby_refs = LobbyBuilder.build({
 		"on_how": func():
 			_how_return = &"lobby"
 			show_page(&"how"),
@@ -130,7 +138,7 @@ func _on_retry_pressed() -> void:
 		hub.reconnect_now()
 
 func _build_room() -> void:
-	var room_refs := RoomBuilder.build({
+	var room_refs = RoomBuilder.build({
 		"on_back": func(): pop_page(),
 		"on_sound": _toggle_sound,
 		"on_settings": func(): open_settings(&"wait"),
@@ -213,12 +221,17 @@ func _rebuild_room_list() -> void:
 		_room_list.add_child(empty)
 		return
 	for room in hub.rooms:
-		_room_list.add_child(LobbyBuilder.make_room_row(room, _on_join_pressed))
+		_room_list.add_child(LobbyBuilder.make_room_row(room, _on_join_pressed, _on_spectate_pressed))
 
 func _on_join_pressed(room_id: String) -> void:
 	if hub == null or not hub.is_open():
 		return
 	_push_identity()
+	hub.join_room(room_id)
+
+func _on_spectate_pressed(room_id: String) -> void:
+	if hub == null or not hub.is_open():
+		return
 	hub.join_room(room_id)
 
 func bind_hub(client) -> void:
@@ -246,26 +259,16 @@ func _on_hub_joined(_room: Dictionary, _players: Array, _you: int) -> void:
 func _on_hub_peers(_players: Array, _room: Dictionary) -> void:
 	if page == &"wait":
 		_fill_wait()
-
 func _on_hub_left() -> void:
 	if hub != null and hub.holding_seat:
 		return
 	if page == &"wait":
 		show_page(&"lobby")
-
 func _on_hub_notice(message: String) -> void:
 	if _chat_log != null and page == &"wait":
 		_chat_log.append_text("[color=#%s][시스템] %s[/color]\n" % [UiTheme.WARN.to_html(false), message])
 	elif _lobby_error != null and page == &"lobby":
 		_lobby_error.text = message
-
-const _STATUS_COLORS := {
-	"로비": UiTheme.GREEN,
-	"오프라인 로컬": UiTheme.ERROR,
-	"끊김": UiTheme.ERROR,
-	"다시 연결 중": UiTheme.WARN,
-	"연결 중": UiTheme.WARN,
-}
 
 func _on_hub_status(next: String) -> void:
 	if _lobby_status != null:
@@ -325,7 +328,7 @@ func _sync_settings_ui() -> void:
 		_settings_sound.set_pressed_no_signal(sound_on)
 
 func _build_settings() -> Control:
-	var result := SettingsPopup.build(
+	var result = SettingsPopup.build(
 		func(): pop_page(),
 		func(): _quit_to_select(),
 		control_mode,
@@ -348,11 +351,15 @@ func _on_wait_mode_pressed(mode_id: String) -> void:
 		if hub.in_room and hub.you == 0:
 			hub.set_room_mode(mode_id)
 	_sync_wait_modes()
-	if _wait_mode_label != null:
-		if hub != null and hub.in_room:
-			_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(mode_id)]
-		else:
-			_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(mode_id)
+	_update_wait_mode_label(mode_id)
+
+func _update_wait_mode_label(mode_id: String) -> void:
+	if _wait_mode_label == null:
+		return
+	if hub != null and hub.in_room:
+		_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(mode_id)]
+	else:
+		_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(mode_id)
 
 func _host_can_change_mode() -> bool:
 	if hub == null:
@@ -383,18 +390,9 @@ func _fill_wait() -> void:
 	for i in UiTheme.SLOT_COUNT:
 		_fill_slot(i, online, me_host)
 	_count_label.text = "%d / 8" % count
-	if _wait_mode_label != null:
-		if online:
-			_wait_mode_label.text = "%s  |  %s  |  최후의 1인이 승리합니다!" % [str(hub.room.get("title", "")), UiTheme.mode_title(str(hub.room.get("mode", selected_mode)))]
-		else:
-			_wait_mode_label.text = "%s  |  오프라인 로컬  |  최후의 1인이 승리합니다!" % UiTheme.mode_title(selected_mode)
+	_update_wait_mode_label(str(hub.room.get("mode", selected_mode)) if online else selected_mode)
 	_sync_wait_modes()
-	if _chat_log != null and _chat_log.get_total_character_count() == 0:
-		if online:
-			_chat_log.append_text("[color=#%s][시스템] 방에 입장했습니다. %d/8명.[/color]\n" % [UiTheme.GREEN.to_html(false), count])
-			_chat_log.append_text("[color=#%s][시스템] 호스트가 게임을 바꿀 수 있습니다. 빈 자리는 시작 시 CPU가 채웁니다.[/color]\n" % UiTheme.MUTED.to_html(false))
-		else:
-			_chat_log.append_text("[color=#%s][시스템] 오프라인 로컬 매치입니다. CPU 7명과 시작합니다.[/color]\n" % UiTheme.MUTED.to_html(false))
+	_fill_wait_chat(online, count)
 	_update_start_button()
 
 func _fill_slot(i: int, online: bool, me_host: bool) -> void:
@@ -431,25 +429,24 @@ func _fill_slot_online(i: int, nick: Label, ready: Label) -> void:
 		ready.text = "대기 중"
 		ready.add_theme_color_override("font_color", UiTheme.GREEN)
 
+func _fill_wait_chat(online: bool, count: int) -> void:
+	if _chat_log == null or _chat_log.get_total_character_count() > 0:
+		return
+	if online:
+		_chat_log.append_text("[color=#%s][시스템] 방에 입장했습니다. %d/8명.[/color]\n" % [UiTheme.GREEN.to_html(false), count])
+		_chat_log.append_text("[color=#%s][시스템] 호스트가 게임을 바꿀 수 있습니다. 빈 자리는 시작 시 CPU가 채웁니다.[/color]\n" % UiTheme.MUTED.to_html(false))
+	else:
+		_chat_log.append_text("[color=#%s][시스템] 오프라인 로컬 매치입니다. CPU 7명과 시작합니다.[/color]\n" % UiTheme.MUTED.to_html(false))
+
 func _update_start_button() -> void:
 	if _start_button == null:
 		return
 	var online: bool = hub != null and hub.in_room
-	if not online:
-		_start_button.visible = true
-		_start_button.text = "게임 시작"
-		_start_hint.visible = false
-	elif hub.match_running:
-		_start_button.visible = true
-		_start_button.text = "게임으로 돌아가기"
-		_start_hint.visible = false
-	elif hub.you == 0:
-		_start_button.visible = true
-		_start_button.text = "게임 시작"
-		_start_hint.visible = false
-	else:
-		_start_button.visible = false
-		_start_hint.visible = true
+	var show_start: bool = not online or hub.match_running or hub.you == 0
+	_start_button.visible = show_start
+	_start_hint.visible = not show_start
+	if show_start:
+		_start_button.text = "게임으로 돌아가기" if (online and hub.match_running) else "게임 시작"
 
 func _on_start_pressed() -> void:
 	if hub != null and hub.in_room:

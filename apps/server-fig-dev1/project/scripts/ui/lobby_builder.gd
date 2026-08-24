@@ -7,14 +7,16 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 32)
 	col.add_theme_constant_override("separation", 16)
-	var lobby_status := _build_header(col, callbacks)
-	var side_refs := _build_side(callbacks)
-	var list_refs := _build_room_list()
+	var head := _build_header(callbacks)
+	var lobby_status: Label = head["status"]
+	col.add_child(head["node"])
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 18)
-	body.add_child(side_refs["side"])
-	body.add_child(list_refs["panel"])
+	var side_refs := _build_side(callbacks)
+	body.add_child(side_refs["node"])
+	var list_refs := _build_room_list()
+	body.add_child(list_refs["node"])
 	col.add_child(body)
 	root.add_child(col)
 	return {
@@ -22,7 +24,7 @@ static func build(callbacks: Dictionary) -> Dictionary:
 		"name_edit": side_refs["name_edit"],
 		"lobby_status": lobby_status,
 		"lobby_error": side_refs["lobby_error"],
-		"room_list": list_refs["list"],
+		"room_list": list_refs["room_list"],
 		"retry_button": side_refs["retry_button"],
 		"local_button": side_refs["local_button"],
 	}
@@ -39,7 +41,7 @@ static func _add_background(root: Control) -> void:
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(art)
 
-static func _build_header(col: VBoxContainer, callbacks: Dictionary) -> Label:
+static func _build_header(callbacks: Dictionary) -> Dictionary:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	var how := UiTheme.icon_btn("조작")
@@ -59,8 +61,7 @@ static func _build_header(col: VBoxContainer, callbacks: Dictionary) -> Label:
 	var lobby_gear := UiTheme.icon_btn("설정")
 	lobby_gear.pressed.connect(callbacks["on_settings"])
 	head.add_child(lobby_gear)
-	col.add_child(head)
-	return lobby_status
+	return {"node": head, "status": lobby_status}
 
 static func _build_side(callbacks: Dictionary) -> Dictionary:
 	var side := VBoxContainer.new()
@@ -92,7 +93,7 @@ static func _build_side(callbacks: Dictionary) -> Dictionary:
 	var lobby_error := UiTheme.lbl("", 14, UiTheme.ERROR)
 	lobby_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	side.add_child(lobby_error)
-	return {"side": side, "name_edit": name_edit, "lobby_error": lobby_error, "retry_button": retry_button, "local_button": local_button}
+	return {"node": side, "name_edit": name_edit, "lobby_error": lobby_error, "retry_button": retry_button, "local_button": local_button}
 
 static func _build_room_list() -> Dictionary:
 	var list_panel := Panel.new()
@@ -110,9 +111,9 @@ static func _build_room_list() -> Dictionary:
 	scroll.add_child(room_list)
 	list_col.add_child(scroll)
 	list_panel.add_child(list_col)
-	return {"panel": list_panel, "list": room_list}
+	return {"node": list_panel, "room_list": room_list}
 
-static func make_room_row(room: Dictionary, on_join: Callable) -> Control:
+static func make_room_row(room: Dictionary, on_join: Callable, on_spectate: Callable = Callable()) -> Control:
 	var row := Panel.new()
 	row.custom_minimum_size = Vector2(0, 64)
 	var row_tex := UiTheme.load_png("lobby_row.png")
@@ -135,9 +136,14 @@ static func make_room_row(room: Dictionary, on_join: Callable) -> Control:
 	var count_lbl := UiTheme.lbl("%d/%d" % [int(room.get("count", 0)), int(room.get("max", 8))], 16, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER)
 	count_lbl.custom_minimum_size = Vector2(70, 0)
 	line.add_child(count_lbl)
+	var room_id := str(room.get("id", ""))
+	if on_spectate.is_valid() and bool(room.get("playing", false)):
+		var spectate := UiTheme.btn("관전", UiTheme.MUTED, Vector2(80, 44))
+		spectate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		spectate.pressed.connect(func(): on_spectate.call(room_id))
+		line.add_child(spectate)
 	var join := UiTheme.btn("참가", UiTheme.BLUE, Vector2(96, 44))
 	join.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var room_id := str(room.get("id", ""))
 	join.pressed.connect(func(): on_join.call(room_id))
 	line.add_child(join)
 	row.add_child(line)

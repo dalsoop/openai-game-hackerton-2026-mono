@@ -3,6 +3,7 @@ extends Control
 const GunSig = preload("res://scripts/sim/gun_signature.gd")
 
 var world
+var mode_id: String = "full"
 var spectate_slot: int = 0
 var hud_mode: int = 0
 var touch_hints: bool = false
@@ -17,6 +18,10 @@ const ZONE_PURPLE := Color("#c65cff")
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
+var _controls_overlay_time: float = 4.0
+var _controls_dismissed: bool = false
+var _kill_feed: Array[Dictionary] = []
+var _last_kill_event_id: int = 0
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -65,6 +70,9 @@ func _draw() -> void:
     _draw_critical(me)
     _draw_ultimate_cinematic()
     _draw_crosshair(me)
+    _draw_controls_overlay()
+    _update_kill_feed()
+    _draw_kill_feed()
 
 func _draw_led_panel(rect: Rect2, accent: Color) -> void:
     var top := Color(0.03, 0.05, 0.07, 0.38)
@@ -258,7 +266,7 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
     _text(rect.position + Vector2(10.0, 15.0), "약" if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
     _text(rect.position + Vector2(52.0, 55.0), "메드킷", 11, Color("#aebaca"))
 
-func _draw_dash_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
+func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> void:
     var mobility_cd: float = float(me["mobility_cd"])
     var ready := mobility_cd <= 0.0
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
@@ -498,3 +506,56 @@ func _draw_crosshair(me: Dictionary) -> void:
         draw_line(c + Vector2(-gap - arm, 0), c + Vector2(-gap, 0), col, thick)
         draw_line(c + Vector2(gap, 0), c + Vector2(gap + arm, 0), col, thick)
     draw_arc(c, 5.0 + climb * 0.04, 0.0, TAU, 28, Color(accent, 0.45), 1.4)
+
+func _draw_controls_overlay() -> void:
+    if _controls_dismissed or _controls_overlay_time <= 0.0:
+        return
+    _controls_overlay_time -= 1.0 / 60.0
+    if Input.is_anything_pressed():
+        _controls_dismissed = true
+        return
+    var alpha := clampf(_controls_overlay_time / 1.0, 0.0, 1.0) if _controls_overlay_time < 1.0 else 0.85
+    var bg := Color(0.0, 0.0, 0.0, alpha * 0.7)
+    var tx := Color(1.0, 1.0, 1.0, alpha)
+    var cx := size.x * 0.5
+    var cy := size.y * 0.5
+    draw_rect(Rect2(cx - 160, cy - 90, 320, 180), bg)
+    var lines := ["WASD  이동", "마우스  조준", "좌클릭  공격", "우클릭(홀드)  장비 스킬", "Shift  대시"]
+    for i in lines.size():
+        _text(Vector2(cx - 130, cy - 60 + i * 28), lines[i], 16, tx)
+
+func _update_kill_feed() -> void:
+    if world == null or world.event_log == null:
+        return
+    var now := int(world.tick)
+    for ev in world.event_log.events:
+        var eid := int(ev.get("id", 0))
+        if eid <= _last_kill_event_id:
+            continue
+        _last_kill_event_id = eid
+        var t = ev.get("type", &"")
+        if t != &"hero_downed" and t != &"player_eliminated":
+            continue
+        var killer_slot := int(ev.get("actor_id", -1))
+        var victim_slot := int(ev.get("target_id", -1))
+        var killer_name := str(world.heroes[killer_slot].get("display_name", "CPU")) if killer_slot >= 0 and killer_slot < world.heroes.size() else ""
+        var victim_name := str(world.heroes[victim_slot].get("display_name", "?")) if victim_slot >= 0 and victim_slot < world.heroes.size() else "?"
+        var label := "%s → %s" % [killer_name, victim_name] if killer_name != "" else "%s 탈락" % victim_name
+        if t == &"player_eliminated":
+            label += " 제거"
+        _kill_feed.append({"text": label, "time": now})
+    while _kill_feed.size() > 5:
+        _kill_feed.pop_front()
+    var cutoff := now - 180
+    while not _kill_feed.is_empty() and int(_kill_feed[0]["time"]) < cutoff:
+        _kill_feed.pop_front()
+
+func _draw_kill_feed() -> void:
+    var x := size.x - 220.0
+    var y := 60.0
+    for i in _kill_feed.size():
+        var entry: Dictionary = _kill_feed[i]
+        var age := int(world.tick) - int(entry["time"])
+        var alpha := clampf(1.0 - float(age) / 180.0, 0.0, 1.0)
+        draw_rect(Rect2(x - 4, y + i * 22 - 14, 210, 20), Color(0.0, 0.0, 0.0, 0.5 * alpha))
+        _text(Vector2(x, y + i * 22), str(entry["text"]), 13, Color(1.0, 1.0, 1.0, alpha))

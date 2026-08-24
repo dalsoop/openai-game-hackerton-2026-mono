@@ -14,38 +14,6 @@ export interface ModeDef {
 }
 
 export const MODES: Record<string, ModeDef> = {
-  classic: {
-    id: "classic",
-    title: KO.MODE_CLASSIC,
-    blurb: KO.MODE_CLASSIC_BLURB,
-    startWeapon: "unique",
-    lootGuns: false,
-    lootItems: false,
-  },
-  "gun-semi": {
-    id: "gun-semi",
-    title: KO.MODE_GUN_SEMI,
-    blurb: KO.MODE_GUN_SEMI_BLURB,
-    startWeapon: "pistol_semi",
-    lootGuns: true,
-    lootItems: false,
-  },
-  "gun-auto": {
-    id: "gun-auto",
-    title: KO.MODE_GUN_AUTO,
-    blurb: KO.MODE_GUN_AUTO_BLURB,
-    startWeapon: "pistol_auto",
-    lootGuns: true,
-    lootItems: false,
-  },
-  item: {
-    id: "item",
-    title: KO.MODE_ITEM,
-    blurb: KO.MODE_ITEM_BLURB,
-    startWeapon: "pistol_semi",
-    lootGuns: false,
-    lootItems: true,
-  },
   full: {
     id: "full",
     title: KO.MODE_FULL,

@@ -257,7 +257,9 @@ const engine = new Engine(GODOT_CONFIG);
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			statusOverlay.style.transition = 'opacity 0.4s ease-out';
+			statusOverlay.style.opacity = '0';
+			setTimeout(() => setStatusMode('hidden'), 400);
 		}, displayFailureNotice);
 	}
 }());

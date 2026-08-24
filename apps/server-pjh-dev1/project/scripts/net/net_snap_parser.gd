@@ -132,7 +132,7 @@ static func parse_crate_orbs(snap: Dictionary) -> Array[Dictionary]:
 static func make_equipment(weapon_name: String, player_name: String) -> Dictionary:
 	return {
 		"id":"net",
-		"name":weapon_name if weapon_name != "" else tr("NET_DEFAULT_WEAPON"),
+		"name":weapon_name if weapon_name != "" else "권총",
 		"character_name":player_name,
 		"role":"",
 		"special_name":"",
@@ -183,7 +183,7 @@ static func parse_loot(list: Array) -> Array[Dictionary]:
 				entry["gun_name"] = compact_name
 			else:
 				var weapon: Dictionary = drop.get("weapon", {})
-				entry["gun_name"] = str(weapon.get("name", tr("NET_DEFAULT_GUN")))
+				entry["gun_name"] = str(weapon.get("name", "총"))
 		result.append(entry)
 	return result
 

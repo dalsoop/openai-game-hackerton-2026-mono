@@ -31,17 +31,17 @@ static func save(control_mode: String, sound_on: bool) -> void:
 static func mode_title(mode: String) -> String:
     match mode:
         MODE_KEYBOARD:
-            return tr("CONTROL_PC")
+            return "PC 키보드형"
         MODE_TOUCH:
-            return tr("CONTROL_MOBILE")
+            return "모바일형"
         _:
-            return tr("CONTROL_AUTO")
+            return "자동"
 
 static func mode_desc(mode: String) -> String:
     match mode:
         MODE_KEYBOARD:
-            return tr("CONTROL_PC_DESC")
+            return "WASD 이동 · 마우스 조준 · 가상 스틱/버튼 숨김"
         MODE_TOUCH:
-            return tr("CONTROL_MOBILE_DESC")
+            return "화면 스틱/버튼 항상 표시 · 키보드도 함께 사용 가능"
         _:
-            return tr("CONTROL_AUTO_DESC")
+            return "기기에 맞춰 결정 (모바일·웹·터치스크린이면 모바일형)"

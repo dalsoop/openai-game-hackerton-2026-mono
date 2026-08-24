@@ -4,10 +4,10 @@ import { KO } from "./messages.js";
 import type { Client, Room } from "./types.js";
 import {
   clients, rooms, allocRoomId,
-  sanitize, send, sendTo, sendRoom,
-  livingIds, hostId, slotOf, roomPublic, peersPayload,
+  sanitize, send, sendRoom,
+  hostId, slotOf, roomPublic, peersPayload,
   notifyRoom, broadcastRooms,
-  parkPlayer, leaveRoom, startMatch, resetToLobby,
+  leaveRoom, startMatch,
   attachResume,
 } from "./state.js";
 
@@ -151,56 +151,5 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
     return;
   }
 
-  if (t === MSG.INPUT) {
-    if (!client.roomId) return;
-    const room = rooms.get(client.roomId);
-    if (!room || room.phase !== Phase.PLAYING || client.dead) return;
-    if (client.id === room.hostClientId) return;
-    const slot = room.members.indexOf(client.id);
-    if (slot < 0) return;
-    const relay: Record<string, unknown> = {
-      t: MSG.PEER_INPUT,
-      slot,
-      mx: msg.mx, my: msg.my,
-      fire: msg.fire, dash: msg.dash, use: msg.use,
-      aimX: msg.aimX, aimY: msg.aimY,
-      seq: msg.seq,
-    };
-    // Relay optional extended fields if present
-    for (const key of ["eq", "eqp", "ult", "mob", "hop", "rld", "fin"] as const) {
-      if (msg[key] !== undefined) relay[key] = msg[key];
-    }
-    sendTo(room.hostClientId!, relay);
-    return;
-  }
-
-  if (t === MSG.HOST_SNAP) {
-    if (!client.roomId) return;
-    const room = rooms.get(client.roomId);
-    if (!room || room.phase !== Phase.PLAYING) return;
-    if (client.id !== room.hostClientId) return;
-    const snapData = msg as Record<string, unknown>;
-    // Minimal schema guard
-    if (typeof snapData.t !== "string") return;
-    if (snapData.players !== undefined && !Array.isArray(snapData.players)) return;
-    snapData.t = MSG.SNAP;
-    room.prevSnap = room.lastSnap;
-    room.lastSnap = snapData;
-    room.snapCount += 1;
-    const text = JSON.stringify(snapData);
-    for (const id of livingIds(room)) {
-      if (id !== client.id) sendTo(id, text);
-    }
-    const isEnded = snapData.result && snapData.result !== Phase.PLAYING;
-    if (isEnded) {
-      if (!room.prevSnap || room.prevSnap["result"] === Phase.PLAYING) {
-        if (room.timer) { clearTimeout(room.timer); room.timer = null; }
-        room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
-      }
-    } else if (snapData.result === Phase.PLAYING && room.timer) {
-      clearTimeout(room.timer);
-      room.timer = null;
-    }
-    return;
-  }
+  // input and host_snap relay removed — clients send input directly to Godot game server
 }

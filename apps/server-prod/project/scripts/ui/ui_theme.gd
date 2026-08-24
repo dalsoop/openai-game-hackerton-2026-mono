@@ -8,6 +8,11 @@ const CARD := Color("FFFDF8")
 const LINE := Color("E4DDD2")
 const BLUE := Color("2F6BFF")
 const GREEN := Color("1F9D55")
+const ERROR := Color("C0392B")
+const WARN := Color("C47B17")
+const BANNER_TEXT := Color("FFF6E5")
+const BTN_DARK := Color("3D4654")
+const BTN_MUTED := Color("8A93A3")
 const SLOT_COUNT := 8
 const ANIMALS := ["토끼", "쥐", "호랑이", "황소", "용", "말", "닭", "돼지"]
 const LOBBY_ANIMAL_FRAME := [3, 0, 2, 1, 5, 6, 9, 11]
@@ -17,10 +22,6 @@ const SLOT_COLORS := [
 	Color("b084cc"), Color("70e7ff"), Color("ffd166"), Color("ff8dac")
 ]
 const MODES := [
-	{"id":"classic", "title":"클래식", "desc":"시작부터 각자 다른 총. 필드 힐만.", "art":"mode_classic.png"},
-	{"id":"gun-semi", "title":"단발", "desc":"모두 단발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_semi.png"},
-	{"id":"gun-auto", "title":"연발", "desc":"모두 연발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_auto.png"},
-	{"id":"item", "title":"아이템", "desc":"같은 총 고정. 액티브 하나. E 사용. 사망 시 드롭.", "art":"mode_item.png"},
 	{"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
 ]
 

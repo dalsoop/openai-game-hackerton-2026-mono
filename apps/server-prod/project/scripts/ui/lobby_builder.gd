@@ -3,18 +3,45 @@ extends RefCounted
 
 static func build(callbacks: Dictionary) -> Dictionary:
 	var root := UiTheme.full(Control.new())
-	var bg_tex := UiTheme.load_png("lobby_bg.png")
-	if bg_tex != null:
-		var art := TextureRect.new()
-		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.texture = bg_tex
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(art)
+	_add_background(root)
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 32)
 	col.add_theme_constant_override("separation", 16)
+	var head := _build_header(callbacks)
+	var lobby_status: Label = head["status"]
+	col.add_child(head["node"])
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 18)
+	var side_refs := _build_side(callbacks)
+	body.add_child(side_refs["node"])
+	var list_refs := _build_room_list()
+	body.add_child(list_refs["node"])
+	col.add_child(body)
+	root.add_child(col)
+	return {
+		"root": root,
+		"name_edit": side_refs["name_edit"],
+		"lobby_status": lobby_status,
+		"lobby_error": side_refs["lobby_error"],
+		"room_list": list_refs["room_list"],
+		"retry_button": side_refs["retry_button"],
+		"local_button": side_refs["local_button"],
+	}
+
+static func _add_background(root: Control) -> void:
+	var bg_tex := UiTheme.load_png("lobby_bg.png")
+	if bg_tex == null:
+		return
+	var art := TextureRect.new()
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.texture = bg_tex
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(art)
+
+static func _build_header(callbacks: Dictionary) -> Dictionary:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	var how := UiTheme.icon_btn("조작")
@@ -34,10 +61,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	var lobby_gear := UiTheme.icon_btn("설정")
 	lobby_gear.pressed.connect(callbacks["on_settings"])
 	head.add_child(lobby_gear)
-	col.add_child(head)
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 18)
+	return {"node": head, "status": lobby_status}
+
+static func _build_side(callbacks: Dictionary) -> Dictionary:
 	var side := VBoxContainer.new()
 	side.custom_minimum_size = Vector2(320, 0)
 	side.add_theme_constant_override("separation", 12)
@@ -57,17 +83,19 @@ static func build(callbacks: Dictionary) -> Dictionary:
 		create.add_theme_stylebox_override("normal", create_sb)
 	create.pressed.connect(callbacks["on_create"])
 	side.add_child(create)
-	var retry_button := UiTheme.btn("다시 연결", Color("3D4654"), Vector2(0, 48))
+	var retry_button := UiTheme.btn("다시 연결", UiTheme.BTN_DARK, Vector2(0, 48))
 	retry_button.pressed.connect(callbacks["on_retry"])
 	retry_button.visible = false
 	side.add_child(retry_button)
 	var local_button := UiTheme.btn("연습하기 (로컬)", UiTheme.GREEN, Vector2(0, 52))
 	local_button.pressed.connect(callbacks["on_local"])
 	side.add_child(local_button)
-	var lobby_error := UiTheme.lbl("", 14, Color("C0392B"))
+	var lobby_error := UiTheme.lbl("", 14, UiTheme.ERROR)
 	lobby_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	side.add_child(lobby_error)
-	body.add_child(side)
+	return {"node": side, "name_edit": name_edit, "lobby_error": lobby_error, "retry_button": retry_button, "local_button": local_button}
+
+static func _build_room_list() -> Dictionary:
 	var list_panel := Panel.new()
 	list_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_panel.add_theme_stylebox_override("panel", UiTheme.card_box())
@@ -83,20 +111,9 @@ static func build(callbacks: Dictionary) -> Dictionary:
 	scroll.add_child(room_list)
 	list_col.add_child(scroll)
 	list_panel.add_child(list_col)
-	body.add_child(list_panel)
-	col.add_child(body)
-	root.add_child(col)
-	return {
-		"root": root,
-		"name_edit": name_edit,
-		"lobby_status": lobby_status,
-		"lobby_error": lobby_error,
-		"room_list": room_list,
-		"retry_button": retry_button,
-		"local_button": local_button,
-	}
+	return {"node": list_panel, "room_list": room_list}
 
-static func make_room_row(room: Dictionary, on_join: Callable) -> Control:
+static func make_room_row(room: Dictionary, on_join: Callable, on_spectate: Callable = Callable()) -> Control:
 	var row := Panel.new()
 	row.custom_minimum_size = Vector2(0, 64)
 	var row_tex := UiTheme.load_png("lobby_row.png")
@@ -119,9 +136,14 @@ static func make_room_row(room: Dictionary, on_join: Callable) -> Control:
 	var count_lbl := UiTheme.lbl("%d/%d" % [int(room.get("count", 0)), int(room.get("max", 8))], 16, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER)
 	count_lbl.custom_minimum_size = Vector2(70, 0)
 	line.add_child(count_lbl)
+	var room_id := str(room.get("id", ""))
+	if on_spectate.is_valid() and bool(room.get("playing", false)):
+		var spectate := UiTheme.btn("관전", UiTheme.MUTED, Vector2(80, 44))
+		spectate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		spectate.pressed.connect(func(): on_spectate.call(room_id))
+		line.add_child(spectate)
 	var join := UiTheme.btn("참가", UiTheme.BLUE, Vector2(96, 44))
 	join.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var room_id := str(room.get("id", ""))
 	join.pressed.connect(func(): on_join.call(room_id))
 	line.add_child(join)
 	row.add_child(line)

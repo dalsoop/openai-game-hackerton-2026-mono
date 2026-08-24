@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { WebSocket } from "ws";
 import { CONFIG, Phase, MSG } from "./config.js";
 import { MAX_PLAYERS, MODES } from "./modes.js";
+import { KO } from "./messages.js";
 import type { Client, Room, TaggedWebSocket } from "./types.js";
 
 // --- Shared State ---
@@ -136,7 +137,7 @@ export function resetToLobby(room: Room): void {
     return;
   }
   sendRoom(room, { t: MSG.LOBBY });
-  notifyRoom(room, { notice: "게임이 끝났습니다. 대기실로 돌아왔습니다." });
+  notifyRoom(room, { notice: KO.GAME_END_LOBBY });
   broadcastRooms();
 }
 
@@ -144,6 +145,13 @@ export function startMatch(room: Room): void {
   if (room.phase !== Phase.LOBBY) return;
   room.phase = Phase.PLAYING;
   room.hostClientId = hostId(room);
+  const seed = Math.floor(Math.random() * 999999) + 1;
+  const players = room.members.map((id, slot) => {
+    const c = clients.get(id);
+    return { slot, name: c?.name ?? "?", resume_token: c?.resume ?? "" };
+  });
+  notifyGameServer(room.id, players, room.mode, seed);
+  const gameWsUrl = deriveGameWsUrl();
   for (const id of room.members) {
     const c = clients.get(id);
     if (c?.dead) {
@@ -151,16 +159,33 @@ export function startMatch(room: Room): void {
     } else {
       const slot = room.members.indexOf(id);
       const isHost = id === room.hostClientId;
-      sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room) });
+      sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room), gameServerUrl: gameWsUrl, seed });
     }
   }
   room.timer = setTimeout(() => {
     if (room.phase === Phase.PLAYING && !room.lastSnap) {
-      sendRoom(room, { t: MSG.ERROR, msg: "호스트가 게임을 시작하지 못했습니다." });
+      sendRoom(room, { t: MSG.ERROR, msg: KO.HOST_BOOT_FAIL });
       resetToLobby(room);
     }
   }, CONFIG.hostBootTimeoutMs);
   broadcastRooms();
+}
+
+function notifyGameServer(roomId: string, players: { slot: number; name: string; resume_token: string }[], mode: string, seed: number): void {
+  const body = JSON.stringify({ room_id: roomId, players, mode, seed });
+  fetch(`${CONFIG.gameServerUrl}/start-match`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    signal: AbortSignal.timeout(5000),
+  }).catch((err: Error) => console.error(`[gang-up] game server notify failed: ${err.message}`));
+}
+
+function deriveGameWsUrl(): string {
+  const base = CONFIG.gameServerUrl;
+  const host = new URL(base).hostname;
+  const port = 9121;
+  return `wss://${host}:${port}/game-ws`;
 }
 
 export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void {
@@ -188,13 +213,13 @@ export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {})
     room.members = room.members.filter((id) => id !== client.id);
   }
   if (room.phase === Phase.PLAYING && client.id === room.hostClientId) {
-    if (!silent) notifyRoom(room, { notice: `호스트(${client.name})가 나가서 게임이 종료됩니다.` });
+    if (!silent) notifyRoom(room, { notice: KO.hostLeftEnd(client.name) });
     resetToLobby(room);
   } else if (room.members.every((id) => !id) || (room.phase === Phase.LOBBY && room.members.length === 0)) {
     if (room.timer) clearTimeout(room.timer);
     rooms.delete(room.id);
   } else if (!silent) {
-    notifyRoom(room, { notice: `${client.name} 이(가) 나갔습니다.` });
+    notifyRoom(room, { notice: KO.playerLeft(client.name) });
   }
   if (wasDead || client.ws.readyState !== WebSocket.OPEN) clients.delete(client.id);
   broadcastRooms();
@@ -225,14 +250,14 @@ export function parkClient(client: Client): void {
   client.dead = true;
   client.deadAt = Date.now();
   if (room.phase === Phase.PLAYING && room.hostClientId === client.id) {
-    notifyRoom(room, { notice: `호스트(${client.name})의 연결이 끊겨 게임이 종료됩니다.` });
+    notifyRoom(room, { notice: KO.hostDisconnectedEnd(client.name) });
     resetToLobby(room);
     return;
   }
   parkPlayer(room, client.id);
   const grace = room.phase === Phase.PLAYING ? CONFIG.gracePlayMs : CONFIG.graceLobbyMs;
   client.dropTimer = setTimeout(() => dropClient(client), grace);
-  notifyRoom(room, { notice: `${client.name} 연결이 끊겼습니다. ${Math.round(grace / 1000)}초 안에 다시 들어오면 자리가 유지됩니다.` });
+  notifyRoom(room, { notice: KO.playerDropped(client.name, Math.round(grace / 1000)) });
   broadcastRooms();
 }
 
@@ -268,7 +293,7 @@ export function attachResume(fresh: Client, token: string): Client {
         playing: Boolean(playing),
         snap: playing ? room.lastSnap : null,
       });
-      notifyRoom(room, { notice: `${old.name} 이(가) 다시 연결되었습니다.` });
+      notifyRoom(room, { notice: KO.playerReconnected(old.name) });
     } else {
       send(old.ws, { t: MSG.WELCOME, id: old.id, resume: old.resume, modes: MODES, max: MAX_PLAYERS });
       broadcastRooms();

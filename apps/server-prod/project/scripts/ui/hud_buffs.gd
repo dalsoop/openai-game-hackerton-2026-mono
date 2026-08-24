@@ -131,6 +131,11 @@ static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, acc
 	if icon_tex != null:
 		canvas.draw_texture_rect(icon_tex, Rect2(c - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), false)
 		return
+	if _draw_stat_glyph(canvas, c, buff_id, accent):
+		return
+	_draw_effect_glyph(canvas, c, buff_id, accent)
+
+static func _draw_stat_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color) -> bool:
 	match buff_id:
 		"atk":
 			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(7.0, 8.0), c + Vector2(-7.0, 8.0)]), accent)
@@ -156,6 +161,12 @@ static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, acc
 			canvas.draw_rect(Rect2(c + Vector2(-6.0, -1.0), Vector2(12.0, 12.0)), accent)
 			if buff_id == "double_giant":
 				canvas.draw_circle(c + Vector2(8.0, -4.0), 3.5, Color.WHITE)
+		_:
+			return false
+	return true
+
+static func _draw_effect_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color) -> void:
+	match buff_id:
 		"berserk":
 			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-2.0, 10.0), c + Vector2(-8.0, -2.0), c + Vector2(-1.0, 1.0), c + Vector2(2.0, -11.0), c + Vector2(8.0, 2.0), c + Vector2(1.0, -1.0)]), accent)
 		"turtle":

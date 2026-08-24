@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 NetworkManager="*res://autoload/network_manager.gd"
 GameState="*res://autoload/game_state.gd"
+Audio="*res://scripts/audio/game_audio.gd"
 
 [gui]
 
@@ -18,7 +19,6 @@ theme/custom_font="res://assets/fonts/GmarketSansMedium.otf"
 [internationalization]
 
 locale/include_text_server_data=true
-locale/translations=PackedStringArray("res://locale/ko.csv")
 
 [display]
 

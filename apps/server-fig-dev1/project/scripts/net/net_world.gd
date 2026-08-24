@@ -302,10 +302,6 @@ func apply_snap(snap: Dictionary) -> void:
     var prev_result := result
     _apply_result(snap)
     _apply_safe_zone(snap)
-    if snap.has("startCountdown"):
-        start_countdown = _f(snap, "startCountdown", 0.0)
-    if snap.has("wantedSlot"):
-        wanted_slot = int(snap["wantedSlot"])
     _apply_world_extras(snap)
     _apply_players(snap.get("players", []))
     _apply_bullets(snap.get("bullets", []))
@@ -343,6 +339,10 @@ func _apply_safe_zone(snap: Dictionary) -> void:
         safe_zone_center = ARENA_CENTER
     if snap.has("zonePhase"):
         safe_zone_phase = int(snap["zonePhase"])
+    if snap.has("startCountdown"):
+        start_countdown = _f(snap, "startCountdown", 0.0)
+    if snap.has("wantedSlot"):
+        wanted_slot = int(snap["wantedSlot"])
 
 func _on_match_ended() -> void:
     if winner_slot >= 0 and winner_slot < heroes.size():
@@ -381,7 +381,8 @@ func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     var was_alive := bool(old.get("alive", true))
     if not was_alive or alive:
         return
-    _deaths[slot] = int(_deaths.get(slot, 0)) + 1
+    var deaths := int(_deaths.get(slot, 0)) + 1
+    _deaths[slot] = deaths
     last_down_slot = slot
     last_down_ticks = 18
     var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
@@ -401,45 +402,26 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
     var alive := bool(p.get("alive", true))
     var deaths := int(_deaths.get(slot, 0))
     var player_name := str(p.get("name", "P%d" % (slot + 1)))
-    var item_name := str(p.get("item", ""))
     var kills := int(p.get("kills", 0))
     return {
-        "slot":slot,
-        "alive":alive,
-        "eliminated":not alive,
-        "pos":pos,
-        "vel":vel,
-        "aim":aim,
-        "hp":_f(p, "hp", 0.0),
-        "max_hp":100.0,
-        "kills":kills,
-        "deaths":deaths,
+        "slot":slot, "alive":alive, "eliminated":not alive,
+        "pos":pos, "vel":vel, "aim":aim,
+        "hp":_f(p, "hp", 0.0), "max_hp":100.0,
+        "kills":kills, "deaths":deaths,
         "score":float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0),
-        "eliminations":kills,
-        "damage_dealt":0.0,
-        "core_damage":0.0,
-        "ultimates":0,
-        "equipment_hits":0,
+        "eliminations":kills, "damage_dealt":0.0, "core_damage":0.0,
+        "ultimates":0, "equipment_hits":0,
         "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
         "display_name":player_name,
-        "cpu":bool(p.get("cpu", false)),
-        "parked":bool(p.get("parked", false)),
-        "ultimate_charge":0.0,
-        "mobility_cd":0.0,
-        "medkits":1 if item_name != "" else 0,
-        "cc_time":0.0,
-        "stun_time":0.0,
-        "root_time":0.0,
-        "guard_time":0.0,
-        "super_armor_time":0.0,
-        "charging_skill":false,
-        "charge_time":0.0,
-        "kill_streak":0,
-        "best_kill_streak":0,
-        "launch_trail":[],
-        "launch_trail_fade":0.0,
-        "launch_time":0.0,
-        "launch_vel":Vector2.ZERO,
+        "cpu":bool(p.get("cpu", false)), "parked":bool(p.get("parked", false)),
+        "ultimate_charge":0.0, "mobility_cd":0.0,
+        "medkits":1 if str(p.get("item", "")) != "" else 0,
+        "cc_time":0.0, "stun_time":0.0, "root_time":0.0,
+        "guard_time":0.0, "super_armor_time":0.0,
+        "charging_skill":false, "charge_time":0.0,
+        "kill_streak":0, "best_kill_streak":0,
+        "launch_trail":[], "launch_trail_fade":0.0,
+        "launch_time":0.0, "launch_vel":Vector2.ZERO,
         "action":&"READY"
     }
 

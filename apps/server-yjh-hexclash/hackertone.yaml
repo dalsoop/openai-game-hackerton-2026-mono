@@ -1,0 +1,8 @@
+id: yjh-hexclash
+kind: game
+title: Hex Clash
+blurb: 6인 실시간 영토 전쟁
+players: 1–6
+web:
+  enabled: true
+  exportDir: project/web
