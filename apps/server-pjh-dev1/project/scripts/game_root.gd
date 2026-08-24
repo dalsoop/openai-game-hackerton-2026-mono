@@ -37,6 +37,8 @@ var touch: CanvasLayer = null
 var _net_banner: Label = null
 var _touch_exit: Button = null
 var _touch_rematch: Button = null
+var _dev_dash_test := false
+var _dev_dash_label: Label = null
 
 func _ready() -> void:
     _build_sfx()
@@ -255,6 +257,32 @@ func _set_net_banner(text: String) -> void:
     wrap_node.visible = text != ""
     _net_banner.text = text
 
+func _set_dev_dash_test(enabled: bool) -> void:
+    _dev_dash_test = enabled
+    if _dev_dash_label == null:
+        _dev_dash_label = Label.new()
+        _dev_dash_label.name = "DevDashTestLabel"
+        _dev_dash_label.position = Vector2(18.0, 78.0)
+        _dev_dash_label.add_theme_font_size_override("font_size", 16)
+        _dev_dash_label.add_theme_color_override("font_color", Color("#fff2a6"))
+        _dev_dash_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+        _dev_dash_label.add_theme_constant_override("shadow_offset_x", 2)
+        _dev_dash_label.add_theme_constant_override("shadow_offset_y", 2)
+        $HUD.add_child(_dev_dash_label)
+        _dev_dash_label.z_index = 30
+    _dev_dash_label.visible = enabled
+    _dev_dash_label.text = "DEV: DASH COOLDOWN 0.08s  [NUMPAD 5]"
+
+func _apply_dev_dash_cooldown() -> void:
+    if not _dev_dash_test or world == null or (net_active and not net_host):
+        return
+    var slot := int(world.get("local_slot"))
+    if slot < 0 or slot >= world.heroes.size():
+        return
+    var hero: Dictionary = world.heroes[slot]
+    hero["mobility_cd"] = minf(float(hero.get("mobility_cd", 0.0)), 0.08)
+    world.heroes[slot] = hero
+
 func _restart() -> void:
     world = WorldScript.new(seed)
     world.set_mode(screens.selected_mode)
@@ -284,6 +312,9 @@ func _physics_process(_delta: float) -> void:
             return
         _set_phase(&"wait")
         return
+    if OS.is_debug_build() and _edge(KEY_KP_5) and (not net_active or net_host):
+        _set_dev_dash_test(not _dev_dash_test)
+    _apply_dev_dash_cooldown()
     if not net_active and world != null and world.result != &"playing":
         if _edge(KEY_R):
             seed += 1

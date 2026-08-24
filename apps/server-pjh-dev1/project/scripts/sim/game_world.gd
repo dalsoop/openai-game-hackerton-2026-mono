@@ -2291,6 +2291,22 @@ func _equipment_reach(slot: int) -> float:
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void:
     effects.append({"kind":kind, "pos":pos, "radius":radius, "time":duration, "max_time":duration, "color":color, "label":label, "direction":direction})
 
+func _add_mobility_effect(slot: int, kind: StringName, start_pos: Vector2, end_pos: Vector2, radius: float, duration: float, color: Color, label: String, direction: Vector2, draw_departure: bool = true) -> void:
+    var shortened_duration := duration * 0.80
+    effects.append({
+        "kind":kind,
+        "pos":end_pos,
+        "start_pos":start_pos,
+        "follow_slot":slot,
+        "radius":radius,
+        "time":shortened_duration,
+        "max_time":shortened_duration,
+        "color":color,
+        "label":label,
+        "direction":direction,
+        "draw_departure":draw_departure,
+    })
+
 func _add_zone(owner: int, pos: Vector2, radius: float, delay: float, damage: float, source: StringName, cc_time: float, knockback: float, label: String, color: Color, leech: bool = false, effect_kind: StringName = &"explosion", combo_finisher: bool = false, control_kind: StringName = &"slow") -> void:
     zones.append({"id":next_entity_id, "owner":owner, "pos":pos, "radius":radius, "delay":delay, "warning_duration":delay, "time":delay + 0.28, "damage":damage, "applied":false, "source":source, "cc_time":cc_time, "knockback":knockback, "label":label, "color":color, "leech":leech, "effect_kind":effect_kind, "combo_finisher":combo_finisher, "control_kind":control_kind, "telegraphed":delay > 0.06})
     next_entity_id += 1
@@ -2529,11 +2545,12 @@ func _try_mobility(slot: int, direction: Vector2) -> void:
         _add_effect(&"combo_break", old_pos, 72.0, 0.34, Color("#6ef3a5"), "ESCAPE", dir)
     match equipment_id:
         "scatter":
-            _add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.30, Color("#ffb45c"), "SKIRMISH HOP", -dir)
+            _add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.30, Color("#ffb45c"), "SKIRMISH HOP", -dir)
         "rail":
-            _add_effect(&"beam_step", Vector2(h["pos"]), distance, 0.26, Color("#71e7ff"), "SIGHTLINE STEP", -dir)
+            _add_mobility_effect(slot, &"beam_step", old_pos, Vector2(h["pos"]), distance, 0.26, Color("#71e7ff"), "SIGHTLINE STEP", -dir)
         "mortar":
             _add_effect(&"explosion", old_pos, 105.0, 0.36, Color("#ff604f"), "BLAST HOP")
+            _add_mobility_effect(slot, &"blast_hop", old_pos, Vector2(h["pos"]), distance, 0.32, Color("#ff604f"), "BLAST HOP", -dir, false)
             heroes[slot] = h
             for target in range(PLAYER_COUNT):
                 if target != slot and bool(heroes[target]["alive"]) and old_pos.distance_to(Vector2(heroes[target]["pos"])) <= 120.0:
@@ -2541,27 +2558,27 @@ func _try_mobility(slot: int, direction: Vector2) -> void:
             h = heroes[slot]
         "leech":
             h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + 8.0)
-            _add_effect(&"drain", Vector2(h["pos"]), 88.0, 0.42, Color("#d45cff"), "+8 SHADOW PULL", -dir)
+            _add_mobility_effect(slot, &"drain", old_pos, Vector2(h["pos"]), 88.0, 0.42, Color("#d45cff"), "+8 SHADOW PULL", -dir)
         "breaker":
             h["guard_time"] = 0.80
-            _add_effect(&"guard", Vector2(h["pos"]), 68.0, 0.80, Color("#ffe066"), "IRON MARCH", dir)
+            _add_mobility_effect(slot, &"guard", old_pos, Vector2(h["pos"]), 68.0, 0.20, Color("#ffe066"), "IRON MARCH", dir)
         "burst":
-            _add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.28, Color("#ff5ca8"), "FLASH CUT", -dir)
+            _add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.28, Color("#ff5ca8"), "FLASH CUT", -dir)
         "blade":
             h["evade_time"] = 0.48
-            _add_effect(&"slash_dash", Vector2(h["pos"]), distance, 0.34, Color("#b9f3ff"), "SHADOW SHEATH", -dir)
+            _add_mobility_effect(slot, &"slash_dash", old_pos, Vector2(h["pos"]), distance, 0.34, Color("#b9f3ff"), "SHADOW SHEATH", -dir)
         "brawler":
             h["combo_immunity"] = 0.95
-            _add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.28, Color("#ff9466"), "WEAVE", -dir)
+            _add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.28, Color("#ff9466"), "WEAVE", -dir)
         "bomb":
-            _add_effect(&"fuse", old_pos, 75.0, 0.50, Color("#ff5d4f"), "BLAST ROLL")
+            _add_mobility_effect(slot, &"fuse", old_pos, Vector2(h["pos"]), 75.0, 0.50, Color("#ff5d4f"), "BLAST ROLL", -dir)
         "spear":
-            _add_effect(&"spear_line", Vector2(h["pos"]), distance, 0.32, Color("#ffe27a"), "POLE VAULT", -dir)
+            _add_mobility_effect(slot, &"spear_line", old_pos, Vector2(h["pos"]), distance, 0.32, Color("#ffe27a"), "POLE VAULT", -dir)
         "chain":
-            _add_effect(&"chain_arc", Vector2(h["pos"]), distance, 0.34, Color("#b78cff"), "SWING STEP", -dir)
+            _add_mobility_effect(slot, &"chain_arc", old_pos, Vector2(h["pos"]), distance, 0.34, Color("#b78cff"), "SWING STEP", -dir)
         _:
             h["guard_time"] = 1.20
-            _add_effect(&"guard", Vector2(h["pos"]), 78.0, 1.20, Color("#8de1ff"), "BRACE STEP", dir)
+            _add_mobility_effect(slot, &"guard", old_pos, Vector2(h["pos"]), 78.0, 0.30, Color("#8de1ff"), "BRACE STEP", dir)
     heroes[slot] = h
     event_log.emit(tick, &"mobility_used", slot, -1, {"equipment":equipment_id, "name":equipment["mobility_name"]})
 
@@ -3593,7 +3610,8 @@ func _update_projectiles(dt: float) -> void:
                 _splash_damage(int(p["owner"]), Vector2(p["pos"]), float(p["splash"]), float(p["damage"]) * 0.55, -1, StringName(p["source"]), float(p.get("cc_time", 0.0)) * 0.65, float(p.get("knockback", 0.0)) * 0.65)
                 _add_effect(&"explosion", Vector2(p["pos"]), float(p["splash"]), 0.32, Color("#ff554a"), "")
             else:
-                _add_effect(&"impact", Vector2(p["pos"]), maxf(30.0, float(p["splash"])), 0.24, Color("#c4d0df"), "BLOCKED")
+                var impact_direction := -Vector2(p["vel"]).normalized()
+                _add_effect(&"hit_spark", Vector2(p["pos"]), 34.0, 0.24, Color("#c4d0df"), "", impact_direction)
             event_log.emit(tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"]})
             continue
         var owner := int(p["owner"])

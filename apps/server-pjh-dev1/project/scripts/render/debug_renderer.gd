@@ -38,6 +38,15 @@ var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
 var impact_atlas: Texture2D = null
+var tracer_fx_atlas: Texture2D = null
+var hit_spark_fx_atlas: Texture2D = null
+var explosion_fx_atlas: Texture2D = null
+var mobility_fx_atlases: Dictionary = {}
+var dash_departure_atlas: Texture2D = null
+var rooster_beam_step_atlas: Texture2D = null
+var character_shadow_tex: Texture2D = null
+var knockout_trail_atlas: Texture2D = null
+var death_burst_atlas: Texture2D = null
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -156,6 +165,27 @@ func _ready() -> void:
     gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
     impact_atlas = _load_tex("res://assets/lhj/Tex_Fx_ImpactFlash.png")
+    tracer_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Tracer_4x1.png")
+    hit_spark_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_HitSpark_4x1.png")
+    explosion_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    var mobility_files := {
+        "speed_streak": "Tex_FX_MobilityDash_4x1.png",
+        "beam_step": "Tex_FX_BeamStep_4x1.png",
+        "drain": "Tex_FX_DrainStep_4x1.png",
+        "guard": "Tex_FX_GuardStep_4x1.png",
+        "slash_dash": "Tex_FX_SlashDash_4x1.png",
+        "fuse": "Tex_FX_FuseStep_4x1.png",
+        "spear_line": "Tex_FX_SpearStep_4x1.png",
+        "chain_arc": "Tex_FX_ChainStep_4x1.png",
+        "blast_hop": "Tex_FX_BlastHop_4x1.png",
+    }
+    for mobility_kind in mobility_files:
+        mobility_fx_atlases[mobility_kind] = _load_tex("res://assets/fx/mobility/%s" % mobility_files[mobility_kind])
+    dash_departure_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_DashDeparture_4x1.png")
+    rooster_beam_step_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_RoosterBeamStep_4x1.png")
+    character_shadow_tex = _load_tex("res://assets/fx/character/Tex_FX_CharacterShadow.png")
+    knockout_trail_atlas = _load_tex("res://assets/fx/character/Tex_FX_KnockoutTrail_4x1.png")
+    death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -215,6 +245,21 @@ func _impact_src_rect(row: int, col: int) -> Rect2:
         return Rect2()
     var cell: Vector2 = Vector2(float(impact_atlas.get_width()) / 4.0, float(impact_atlas.get_height()) / 3.0)
     return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
+
+
+func _horizontal_fx_src_rect(texture: Texture2D, columns: int, frame: int) -> Rect2:
+    var cell := Vector2(float(texture.get_width()) / float(columns), float(texture.get_height()))
+    return Rect2(Vector2(float(clampi(frame, 0, columns - 1)) * cell.x, 0.0), cell)
+
+
+func _mobility_fx_texture(kind: StringName, label: String) -> Texture2D:
+    if kind == &"guard" and label not in ["IRON MARCH", "BRACE STEP"]:
+        return null
+    if kind == &"drain" and label != "+8 SHADOW PULL":
+        return null
+    if kind == &"fuse" and label != "BLAST ROLL":
+        return null
+    return mobility_fx_atlases.get(str(kind)) as Texture2D
 
 
 func _consume_shot_events() -> void:
@@ -708,8 +753,17 @@ func _draw_projectiles() -> void:
                 var trail: Array = projectile.get("trail", [])
                 if trail.size() > 0:
                     origin = trail[0]
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
+                var tracer_end := projectile_pos + direction * 28.0
+                if tracer_fx_atlas != null:
+                    var tracer_length := clampf(origin.distance_to(tracer_end), 96.0, 240.0)
+                    var tracer_center := origin.lerp(tracer_end, 0.5)
+                    var tracer_frame := posmod(int(world.tick / 2), 4)
+                    draw_set_transform(tracer_center, direction.angle(), Vector2.ONE)
+                    draw_texture_rect_region(tracer_fx_atlas, Rect2(Vector2(-tracer_length * 0.5, -28.0), Vector2(tracer_length, 56.0)), _horizontal_fx_src_rect(tracer_fx_atlas, 4, tracer_frame))
+                    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+                else:
+                    draw_line(origin, tracer_end, Color(1.0, 1.0, 1.0, 0.22), 10.0)
+                    draw_line(origin, tracer_end, Color(1.0, 0.95, 0.75, 0.95), 3.0)
             "pellet", "burst", "bolt":
                 _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
             _:
@@ -791,6 +845,34 @@ func _draw_effects() -> void:
         var effect_kind := StringName(effect["kind"])
         var direction := Vector2(effect["direction"]).normalized()
         var progress := 1.0 - ratio
+        var follow_slot := int(effect.get("follow_slot", -1))
+        var effect_label := str(effect.get("label", ""))
+        var mobility_texture := _mobility_fx_texture(effect_kind, effect_label)
+        if effect_label == "SIGHTLINE STEP" and effect_kind == &"beam_step" and rooster_beam_step_atlas != null:
+            mobility_texture = rooster_beam_step_atlas
+        if mobility_texture != null:
+            var mobility_frame := clampi(int(progress * 4.0), 0, 3)
+            var mobility_alpha := clampf(ratio * 1.20 + 0.18, 0.18, 1.0)
+            var directional := effect_kind in [&"speed_streak", &"beam_step", &"slash_dash", &"spear_line", &"chain_arc", &"blast_hop"]
+            var mobility_size := Vector2(effect_radius * 1.25, clampf(effect_radius * 0.62, 72.0, 168.0)) if directional else Vector2.ONE * effect_radius * 2.15
+            if effect_label in ["IRON MARCH", "BRACE STEP"]:
+                mobility_size *= 1.35
+            var start_pos: Vector2 = effect.get("start_pos", effect_pos)
+            if dash_departure_atlas != null and bool(effect.get("draw_departure", true)):
+                var departure_size := Vector2.ONE * clampf(effect_radius * 0.55, 84.0, 138.0)
+                draw_set_transform(start_pos, 0.0, Vector2.ONE)
+                draw_texture_rect_region(dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size), _horizontal_fx_src_rect(dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha))
+                draw_texture_rect_region(dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size), _horizontal_fx_src_rect(dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha * 0.65))
+            if follow_slot >= 0 and follow_slot < world.heroes.size():
+                effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+            if effect_label == "SIGHTLINE STEP":
+                effect_pos += direction * 58.0
+            var mobility_angle := direction.angle() + (PI if effect_label == "SHADOW SHEATH" else 0.0)
+            draw_set_transform(effect_pos, mobility_angle, Vector2.ONE)
+            draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size), _horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha))
+            draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size), _horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha * 0.65))
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            continue
         match effect_kind:
             &"line", &"beam_hit", &"beam_step":
                 var line_start := effect_pos - direction * effect_radius * (0.75 if effect_kind == &"beam_hit" else 1.0)
@@ -798,10 +880,15 @@ func _draw_effects() -> void:
                 draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
                 draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
             &"explosion":
-                var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
-                draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
-                draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
-                draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
+                if explosion_fx_atlas != null:
+                    var explosion_frame := clampi(int(progress * 6.0), 0, 5)
+                    var explosion_size := Vector2.ONE * effect_radius * 2.35
+                    draw_texture_rect_region(explosion_fx_atlas, Rect2(effect_pos - explosion_size * 0.5, explosion_size), _horizontal_fx_src_rect(explosion_fx_atlas, 6, explosion_frame))
+                else:
+                    var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
+                    draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
+                    draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
+                    draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
             &"drain":
                 for arc_index in range(4):
                     var arc_radius := effect_radius * (0.28 + float(arc_index) * 0.18) * (0.65 + progress * 0.35)
@@ -813,10 +900,17 @@ func _draw_effects() -> void:
                 for spoke in range(10):
                     var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 10.0)
                     draw_line(effect_pos + radial * shock_radius * 0.48, effect_pos + radial * shock_radius, Color(Color.WHITE, ratio * 0.85), 3.0)
-            &"wall_impact", &"hit_spark":
-                for spark in range(9):
-                    var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
-                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
+            &"wall_impact", &"hit_spark", &"impact":
+                if effect_kind in [&"hit_spark", &"impact"] and hit_spark_fx_atlas != null:
+                    var hit_frame := clampi(int(progress * 4.0), 0, 3)
+                    var hit_size := Vector2.ONE * effect_radius * 2.1
+                    draw_set_transform(effect_pos, direction.angle(), Vector2.ONE)
+                    draw_texture_rect_region(hit_spark_fx_atlas, Rect2(-hit_size * 0.5, hit_size), _horizontal_fx_src_rect(hit_spark_fx_atlas, 4, hit_frame))
+                    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+                else:
+                    for spark in range(9):
+                        var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
+                        draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
             &"speed_streak":
                 for streak in range(5):
                     var side := direction.orthogonal() * (float(streak) - 2.0) * 9.0
@@ -874,11 +968,17 @@ func _draw_effects() -> void:
                 draw_arc(effect_pos, effect_radius * lerpf(0.45, 1.20, progress), 0.0, TAU, 34, Color(effect_color, ratio), 8.0)
                 draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius, Color(effect_color, ratio * 0.72), 5.0)
             &"death_burst":
-                var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
-                draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
-                draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
-                draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
-                draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+                if death_burst_atlas != null:
+                    var death_frame := clampi(int(progress * 6.0), 0, 5)
+                    var death_size := effect_radius * lerpf(0.72, 2.05, progress)
+                    var death_rect := Rect2(effect_pos - Vector2.ONE * death_size * 0.5, Vector2.ONE * death_size)
+                    draw_texture_rect_region(death_burst_atlas, death_rect, _horizontal_fx_src_rect(death_burst_atlas, 6, death_frame), Color(1.0, 1.0, 1.0, ratio))
+                else:
+                    var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
+                    draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
+                    draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
+                    draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+                    draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
             &"guard":
                 draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
                 draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
@@ -916,6 +1016,10 @@ func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> 
     var radius_x: float = 26.0 * size_mul
     var radius_y: float = 11.5 * size_mul
     var center: Vector2 = ground_pos + Vector2(1.5, 34.0)
+    if character_shadow_tex != null:
+        var shadow_size := Vector2(radius_x * 2.4, radius_y * 2.4)
+        draw_texture_rect(character_shadow_tex, Rect2(center - shadow_size * 0.5, shadow_size), false, Color(1.0, 1.0, 1.0, alpha_mul * opacity))
+        return
     draw_set_transform(center, 0.0, Vector2(1.0, radius_y / radius_x))
     var rings: Array = [
         [1.00, 0.07],
@@ -1051,9 +1155,22 @@ func _draw_knockouts() -> void:
     for knockout in world.knockouts:
         var knockout_slot := int(knockout["slot"])
         var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
-        _draw_motion_trail(knockout.get("trail", []), _slot_color(knockout_slot), 9.0, knockout_fade)
         var knockout_pos: Vector2 = knockout["pos"]
         var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+        var knockout_trail: Array = knockout.get("trail", [])
+        if knockout_trail_atlas != null and not knockout_trail.is_empty():
+            var trail_origin: Vector2 = knockout_trail[0]
+            var trail_vector := knockout_pos - trail_origin
+            if trail_vector.length_squared() > 1.0:
+                var trail_frame := posmod(int(spin / 0.065), 4)
+                var trail_length := clampf(trail_vector.length() + 52.0, 84.0, 260.0)
+                var trail_center := knockout_pos - trail_vector.normalized() * trail_length * 0.43
+                var trail_rect := Rect2(Vector2(-trail_length * 0.5, -38.0), Vector2(trail_length, 76.0))
+                draw_set_transform(trail_center, trail_vector.angle(), Vector2.ONE)
+                draw_texture_rect_region(knockout_trail_atlas, trail_rect, _horizontal_fx_src_rect(knockout_trail_atlas, 4, trail_frame), Color(1.0, 1.0, 1.0, knockout_fade))
+                draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+        else:
+            _draw_motion_trail(knockout_trail, _slot_color(knockout_slot), 9.0, knockout_fade)
         if animal_atlas != null:
             draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
             draw_texture_rect_region(animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), _animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
