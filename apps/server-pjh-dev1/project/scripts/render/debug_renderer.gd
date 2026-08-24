@@ -78,10 +78,10 @@ const ROCK_SOURCE_RECTS := [
     Rect2(1743.0, 94.0, 411.0, 297.0),
 ]
 const CRATE_SOURCE_RECTS := [
-    Rect2(78.0, 254.0, 343.0, 372.0),
-    Rect2(503.0, 258.0, 340.0, 370.0),
-    Rect2(923.0, 273.0, 339.0, 358.0),
-    Rect2(1336.0, 355.0, 340.0, 258.0),
+    Rect2(28.0, 16.0, 344.0, 374.0),
+    Rect2(442.0, 20.0, 342.0, 374.0),
+    Rect2(848.0, 34.0, 340.0, 362.0),
+    Rect2(1242.0, 116.0, 342.0, 262.0),
 ]
 const PROJECTILE_TEXTURE_SIZES := {
     "beam": Vector2(180.0, 42.0),
@@ -1823,13 +1823,14 @@ func _draw_crates() -> void:
             draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
             draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
             draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
-        var bar := Rect2(pos + Vector2(-40.0, -38.0), Vector2(80.0, 14.0))
-        draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
-        draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
-        draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * hp_ratio, bar.size.y - 4.0)), Color("#e0a15a"))
-        var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
-        draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7))
-        draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 11.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color.WHITE)
+        if hp_ratio < 0.999:
+            var bar := Rect2(pos + Vector2(-31.0, -49.0), Vector2(62.0, 10.0))
+            draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
+            draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
+            draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * hp_ratio, bar.size.y - 4.0)), Color("#e0a15a"))
+            var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
+            draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 9.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 9, Color(0.0, 0.0, 0.0, 0.72))
+            draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 8.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 9, Color.WHITE)
 
 func _draw_crate_orbs() -> void:
     if world.crate_orbs.is_empty():
