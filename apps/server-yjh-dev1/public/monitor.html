@@ -58,16 +58,12 @@
 <script>
 const SERVERS = [
   { name: 'server-yjh-dev1', url: 'https://server-yjh-dev1.external.kr' },
-  { name: 'server-yjh-dev2', url: 'https://server-yjh-dev2.external.kr' },
-  { name: 'server-yjh-dev3', url: 'https://server-yjh-dev3.external.kr' },
   { name: 'server-pjh-dev1', url: 'https://server-pjh-dev1.external.kr' },
-  { name: 'server-pjh-dev2', url: 'https://server-pjh-dev2.external.kr' },
-  { name: 'server-pjh-dev3', url: 'https://server-pjh-dev3.external.kr' },
-  { name: 'server-pig-dev1', url: 'https://server-pig-dev1.external.kr' },
-  { name: 'server-pig-dev2', url: 'https://server-pig-dev2.external.kr' },
-  { name: 'server-pig-dev3', url: 'https://server-pig-dev3.external.kr' },
+  { name: 'server-fig-dev1', url: 'https://server-fig-dev1.external.kr' },
   { name: 'server-prod',     url: 'https://server-prod.external.kr' },
 ];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function pingClass(ms) {
   if (ms <= 50) return 'ping-good';
@@ -85,7 +81,7 @@ function renderCard(srv, data) {
   const online = !!data;
   const cls = online ? 'online' : 'offline';
   let inner = `<div class="card-header">
-    <span class="card-title">${srv.name}</span>
+    <span class="card-title">${esc(srv.name)}</span>
     <span class="badge ${cls}">${online ? 'ONLINE' : 'OFFLINE'}</span>
   </div>`;
 
@@ -105,7 +101,7 @@ function renderCard(srv, data) {
   if (data.players.length > 0) {
     inner += '<div class="player-list">';
     for (const p of data.players) {
-      inner += `<div class="player-row"><span>${p.name}</span><span class="${pingClass(p.rtt)}">${p.rtt}ms</span></div>`;
+      inner += `<div class="player-row"><span>${esc(p.name)}</span><span class="${pingClass(p.rtt)}">${p.rtt}ms</span></div>`;
     }
     inner += '</div>';
   }

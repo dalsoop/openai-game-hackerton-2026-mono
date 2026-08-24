@@ -32,6 +32,7 @@ var covers: Array[Dictionary] = []
 var health_pickups: Array[Dictionary] = []
 var crates: Array[Dictionary] = []
 var crate_orbs: Array[Dictionary] = []
+var mid_tower: Dictionary = {}
 var result: StringName = &"playing"
 var winner_slot: int = -1
 var result_reason: StringName = &""
@@ -329,7 +330,25 @@ func apply_snap(snap: Dictionary) -> void:
         safe_zone_target_radius = maxf(SAFE_ZONE_MIN_RADIUS, safe_zone_radius * 0.62)
     else:
         safe_zone_target_radius = safe_zone_radius
-    safe_zone_center = ARENA_CENTER
+    if snap.has("zoneCX") and snap.has("zoneCY"):
+        safe_zone_center = Vector2(_f(snap, "zoneCX", ARENA_CENTER.x), _f(snap, "zoneCY", ARENA_CENTER.y))
+    else:
+        safe_zone_center = ARENA_CENTER
+    if snap.has("zonePhase"):
+        safe_zone_phase = int(snap["zonePhase"])
+    if snap.has("startCountdown"):
+        start_countdown = _f(snap, "startCountdown", 0.0)
+    if snap.has("wantedSlot"):
+        wanted_slot = int(snap["wantedSlot"])
+    zones.assign(snap.get("zones", []))
+    deployables.assign(snap.get("deployables", []))
+    cores.assign(snap.get("cores", []))
+    covers.assign(snap.get("covers", []))
+    knockouts.assign(snap.get("knockouts", []))
+    crates.assign(snap.get("crates", []))
+    crate_orbs.assign(snap.get("crate_orbs", []))
+    if snap.has("mid_tower") and typeof(snap["mid_tower"]) == TYPE_DICTIONARY:
+        mid_tower = snap["mid_tower"]
     _apply_players(snap.get("players", []))
     _apply_bullets(snap.get("bullets", []))
     _apply_loot(snap.get("loot", []))
