@@ -654,39 +654,40 @@ func _update_timers(dt: float) -> void:
 func _apply_human(command: Dictionary) -> void:
     if heroes.is_empty():
         return
+    var ls: int = clampi(local_slot, 0, heroes.size() - 1)
     if bool(command.get("finish", false)):
         if bool(finish_cine.get("on", false)):
             _cancel_finish_cine()
             return
-        _try_begin_finish(0)
+        _try_begin_finish(ls)
     if bool(finish_cine.get("on", false)):
         return
-    var h: Dictionary = heroes[0]
+    var h: Dictionary = heroes[ls]
     if bool(h["eliminated"]):
-        heroes[0] = h
+        heroes[ls] = h
         return
     if not bool(h["alive"]):
-        heroes[0] = h
+        heroes[ls] = h
         return
     if bool(h.get("burrowed", false)):
         h["vel"] = Vector2.ZERO
-        heroes[0] = h
+        heroes[ls] = h
         return
     if bool(h.get("dog_rush", false)):
-        heroes[0] = h
+        heroes[ls] = h
         if bool(command.get("ultimate", false)):
-            _try_ultimate(0, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
+            _try_ultimate(ls, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
         return
     if bool(h.get("downed", false)):
         var crawl: Vector2 = command.get("move", Vector2.ZERO)
         if crawl.length_squared() > 1.0:
             crawl = crawl.normalized()
-        h["vel"] = crawl * _hero_move_speed(0) * 0.16
-        heroes[0] = h
+        h["vel"] = crawl * _hero_move_speed(ls) * 0.16
+        heroes[ls] = h
         return
     if float(h["launch_time"]) > 0.0:
         h["vel"] = Vector2.ZERO
-        heroes[0] = h
+        heroes[ls] = h
         return
     var move: Vector2 = command.get("move", Vector2.ZERO)
     if move.length_squared() > 1.0:
@@ -702,7 +703,7 @@ func _apply_human(command: Dictionary) -> void:
         h["vel"] = Vector2.ZERO
         h["charging_skill"] = false
         h["charge_time"] = 0.0
-        heroes[0] = h
+        heroes[ls] = h
         return
     if float(h["hitstun_time"]) > 0.0:
         control_speed *= 0.72
@@ -713,9 +714,9 @@ func _apply_human(command: Dictionary) -> void:
     if bool(h["charging_skill"]):
         control_speed *= 0.62
     if float(h.get("slide_time", 0.0)) > 0.0:
-        _steer_slide(0, h, move, control_speed, FIXED_DT)
+        _steer_slide(ls, h, move, control_speed, FIXED_DT)
     else:
-        var cruise: Vector2 = move * _hero_move_speed(0) * control_speed * _streak_move_multiplier(0)
+        var cruise: Vector2 = move * _hero_move_speed(ls) * control_speed * _streak_move_multiplier(ls)
         h["vel"] = cruise
         if float(h.get("spring_time", 0.0)) > 0.0:
             var boost_dir: Vector2 = move
@@ -730,35 +731,37 @@ func _apply_human(command: Dictionary) -> void:
             h["hop_time"] = HOP_AIR
             h["hop_max"] = HOP_AIR
             h["hop_height"] = HOP_LIFT_DEFAULT
-    heroes[0] = h
+    heroes[ls] = h
     if bool(command.get("medkit", false)) and not _hero_has_timed(h, "turtle"):
-        _try_use_active_item(0)
+        _try_use_active_item(ls)
     if bool(command.get("ultimate", false)) and not _hero_has_timed(h, "turtle"):
-        _try_ultimate(0, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
-        h = heroes[0]
+        _try_ultimate(ls, Vector2(command.get("aim", Vector2(h["pos"]) + Vector2(h["facing"]))))
+        h = heroes[ls]
     if bool(command.get("mobility", false)) and not _hero_has_timed(h, "turtle"):
-        _cancel_skill_charge(0)
-        _try_mobility(0, move if move.length_squared() > 0.1 else Vector2(h["facing"]))
+        _cancel_skill_charge(ls)
+        _try_mobility(ls, move if move.length_squared() > 0.1 else Vector2(h["facing"]))
         return
     if bool(command.get("reload", false)) and not _hero_has_timed(h, "turtle"):
-        _try_start_reload(0)
-        h = heroes[0]
+        _try_start_reload(ls)
+        h = heroes[ls]
     var fire_mode := str(h["equipment"].get("fire_mode", "auto"))
     var want_fire := bool(command.get("primary", false))
     if fire_mode != "auto":
         want_fire = bool(command.get("primary_pressed", false))
     if want_fire:
-        _cancel_skill_charge(0)
-        _try_normal_attack(0, Vector2(h["facing"]))
+        _cancel_skill_charge(ls)
+        _try_normal_attack(ls, Vector2(h["facing"]))
         return
 
 func _apply_peer_humans() -> void:
+    var consumed: Array = []
     for slot_key in peer_commands:
         var slot := int(slot_key)
-        if slot <= 0 or slot >= heroes.size():
+        if slot == local_slot or slot < 0 or slot >= heroes.size():
             continue
         if not human_slots.has(slot):
             continue
+        consumed.append(slot_key)
         var cmd: Dictionary = peer_commands[slot_key]
         var h: Dictionary = heroes[slot]
         if bool(h["eliminated"]) or not bool(h["alive"]):
@@ -796,9 +799,19 @@ func _apply_peer_humans() -> void:
             _try_use_medkit(slot)
         if bool(cmd.get("fire", false)):
             _try_normal_attack(slot, Vector2(h["facing"]))
+    for key in consumed:
+        peer_commands.erase(key)
+    for slot in human_slots:
+        if slot == local_slot or slot < 0 or slot >= heroes.size():
+            continue
+        if not peer_commands.has(slot):
+            var h: Dictionary = heroes[slot]
+            if bool(h["alive"]) and not bool(h["eliminated"]):
+                h["vel"] = Vector2.ZERO
+                heroes[slot] = h
 
 func _update_cpus(dt: float) -> void:
-    for slot in range(1, heroes.size()):
+    for slot in range(heroes.size()):
         if human_slots.has(slot):
             continue
         var h: Dictionary = heroes[slot]

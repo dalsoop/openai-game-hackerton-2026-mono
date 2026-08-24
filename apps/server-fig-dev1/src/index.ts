@@ -199,6 +199,7 @@ function clientByWs(ws: WebSocket): Client | null {
 
 function livingIds(room: Room): string[] {
   return room.members.filter((id) => {
+    if (!id) return false; // vacant slot (C1: stable indices during play)
     const c = clients.get(id);
     return c && !c.dead;
   });
@@ -226,6 +227,7 @@ function roomPublic(room: Room) {
 
 function peersPayload(room: Room) {
   return room.members.map((id, i) => {
+    if (!id) return { slot: i, id: "", name: "", host: false, dropped: true, vacant: true };
     const c = clients.get(id);
     return {
       slot: i,
@@ -316,9 +318,20 @@ function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void 
     if (wasDead || client.ws.readyState !== WebSocket.OPEN) clients.delete(client.id);
     return;
   }
-  room.members = room.members.filter((id) => id !== client.id);
+  // C1: during PLAYING, mark slot vacant instead of splicing to preserve index stability
+  if (room.phase === Phase.PLAYING) {
+    const idx = room.members.indexOf(client.id);
+    if (idx >= 0) room.members[idx] = "";
+  } else {
+    room.members = room.members.filter((id) => id !== client.id);
+  }
   parkPlayer(room, client.id);
-  if (room.members.length === 0) {
+  // C2: if the leaving player is the host during play, end the match
+  if (room.phase === Phase.PLAYING && client.id === room.hostClientId) {
+    if (!silent) notifyRoom(room, { notice: `호스트(${client.name})가 나가서 게임이 종료됩니다.` });
+    resetToLobby(room);
+  } else if (room.members.every((id) => !id) || (room.phase === Phase.LOBBY && room.members.length === 0)) {
+    // All slots vacant or lobby empty — delete room
     if (room.timer) clearTimeout(room.timer);
     rooms.delete(room.id);
   } else if (!silent) {
@@ -375,11 +388,13 @@ function attachResume(fresh: Client, token: string): Client {
 
 // Reset room to lobby — called when host disconnects or game ends
 function resetToLobby(room: Room): void {
+  if (room.timer) { clearTimeout(room.timer); room.timer = null; } // M1: clear before resetting
   room.hostClientId = null;
-  room.timer = null;
   room.lastSnap = null;
   room.prevSnap = null;
   room.snapCount = 0;
+  // C1: remove vacant slots when returning to lobby
+  room.members = room.members.filter((id) => !!id);
   room.phase = Phase.LOBBY;
   if (livingIds(room).length === 0) {
     rooms.delete(room.id);
@@ -405,6 +420,13 @@ function startMatch(room: Room): void {
       sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room) });
     }
   }
+  // H1: if host doesn't send first snapshot within timeout, reset to lobby
+  room.timer = setTimeout(() => {
+    if (room.phase === Phase.PLAYING && !room.lastSnap) {
+      sendRoom(room, { t: MSG.ERROR, msg: "호스트가 게임을 시작하지 못했습니다." });
+      resetToLobby(room);
+    }
+  }, CONFIG.resetToLobbyDelayMs);
   broadcastRooms();
 }
 
@@ -706,8 +728,13 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
       if (id !== client.id) sendTo(id, text); // don't echo back to host
     }
     // Check for match end — host signals result in the snapshot
-    if (snapData.result && snapData.result !== Phase.PLAYING) {
+    // M1: only set timer once, clear startMatch timeout first
+    if (snapData.result && snapData.result !== Phase.PLAYING && !room.timer) {
       room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
+    } else if (snapData.result === Phase.PLAYING && room.timer) {
+      // First valid snap arrived — clear the H1 startup timeout
+      clearTimeout(room.timer);
+      room.timer = null;
     }
     return;
   }

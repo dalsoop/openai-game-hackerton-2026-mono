@@ -15,6 +15,7 @@ var hub
 var net_active := false
 var net_host := false
 var _snap_timer := 0.0
+var _peer_seq: Dictionary = {}
 const SNAP_SEND_HZ := 20.0
 var previous_keys: Dictionary = {}
 var seed: int = 2222
@@ -549,6 +550,7 @@ func _escape_wait() -> void:
     _set_phase(&"lobby")
 
 func _cleanup_host_signals() -> void:
+    _peer_seq.clear()
     if hub == null:
         return
     if hub.peer_input_received.is_connected(_on_peer_input):
@@ -659,6 +661,9 @@ func _apply_recoil_mouse() -> void:
 func _on_peer_input(slot: int, input_data: Dictionary) -> void:
     if world != null and net_host:
         world.peer_commands[slot] = input_data
+        var seq := int(input_data.get("seq", 0))
+        if seq > _peer_seq.get(slot, 0):
+            _peer_seq[slot] = seq
 
 func _on_peer_parked(slot: int) -> void:
     if world != null and net_host and world.human_slots.has(slot):
@@ -685,7 +690,7 @@ func _build_host_snapshot() -> Dictionary:
             "weapon": str(h.get("equipment", {}).get("name", "")),
             "item": "medkit" if int(h.get("medkits", 0)) > 0 else "",
             "kills": int(h["kills"]),
-            "ack": 0
+            "ack": _peer_seq.get(int(h["slot"]), 0)
         })
     var bullets_arr: Array = []
     for proj in world.projectiles:
