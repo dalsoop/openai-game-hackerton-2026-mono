@@ -118,49 +118,85 @@ func _build() -> void:
 
 func _build_intro() -> Control:
 	var root := UiTheme.full(Control.new())
+	var bg := ColorRect.new()
+	bg.color = UiTheme.INTRO_BG
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(bg)
+	var title := Label.new()
+	title.text = "다굴"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 96)
+	title.add_theme_color_override("font_color", UiTheme.INTRO_TITLE)
+	title.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
+	title.offset_top = 120
+	title.offset_bottom = 240
+	title.offset_left = -300
+	title.offset_right = 300
+	root.add_child(title)
+	var subtitle := UiTheme.lbl("8인 배틀로얄", 18, UiTheme.INTRO_SUB, HORIZONTAL_ALIGNMENT_CENTER)
+	subtitle.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
+	subtitle.offset_top = 230
+	subtitle.offset_bottom = 260
+	subtitle.offset_left = -300
+	subtitle.offset_right = 300
+	root.add_child(subtitle)
 	var center := VBoxContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_CENTER)
-	center.offset_left = -220
-	center.offset_right = 220
-	center.offset_top = -200
-	center.offset_bottom = 200
-	center.add_theme_constant_override("separation", 16)
-	var title := UiTheme.lbl("다굴", 64, UiTheme.INK, HORIZONTAL_ALIGNMENT_CENTER)
-	center.add_child(title)
-	var subtitle := UiTheme.lbl("8인 배틀로얄", 20, UiTheme.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	center.add_child(subtitle)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 24)
-	center.add_child(spacer)
-	center.add_child(UiTheme.lbl("닉네임", 15, UiTheme.INK))
+	center.offset_left = -180
+	center.offset_right = 180
+	center.offset_top = 20
+	center.offset_bottom = 260
+	center.add_theme_constant_override("separation", 12)
 	_intro_name_edit = LineEdit.new()
 	_intro_name_edit.max_length = 12
 	_intro_name_edit.custom_minimum_size = Vector2(0, 48)
-	_intro_name_edit.placeholder_text = "이름을 입력하세요"
+	_intro_name_edit.placeholder_text = "닉네임을 입력하세요"
+	_intro_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_intro_name_edit.add_theme_font_size_override("font_size", 18)
+	var name_sb := StyleBoxFlat.new()
+	name_sb.bg_color = Color(1, 1, 1, 0.08)
+	name_sb.border_color = Color(1, 1, 1, 0.15)
+	name_sb.border_width_bottom = 2
+	name_sb.corner_radius_top_left = 8
+	name_sb.corner_radius_top_right = 8
+	name_sb.corner_radius_bottom_left = 8
+	name_sb.corner_radius_bottom_right = 8
+	name_sb.content_margin_left = 16
+	name_sb.content_margin_right = 16
+	_intro_name_edit.add_theme_stylebox_override("normal", name_sb)
+	_intro_name_edit.add_theme_color_override("font_color", Color.WHITE)
+	_intro_name_edit.add_theme_color_override("font_placeholder_color", UiTheme.INTRO_SUB)
 	center.add_child(_intro_name_edit)
-	var spacer2 := Control.new()
-	spacer2.custom_minimum_size = Vector2(0, 12)
-	center.add_child(spacer2)
-	var play_btn := UiTheme.btn("바로 시작", UiTheme.BLUE, Vector2(0, 60))
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	center.add_child(spacer)
+	var play_btn := UiTheme.btn("바로 시작", UiTheme.BLUE, Vector2(0, 64))
+	play_btn.add_theme_font_size_override("font_size", 26)
 	play_btn.pressed.connect(_on_intro_play)
 	center.add_child(play_btn)
-	var find_btn := UiTheme.btn("방 찾기", UiTheme.GREEN, Vector2(0, 54))
+	var find_btn := UiTheme.btn("방 찾기", Color(0.12, 0.6, 0.35), Vector2(0, 54))
 	find_btn.pressed.connect(_on_intro_find)
 	center.add_child(find_btn)
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
-	var how_btn := UiTheme.btn("조작법", UiTheme.BTN_DARK, Vector2(0, 46))
+	var how_btn := UiTheme.btn("조작법", Color(0.22, 0.26, 0.34), Vector2(0, 44))
 	how_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	how_btn.pressed.connect(func():
 		_how_return = &"intro"
 		show_page(&"how"))
 	btn_row.add_child(how_btn)
-	var rules_btn := UiTheme.btn("게임 규칙", UiTheme.BTN_MUTED, Vector2(0, 46))
+	var rules_btn := UiTheme.btn("규칙", Color(0.22, 0.26, 0.34), Vector2(0, 44))
 	rules_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rules_btn.pressed.connect(_show_rules_card)
 	btn_row.add_child(rules_btn)
 	center.add_child(btn_row)
 	root.add_child(center)
+	var hint := UiTheme.lbl("WASD 이동 · 마우스 조준 · 좌클릭 공격", 12, UiTheme.INTRO_SUB, HORIZONTAL_ALIGNMENT_CENTER)
+	hint.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+	hint.offset_top = -40
+	hint.offset_bottom = -16
+	root.add_child(hint)
 	return root
 
 func _on_intro_play() -> void:
