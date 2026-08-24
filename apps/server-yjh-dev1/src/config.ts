@@ -14,6 +14,7 @@ export const CONFIG = {
   rateRefillPerMs: 0.04,
   snapDeltaLogInterval: 100,
   resetToLobbyDelayMs: 5_000,
+  hostBootTimeoutMs: 45_000,
   pingIntervalMs: 10_000,
   metricsIntervalMs: 5_000,
 } as const;

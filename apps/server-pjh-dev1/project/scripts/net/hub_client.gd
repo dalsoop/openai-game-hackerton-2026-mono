@@ -272,6 +272,7 @@ func _on_msg(msg: Dictionary) -> void:
             if str(msg.get("id", "")) != "":
                 client_id = str(msg.get("id", ""))
             you = int(msg.get("you", 0))
+            is_host = bool(msg.get("host", false))
             room = msg.get("room", {})
             players = msg.get("players", [])
             _set_status(STATUS_LOBBY)

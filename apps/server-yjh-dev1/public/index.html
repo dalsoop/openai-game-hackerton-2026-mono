@@ -781,15 +781,7 @@ document.getElementById("copy").onclick = async () => {
 
 document.getElementById("leave").onclick = () => send({ t: "leave" });
 document.getElementById("start").onclick = () => {
-  if (prefetchDone) {
-    goToGame();
-  } else {
-    showBanner(`게임 로딩 중… ${prefetchPct}%`);
-    const ci = setInterval(() => {
-      if (prefetchDone) { clearInterval(ci); hideBanner(); goToGame(); }
-      else showBanner(`게임 로딩 중… ${prefetchPct}%`);
-    }, 300);
-  }
+  send({ t: "start" });
 };
 
 document.getElementById("modeChange").onchange = (e) => {

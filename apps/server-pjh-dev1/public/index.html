@@ -363,7 +363,7 @@ nameIn.value = params.get("name") || ("웹" + Math.floor(10 + Math.random() * 89
 let ws = null;
 let reconnectAttempt = 0;
 let intentionalClose = false;
-let resumeToken = sessionStorage.getItem("gangup.resume") || "";
+let resumeToken = localStorage.getItem("gangup_resume") || sessionStorage.getItem("gangup.resume") || "";
 let welcomed = false;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -781,15 +781,7 @@ document.getElementById("copy").onclick = async () => {
 
 document.getElementById("leave").onclick = () => send({ t: "leave" });
 document.getElementById("start").onclick = () => {
-  if (prefetchDone) {
-    goToGame();
-  } else {
-    showBanner(`게임 로딩 중… ${prefetchPct}%`);
-    const ci = setInterval(() => {
-      if (prefetchDone) { clearInterval(ci); hideBanner(); goToGame(); }
-      else showBanner(`게임 로딩 중… ${prefetchPct}%`);
-    }, 300);
-  }
+  send({ t: "start" });
 };
 
 document.getElementById("modeChange").onchange = (e) => {

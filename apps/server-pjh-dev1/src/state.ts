@@ -159,7 +159,7 @@ export function startMatch(room: Room): void {
       sendRoom(room, { t: MSG.ERROR, msg: "호스트가 게임을 시작하지 못했습니다." });
       resetToLobby(room);
     }
-  }, CONFIG.resetToLobbyDelayMs);
+  }, CONFIG.hostBootTimeoutMs);
   broadcastRooms();
 }
 
@@ -262,6 +262,7 @@ export function attachResume(fresh: Client, token: string): Client {
         id: old.id,
         resume: old.resume,
         you: slotOf(room, old.id),
+        host: old.id === room.hostClientId,
         room: roomPublic(room),
         players: peersPayload(room),
         playing: Boolean(playing),

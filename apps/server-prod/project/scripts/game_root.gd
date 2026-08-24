@@ -69,6 +69,13 @@ func _ready() -> void:
         screens.visible = false
         world_view.visible = false
         hud.visible = false
+        # C4: safety nets — redirect to hub on any failure path
+        hub.left_room.connect(func(): _return_to_hub())
+        hub.hub_error.connect(func(_msg: String): _return_to_hub())
+        hub.joined_room.connect(func(_r, _p, _y):
+            # Non-playing resume or fresh join — stay hidden, wait for start
+            pass
+        )
     else:
         _set_phase(&"lobby")
 
@@ -222,6 +229,9 @@ func _on_hub_status(next_status: String) -> void:
         return
     _set_net_banner("")
     if next_status != "끊김" and next_status != "오프라인 로컬":
+        return
+    if hub_launched:
+        _return_to_hub()
         return
     if net_active:
         net_active = false
