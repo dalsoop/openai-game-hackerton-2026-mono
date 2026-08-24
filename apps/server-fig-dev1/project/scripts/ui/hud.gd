@@ -5,14 +5,12 @@ const GunSig = preload("res://scripts/sim/gun_signature.gd")
 var world
 var spectate_slot: int = 0
 var hud_mode: int = 0
-var mode_id: String = "classic"
 var touch_hints: bool = false
 var net_rtt_ms: int = -1
 var net_connected: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
 const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
-const MODE_TITLES := {"classic":"클래식", "gun-semi":"단발", "gun-auto":"연발", "item":"아이템", "full":"풀"}
 const PANEL_BG := Color(0.012, 0.018, 0.028, 0.86)
 const ZONE_PURPLE := Color("#c65cff")
 
@@ -107,27 +105,6 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
             state_color = Color("#ff8d93")
         _text(Vector2(186.0, row_y), state, 15, state_color, 76.0)
         row_y += 26.0
-
-func _draw_mode_chip() -> void:
-    var title := str(MODE_TITLES.get(mode_id, mode_id))
-    var chip := Rect2(700.0, 14.0, 200.0, 34.0)
-    draw_rect(chip, PANEL_BG)
-    draw_rect(chip, Color(ZONE_PURPLE, 0.55), false, 2.0)
-    _text(chip.position + Vector2(0.0, 23.0), "모드 · %s" % title, 15, Color("#e8d5ff"), chip.size.x, HORIZONTAL_ALIGNMENT_CENTER)
-    if not bool(world.get("is_net")):
-        return
-    var ping := Rect2(908.0, 14.0, 96.0, 34.0)
-    draw_rect(ping, PANEL_BG)
-    var label := "연결 끊김"
-    var tint := Color("#ff5d73")
-    if net_connected and net_rtt_ms >= 0:
-        label = "%d ms" % net_rtt_ms
-        tint = Color("#6ef3a5") if net_rtt_ms < 80 else (Color("#ffd166") if net_rtt_ms < 160 else Color("#ff5d73"))
-    elif net_connected:
-        label = "측정 중"
-        tint = Color("#aebaca")
-    draw_rect(ping, Color(tint, 0.55), false, 2.0)
-    _text(ping.position + Vector2(0.0, 23.0), label, 14, tint, ping.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 func _draw_minimap() -> void:
     if world.heroes.is_empty():
@@ -252,46 +229,12 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
-func _held_item_label(kind: String) -> String:
-    match kind:
-        "medkit":
-            return "MEDKIT"
-        "spring":
-            return "SPRING"
-        "slide":
-            return "SLIDE"
-        "pull":
-            return "PULL"
-        "pocket":
-            return "POCKET"
-        "decoy":
-            return "DECOY"
-        _:
-            return "EMPTY"
-
-func _held_item_color(kind: String) -> Color:
-    match kind:
-        "medkit":
-            return Color("#6ef3a5")
-        "spring":
-            return Color("#ffe066")
-        "slide":
-            return Color("#70e7ff")
-        "pull":
-            return Color("#b78cff")
-        "pocket":
-            return Color("#f4e2ff")
-        "decoy":
-            return Color("#ff9f7a")
-        _:
-            return Color("#6b7480")
-
 func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
     if str(world.mode) == "item":
         var kind := str(me.get("held_item", ""))
-        var label := _held_item_label(kind)
+        var label := HudBuffs.held_item_label(kind)
         var usable := label != "EMPTY"
-        var accent: Color = _held_item_color(kind)
+        var accent: Color = HudBuffs.held_item_color(kind)
         draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
         draw_rect(rect, Color(accent, 0.85 if usable else 0.25), false, 2.0)
         if kind == "medkit" and medkit_texture != null:
@@ -481,19 +424,10 @@ func _draw_life_status(me: Dictionary) -> void:
         _text(Vector2(680.0, 782.0), "DOWN %.1f   FINISH %d/48" % [float(me.get("down_left", 0.0)), int(round(float(me.get("down_taken", 0.0))))], 16, Color("#ff8d93"))
     elif not bool(me["alive"]) and float(me.get("respawn_left", 0.0)) > 0.0:
         _text(Vector2(680.0, 782.0), "RESPAWN %.1f" % float(me["respawn_left"]), 16, Color("#70e7ff"))
-
-
-func _roulette_rank_color(rank: String) -> Color:
-    if rank == "assist":
-        return Color("#4da3ff")
-    if rank == "wanted":
-        return Color("#ff3349")
-    return Color("#b84dff")
-
 func _draw_perk_chips_at(me: Dictionary, origin: Vector2, width: float) -> void:
     if not bool(me.get("alive", false)):
         return
-    var icons: Array = _collect_buff_icons(me)
+    var icons: Array = HudBuffs.collect_buff_icons(me, str(world.mode))
     if icons.is_empty():
         return
     var step := 44.0
@@ -501,66 +435,13 @@ func _draw_perk_chips_at(me: Dictionary, origin: Vector2, width: float) -> void:
     for i in range(count):
         _draw_buff_icon(Rect2(origin.x + float(i) * step, origin.y, 40.0, 46.0), icons[i])
 
-func _collect_buff_icons(me: Dictionary) -> Array:
-    var icons: Array = []
-    var until_stats: Dictionary = me.get("rl_until", {})
-    var until_meta := [
-        {"key":"atk", "id":"atk", "label":"ATK", "color":Color("#ff6b4a")},
-        {"key":"spd", "id":"spd", "label":"SPD", "color":Color("#70e7ff")},
-        {"key":"def", "id":"def", "label":"DEF", "color":Color("#8ad0ff")},
-        {"key":"hp", "id":"hp", "label":"HP", "color":Color("#6ef3a5")},
-        {"key":"rate", "id":"rate", "label":"RATE", "color":Color("#ffd166")},
-        {"key":"range", "id":"range", "label":"RNG", "color":Color("#e8d5ff")}
-    ]
-    for meta in until_meta:
-        var value := float(until_stats.get(str(meta["key"]), 0.0))
-        if value > 0.001:
-            var shown := ("%d%%" % int(round(value * 100.0))) if str(meta["key"]) in ["def", "rate", "range"] else ("%d" % int(round(value)))
-            icons.append({"id":str(meta["id"]), "label":str(meta["label"]), "color":meta["color"], "text":shown, "time":0.0, "kind":"until"})
-    for buff in me.get("rl_timed", []):
-        var bid := str(buff.get("id", buff.get("name", "buff"))).to_lower()
-        var left := float(buff.get("time", 0.0))
-        var extra := ""
-        if float(buff.get("shield", 0.0)) > 0.01:
-            extra = "%d" % int(round(float(buff["shield"])))
-        icons.append({"id":bid, "label":str(buff.get("name", "BUFF")), "color":_timed_buff_color(bid), "text":extra, "time":left, "kind":"timed"})
-    if float(me.get("dmg_orb_time", 0.0)) > 0.05:
-        icons.append({"id":"dmg_orb", "label":"DMG", "color":Color("#ff3349"), "text":"", "time":float(me["dmg_orb_time"]), "kind":"orb"})
-    if float(me.get("spawn_protect_time", 0.0)) > 0.05:
-        icons.append({"id":"protect", "label":"SAFE", "color":Color("#ffe36a"), "text":"", "time":float(me["spawn_protect_time"]), "kind":"item"})
-    if float(me.get("slide_time", 0.0)) > 0.05:
-        icons.append({"id":"slide", "label":"ICE", "color":Color("#70e7ff"), "text":"", "time":float(me["slide_time"]), "kind":"item"})
-    if float(me.get("pocket_time", 0.0)) > 0.05:
-        icons.append({"id":"pocket", "label":"ZONE", "color":Color("#f4e2ff"), "text":"", "time":float(me["pocket_time"]), "kind":"item"})
-    if float(me.get("spring_time", 0.0)) > 0.05:
-        icons.append({"id":"spring", "label":"HOP", "color":Color("#ffe066"), "text":"", "time":float(me["spring_time"]), "kind":"item"})
-    var held := str(me.get("held_item", ""))
-    if held != "" and str(world.mode) == "item":
-        icons.append({"id":held, "label":_held_item_label(held), "color":_held_item_color(held), "text":"E", "time":0.0, "kind":"held"})
-    return icons
-
-func _timed_buff_color(buff_id: String) -> Color:
-    match buff_id:
-        "giant", "double_giant":
-            return Color("#ff9f1c")
-        "shield":
-            return Color("#70e7ff")
-        "berserk":
-            return Color("#ff3349")
-        "turtle":
-            return Color("#6ef3a5")
-        "sniper":
-            return Color("#c8d5e4")
-        _:
-            return Color("#b84dff")
-
 func _draw_buff_icon(rect: Rect2, icon: Dictionary) -> void:
     var accent: Color = icon.get("color", Color("#b84dff"))
     var kind := str(icon.get("kind", "until"))
     draw_rect(rect, Color(0.02, 0.03, 0.05, 0.88))
     draw_rect(rect, Color(accent, 0.92 if kind != "until" else 0.70), false, 2.0)
     var c: Vector2 = rect.get_center() + Vector2(0.0, -4.0)
-    _draw_buff_glyph(c, str(icon.get("id", "")), accent)
+    HudBuffs.draw_buff_glyph(self, c, str(icon.get("id", "")), accent, roulette_icons)
     var label := str(icon.get("label", ""))
     _text(rect.position + Vector2(2.0, 48.0), label, 9, Color(accent, 0.95), rect.size.x - 4.0, HORIZONTAL_ALIGNMENT_CENTER)
     var extra := str(icon.get("text", ""))
@@ -569,102 +450,6 @@ func _draw_buff_icon(rect: Rect2, icon: Dictionary) -> void:
     var left := float(icon.get("time", 0.0))
     if left > 0.04:
         _text(rect.position + Vector2(2.0, 36.0), "%.0f" % left, 11, Color.WHITE, rect.size.x - 4.0, HORIZONTAL_ALIGNMENT_CENTER)
-
-func _buff_icon_tex(buff_id: String) -> Texture2D:
-    if roulette_icons.has(buff_id):
-        return roulette_icons[buff_id]
-    return null
-
-func _draw_buff_glyph(c: Vector2, buff_id: String, accent: Color) -> void:
-    var icon_tex: Texture2D = _buff_icon_tex(buff_id)
-    if icon_tex != null:
-        draw_texture_rect(icon_tex, Rect2(c - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), false)
-        return
-    match buff_id:
-        "atk":
-            draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(7.0, 8.0), c + Vector2(-7.0, 8.0)]), accent)
-        "spd":
-            draw_line(c + Vector2(-8.0, 0.0), c + Vector2(8.0, 0.0), accent, 3.0)
-            draw_line(c + Vector2(2.0, -6.0), c + Vector2(8.0, 0.0), accent, 3.0)
-            draw_line(c + Vector2(2.0, 6.0), c + Vector2(8.0, 0.0), accent, 3.0)
-        "def", "shield":
-            draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -10.0), c + Vector2(9.0, -4.0), c + Vector2(7.0, 8.0), c + Vector2(0.0, 11.0), c + Vector2(-7.0, 8.0), c + Vector2(-9.0, -4.0)]), accent)
-        "hp", "medkit":
-            draw_rect(Rect2(c + Vector2(-3.0, -9.0), Vector2(6.0, 18.0)), accent)
-            draw_rect(Rect2(c + Vector2(-9.0, -3.0), Vector2(18.0, 6.0)), accent)
-        "rate":
-            draw_circle(c + Vector2(-7.0, 0.0), 3.0, accent)
-            draw_circle(c, 3.0, accent)
-            draw_circle(c + Vector2(7.0, 0.0), 3.0, accent)
-        "range", "sniper":
-            draw_arc(c, 8.0, 0.0, TAU, 20, accent, 2.0)
-            draw_line(c + Vector2(-10.0, 0.0), c + Vector2(10.0, 0.0), accent, 1.5)
-            draw_line(c + Vector2(0.0, -10.0), c + Vector2(0.0, 10.0), accent, 1.5)
-        "giant", "double_giant":
-            draw_circle(c + Vector2(0.0, -6.0), 5.0, accent)
-            draw_rect(Rect2(c + Vector2(-6.0, -1.0), Vector2(12.0, 12.0)), accent)
-            if buff_id == "double_giant":
-                draw_circle(c + Vector2(8.0, -4.0), 3.5, Color.WHITE)
-        "berserk":
-            draw_colored_polygon(PackedVector2Array([c + Vector2(-2.0, 10.0), c + Vector2(-8.0, -2.0), c + Vector2(-1.0, 1.0), c + Vector2(2.0, -11.0), c + Vector2(8.0, 2.0), c + Vector2(1.0, -1.0)]), accent)
-        "turtle":
-            draw_circle(c, 9.0, accent)
-            draw_arc(c, 6.0, 0.4, PI + 0.4, 12, Color(0.02, 0.03, 0.05, 0.85), 2.0)
-        "dmg_orb":
-            draw_circle(c, 9.0, accent)
-            draw_circle(c, 4.0, Color.WHITE)
-        "protect":
-            draw_arc(c, 9.0, 0.0, TAU, 18, accent, 2.5)
-            draw_circle(c, 3.0, Color.WHITE)
-        "slide":
-            draw_colored_polygon(PackedVector2Array([c + Vector2(-9.0, 6.0), c + Vector2(9.0, 6.0), c + Vector2(5.0, -8.0), c + Vector2(-4.0, -2.0)]), accent)
-        "pocket":
-            draw_arc(c, 9.0, 0.0, TAU, 20, accent, 2.5)
-            draw_circle(c, 3.5, Color(accent, 0.55))
-        "spring":
-            draw_line(c + Vector2(-7.0, 8.0), c + Vector2(-2.0, -2.0), accent, 2.5)
-            draw_line(c + Vector2(-2.0, -2.0), c + Vector2(3.0, 6.0), accent, 2.5)
-            draw_line(c + Vector2(3.0, 6.0), c + Vector2(8.0, -8.0), accent, 2.5)
-        "pull":
-            draw_arc(c, 8.0, PI * 0.15, PI * 0.85, 10, accent, 2.5)
-            draw_line(c + Vector2(-2.0, 8.0), c + Vector2(0.0, 2.0), accent, 2.5)
-        "decoy":
-            draw_circle(c + Vector2(0.0, -3.0), 6.0, accent)
-            draw_circle(c + Vector2(-2.5, -4.5), 1.4, Color.WHITE)
-            draw_circle(c + Vector2(2.5, -4.5), 1.4, Color.WHITE)
-        _:
-            draw_circle(c, 8.0, accent)
-
-func _roulette_effect_line(buff_id: String, won: String) -> String:
-    match buff_id:
-        "atk":
-            return "이번 목숨 동안 공격력이 올라갑니다"
-        "spd":
-            return "이번 목숨 동안 이동속도가 빨라집니다"
-        "def":
-            return "받는 피해가 줄어듭니다"
-        "hp":
-            return "최대 체력과 현재 체력이 늘어납니다"
-        "rate":
-            return "연사 속도가 빨라집니다"
-        "range":
-            return "총알이 더 멀리 나갑니다"
-        "giant":
-            return "몸이 커지고 공격과 이동이 세집니다"
-        "double_giant":
-            return "더 크게 변하고 능력치가 크게 오릅니다"
-        "shield":
-            return "잠시 보호막이 생깁니다"
-        "berserk":
-            return "공격과 연사가 잠깐 폭주합니다"
-        "sniper":
-            return "사거리가 늘어나고 한 방이 세집니다"
-        "turtle":
-            return "2초 동안 공격과 대시를 쓸 수 없습니다"
-        _:
-            if won != "":
-                return won
-            return "효과를 얻었습니다"
 
 func _draw_roulette_overlay(me: Dictionary) -> void:
     var phase := str(me.get("roulette_phase", ""))
@@ -676,9 +461,9 @@ func _draw_roulette_overlay(me: Dictionary) -> void:
     var spin_id := str(me.get("roulette_spin_id", ""))
     var desc := str(me.get("roulette_desc", ""))
     if desc == "":
-        desc = _roulette_effect_line(spin_id, won)
+        desc = HudBuffs.roulette_effect_line(spin_id, won)
     var rank := str(me.get("roulette_rank", "kill"))
-    var accent: Color = _roulette_rank_color(rank)
+    var accent: Color = HudBuffs.roulette_rank_color(rank)
     var left := maxf(0.0, float(me.get("roulette_time", 0.0)))
     var fade := 1.0
     if left < 0.35:
@@ -686,7 +471,7 @@ func _draw_roulette_overlay(me: Dictionary) -> void:
     var pulse := 0.82 + 0.18 * absf(sin(float(world.tick) * 0.22))
     var cx := 800.0
     var top := 168.0
-    var icon_tex: Texture2D = _buff_icon_tex(spin_id)
+    var icon_tex: Texture2D = roulette_icons.get(spin_id) as Texture2D
     if icon_tex != null:
         var isz := Vector2(96.0, 96.0)
         draw_texture_rect(icon_tex, Rect2(Vector2(cx - 48.0, top), isz), false)
@@ -694,8 +479,6 @@ func _draw_roulette_overlay(me: Dictionary) -> void:
         draw_circle(Vector2(cx, top + 48.0), 40.0, Color(accent, 0.55 * fade))
     _text(Vector2(400.0, top + 132.0), won, 40, Color(1.0, 0.96, 0.82, fade * pulse), 800.0, HORIZONTAL_ALIGNMENT_CENTER)
     _text(Vector2(360.0, top + 168.0), desc, 18, Color(accent, fade * 0.95), 880.0, HORIZONTAL_ALIGNMENT_CENTER)
-
-
 func _draw_crosshair(me: Dictionary) -> void:
     if me.is_empty():
         return

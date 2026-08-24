@@ -292,19 +292,7 @@ func _overlay_prediction() -> void:
     heroes[local_slot] = me
 
 func _make_equipment(weapon_name: String, player_name: String) -> Dictionary:
-    return {
-        "id":"net",
-        "name":weapon_name if weapon_name != "" else "권총",
-        "character_name":player_name,
-        "role":"",
-        "special_name":"",
-        "ultimate_name":"",
-        "badge":"",
-        "normal_name":"",
-        "skill_name":"",
-        "skill_desc":"",
-        "ultimate_desc":""
-    }
+    return NetSnapParser.make_equipment(weapon_name, player_name)
 
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
@@ -354,125 +342,17 @@ func apply_snap(snap: Dictionary) -> void:
         impact_ticks = 26
         event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
 
-func _snap_vec(d: Dictionary) -> Vector2:
-    return Vector2(_f(d, "x", 0.0), _f(d, "y", 0.0))
-
-func _snap_color(v: Variant, fallback: Color = Color.WHITE) -> Color:
-    if v is Color:
-        return v
-    var s := str(v)
-    if s.begins_with("#") and s.length() >= 7:
-        return Color.html(s)
-    return fallback
-
 func _apply_world_extras(snap: Dictionary) -> void:
-    var next_zones: Array[Dictionary] = []
-    for raw in snap.get("zones", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var z: Dictionary = raw
-        next_zones.append({
-            "pos": _snap_vec(z),
-            "radius": _f(z, "radius", 40.0),
-            "owner": int(z.get("owner", 0)),
-            "delay": _f(z, "delay", 0.0),
-            "warning_duration": _f(z, "warning_duration", 0.0),
-            "color": _snap_color(z.get("color", "")),
-            "effect_kind": StringName(str(z.get("effect_kind", "explosion"))),
-            "label": str(z.get("label", ""))
-        })
-    zones = next_zones
-    var next_deploys: Array[Dictionary] = []
-    for raw in snap.get("deployables", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var d: Dictionary = raw
-        next_deploys.append({
-            "type": StringName(str(d.get("type", "mine"))),
-            "owner": int(d.get("owner", 0)),
-            "pos": _snap_vec(d),
-            "direction": Vector2(_f(d, "dx", 1.0), _f(d, "dy", 0.0)),
-            "travel_direction": Vector2(_f(d, "tdx", 1.0), _f(d, "tdy", 0.0)),
-            "half_length": _f(d, "half_length", 0.0),
-            "lifetime": _f(d, "lifetime", 0.0),
-            "max_lifetime": _f(d, "max_lifetime", 1.0),
-            "arm_time": _f(d, "arm_time", 0.0),
-            "arm_duration": _f(d, "arm_duration", 0.0),
-            "triggered": bool(d.get("triggered", false)),
-            "trigger_radius": _f(d, "trigger_radius", 0.0),
-            "blast_radius": _f(d, "blast_radius", 0.0),
-            "fuse_time": _f(d, "fuse_time", 0.0),
-            "fuse_duration": _f(d, "fuse_duration", 0.0)
-        })
-    deployables = next_deploys
-    var next_cores: Array[Dictionary] = []
-    for raw in snap.get("cores", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var c: Dictionary = raw
-        next_cores.append({
-            "slot": int(c.get("slot", next_cores.size())),
-            "pos": _snap_vec(c),
-            "hp": _f(c, "hp", 0.0),
-            "max_hp": _f(c, "max_hp", 1.0),
-            "alive": bool(c.get("alive", true))
-        })
-    cores = next_cores
-    var next_covers: Array[Dictionary] = []
-    for raw in snap.get("covers", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var cv: Dictionary = raw
-        next_covers.append({
-            "rect": Rect2(_f(cv, "x", 0.0), _f(cv, "y", 0.0), _f(cv, "w", 0.0), _f(cv, "h", 0.0))
-        })
-    covers = next_covers
-    var next_ko: Array[Dictionary] = []
-    for raw in snap.get("knockouts", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var ko: Dictionary = raw
-        next_ko.append({
-            "slot": int(ko.get("slot", -1)),
-            "pos": _snap_vec(ko),
-            "time": _f(ko, "time", 0.0),
-            "max_time": _f(ko, "max_time", 2.15),
-            "trail": []
-        })
-    knockouts = next_ko
-    var next_crates: Array[Dictionary] = []
-    for raw in snap.get("crates", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var cr: Dictionary = raw
-        next_crates.append({
-            "id": int(cr.get("id", next_crates.size())),
-            "pos": _snap_vec(cr),
-            "hp": _f(cr, "hp", 0.0),
-            "max_hp": _f(cr, "max_hp", 48.0),
-            "alive": bool(cr.get("alive", false))
-        })
-    crates = next_crates
-    var next_orbs: Array[Dictionary] = []
-    for raw in snap.get("crate_orbs", []):
-        if typeof(raw) != TYPE_DICTIONARY:
-            continue
-        var orb: Dictionary = raw
-        next_orbs.append({
-            "pos": _snap_vec(orb),
-            "red": bool(orb.get("red", true)),
-            "active": bool(orb.get("active", true))
-        })
-    crate_orbs = next_orbs
-    if snap.has("mid_tower") and typeof(snap["mid_tower"]) == TYPE_DICTIONARY:
-        var tw: Dictionary = snap["mid_tower"]
-        mid_tower = {
-            "alive": bool(tw.get("alive", false)),
-            "pos": _snap_vec(tw),
-            "hp": _f(tw, "hp", 0.0),
-            "max_hp": _f(tw, "max_hp", 1.0),
-            "boing": _f(tw, "boing", 0.0)
-        }
+    zones = NetSnapParser.parse_zones(snap)
+    deployables = NetSnapParser.parse_deployables(snap)
+    cores = NetSnapParser.parse_cores(snap)
+    covers = NetSnapParser.parse_covers(snap)
+    knockouts = NetSnapParser.parse_knockouts(snap)
+    crates = NetSnapParser.parse_crates(snap)
+    crate_orbs = NetSnapParser.parse_crate_orbs(snap)
+    var tower := NetSnapParser.parse_mid_tower(snap)
+    if not tower.is_empty():
+        mid_tower = tower
 
 func _apply_players(list: Array) -> void:
     var prev := {}
@@ -547,48 +427,12 @@ func _apply_players(list: Array) -> void:
     heroes = next
 
 func _apply_bullets(list: Array) -> void:
-    var next: Array[Dictionary] = []
-    for raw in list:
-        var b: Dictionary = raw
-        var pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
-        var vel := Vector2.ZERO
-        var best := 3600.0
-        for prev_b in _prev_bullets:
-            var d := pos.distance_squared_to(prev_b["pos"])
-            if d < best:
-                best = d
-                vel = (pos - prev_b["pos"]) * SNAP_HZ
-        next.append({
-            "pos":pos,
-            "vel":vel,
-            "owner":int(b.get("owner", 0)),
-            "kind":"bolt",
-            "source":&"normal",
-            "arc":false,
-            "radius":5.0
-        })
+    var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)
     _prev_bullets = next.duplicate()
     projectiles = next
 
 func _apply_loot(list: Array) -> void:
-    var next: Array[Dictionary] = []
-    for raw in list:
-        var drop: Dictionary = raw
-        var entry := {
-            "active":true,
-            "pos":Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
-            "id":abs(hash(str(drop.get("id", "")))) % 1000,
-            "magnet_slot":-1
-        }
-        if str(drop.get("kind", "")) == "gun":
-            var compact_name := str(drop.get("n", ""))
-            if compact_name != "":
-                entry["gun_name"] = compact_name
-            else:
-                var weapon: Dictionary = drop.get("weapon", {})
-                entry["gun_name"] = str(weapon.get("name", "총"))
-        next.append(entry)
-    health_pickups = next
+    health_pickups = NetSnapParser.parse_loot(list)
 
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color) -> void:
     effects.append({

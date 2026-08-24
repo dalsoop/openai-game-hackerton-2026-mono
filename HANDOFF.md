@@ -32,3 +32,9 @@
 3. `/gang-up/` → 방 만들기 → "게임으로 이동" → Godot 서버 연결 → 방 복귀 테스트
 4. 닉네임 "웹XX" 대신 허브에서 정한 이름이 Godot에 표시되는지 확인
 5. 게임 종료/ESC 시 `/gang-up/`으로 복귀되는지 확인 (hub_launched=true일 때)
+
+### i18n 분리 계획
+- Godot: `project/locale/ko.csv` + `tr()` 함수. 상태 비교도 키 기반으로 변경.
+- 허브 HTML: JS 상단에 `const I18N = {}` 객체
+- 서버 TS: `src/messages.ts`에 에러/알림 메시지 상수
+- 현재 한국어 하드코딩 위치: game_root, network_manager, flow_screens, index.html, state.ts

@@ -77,61 +77,16 @@ func _apply_control_mode(mode: String) -> void:
 	_sync_touch_buttons()
 
 func _build_touch_buttons() -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "TouchMenu"
-	layer.layer = 3
-	$HUD.add_child(layer)
-	_touch_exit = _touch_button("나가기", Color("3D4654"))
-	_touch_exit.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_touch_exit.offset_left = -120
-	_touch_exit.offset_right = -16
-	_touch_exit.offset_top = 14
-	_touch_exit.offset_bottom = 58
-	_touch_exit.pressed.connect(func(): _set_phase(&"wait"))
-	layer.add_child(_touch_exit)
-	_touch_rematch = _touch_button("재경기", Color("2F6BFF"))
-	_touch_rematch.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_touch_rematch.offset_left = -110
-	_touch_rematch.offset_right = 110
-	_touch_rematch.offset_top = -160
-	_touch_rematch.offset_bottom = -104
-	_touch_rematch.pressed.connect(func():
+	var refs := TouchButtons.build($HUD, func(): _set_phase(&"wait"), func():
 		seed += 1
 		_restart()
 	)
-	layer.add_child(_touch_rematch)
+	_touch_exit = refs["exit"]
+	_touch_rematch = refs["rematch"]
 	_sync_touch_buttons()
 
-func _touch_button(text: String, bg: Color) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.visible = false
-	b.add_theme_font_size_override("font_size", 18)
-	b.add_theme_color_override("font_color", Color.WHITE)
-	b.add_theme_color_override("font_pressed_color", Color.WHITE)
-	b.add_theme_color_override("font_hover_color", Color.WHITE)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(bg, 0.92)
-	sb.set_corner_radius_all(12)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_stylebox_override("pressed", sb)
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	return b
-
 func _sync_touch_buttons() -> void:
-	if _touch_exit == null:
-		return
-	var playing: bool = phase == &"play"
-	var touch_on: bool = touch != null and touch.has_method("is_enabled") and bool(touch.is_enabled())
-	var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
-	_touch_exit.visible = playing and (touch_on or finished)
-	_touch_exit.text = "대기실로" if finished else "나가기"
-	_touch_rematch.visible = playing and finished and not GameState.net_active
-	if touch != null and touch.has_method("set_playing"):
-		touch.set_playing(playing and not finished)
+	TouchButtons.sync(_touch_exit, _touch_rematch, touch, phase, world, GameState.net_active)
 
 # --- Phase management ---
 
