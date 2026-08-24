@@ -276,6 +276,7 @@ func _set_net_banner(text: String) -> void:
 func _restart() -> void:
 	world = WorldScript.new(seed)
 	world.set_mode(screens.selected_mode)
+	world.local_slot = 0
 	world.reset()
 	world.human_slots[world.local_slot] = true
 	world_view.world = world
