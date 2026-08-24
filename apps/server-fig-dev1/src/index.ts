@@ -66,6 +66,8 @@ interface Room {
   hostClientId: string | null;
   timer: ReturnType<typeof setTimeout> | null;
   lastSnap: Record<string, unknown> | null;
+  prevSnap: Record<string, unknown> | null;
+  snapCount: number;
 }
 
 // --- State ---
@@ -93,6 +95,44 @@ function rateOk(c: Client): boolean {
   if (c.msgBudget < 1) return false;
   c.msgBudget -= 1;
   return true;
+}
+
+// Snapshot delta: compare hero arrays field-by-field, keep arrays that change wholesale
+function computeHeroDelta(
+  prev: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  const delta: Record<string, unknown> = { t: "snap", tick: next.tick, full: false };
+  const skipKeys = new Set(["t", "heroes"]);
+  const arrayKeys = new Set(["projectiles", "zones", "effects", "knockouts", "covers",
+    "health_pickups", "crates", "crate_orbs", "deployables", "cores"]);
+  for (const key of Object.keys(next)) {
+    if (skipKeys.has(key)) continue;
+    if (arrayKeys.has(key)) {
+      delta[key] = next[key]; // arrays always sent in full
+      continue;
+    }
+    if (JSON.stringify(prev[key]) !== JSON.stringify(next[key])) {
+      delta[key] = next[key];
+    }
+  }
+  // Heroes: per-slot diff
+  const prevH = (prev.heroes ?? []) as Record<string, unknown>[];
+  const nextH = (next.heroes ?? []) as Record<string, unknown>[];
+  const deltaHeroes: Record<string, unknown>[] = [];
+  for (const nh of nextH) {
+    const slot = nh.slot as number;
+    const ph = prevH.find((h) => h.slot === slot);
+    if (!ph) { deltaHeroes.push(nh); continue; }
+    const diff: Record<string, unknown> = { slot };
+    for (const k of Object.keys(nh)) {
+      if (k === "slot") continue;
+      if (JSON.stringify(ph[k]) !== JSON.stringify(nh[k])) diff[k] = nh[k];
+    }
+    deltaHeroes.push(Object.keys(diff).length > 1 ? diff : { slot });
+  }
+  delta.heroes = deltaHeroes;
+  return delta;
 }
 
 function send(ws: WebSocket | null, msg: unknown): void {
@@ -300,6 +340,8 @@ function resetToLobby(room: Room): void {
   room.hostClientId = null;
   room.timer = null;
   room.lastSnap = null;
+  room.prevSnap = null;
+  room.snapCount = 0;
   room.phase = "lobby";
   if (livingIds(room).length === 0) {
     rooms.delete(room.id);
@@ -502,6 +544,8 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
       hostClientId: null,
       timer: null,
       lastSnap: null,
+      prevSnap: null,
+      snapCount: 0,
     };
     rooms.set(id, room);
     client.roomId = id;
@@ -609,8 +653,18 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     if (client.id !== room.hostClientId) return; // only host can send snapshots
     const snapData = msg as Record<string, unknown>;
     snapData.t = "snap";
+    room.prevSnap = room.lastSnap;
     room.lastSnap = snapData;
+    room.snapCount += 1;
     const text = JSON.stringify(snapData);
+    // Delta measurement (log every 100 snaps)
+    if (room.prevSnap && room.snapCount % 100 === 0) {
+      const delta = computeHeroDelta(room.prevSnap, snapData);
+      const deltaSize = JSON.stringify(delta).length;
+      const fullSize = text.length;
+      const pct = Math.round((1 - deltaSize / fullSize) * 100);
+      console.log(`[snap-delta] room=${room.id} full=${fullSize}B delta=${deltaSize}B saving=${pct}%`);
+    }
     for (const id of livingIds(room)) {
       if (id !== client.id) sendTo(id, text); // don't echo back to host
     }
