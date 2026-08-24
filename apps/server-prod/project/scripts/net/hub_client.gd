@@ -337,6 +337,17 @@ func _save_resume(token: String) -> void:
     if f != null:
         f.store_string(token)
 
+func consume_hub_launch() -> bool:
+    if not OS.has_feature("web"):
+        return false
+    var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
+    return v == "1"
+
+func get_hub_name() -> String:
+    if not OS.has_feature("web"):
+        return ""
+    return _js_text("try{localStorage.getItem('gangup_name')||''}catch(e){''}")
+
 func _load_resume() -> String:
     if OS.has_feature("web"):
         var stored := _js_text("try{localStorage.getItem('gangup_resume')||''}catch(e){''}")

@@ -514,6 +514,8 @@ function updatePrefetchUI(pct) {
 
 function goToGame() {
   localStorage.setItem("gangup_resume", resumeToken);
+  localStorage.setItem("gangup_from_hub", "1");
+  localStorage.setItem("gangup_name", nameIn.value || "웹");
   intentionalClose = true;
   location.href = "/";
 }

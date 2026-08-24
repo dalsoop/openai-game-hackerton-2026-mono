@@ -14,6 +14,7 @@ var world
 var hub
 var net_active := false
 var net_host := false
+var hub_launched := false
 var _snap_timer := 0.0
 var _peer_seq: Dictionary = {}
 const SNAP_SEND_HZ := 20.0
@@ -55,10 +56,15 @@ func _ready() -> void:
     camera.position = _camera_target()
     screens.start_match.connect(_on_start_match)
     screens.request_resume.connect(func(): _set_phase(&"play"))
-    screens.request_quit_to_intro.connect(func(): _set_phase(&"lobby"))
+    screens.request_quit_to_intro.connect(func(): _return_to_hub())
     screens.control_mode_changed.connect(_apply_control_mode)
     _apply_control_mode(screens.control_mode)
     Engine.max_fps = 60
+    hub_launched = hub.consume_hub_launch()
+    if hub_launched:
+        var hub_name := hub.get_hub_name()
+        if hub_name != "":
+            hub.player_name = hub_name
     _set_phase(&"lobby")
 
 func _attach_touch() -> void:
@@ -213,7 +219,13 @@ func _on_hub_status(next_status: String) -> void:
     if net_active:
         net_active = false
         if phase == &"play":
-            _set_phase(&"lobby")
+            _return_to_hub()
+
+func _return_to_hub() -> void:
+    if hub_launched and OS.has_feature("web"):
+        JavaScriptBridge.eval("location.href='/gang-up/'")
+    else:
+        _set_phase(&"lobby")
 
 func _set_phase(next: StringName) -> void:
     phase = next
@@ -552,7 +564,7 @@ func _escape_wait() -> void:
     net_host = false
     if hub.in_room:
         hub.leave_room()
-    _set_phase(&"lobby")
+    _return_to_hub()
 
 func _cleanup_host_signals() -> void:
     _peer_seq.clear()
