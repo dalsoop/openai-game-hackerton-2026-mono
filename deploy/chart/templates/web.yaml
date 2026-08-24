@@ -11,15 +11,10 @@ data:
       admin off
     }
     :8080 {
-      encode {
-        gzip
-        match {
-          header Content-Type text/*
-          header Content-Type application/javascript*
-          header Content-Type application/json*
-        }
-      }
+      encode zstd gzip
       header X-Content-Type-Options nosniff
+      header Cross-Origin-Opener-Policy same-origin
+      header Cross-Origin-Embedder-Policy require-corp
 
       handle /healthz {
         header Access-Control-Allow-Origin *
