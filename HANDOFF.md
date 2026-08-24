@@ -19,3 +19,16 @@
 - "게임으로 이동" 클릭 → / 이동 ✔
 - Godot 로딩 + 캐시 히트 빠른 로드 ✔
 - 서버 연결 실패 ✖ (WS URL 문제)
+
+### 배포 큐 상태 (세션 종료 시점)
+- `refactor: 서버 모듈화 + 로비 분리 1단계` — in_progress 28분+ (비정상)
+- `fix: game_root.gd hub_name 타입 추론 에러 수정` — pending (위 배포 완료 대기)
+- 수정된 pck(타입 에러 수정 + WS URL /gang-up)가 아직 배포되지 않음
+- 배포 완료 후 `/gang-up/` → "게임으로 이동" → Godot 서버 연결 테스트 필요
+
+### 다음 세션 체크리스트
+1. Apps ship 배포 큐 확인 (`gh run list --workflow "Apps ship" --limit 3`)
+2. Godot 콘솔에서 Parse Error 없는지 확인
+3. `/gang-up/` → 방 만들기 → "게임으로 이동" → Godot 서버 연결 → 방 복귀 테스트
+4. 닉네임 "웹XX" 대신 허브에서 정한 이름이 Godot에 표시되는지 확인
+5. 게임 종료/ESC 시 `/gang-up/`으로 복귀되는지 확인 (hub_launched=true일 때)
