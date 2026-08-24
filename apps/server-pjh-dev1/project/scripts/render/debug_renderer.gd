@@ -15,6 +15,9 @@ const BULLET_YELLOW := Color("#ffd23f")
 
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
+var rock_atlas: Texture2D = null
+var crate_atlas: Texture2D = null
+var projectile_textures: Dictionary = {}
 var tower_texture: Texture2D = null
 var rat_run_tex: Texture2D = null
 var dragon_smoke_tex: Texture2D = null
@@ -58,6 +61,31 @@ const ANIMAL_COLS := 4
 const ANIMAL_ROWS := 3
 const BULLET_COLS := 4
 const BULLET_ROWS := 4
+const ROCK_SOURCE_RECTS := [
+    Rect2(136.0, 205.0, 169.0, 157.0),
+    Rect2(510.0, 158.0, 274.0, 227.0),
+    Rect2(927.0, 204.0, 329.0, 175.0),
+    Rect2(1380.0, 178.0, 283.0, 201.0),
+    Rect2(1743.0, 94.0, 411.0, 297.0),
+]
+const CRATE_SOURCE_RECTS := [
+    Rect2(78.0, 254.0, 343.0, 372.0),
+    Rect2(503.0, 258.0, 340.0, 370.0),
+    Rect2(923.0, 273.0, 339.0, 358.0),
+    Rect2(1336.0, 355.0, 340.0, 258.0),
+]
+const PROJECTILE_TEXTURE_SIZES := {
+    "beam": Vector2(180.0, 42.0),
+    "shell": Vector2(54.0, 28.0),
+    "tether": Vector2(50.0, 26.0),
+    "seeker": Vector2(46.0, 30.0),
+    "slash": Vector2(66.0, 48.0),
+    "fist": Vector2(68.0, 38.0),
+    "bomb": Vector2(34.0, 38.0),
+    "spear": Vector2(106.0, 28.0),
+    "chain": Vector2(72.0, 30.0),
+    "shield": Vector2(52.0, 48.0),
+}
 
 
 func _process(_dt: float) -> void:
@@ -104,7 +132,11 @@ func _ready() -> void:
         RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://assets/world/island_bg.png")
+    island_texture = _load_tex("res://assets/world/Tex_BG_Field.png")
+    rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
+    crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
+    for projectile_kind in PROJECTILE_TEXTURE_SIZES:
+        projectile_textures[projectile_kind] = _load_tex("res://assets/fx/projectiles/projectile_%s.png" % projectile_kind)
     tower_texture = _load_tex("res://assets/world/bounty-tower.png")
     rat_run_tex = _load_tex("res://assets/fx/rat-run.png")
     dragon_smoke_tex = _load_tex("res://assets/fx/dragon-smoke.png")
@@ -434,10 +466,19 @@ func _draw_safe_zone() -> void:
         _draw_dashed_circle(center, target_radius, Color(1.0, 1.0, 1.0, 0.62), 3.0)
 
 func _draw_covers() -> void:
-    for cover in world.covers:
+    for cover_index in range(world.covers.size()):
+        var cover: Dictionary = world.covers[cover_index]
         var rect: Rect2 = cover["rect"]
         var c := rect.get_center()
         var base := minf(rect.size.x, rect.size.y) * 0.5
+        if rock_atlas != null:
+            var src: Rect2 = ROCK_SOURCE_RECTS[cover_index % ROCK_SOURCE_RECTS.size()]
+            var max_size := Vector2(base * 2.0, base * 2.0)
+            var scale_factor: float = minf(max_size.x / src.size.x, max_size.y / src.size.y)
+            var draw_size := src.size * scale_factor
+            var dest := Rect2(c + Vector2(-draw_size.x * 0.5, base - draw_size.y), draw_size)
+            draw_texture_rect_region(rock_atlas, dest, src)
+            continue
         draw_circle(c + Vector2(3.0, 5.0), base, Color(0.16, 0.17, 0.19, 0.85))
         draw_circle(c, base, Color("#7d838e"))
         draw_circle(c - Vector2(base * 0.25, base * 0.30), base * 0.55, Color("#9aa1ac"))
@@ -589,6 +630,17 @@ func _draw_deployables() -> void:
         draw_circle(mine_pos, 7.0 + (sin(float(world.tick) * 0.28) * 2.0 if armed else 0.0), Color.WHITE if triggered else mine_color)
         draw_string(GameFont.get_font(), mine_pos + Vector2(-30.0, 34.0), "P%d MINE" % (mine_owner + 1), HORIZONTAL_ALIGNMENT_CENTER, 60.0, 10, Color.WHITE)
 
+func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, size_scale: float = 1.0) -> bool:
+    var texture: Texture2D = projectile_textures.get(kind) as Texture2D
+    if texture == null or not PROJECTILE_TEXTURE_SIZES.has(kind):
+        return false
+    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale
+    draw_set_transform(pos, direction.angle(), Vector2.ONE)
+    draw_texture_rect(texture, Rect2(Vector2(-draw_size.x * 0.72, -draw_size.y * 0.5), draw_size), false)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    return true
+
+
 func _draw_projectiles() -> void:
     for projectile in world.projectiles:
         var source := StringName(projectile["source"])
@@ -602,10 +654,15 @@ func _draw_projectiles() -> void:
             var bomb_scale := 0.72 + sin(arc_progress * PI) * 0.95
             var landing: Vector2 = projectile["landing_pos"]
             draw_circle(projectile_pos + Vector2(7.0, 9.0), 13.0 * bomb_scale, Color(0.0, 0.0, 0.0, 0.23))
-            draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
-            draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
+            if not _draw_projectile_texture(projectile_pos, direction, "bomb", bomb_scale):
+                draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
+                draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
             draw_circle(landing, float(projectile["splash"]), Color(0.35, 0.04, 0.03, 0.07))
             draw_arc(landing, float(projectile["splash"]) * lerpf(1.0, 0.78, arc_progress), 0.0, TAU, 36, Color(1.0, 0.34, 0.22, 0.68), 3.0)
+            continue
+        if kind in ["shell", "seeker", "bomb"]:
+            _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
+        if _draw_projectile_texture(projectile_pos, direction, kind):
             continue
         match kind:
             "beam":
@@ -1610,7 +1667,6 @@ func _draw() -> void:
     _draw_deployables()
     _draw_zones()
     _draw_projectiles()
-    _draw_impact_flashes()
     _draw_effects()
     _draw_knockouts()
     _draw_pocket_bubbles()
@@ -1622,6 +1678,7 @@ func _draw() -> void:
     _draw_rabbit_holes()
     _draw_tiger_roars()
     _draw_heroes()
+    _draw_impact_flashes()
     _draw_finish_prompts()
     _draw_rat_tides()
     _draw_snake_skins()
@@ -1637,14 +1694,18 @@ func _draw_crates() -> void:
             continue
         var pos: Vector2 = crate["pos"]
         var body := Rect2(pos + Vector2(-22.0, -20.0), Vector2(44.0, 40.0))
-        draw_rect(body, Color("#5a3a1c"))
-        draw_rect(body, Color("#3b2410"), false, 2.0)
-        draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
-        draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
-        draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
         var hp_now := float(crate.get("hp", 0.0))
         var hp_max := float(crate.get("max_hp", 48.0))
         var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
+        if crate_atlas != null:
+            var frame := 0 if hp_ratio > 0.66 else (1 if hp_ratio > 0.33 else 2)
+            draw_texture_rect_region(crate_atlas, body, CRATE_SOURCE_RECTS[frame])
+        else:
+            draw_rect(body, Color("#5a3a1c"))
+            draw_rect(body, Color("#3b2410"), false, 2.0)
+            draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
+            draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
+            draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
         var bar := Rect2(pos + Vector2(-40.0, -38.0), Vector2(80.0, 14.0))
         draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
         draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
@@ -1677,7 +1738,7 @@ func _draw_impact_flashes() -> void:
             continue
         var col := clampi(int(float(flash.get("time", 0.0)) / 0.055), 0, n - 1)
         var pos: Vector2 = flash["pos"]
-        draw_texture_rect_region(impact_atlas, Rect2(pos - Vector2(28.0, 28.0), Vector2(56.0, 56.0)), _impact_src_rect(row, col), Color.WHITE)
+        draw_texture_rect_region(impact_atlas, Rect2(pos - Vector2(42.0, 42.0), Vector2(84.0, 84.0)), _impact_src_rect(row, col), Color.WHITE)
 
 func _push_combat_text(pos: Vector2, text: String, color: Color) -> void:
     combat_texts.append({"pos": pos + Vector2(randf_range(-10.0, 10.0), -28.0), "text": text, "color": color, "time": 0.0})
