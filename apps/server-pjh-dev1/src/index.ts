@@ -78,7 +78,12 @@ const server = http.createServer((req, res) => {
       res.end("not found");
       return;
     }
-    res.writeHead(200, { "content-type": MIME_TYPES[path.extname(full)] || "application/octet-stream" });
+    const ext = path.extname(full);
+    const cacheControl = ext === ".html" ? "no-store" : "no-cache";
+    res.writeHead(200, {
+      "content-type": MIME_TYPES[ext] || "application/octet-stream",
+      "cache-control": cacheControl,
+    });
     res.end(buf);
   });
 });

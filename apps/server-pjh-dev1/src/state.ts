@@ -65,8 +65,8 @@ export function hostId(room: Room): string {
   return livingIds(room)[0] ?? room.members[0]!;
 }
 
-export function slotOf(_room: Room, clientId: string): number {
-  return _room.members.indexOf(clientId);
+export function slotOf(room: Room, clientId: string): number {
+  return room.members.indexOf(clientId);
 }
 
 export function roomPublic(room: Room) {
@@ -108,15 +108,15 @@ export function broadcastRooms(): void {
 
 // --- Relay Notifications (host ↔ player state) ---
 
-export function parkPlayer(_room: Room, _clientId: string): void {
-  if (_room.hostClientId) {
-    sendTo(_room.hostClientId, { t: MSG.PEER_PARKED, slot: _room.members.indexOf(_clientId) });
+export function parkPlayer(room: Room, clientId: string): void {
+  if (room.hostClientId) {
+    sendTo(room.hostClientId, { t: MSG.PEER_PARKED, slot: room.members.indexOf(clientId) });
   }
 }
 
-export function reclaimPlayer(_room: Room, _clientId: string, _name: string): void {
-  if (_room.hostClientId) {
-    sendTo(_room.hostClientId, { t: MSG.PEER_RECLAIMED, slot: _room.members.indexOf(_clientId), name: _name });
+export function reclaimPlayer(room: Room, clientId: string, name: string): void {
+  if (room.hostClientId) {
+    sendTo(room.hostClientId, { t: MSG.PEER_RECLAIMED, slot: room.members.indexOf(clientId), name });
   }
 }
 
@@ -258,7 +258,7 @@ export function attachResume(fresh: Client, token: string): Client {
       reclaimPlayer(room, old.id, old.name);
       const playing = room.phase === Phase.PLAYING;
       send(old.ws, {
-        t: "resume",
+        t: MSG.RESUME,
         id: old.id,
         resume: old.resume,
         you: slotOf(room, old.id),

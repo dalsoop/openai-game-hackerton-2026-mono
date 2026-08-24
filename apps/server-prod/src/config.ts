@@ -1,9 +1,9 @@
 export const CONFIG = {
   port: Number(process.env.PORT || 9120),
   slot: process.env.SLOT_FOLDER || "server-yjh-dev1",
-  graceLobbyMs: 20_000,
+  graceLobbyMs: 60_000,
   gracePlayMs: 60_000,
-  maxPayload: 64 * 1024,
+  maxPayload: 256 * 1024,
   defaultName: "손님",
   defaultMode: "classic",
   maxNameLength: 12,

@@ -17,7 +17,7 @@ function computeHeroDelta(
   next: Record<string, unknown>,
 ): Record<string, unknown> {
   const delta: Record<string, unknown> = { t: "snap", tick: next.tick, full: false };
-  const skipKeys = new Set(["t", "heroes"]);
+  const skipKeys = new Set(["t", "players"]);
   const arrayKeys = new Set(["projectiles", "zones", "effects", "knockouts", "covers",
     "health_pickups", "crates", "crate_orbs", "deployables", "cores"]);
   for (const key of Object.keys(next)) {
@@ -25,8 +25,8 @@ function computeHeroDelta(
     if (arrayKeys.has(key)) { delta[key] = next[key]; continue; }
     if (JSON.stringify(prev[key]) !== JSON.stringify(next[key])) delta[key] = next[key];
   }
-  const prevH = (prev.heroes ?? []) as Record<string, unknown>[];
-  const nextH = (next.heroes ?? []) as Record<string, unknown>[];
+  const prevH = (prev.players ?? []) as Record<string, unknown>[];
+  const nextH = (next.players ?? []) as Record<string, unknown>[];
   const deltaHeroes: Record<string, unknown>[] = [];
   for (const nh of nextH) {
     const slot = nh.slot as number;
@@ -39,7 +39,7 @@ function computeHeroDelta(
     }
     deltaHeroes.push(Object.keys(diff).length > 1 ? diff : { slot });
   }
-  delta.heroes = deltaHeroes;
+  delta.players = deltaHeroes;
   return delta;
 }
 
@@ -115,7 +115,7 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
     room.members.push(client.id);
     client.roomId = room.id;
     send(client.ws, {
-      t: "joined",
+      t: MSG.JOINED,
       you: room.members.indexOf(client.id),
       room: roomPublic(room),
       players: peersPayload(room),
@@ -187,7 +187,7 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
     const slot = room.members.indexOf(client.id);
     if (slot < 0) return;
     sendTo(room.hostClientId!, {
-      t: "peer_input",
+      t: MSG.PEER_INPUT,
       slot,
       mx: msg.mx, my: msg.my,
       fire: msg.fire, dash: msg.dash, use: msg.use,
