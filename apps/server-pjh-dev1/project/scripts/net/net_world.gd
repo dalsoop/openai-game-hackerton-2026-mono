@@ -370,7 +370,7 @@ func _apply_players(list: Array) -> void:
             impact_pos = pos
             impact_ticks = maxi(impact_ticks, 10)
             event_log.emit(tick, &"hero_downed", slot, -1, {})
-            _add_effect(&"death_burst", pos, 120.0, 0.5, Color("#ff3349"))
+            _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
         var player_name := str(p.get("name", "P%d" % (slot + 1)))
         var item_name := str(p.get("item", ""))
         var kills := int(p.get("kills", 0))

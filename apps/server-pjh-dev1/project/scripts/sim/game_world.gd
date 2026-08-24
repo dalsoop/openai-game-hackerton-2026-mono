@@ -4432,7 +4432,7 @@ func _down_hero(owner: int, target: int) -> void:
     heroes[target] = h
     if mode == ITEM_POOL_MODE and death_drop != "" and death_drop != "decoy":
         _spawn_dropped_pickup(death_pos, death_drop, -1)
-    _add_effect(&"death_burst", Vector2(h["pos"]), 260.0, 1.25, Color("#ff3349"), "", death_velocity.normalized())
+    _add_effect(&"death_burst", Vector2(h["pos"]), 260.0, 0.80, Color("#ff3349"), "", death_velocity.normalized())
     impact_ticks = maxi(impact_ticks, 32)
     last_down_slot = target
     last_down_ticks = 105
