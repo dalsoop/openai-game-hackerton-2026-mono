@@ -62,7 +62,7 @@ func _ready() -> void:
     Engine.max_fps = 60
     hub_launched = hub.consume_hub_launch()
     if hub_launched:
-        var hub_name := hub.get_hub_name()
+        var hub_name: String = hub.get_hub_name()
         if hub_name != "":
             hub.player_name = hub_name
     _set_phase(&"lobby")
