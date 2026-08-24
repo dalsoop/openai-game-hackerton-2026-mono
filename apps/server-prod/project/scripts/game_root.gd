@@ -13,6 +13,9 @@ const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.g
 var world
 var hub
 var net_active := false
+var net_host := false
+var _snap_timer := 0.0
+const SNAP_SEND_HZ := 20.0
 var previous_keys: Dictionary = {}
 var seed: int = 2222
 var last_event_id: int = 0
@@ -140,14 +143,33 @@ func _on_start_match() -> void:
 
 func _on_net_match_started(you: int, room: Dictionary) -> void:
     net_active = true
-    var net_world = NetWorldScript.new()
-    net_world.local_slot = you
-    net_world.set_mode(str(room.get("mode", screens.selected_mode)))
-    net_world.reset()
-    world = net_world
+    net_host = hub.is_host
+    if net_host:
+        seed += 1
+        var host_world = WorldScript.new(seed)
+        host_world.set_mode(str(room.get("mode", screens.selected_mode)))
+        host_world.local_slot = you
+        host_world.is_net = true
+        host_world.reset()
+        # Mark non-CPU slots as human (from room peers)
+        for p in hub.players:
+            var s := int(p.get("slot", -1))
+            if s >= 0 and not bool(p.get("dropped", false)):
+                host_world.human_slots[s] = true
+        world = host_world
+        _snap_timer = 0.0
+        hub.peer_input_received.connect(_on_peer_input)
+        hub.peer_parked_received.connect(_on_peer_parked)
+        hub.peer_reclaimed_received.connect(_on_peer_reclaimed)
+    else:
+        var net_world = NetWorldScript.new()
+        net_world.local_slot = you
+        net_world.set_mode(str(room.get("mode", screens.selected_mode)))
+        net_world.reset()
+        world = net_world
     world_view.world = world
     hud.world = world
-    hud.mode_id = net_world.mode
+    hud.mode_id = str(room.get("mode", screens.selected_mode))
     spectate_slot = you
     hud.spectate_slot = spectate_slot
     hud.hud_mode = hud_mode
@@ -292,7 +314,45 @@ func _physics_process(_delta: float) -> void:
         aim_world = _local_player_pos() + touch.aim_dir * 400.0
     var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
     var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
-    if net_active:
+    if net_active and net_host:
+        # Host: run real simulation + send snapshots
+        var ultimate_edge := _edge(KEY_Q)
+        var mobility_edge := _edge(KEY_SHIFT)
+        var hop_edge := _edge(KEY_SPACE)
+        var medkit_edge := _edge(KEY_E)
+        var reload_edge := _edge(KEY_R)
+        if touch != null:
+            ultimate_edge = touch.consume_ult() or ultimate_edge
+            mobility_edge = touch.consume_dash() or mobility_edge
+            medkit_edge = touch.consume_medkit() or medkit_edge
+        var primary_pressed := primary and not previous_left_mouse
+        var command := {
+            "move":move,
+            "aim":aim_world,
+            "primary":primary,
+            "primary_pressed":primary_pressed,
+            "equipment":equipment_held,
+            "equipment_pressed":equipment_held and not previous_right_mouse,
+            "equipment_released":not equipment_held and previous_right_mouse,
+            "ultimate":ultimate_edge,
+            "mobility":mobility_edge,
+            "hop":hop_edge,
+            "medkit":medkit_edge,
+            "reload":reload_edge,
+            "finish":_edge(KEY_F)
+        }
+        previous_right_mouse = equipment_held
+        previous_left_mouse = primary
+        world.step_tick(command, 1.0 / 60.0)
+        _snap_timer += 1.0 / 60.0
+        if _snap_timer >= 1.0 / SNAP_SEND_HZ:
+            _snap_timer -= 1.0 / SNAP_SEND_HZ
+            hub.send_snap(_build_host_snapshot())
+        hud.net_rtt_ms = int(hub.rtt_ms)
+        hud.net_connected = bool(hub.is_open())
+        _apply_recoil_mouse()
+    elif net_active:
+        # Non-host: receive snapshots
         var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
         var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
         world.present(1.0 / 60.0)
@@ -481,10 +541,22 @@ func _local_player_pos() -> Vector2:
     return Vector2(me["pos"])
 
 func _escape_wait() -> void:
+    _cleanup_host_signals()
     net_active = false
+    net_host = false
     if hub.in_room:
         hub.leave_room()
     _set_phase(&"lobby")
+
+func _cleanup_host_signals() -> void:
+    if hub == null:
+        return
+    if hub.peer_input_received.is_connected(_on_peer_input):
+        hub.peer_input_received.disconnect(_on_peer_input)
+    if hub.peer_parked_received.is_connected(_on_peer_parked):
+        hub.peer_parked_received.disconnect(_on_peer_parked)
+    if hub.peer_reclaimed_received.is_connected(_on_peer_reclaimed):
+        hub.peer_reclaimed_received.disconnect(_on_peer_reclaimed)
 
 func _spectator_valid(slot: int) -> bool:
     return slot >= 0 and slot != world.local_slot and slot < world.heroes.size() and bool(world.heroes[slot]["alive"]) and not bool(world.heroes[slot]["eliminated"])
@@ -581,3 +653,68 @@ func _apply_recoil_mouse() -> void:
     next.x = clampf(next.x, 10.0, rect.size.x - 10.0)
     next.y = clampf(next.y, 10.0, rect.size.y - 10.0)
     vp.warp_mouse(next)
+
+# --- Host relay helpers ---
+
+func _on_peer_input(slot: int, input_data: Dictionary) -> void:
+    if world != null and net_host:
+        world.peer_commands[slot] = input_data
+
+func _on_peer_parked(slot: int) -> void:
+    if world != null and net_host and world.human_slots.has(slot):
+        world.human_slots.erase(slot)
+
+func _on_peer_reclaimed(slot: int, player_name: String) -> void:
+    if world != null and net_host:
+        world.human_slots[slot] = true
+
+func _build_host_snapshot() -> Dictionary:
+    var players_arr: Array = []
+    for h in world.heroes:
+        players_arr.append({
+            "slot": int(h["slot"]),
+            "name": str(h.get("display_name", str(h.get("equipment", {}).get("character_name", "P%d" % (int(h["slot"]) + 1))))),
+            "cpu": not world.human_slots.has(int(h["slot"])) and int(h["slot"]) != world.local_slot,
+            "parked": false,
+            "x": Vector2(h["pos"]).x,
+            "y": Vector2(h["pos"]).y,
+            "aimX": Vector2(h["pos"]).x + Vector2(h["aim"]).x * 100.0,
+            "aimY": Vector2(h["pos"]).y + Vector2(h["aim"]).y * 100.0,
+            "hp": float(h["hp"]),
+            "alive": bool(h["alive"]),
+            "weapon": str(h.get("equipment", {}).get("name", "")),
+            "item": "medkit" if int(h.get("medkits", 0)) > 0 else "",
+            "kills": int(h["kills"]),
+            "ack": 0
+        })
+    var bullets_arr: Array = []
+    for proj in world.projectiles:
+        bullets_arr.append({
+            "x": Vector2(proj["pos"]).x,
+            "y": Vector2(proj["pos"]).y,
+            "owner": int(proj["owner"])
+        })
+    var loot_arr: Array = []
+    for pickup in world.health_pickups:
+        if not bool(pickup.get("active", false)):
+            continue
+        var entry := {
+            "id": str(pickup.get("id", "")),
+            "kind": "gun" if pickup.has("gun_name") else "item",
+            "x": Vector2(pickup["pos"]).x,
+            "y": Vector2(pickup["pos"]).y,
+            "n": str(pickup.get("gun_name", ""))
+        }
+        loot_arr.append(entry)
+    return {
+        "tick": world.tick,
+        "time": world.match_time,
+        "result": str(world.result),
+        "winner": world.winner_slot,
+        "zoneR": world.safe_zone_radius,
+        "shrinking": world.safe_zone_shrinking,
+        "mode": world.mode,
+        "players": players_arr,
+        "bullets": bullets_arr,
+        "loot": loot_arr
+    }

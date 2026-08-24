@@ -6,8 +6,6 @@ import crypto from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import promClient from "prom-client";
 import { MAX_PLAYERS, MODES, TICK_HZ } from "./modes.js";
-import { applyInput, createMatch, snapshot, step } from "./sim.js";
-import type { Match, SnapshotData } from "./sim.js";
 
 const PORT = Number(process.env.PORT || 9120);
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
@@ -65,9 +63,9 @@ interface Room {
   title: string;
   members: string[];
   phase: "lobby" | "playing";
-  match: Match | null;
+  hostClientId: string | null;
   timer: ReturnType<typeof setTimeout> | null;
-  lastSnap: SnapshotData | null;
+  lastSnap: Record<string, unknown> | null;
 }
 
 // --- State ---
@@ -132,13 +130,9 @@ function hostId(room: Room): string {
   return livingIds(room)[0] ?? room.members[0]!;
 }
 
-// Fix 3: canonical slot lookup — match.players is authoritative during play
-function slotOf(room: Room, clientId: string): number {
-  if (room.match) {
-    const p = room.match.players.find((pl) => pl.id === clientId);
-    if (p) return p.slot;
-  }
-  return room.members.indexOf(clientId);
+// Slot = stable index in members array (relay mode — no server-side match object)
+function slotOf(_room: Room, clientId: string): number {
+  return _room.members.indexOf(clientId);
 }
 
 function roomPublic(room: Room) {
@@ -156,7 +150,7 @@ function peersPayload(room: Room) {
   return room.members.map((id, i) => {
     const c = clients.get(id);
     return {
-      slot: room.match ? slotOf(room, id) : i,
+      slot: i,
       id,
       name: c?.name ?? "?",
       host: id === hostId(room),
@@ -177,22 +171,17 @@ function broadcastRooms(): void {
   }
 }
 
-function parkPlayer(room: Room, clientId: string): void {
-  if (!room?.match) return;
-  const p = room.match.players.find((pl) => pl.id === clientId);
-  if (p) {
-    p.cpu = true;
-    p.parked = true;
+// In relay mode the host client manages player state — server only tracks membership
+function parkPlayer(_room: Room, _clientId: string): void {
+  // Notify host that a player parked (host handles CPU takeover)
+  if (_room.hostClientId) {
+    sendTo(_room.hostClientId, { t: "peer_parked", slot: _room.members.indexOf(_clientId) });
   }
 }
 
-function reclaimPlayer(room: Room, clientId: string, name: string): void {
-  if (!room?.match) return;
-  const p = room.match.players.find((pl) => pl.id === clientId);
-  if (p) {
-    p.cpu = false;
-    p.parked = false;
-    p.name = name || p.name;
+function reclaimPlayer(_room: Room, _clientId: string, _name: string): void {
+  if (_room.hostClientId) {
+    sendTo(_room.hostClientId, { t: "peer_reclaimed", slot: _room.members.indexOf(_clientId), name: _name });
   }
 }
 
@@ -218,6 +207,12 @@ function parkClient(client: Client): void {
   if (client.dead) return;
   client.dead = true;
   client.deadAt = Date.now();
+  // If the host disconnects during play, end the match for everyone
+  if (room.phase === "playing" && room.hostClientId === client.id) {
+    notifyRoom(room, { notice: `호스트(${client.name})의 연결이 끊겨 게임이 종료됩니다.` });
+    resetToLobby(room);
+    return;
+  }
   parkPlayer(room, client.id);
   const grace = room.phase === "playing" ? GRACE_PLAY_MS : GRACE_LOBBY_MS;
   client.dropTimer = setTimeout(() => dropClient(client), grace);
@@ -279,7 +274,7 @@ function attachResume(fresh: Client, token: string): Client {
     const room = old.roomId ? rooms.get(old.roomId) : null;
     if (room) {
       reclaimPlayer(room, old.id, old.name);
-      const playing = room.phase === "playing" && room.match;
+      const playing = room.phase === "playing";
       send(old.ws, {
         t: "resume",
         id: old.id,
@@ -300,9 +295,9 @@ function attachResume(fresh: Client, token: string): Client {
   return fresh;
 }
 
-// Fix 7: reset room to lobby after match ends
+// Reset room to lobby — called when host disconnects or game ends
 function resetToLobby(room: Room): void {
-  room.match = null;
+  room.hostClientId = null;
   room.timer = null;
   room.lastSnap = null;
   room.phase = "lobby";
@@ -318,45 +313,19 @@ function resetToLobby(room: Room): void {
 
 function startMatch(room: Room): void {
   if (room.phase !== "lobby") return;
-  const humans = room.members.map((id) => ({ id, name: clients.get(id)?.name ?? "player" }));
-  room.match = createMatch(room.mode, humans);
   room.phase = "playing";
+  room.hostClientId = hostId(room);
   for (const id of room.members) {
     const c = clients.get(id);
-    if (c?.dead) parkPlayer(room, id);
-    else sendTo(id, { t: "start", you: slotOf(room, id), room: roomPublic(room) }); // Fix 3
+    if (c?.dead) {
+      parkPlayer(room, id);
+    } else {
+      const slot = room.members.indexOf(id);
+      const isHost = id === room.hostClientId;
+      sendTo(id, { t: "start", you: slot, host: isHost, room: roomPublic(room) });
+    }
   }
   broadcastRooms();
-  const interval = 1000 / TICK_HZ;
-  let nextAt = Date.now() + interval;
-  const loop = () => {
-    if (!room.match) {
-      room.timer = null;
-      return;
-    }
-    const now = Date.now();
-    let steps = 0;
-    while (now + 1 >= nextAt && steps < 4) {
-      step(room.match);
-      nextAt += interval;
-      steps += 1;
-    }
-    if (steps === 4 && now >= nextAt) {
-      nextAt = now + interval;
-    }
-    if (steps > 0) {
-      const snap = snapshot(room.match);
-      room.lastSnap = snap;
-      sendRoom(room, snap);
-      if (room.match.result !== "playing") {
-        // Fix 7: schedule lobby reset instead of leaving zombie room
-        room.timer = setTimeout(() => resetToLobby(room), 5_000);
-        return;
-      }
-    }
-    room.timer = setTimeout(loop, Math.max(1, nextAt - Date.now()));
-  };
-  room.timer = setTimeout(loop, interval);
 }
 
 // --- HTTP Server ---
@@ -424,10 +393,13 @@ const server = http.createServer((req, res) => {
 
 // --- WebSocket Server ---
 
-// Fix 5: maxPayload limit
-const wss = new WebSocketServer({ server, maxPayload: 4096 });
+// maxPayload: 64KB allows host_snap relay; regular client messages are much smaller
+const wss = new WebSocketServer({ server, maxPayload: 65_536 });
 
-wss.on("connection", (ws: WebSocket) => {
+wss.on("connection", (ws: WebSocket, req) => {
+  // TCP_NODELAY: disable Nagle's algorithm for minimal latency
+  const sock = req.socket;
+  if ("setNoDelay" in sock) (sock as import("node:net").Socket).setNoDelay(true);
   const now = Date.now();
   const client: Client = {
     id: `p${nextId++}`,
@@ -527,7 +499,7 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
       title: sanitize(msg.title, 24) || `${MODES[mode]!.title} #${id}`, // Fix 2
       members: [client.id],
       phase: "lobby",
-      match: null,
+      hostClientId: null,
       timer: null,
       lastSnap: null,
     };
@@ -612,9 +584,41 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     return;
   }
 
+  // Relay mode: forward inputs from non-host to host
   if (t === "input") {
     const room = rooms.get(client.roomId!);
-    if (room?.match && !client.dead) applyInput(room.match, client.id, msg);
+    if (!room || room.phase !== "playing" || client.dead) return;
+    if (client.id === room.hostClientId) return; // host handles own input locally
+    const slot = room.members.indexOf(client.id);
+    if (slot < 0) return;
+    sendTo(room.hostClientId!, {
+      t: "peer_input",
+      slot,
+      mx: msg.mx, my: msg.my,
+      fire: msg.fire, dash: msg.dash, use: msg.use,
+      aimX: msg.aimX, aimY: msg.aimY,
+      seq: msg.seq,
+    });
+    return;
+  }
+
+  // Relay mode: host broadcasts snapshot to all other clients
+  if (t === "host_snap") {
+    const room = rooms.get(client.roomId!);
+    if (!room || room.phase !== "playing") return;
+    if (client.id !== room.hostClientId) return; // only host can send snapshots
+    const snapData = msg as Record<string, unknown>;
+    snapData.t = "snap";
+    room.lastSnap = snapData;
+    const text = JSON.stringify(snapData);
+    for (const id of livingIds(room)) {
+      if (id !== client.id) sendTo(id, text); // don't echo back to host
+    }
+    // Check for match end — host signals result in the snapshot
+    if (snapData.result && snapData.result !== "playing") {
+      room.timer = setTimeout(() => resetToLobby(room), 5_000);
+    }
+    return;
   }
 }
 

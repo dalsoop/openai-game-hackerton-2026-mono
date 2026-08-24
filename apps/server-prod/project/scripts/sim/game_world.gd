@@ -134,6 +134,8 @@ var safe_zone_damage_clock: float = 0.0
 var mode: String = "classic"
 var is_net := false
 var local_slot: int = 0
+var human_slots: Dictionary = {}  # slot → true for slots controlled by real players
+var peer_commands: Dictionary = {}  # slot → latest command dict from peer
 const MEDKIT_MAX := 3
 const MEDKIT_HEAL_RATIO := 0.30
 const GUN_LOOT_MODES := ["gun-semi", "gun-auto", "full"]
@@ -504,6 +506,7 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
     _update_item_pulses(dt)
     _update_safe_zone(dt)
     _apply_human(command)
+    _apply_peer_humans()
     _tick_finish_cine(command, dt)
     _update_cpus(dt)
     _tick_ox_charges(dt)
@@ -749,8 +752,55 @@ func _apply_human(command: Dictionary) -> void:
         _try_normal_attack(0, Vector2(h["facing"]))
         return
 
+func _apply_peer_humans() -> void:
+    for slot_key in peer_commands:
+        var slot := int(slot_key)
+        if slot <= 0 or slot >= heroes.size():
+            continue
+        if not human_slots.has(slot):
+            continue
+        var cmd: Dictionary = peer_commands[slot_key]
+        var h: Dictionary = heroes[slot]
+        if bool(h["eliminated"]) or not bool(h["alive"]):
+            continue
+        if bool(h.get("downed", false)):
+            var crawl := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
+            if crawl.length_squared() > 1.0:
+                crawl = crawl.normalized()
+            h["vel"] = crawl * _hero_move_speed(slot) * 0.16
+            heroes[slot] = h
+            continue
+        if float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
+            continue
+        if bool(h.get("burrowed", false)) or bool(h.get("dog_rush", false)):
+            continue
+        var move := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
+        if move.length_squared() > 1.0:
+            move = move.normalized()
+        var aim_pos := Vector2(float(cmd.get("aimX", h["pos"].x + 1.0)), float(cmd.get("aimY", h["pos"].y)))
+        if Vector2(h["pos"]).distance_squared_to(aim_pos) > 4.0:
+            h["facing"] = Vector2(h["pos"]).direction_to(aim_pos)
+            h["aim"] = h["facing"]
+        var control_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
+        if float(h["root_time"]) > 0.0:
+            control_speed = 0.0
+        if float(h["hitstun_time"]) > 0.0:
+            control_speed *= 0.72
+        if float(h["attack_lock_time"]) > 0.0:
+            control_speed *= 0.76
+        h["vel"] = move * _hero_move_speed(slot) * control_speed
+        heroes[slot] = h
+        if bool(cmd.get("dash", false)) and float(h["mobility_cd"]) <= 0.0:
+            _try_mobility(slot, Vector2(h["facing"]))
+        if bool(cmd.get("use", false)) and int(h.get("medkits", 0)) > 0:
+            _try_use_medkit(slot)
+        if bool(cmd.get("fire", false)):
+            _try_normal_attack(slot, Vector2(h["facing"]))
+
 func _update_cpus(dt: float) -> void:
     for slot in range(1, heroes.size()):
+        if human_slots.has(slot):
+            continue
         var h: Dictionary = heroes[slot]
         if bool(h["eliminated"]):
             continue

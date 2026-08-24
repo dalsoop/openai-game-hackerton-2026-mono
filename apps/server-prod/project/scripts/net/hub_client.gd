@@ -11,6 +11,9 @@ signal left_room
 signal hub_error(message: String)
 signal hub_notice(message: String)
 signal chat_received(from_name: String, slot: int, text: String)
+signal peer_input_received(slot: int, input_data: Dictionary)
+signal peer_parked_received(slot: int)
+signal peer_reclaimed_received(slot: int, player_name: String)
 
 const STATUS_CONNECTING := "연결 중"
 const STATUS_RECONNECTING := "다시 연결 중"
@@ -34,6 +37,7 @@ var you := -1
 var in_room := false
 var match_running := false
 var holding_seat := false
+var is_host := false
 
 var _ws := WebSocketPeer.new()
 var _want_connection := false
@@ -233,6 +237,11 @@ func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, 
         msg["seq"] = seq
     _send(msg)
 
+func send_snap(snap: Dictionary) -> void:
+    var msg := snap.duplicate()
+    msg["t"] = "host_snap"
+    _send(msg)
+
 func _on_msg(msg: Dictionary) -> void:
     match str(msg.get("t", "")):
         "welcome":
@@ -287,11 +296,18 @@ func _on_msg(msg: Dictionary) -> void:
             match_running = true
             holding_seat = true
             you = int(msg.get("you", you))
+            is_host = bool(msg.get("host", false))
             if msg.has("room"):
                 room = msg.get("room", room)
             match_started.emit(you, room)
         "snap":
             snapshot_received.emit(msg)
+        "peer_input":
+            peer_input_received.emit(int(msg.get("slot", -1)), msg)
+        "peer_parked":
+            peer_parked_received.emit(int(msg.get("slot", -1)))
+        "peer_reclaimed":
+            peer_reclaimed_received.emit(int(msg.get("slot", -1)), str(msg.get("name", "")))
         "chat":
             chat_received.emit(str(msg.get("from", "?")), int(msg.get("slot", -1)), str(msg.get("text", "")))
         "pong":
