@@ -192,7 +192,6 @@ function renderCard(srv, data) {
 }
 
 async function tick() {
-  if (document.hidden) return;
   const results = [];
   for (const srv of SERVERS) {
     try {
@@ -226,10 +225,12 @@ async function tick() {
   document.getElementById('updated').textContent = 'Updated: ' + new Date().toLocaleTimeString('ko-KR', { hour12: false });
 }
 
+// First tick always runs regardless of visibility
+tick();
 (async function loop() {
   while (true) {
-    await tick();
     await new Promise(r => setTimeout(r, 5000));
+    if (!document.hidden) await tick();
   }
 })();
 </script>
