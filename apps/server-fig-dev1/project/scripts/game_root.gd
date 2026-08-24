@@ -716,6 +716,62 @@ func _build_host_snapshot() -> Dictionary:
             "n": str(pickup.get("gun_name", ""))
         }
         loot_arr.append(entry)
+    var zones_arr: Array = []
+    for z in world.zones:
+        zones_arr.append({
+            "pos": Vector2(z["pos"]), "radius": float(z["radius"]),
+            "owner": int(z["owner"]), "delay": float(z.get("delay", 0)),
+            "warning_duration": float(z.get("warning_duration", 0)),
+            "color": z.get("color", Color.WHITE),
+            "effect_kind": str(z.get("effect_kind", "explosion")),
+            "label": str(z.get("label", ""))
+        })
+    var deploys_arr: Array = []
+    for d in world.deployables:
+        deploys_arr.append({
+            "type": str(d.get("type", "mine")), "owner": int(d["owner"]),
+            "pos": Vector2(d["pos"]),
+            "direction": Vector2(d.get("direction", Vector2.RIGHT)),
+            "travel_direction": Vector2(d.get("travel_direction", Vector2.RIGHT)),
+            "half_length": float(d.get("half_length", 0)),
+            "lifetime": float(d.get("lifetime", 0)),
+            "max_lifetime": float(d.get("max_lifetime", 0)),
+            "arm_time": float(d.get("arm_time", 0)),
+            "arm_duration": float(d.get("arm_duration", 0)),
+            "triggered": bool(d.get("triggered", false)),
+            "trigger_radius": float(d.get("trigger_radius", 0)),
+            "blast_radius": float(d.get("blast_radius", 0)),
+            "fuse_time": float(d.get("fuse_time", 0)),
+            "fuse_duration": float(d.get("fuse_duration", 0))
+        })
+    var cores_arr: Array = []
+    for c in world.cores:
+        cores_arr.append({"slot": int(c["slot"]), "pos": Vector2(c["pos"])})
+    var covers_arr: Array = []
+    for cv in world.covers:
+        covers_arr.append({"rect": cv["rect"]})
+    var knockouts_arr: Array = []
+    for ko in world.knockouts:
+        knockouts_arr.append({
+            "slot": int(ko["slot"]), "pos": Vector2(ko["pos"]),
+            "time": float(ko["time"]), "max_time": float(ko.get("max_time", 2.15)),
+            "trail": ko.get("trail", [])
+        })
+    var crates_arr: Array = []
+    for cr in world.crates:
+        crates_arr.append({"pos": Vector2(cr["pos"])})
+    var orbs_arr: Array = []
+    for orb in world.crate_orbs:
+        orbs_arr.append({"pos": Vector2(orb["pos"])})
+    var tower_dict: Dictionary = {}
+    if not world.mid_tower.is_empty():
+        tower_dict = {
+            "alive": bool(world.mid_tower.get("alive", false)),
+            "pos": Vector2(world.mid_tower.get("pos", Vector2.ZERO)),
+            "hp": float(world.mid_tower.get("hp", 0)),
+            "max_hp": float(world.mid_tower.get("max_hp", 1)),
+            "boing": float(world.mid_tower.get("boing", 0))
+        }
     return {
         "tick": world.tick,
         "time": world.match_time,
@@ -723,8 +779,21 @@ func _build_host_snapshot() -> Dictionary:
         "winner": world.winner_slot,
         "zoneR": world.safe_zone_radius,
         "shrinking": world.safe_zone_shrinking,
+        "zoneCX": Vector2(world.safe_zone_center).x,
+        "zoneCY": Vector2(world.safe_zone_center).y,
+        "zonePhase": world.safe_zone_phase,
+        "startCountdown": world.start_countdown,
+        "wantedSlot": world.wanted_slot,
         "mode": world.mode,
         "players": players_arr,
         "bullets": bullets_arr,
-        "loot": loot_arr
+        "loot": loot_arr,
+        "zones": zones_arr,
+        "deployables": deploys_arr,
+        "cores": cores_arr,
+        "covers": covers_arr,
+        "knockouts": knockouts_arr,
+        "crates": crates_arr,
+        "crate_orbs": orbs_arr,
+        "mid_tower": tower_dict
     }

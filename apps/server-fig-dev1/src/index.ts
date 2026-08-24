@@ -54,6 +54,12 @@ const MIME_TYPES: Record<string, string> = {
   ".js": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
 };
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
@@ -617,8 +623,8 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
   if (t === MSG.JOIN) {
     const room = rooms.get(String(msg.roomId));
     if (!room || room.phase !== Phase.LOBBY) { send(client.ws, { t: MSG.ERROR, msg: "방을 찾을 수 없습니다" }); return; }
-    client.mode = room.mode;
     if (room.members.length >= MAX_PLAYERS) { send(client.ws, { t: MSG.ERROR, msg: "방이 가득 찼습니다 (8)" }); return; }
+    client.mode = room.mode; // L6: set mode after capacity check
     if (client.roomId) leaveRoom(client);
     room.members.push(client.id);
     client.roomId = room.id;

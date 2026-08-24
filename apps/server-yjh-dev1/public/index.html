@@ -23,6 +23,7 @@
     /* --- background pattern --- */
     body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('assets/lobby-bg.png') center/cover no-repeat, var(--bg-0); }
     body.wait::before { background: linear-gradient(rgba(11,14,20,0.82), rgba(11,14,20,0.90)), url('assets/waiting-bg.png') center/cover no-repeat, var(--bg-0); }
+    body.play::before { background: var(--bg-0); }
     body::after { content:""; position:fixed; inset:0; z-index:-1; opacity:.4; background-image:radial-gradient(circle, var(--line) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg,transparent,black 30%,black 70%,transparent); pointer-events:none; }
 
     /* --- canvas --- */
@@ -48,9 +49,12 @@
 
     /* --- hero --- */
     .hero { display:flex; align-items:center; gap:16px; margin-bottom:28px; flex-wrap:wrap; }
+    .logo-mark { width:56px; height:56px; object-fit:contain; border-radius:12px; background:rgba(0,0,0,.35); box-shadow:var(--shadow); }
     .logo-word { font-weight:900; font-size:clamp(28px,4vw,44px); letter-spacing:-.03em; color:var(--tx-0); }
     .logo-word span { color:var(--acc); margin-left:.3em; }
     .tagline { color:var(--tx-2); font-size:12px; letter-spacing:.15em; margin-top:2px; }
+    .weapons-strip { display:block; width:100%; height:72px; object-fit:cover; object-position:center 40%; border-radius:var(--radius); margin:4px 0 8px; border:1px solid var(--line); }
+    .mode-art { display:block; width:calc(100% + 28px); height:78px; object-fit:cover; border-radius:12px 12px 0 0; margin:-14px -14px 10px; }
 
     /* --- connection status --- */
     .conn { display:flex; align-items:center; gap:8px; margin-left:auto; font-size:13px; color:var(--tx-1); }
@@ -143,7 +147,9 @@
 
     /* --- result overlay --- */
     #result { display:none; position:fixed; inset:0; place-items:center; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.88)), url('assets/victory-bg.png') center/cover no-repeat; backdrop-filter:blur(6px); z-index:40; }
-    #result.show { display:grid; }
+    #result.show { display:grid; background:
+      linear-gradient(rgba(11,14,20,.62), rgba(11,14,20,.78)),
+      url("assets/victory-bg.png") center/cover no-repeat; }
     .result-card { width:min(540px,92vw); background:var(--bg-1); border:1px solid var(--line); border-radius:20px; padding:28px; animation:riseIn .4s cubic-bezier(.2,1.2,.3,1); text-align:center; }
     .result-banner { font-size:36px; font-weight:900; letter-spacing:.1em; color:var(--acc); text-shadow:0 0 30px rgba(255,210,62,.3); margin-bottom:16px; }
     .result-banner.draw { color:var(--cyan); text-shadow:0 0 30px rgba(62,230,210,.3); }
@@ -197,6 +203,7 @@
     </div>
 
     <div class="sec-title">모드 선택</div>
+    <img class="weapons-strip" src="assets/weapons.png" alt="" />
     <div class="modes" id="modes"></div>
 
     <div class="sec-title">열린 방 <span class="count-badge" id="roomCount">0</span></div>
@@ -559,6 +566,7 @@ function renderModes() {
   const el = document.getElementById("modes");
   el.innerHTML = Object.values(modes).map(m =>
     `<button class="mode-card ${m.id === selectedMode ? "on" : ""}" data-id="${esc(m.id)}">
+      <img class="mode-art" src="assets/mode-classic.png" alt="" />
       <b>${esc(m.title)}</b><span>${esc(m.blurb)}</span>
       <div class="mode-check"><svg viewBox="0 0 20 20" width="14"><path d="M4 10 l4 4 l8-8" stroke="var(--bg-0)" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
     </button>`
