@@ -6,6 +6,11 @@ config/name="다굴게임 Godot Graybox"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[autoload]
+
+NetworkManager="*res://autoload/network_manager.gd"
+GameState="*res://autoload/game_state.gd"
+
 [gui]
 
 theme/custom_font="res://assets/fonts/GmarketSansMedium.otf"

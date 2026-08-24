@@ -2,7 +2,6 @@ extends Node
 
 const WorldScript = preload("res://scripts/sim/game_world.gd")
 const NetWorldScript = preload("res://scripts/net/net_world.gd")
-const HubClientScript = preload("res://scripts/net/hub_client.gd")
 const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
 
 @onready var world_view: Node2D = $WorldView
@@ -11,10 +10,7 @@ const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.g
 @onready var screens: Control = $HUD/Screens
 
 var world
-var hub
-var net_active := false
-var net_host := false
-var hub_launched := false
+var hub: Node  # → NetworkManager autoload
 var _host_ctrl: NetworkHost = null
 var _sfx: SfxManager = null
 var previous_keys: Dictionary = {}
@@ -36,9 +32,7 @@ func _ready() -> void:
 	_sfx.setup(self)
 	_attach_touch()
 	_build_touch_buttons()
-	hub = HubClientScript.new()
-	hub.name = "HubClient"
-	add_child(hub)
+	hub = get_node("/root/NetworkManager")
 	screens.bind_hub(hub)
 	hub.match_started.connect(_on_net_match_started)
 	hub.match_resumed.connect(_on_net_match_resumed)
@@ -52,11 +46,7 @@ func _ready() -> void:
 	screens.control_mode_changed.connect(_apply_control_mode)
 	_apply_control_mode(screens.control_mode)
 	Engine.max_fps = 60
-	hub_launched = hub.consume_hub_launch()
-	if hub_launched:
-		var hub_name: String = hub.get_hub_name()
-		if hub_name != "":
-			hub.player_name = hub_name
+	if GameState.hub_launched:
 		screens.visible = false
 		world_view.visible = false
 		hud.visible = false
@@ -139,22 +129,22 @@ func _sync_touch_buttons() -> void:
 	var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
 	_touch_exit.visible = playing and (touch_on or finished)
 	_touch_exit.text = "대기실로" if finished else "나가기"
-	_touch_rematch.visible = playing and finished and not net_active
+	_touch_rematch.visible = playing and finished and not GameState.net_active
 	if touch != null and touch.has_method("set_playing"):
 		touch.set_playing(playing and not finished)
 
 # --- Phase management ---
 
 func _on_start_match() -> void:
-	net_active = false
+	GameState.net_active = false
 	seed += 1
 	_restart()
 	_set_phase(&"play")
 
 func _on_net_match_started(you: int, room: Dictionary) -> void:
-	net_active = true
-	net_host = hub.is_host
-	if net_host:
+	GameState.net_active = true
+	GameState.net_host = hub.is_host
+	if GameState.net_host:
 		if _host_ctrl != null:
 			_host_ctrl.disconnect_signals()
 		seed += 1
@@ -192,7 +182,7 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	_set_phase(&"play")
 
 func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
-	net_active = true
+	GameState.net_active = true
 	if world == null or not bool(world.get("is_net")):
 		_on_net_match_started(you, room)
 	else:
@@ -205,7 +195,7 @@ func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void
 	_set_phase(&"play")
 
 func _on_net_snapshot(snap: Dictionary) -> void:
-	if net_active and world != null and bool(world.get("is_net")):
+	if GameState.net_active and world != null and bool(world.get("is_net")):
 		world.push_snap(snap)
 
 func _on_hub_status(next_status: String) -> void:
@@ -215,16 +205,16 @@ func _on_hub_status(next_status: String) -> void:
 	_set_net_banner("")
 	if next_status != "끊김" and next_status != "오프라인 로컬":
 		return
-	if hub_launched:
+	if GameState.hub_launched:
 		_return_to_hub()
 		return
-	if net_active:
-		net_active = false
+	if GameState.net_active:
+		GameState.net_active = false
 		if phase == &"play":
 			_return_to_hub()
 
 func _return_to_hub() -> void:
-	if hub_launched and OS.has_feature("web"):
+	if GameState.hub_launched and OS.has_feature("web"):
 		JavaScriptBridge.eval("location.href='/gang-up/'")
 	else:
 		_set_phase(&"lobby")
@@ -306,7 +296,7 @@ func _physics_process(_delta: float) -> void:
 			return
 		_set_phase(&"wait")
 		return
-	if not net_active and world != null and world.result != &"playing":
+	if not GameState.net_active and world != null and world.result != &"playing":
 		if _edge(KEY_R):
 			seed += 1
 			_restart()
@@ -336,7 +326,7 @@ func _physics_process(_delta: float) -> void:
 		aim_world = _local_player_pos() + touch.aim_dir * 400.0
 	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
 	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
-	if net_active and net_host:
+	if GameState.net_active and GameState.net_host:
 		var command := _build_command(move, aim_world, primary, equipment_held)
 		previous_right_mouse = equipment_held
 		previous_left_mouse = primary
@@ -346,7 +336,7 @@ func _physics_process(_delta: float) -> void:
 		hud.net_rtt_ms = int(hub.rtt_ms)
 		hud.net_connected = bool(hub.is_open())
 		_apply_recoil_mouse()
-	elif net_active:
+	elif GameState.net_active:
 		var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
 		var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
 		world.present(1.0 / 60.0)
@@ -357,7 +347,7 @@ func _physics_process(_delta: float) -> void:
 		previous_right_mouse = equipment_held
 	else:
 		var command := _build_command(move, aim_world, primary, equipment_held)
-		if not net_active and world != null:
+		if not GameState.net_active and world != null:
 			if _edge(KEY_BRACKETLEFT):
 				world.cycle_local_animal(-1)
 			if _edge(KEY_BRACKETRIGHT):
@@ -434,8 +424,8 @@ func _local_player_pos() -> Vector2:
 func _escape_wait() -> void:
 	if _host_ctrl != null:
 		_host_ctrl.disconnect_signals()
-	net_active = false
-	net_host = false
+	GameState.net_active = false
+	GameState.net_host = false
 	if hub.in_room:
 		hub.leave_room()
 	_return_to_hub()
