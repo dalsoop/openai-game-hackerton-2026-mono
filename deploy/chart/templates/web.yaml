@@ -69,7 +69,10 @@ data:
           }
         }
         root * /srv/g/{{ .folder }}
-        header Cache-Control "no-store, no-cache, must-revalidate"
+        @html_files path *.html
+        header @html_files Cache-Control "no-store, no-cache, must-revalidate"
+        @cacheable not path *.html
+        header @cacheable Cache-Control "no-cache"
         file_server
       }
       {{- end }}
@@ -87,7 +90,10 @@ data:
           respond "missing" 404
         }
         root * /srv/g/{http.regexp.folder.1}
-        header Cache-Control "no-store, no-cache, must-revalidate"
+        @html_files path *.html
+        header @html_files Cache-Control "no-store, no-cache, must-revalidate"
+        @cacheable not path *.html
+        header @cacheable Cache-Control "no-cache"
         file_server
       }
 

@@ -340,15 +340,7 @@ func apply_snap(snap: Dictionary) -> void:
         start_countdown = _f(snap, "startCountdown", 0.0)
     if snap.has("wantedSlot"):
         wanted_slot = int(snap["wantedSlot"])
-    zones.assign(snap.get("zones", []))
-    deployables.assign(snap.get("deployables", []))
-    cores.assign(snap.get("cores", []))
-    covers.assign(snap.get("covers", []))
-    knockouts.assign(snap.get("knockouts", []))
-    crates.assign(snap.get("crates", []))
-    crate_orbs.assign(snap.get("crate_orbs", []))
-    if snap.has("mid_tower") and typeof(snap["mid_tower"]) == TYPE_DICTIONARY:
-        mid_tower = snap["mid_tower"]
+    _apply_world_extras(snap)
     _apply_players(snap.get("players", []))
     _apply_bullets(snap.get("bullets", []))
     _apply_loot(snap.get("loot", []))
@@ -361,6 +353,126 @@ func apply_snap(snap: Dictionary) -> void:
             impact_pos = heroes[winner_slot]["pos"]
         impact_ticks = 26
         event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
+
+func _snap_vec(d: Dictionary) -> Vector2:
+    return Vector2(_f(d, "x", 0.0), _f(d, "y", 0.0))
+
+func _snap_color(v: Variant, fallback: Color = Color.WHITE) -> Color:
+    if v is Color:
+        return v
+    var s := str(v)
+    if s.begins_with("#") and s.length() >= 7:
+        return Color.html(s)
+    return fallback
+
+func _apply_world_extras(snap: Dictionary) -> void:
+    var next_zones: Array[Dictionary] = []
+    for raw in snap.get("zones", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var z: Dictionary = raw
+        next_zones.append({
+            "pos": _snap_vec(z),
+            "radius": _f(z, "radius", 40.0),
+            "owner": int(z.get("owner", 0)),
+            "delay": _f(z, "delay", 0.0),
+            "warning_duration": _f(z, "warning_duration", 0.0),
+            "color": _snap_color(z.get("color", "")),
+            "effect_kind": StringName(str(z.get("effect_kind", "explosion"))),
+            "label": str(z.get("label", ""))
+        })
+    zones = next_zones
+    var next_deploys: Array[Dictionary] = []
+    for raw in snap.get("deployables", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var d: Dictionary = raw
+        next_deploys.append({
+            "type": StringName(str(d.get("type", "mine"))),
+            "owner": int(d.get("owner", 0)),
+            "pos": _snap_vec(d),
+            "direction": Vector2(_f(d, "dx", 1.0), _f(d, "dy", 0.0)),
+            "travel_direction": Vector2(_f(d, "tdx", 1.0), _f(d, "tdy", 0.0)),
+            "half_length": _f(d, "half_length", 0.0),
+            "lifetime": _f(d, "lifetime", 0.0),
+            "max_lifetime": _f(d, "max_lifetime", 1.0),
+            "arm_time": _f(d, "arm_time", 0.0),
+            "arm_duration": _f(d, "arm_duration", 0.0),
+            "triggered": bool(d.get("triggered", false)),
+            "trigger_radius": _f(d, "trigger_radius", 0.0),
+            "blast_radius": _f(d, "blast_radius", 0.0),
+            "fuse_time": _f(d, "fuse_time", 0.0),
+            "fuse_duration": _f(d, "fuse_duration", 0.0)
+        })
+    deployables = next_deploys
+    var next_cores: Array[Dictionary] = []
+    for raw in snap.get("cores", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var c: Dictionary = raw
+        next_cores.append({
+            "slot": int(c.get("slot", next_cores.size())),
+            "pos": _snap_vec(c),
+            "hp": _f(c, "hp", 0.0),
+            "max_hp": _f(c, "max_hp", 1.0),
+            "alive": bool(c.get("alive", true))
+        })
+    cores = next_cores
+    var next_covers: Array[Dictionary] = []
+    for raw in snap.get("covers", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var cv: Dictionary = raw
+        next_covers.append({
+            "rect": Rect2(_f(cv, "x", 0.0), _f(cv, "y", 0.0), _f(cv, "w", 0.0), _f(cv, "h", 0.0))
+        })
+    covers = next_covers
+    var next_ko: Array[Dictionary] = []
+    for raw in snap.get("knockouts", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var ko: Dictionary = raw
+        next_ko.append({
+            "slot": int(ko.get("slot", -1)),
+            "pos": _snap_vec(ko),
+            "time": _f(ko, "time", 0.0),
+            "max_time": _f(ko, "max_time", 2.15),
+            "trail": []
+        })
+    knockouts = next_ko
+    var next_crates: Array[Dictionary] = []
+    for raw in snap.get("crates", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var cr: Dictionary = raw
+        next_crates.append({
+            "id": int(cr.get("id", next_crates.size())),
+            "pos": _snap_vec(cr),
+            "hp": _f(cr, "hp", 0.0),
+            "max_hp": _f(cr, "max_hp", 48.0),
+            "alive": bool(cr.get("alive", false))
+        })
+    crates = next_crates
+    var next_orbs: Array[Dictionary] = []
+    for raw in snap.get("crate_orbs", []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var orb: Dictionary = raw
+        next_orbs.append({
+            "pos": _snap_vec(orb),
+            "red": bool(orb.get("red", true)),
+            "active": bool(orb.get("active", true))
+        })
+    crate_orbs = next_orbs
+    if snap.has("mid_tower") and typeof(snap["mid_tower"]) == TYPE_DICTIONARY:
+        var tw: Dictionary = snap["mid_tower"]
+        mid_tower = {
+            "alive": bool(tw.get("alive", false)),
+            "pos": _snap_vec(tw),
+            "hp": _f(tw, "hp", 0.0),
+            "max_hp": _f(tw, "max_hp", 1.0),
+            "boing": _f(tw, "boing", 0.0)
+        }
 
 func _apply_players(list: Array) -> void:
     var prev := {}

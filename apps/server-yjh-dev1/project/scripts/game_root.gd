@@ -678,6 +678,12 @@ func _on_peer_reclaimed(slot: int, player_name: String) -> void:
     if world != null and net_host:
         world.human_slots[slot] = true
 
+func _snap_hex(c: Variant) -> String:
+    if c is Color:
+        return "#" + (c as Color).to_html(false)
+    var s := str(c)
+    return s if s.begins_with("#") else "#ffffff"
+
 func _build_host_snapshot() -> Dictionary:
     var players_arr: Array = []
     for h in world.heroes:
@@ -718,21 +724,23 @@ func _build_host_snapshot() -> Dictionary:
         loot_arr.append(entry)
     var zones_arr: Array = []
     for z in world.zones:
+        var zp := Vector2(z["pos"])
         zones_arr.append({
-            "pos": Vector2(z["pos"]), "radius": float(z["radius"]),
+            "x": zp.x, "y": zp.y, "radius": float(z["radius"]),
             "owner": int(z["owner"]), "delay": float(z.get("delay", 0)),
             "warning_duration": float(z.get("warning_duration", 0)),
-            "color": z.get("color", Color.WHITE),
+            "color": _snap_hex(z.get("color", Color.WHITE)),
             "effect_kind": str(z.get("effect_kind", "explosion")),
             "label": str(z.get("label", ""))
         })
     var deploys_arr: Array = []
     for d in world.deployables:
+        var dp := Vector2(d["pos"])
+        var dd := Vector2(d.get("direction", Vector2.RIGHT))
+        var td := Vector2(d.get("travel_direction", Vector2.RIGHT))
         deploys_arr.append({
             "type": str(d.get("type", "mine")), "owner": int(d["owner"]),
-            "pos": Vector2(d["pos"]),
-            "direction": Vector2(d.get("direction", Vector2.RIGHT)),
-            "travel_direction": Vector2(d.get("travel_direction", Vector2.RIGHT)),
+            "x": dp.x, "y": dp.y, "dx": dd.x, "dy": dd.y, "tdx": td.x, "tdy": td.y,
             "half_length": float(d.get("half_length", 0)),
             "lifetime": float(d.get("lifetime", 0)),
             "max_lifetime": float(d.get("max_lifetime", 0)),
@@ -746,28 +754,45 @@ func _build_host_snapshot() -> Dictionary:
         })
     var cores_arr: Array = []
     for c in world.cores:
-        cores_arr.append({"slot": int(c["slot"]), "pos": Vector2(c["pos"])})
+        var cp := Vector2(c["pos"])
+        cores_arr.append({
+            "slot": int(c["slot"]), "x": cp.x, "y": cp.y,
+            "hp": float(c.get("hp", 0)), "max_hp": float(c.get("max_hp", 1)),
+            "alive": bool(c.get("alive", true))
+        })
     var covers_arr: Array = []
     for cv in world.covers:
-        covers_arr.append({"rect": cv["rect"]})
+        var rect: Rect2 = cv["rect"]
+        covers_arr.append({"x": rect.position.x, "y": rect.position.y, "w": rect.size.x, "h": rect.size.y})
     var knockouts_arr: Array = []
     for ko in world.knockouts:
+        var kp := Vector2(ko["pos"])
         knockouts_arr.append({
-            "slot": int(ko["slot"]), "pos": Vector2(ko["pos"]),
-            "time": float(ko["time"]), "max_time": float(ko.get("max_time", 2.15)),
-            "trail": ko.get("trail", [])
+            "slot": int(ko["slot"]), "x": kp.x, "y": kp.y,
+            "time": float(ko["time"]), "max_time": float(ko.get("max_time", 2.15))
         })
     var crates_arr: Array = []
     for cr in world.crates:
-        crates_arr.append({"pos": Vector2(cr["pos"])})
+        var crp := Vector2(cr["pos"])
+        crates_arr.append({
+            "id": int(cr.get("id", 0)), "x": crp.x, "y": crp.y,
+            "hp": float(cr.get("hp", 0)), "max_hp": float(cr.get("max_hp", 48)),
+            "alive": bool(cr.get("alive", false))
+        })
     var orbs_arr: Array = []
     for orb in world.crate_orbs:
-        orbs_arr.append({"pos": Vector2(orb["pos"])})
+        var op := Vector2(orb["pos"])
+        orbs_arr.append({
+            "x": op.x, "y": op.y,
+            "red": bool(orb.get("red", true)),
+            "active": bool(orb.get("active", true))
+        })
     var tower_dict: Dictionary = {}
     if not world.mid_tower.is_empty():
+        var tp := Vector2(world.mid_tower.get("pos", Vector2.ZERO))
         tower_dict = {
             "alive": bool(world.mid_tower.get("alive", false)),
-            "pos": Vector2(world.mid_tower.get("pos", Vector2.ZERO)),
+            "x": tp.x, "y": tp.y,
             "hp": float(world.mid_tower.get("hp", 0)),
             "max_hp": float(world.mid_tower.get("max_hp", 1)),
             "boing": float(world.mid_tower.get("boing", 0))

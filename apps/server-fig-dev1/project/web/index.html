@@ -3,10 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>다굴게임 Godot Graybox</title>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
-
+		<title>다굴 같이하기</title>
 		<style>
 html, body, #canvas {
 	margin: 0;
@@ -19,7 +16,7 @@ body {
 	background-color: #0b0e14;
 	overflow: hidden;
 	touch-action: none;
-	font-family: -apple-system, 'Noto Sans KR', system-ui, sans-serif;
+	font-family: 'Noto Sans KR', 'Pretendard', 'Noto Sans', Arial, sans-serif;
 }
 
 #canvas {
@@ -30,118 +27,121 @@ body {
 	outline: none;
 }
 
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
 #status {
-	position: fixed;
-	inset: 0;
-	background: #0b0e14;
+	background:
+		radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 210, 62, 0.08), transparent),
+		#242424;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
 	visibility: hidden;
-	z-index: 10;
 }
 
-.loading-logo {
-	width: 96px;
-	height: 96px;
-	margin-bottom: 16px;
-	animation: logoPulse 2s ease-in-out infinite;
+#status-splash {
+	max-height: 42%;
+	max-width: 42%;
+	margin: auto 0 12px;
+	filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
 }
 
-@keyframes logoPulse {
-	0%, 100% { transform: scale(1); opacity: 1; }
-	50% { transform: scale(1.06); opacity: 0.85; }
+#status-splash.show-image--false {
+	display: none;
 }
 
-.loading-title {
-	font-size: 32px;
-	font-weight: 900;
-	letter-spacing: -0.02em;
-	margin-bottom: 4px;
+#status-splash.fullsize--true {
+	height: auto;
+	width: min(280px, 42vw);
+	object-fit: contain;
 }
 
-.loading-title span {
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#boot-copy {
+	text-align: center;
+	margin-bottom: 18px;
+	z-index: 1;
+}
+
+#boot-copy strong {
+	display: block;
+	font-size: clamp(22px, 4vw, 34px);
+	letter-spacing: -0.03em;
+}
+
+#boot-copy strong span {
 	color: #ffd23e;
 }
 
-.loading-sub {
-	font-size: 13px;
+#boot-copy em {
+	display: block;
+	margin-top: 6px;
+	font-style: normal;
+	font-size: 12px;
+	letter-spacing: 0.16em;
 	color: #67728a;
-	margin-bottom: 32px;
+	text-transform: uppercase;
 }
 
-.progress-wrap {
-	width: min(380px, 80vw);
+#status-progress, #status-notice {
 	display: none;
 }
 
-.progress-bar-bg {
-	width: 100%;
+#status-progress {
+	position: relative;
+	bottom: auto;
+	width: min(360px, 70vw);
 	height: 10px;
-	background: #1a2029;
-	border-radius: 5px;
+	margin: 0 auto;
+	appearance: none;
+	border: 0;
+	border-radius: 999px;
+	background: #232b38;
 	overflow: hidden;
 }
 
-.progress-bar-fill {
-	height: 100%;
-	width: 0%;
+#status-progress::-webkit-progress-bar {
+	background: #232b38;
+}
+
+#status-progress::-webkit-progress-value {
 	background: linear-gradient(90deg, #ffd23e, #3ee6d2);
-	border-radius: 5px;
-	transition: width 0.15s ease;
 }
 
-.progress-text {
-	display: flex;
-	justify-content: space-between;
-	margin-top: 8px;
-	font-size: 12px;
-	color: #8d99b0;
-	font-family: ui-monospace, monospace;
-}
-
-.loading-tip {
-	position: fixed;
-	bottom: 48px;
-	left: 0;
-	right: 0;
-	text-align: center;
-	font-size: 13px;
-	color: #556178;
-	letter-spacing: 0.02em;
+#status-progress::-moz-progress-bar {
+	background: linear-gradient(90deg, #ffd23e, #3ee6d2);
 }
 
 #status-notice {
-	display: none;
-	background: #1a1520;
-	border-radius: 12px;
-	border: 1px solid #3a2040;
-	color: #e0c0c0;
-	line-height: 1.4;
-	margin: 0 2rem;
-	max-width: 480px;
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 1rem 2rem 0;
 	overflow: hidden;
-	padding: 20px 24px;
+	padding: 1rem;
 	text-align: center;
 	z-index: 1;
-	font-size: 14px;
-}
-
-#status-notice::before {
-	content: "오류가 발생했습니다";
-	display: block;
-	font-weight: 700;
-	font-size: 16px;
-	color: #ff5d5d;
-	margin-bottom: 8px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.loading-logo { animation: none; }
-	.progress-bar-fill { transition: none; }
 }
 		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
 	</head>
 	<body>
 		<canvas id="canvas">
@@ -153,47 +153,25 @@ body {
 		</noscript>
 
 		<div id="status">
-			<svg class="loading-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-				<path d="M32 4 L40 18 L32 14 L24 18 Z" fill="#ff5d5d"/>
-				<path d="M60 32 L46 40 L50 32 L46 24 Z" fill="#4ea1ff"/>
-				<path d="M32 60 L24 46 L32 50 L40 46 Z" fill="#5dd97c"/>
-				<path d="M4 32 L18 24 L14 32 L18 40 Z" fill="#c98bff"/>
-				<circle cx="32" cy="32" r="7" fill="#ffd23e">
-					<animate attributeName="r" values="7;8.5;7" dur="2s" repeatCount="indefinite"/>
-				</circle>
-			</svg>
-			<div class="loading-title">다굴 <span>같이하기</span></div>
-			<div class="loading-sub">로딩 중…</div>
-
-			<div class="progress-wrap" id="progress-wrap">
-				<div class="progress-bar-bg">
-					<div class="progress-bar-fill" id="progress-fill"></div>
-				</div>
-				<div class="progress-text">
-					<span id="progress-pct">0%</span>
-					<span id="progress-size">0 MB</span>
-				</div>
+			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
+			<div id="boot-copy">
+				<strong>다굴 <span>같이하기</span></strong>
+				<em>8명 · 한 판 · 마지막 한 명</em>
 			</div>
-
+			<progress id="status-progress"></progress>
 			<div id="status-notice"></div>
-
-			<div class="loading-tip">8명이 한 판, 마지막 한 명이 승리합니다</div>
 		</div>
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":29404428,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = $GODOT_THREADS;
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":29408780,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
 (function () {
 	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
-	const progressWrap = document.getElementById('progress-wrap');
-	const progressFill = document.getElementById('progress-fill');
-	const progressPct = document.getElementById('progress-pct');
-	const progressSize = document.getElementById('progress-size');
-	const loadingSub = document.querySelector('.loading-sub');
 
 	let initializing = true;
 	let statusMode = '';
@@ -208,7 +186,7 @@ const engine = new Engine(GODOT_CONFIG);
 			return;
 		}
 		statusOverlay.style.visibility = 'visible';
-		progressWrap.style.display = mode === 'progress' ? 'block' : 'none';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
 		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
 		statusMode = mode;
 	}
@@ -231,7 +209,7 @@ const engine = new Engine(GODOT_CONFIG);
 		} else if (typeof err === 'string') {
 			setStatusNotice(err);
 		} else {
-			setStatusNotice('알 수 없는 오류가 발생했습니다.');
+			setStatusNotice('An unknown error occurred.');
 		}
 		setStatusMode('notice');
 		initializing = false;
@@ -247,12 +225,12 @@ const engine = new Engine(GODOT_CONFIG);
 			try {
 				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
 			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('서비스 워커 등록에 실패했습니다.'));
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
 			}
 			Promise.race([
 				serviceWorkerRegistrationPromise.then((registration) => {
 					if (registration != null) {
-						return Promise.reject(new Error('서비스 워커가 이미 존재합니다.'));
+						return Promise.reject(new Error('Service worker already exists.'));
 					}
 					return registration;
 				}).then(() => engine.installServiceWorker()),
@@ -262,27 +240,22 @@ const engine = new Engine(GODOT_CONFIG);
 			]).then(() => {
 				window.location.reload();
 			}).catch((err) => {
-				console.error('서비스 워커 등록 중 오류:', err);
+				console.error('Error while registering service worker:', err);
 			});
 		} else {
-			const missingMsg = '오류\n다음 기능이 필요하지만 이 브라우저에서 지원하지 않습니다:\n';
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
 			displayFailureNotice(missingMsg + missing.join('\n'));
 		}
 	} else {
 		setStatusMode('progress');
-		loadingSub.textContent = '게임 데이터를 받고 있습니다…';
 		engine.startGame({
 			'onProgress': function (current, total) {
 				if (current > 0 && total > 0) {
-					const pct = Math.round((current / total) * 100);
-					const mb = (current / 1048576).toFixed(1);
-					const totalMb = (total / 1048576).toFixed(1);
-					progressFill.style.width = pct + '%';
-					progressPct.textContent = pct + '%';
-					progressSize.textContent = mb + ' / ' + totalMb + ' MB';
-					if (pct > 95) {
-						loadingSub.textContent = '시작하는 중…';
-					}
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
 				}
 			},
 		}).then(() => {

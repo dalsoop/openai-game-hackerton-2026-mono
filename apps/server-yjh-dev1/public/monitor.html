@@ -109,7 +109,7 @@ function renderCard(srv, data) {
   if (data.rooms.length > 0) {
     inner += '<div class="rooms-section">';
     for (const r of data.rooms) {
-      inner += `<span class="room-chip ${r.phase}">${r.title} (${r.playerCount}P, ${r.phase})</span>`;
+      inner += `<span class="room-chip ${esc(r.phase)}">${esc(r.title)} (${r.playerCount}P, ${esc(r.phase)})</span>`;
     }
     inner += '</div>';
   }

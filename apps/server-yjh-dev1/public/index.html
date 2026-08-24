@@ -63,6 +63,9 @@
     .conn.bad .conn-dot { background:var(--red); }
     .conn-ping { font-family:ui-monospace,monospace; font-size:12px; color:var(--cyan); }
 
+    /* --- prefetch strip --- */
+    .prefetch-strip { display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 12px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius-s); }
+
     /* --- identity bar --- */
     .identity { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
     .identity input { flex:1; max-width:220px; background:var(--bg-1); color:var(--tx-0); border:1.5px solid var(--line); border-radius:var(--radius); padding:10px 14px; font-size:15px; outline:none; transition:.2s; }
@@ -196,6 +199,13 @@
         <span class="conn-ping" id="pingDisplay"></span>
       </div>
     </header>
+
+    <div class="prefetch-strip">
+      <span id="prefetch-text" style="font-size:11px;color:var(--tx-2)">게임 다운로드 준비 중</span>
+      <div style="flex:1;height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden;margin-left:8px">
+        <div id="prefetch-bar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--acc),var(--cyan));border-radius:2px;transition:width .3s"></div>
+      </div>
+    </div>
 
     <div class="identity">
       <div id="avatarPreview"></div>
@@ -458,8 +468,57 @@ function connect() {
 window.addEventListener("beforeunload", () => { intentionalClose = true; });
 
 function storeToken(token) {
-  if (token) { resumeToken = token; sessionStorage.setItem("gangup.resume", resumeToken); }
+  if (token) {
+    resumeToken = token;
+    sessionStorage.setItem("gangup.resume", resumeToken);
+    localStorage.setItem("gangup_resume", resumeToken);
+  }
 }
+
+// --- Skeleton loading: prefetch Godot engine in background ---
+const GAME_FILES = ["/index.js", "/index.wasm", "/index.pck"];
+let prefetchDone = false;
+let prefetchPct = 0;
+
+async function prefetchGame() {
+  if (navigator.connection && navigator.connection.saveData) return;
+  let loaded = 0;
+  let totalEstimate = 40 * 1024 * 1024;
+  try {
+    for (const url of GAME_FILES) {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok || !res.body) continue;
+      const len = +(res.headers.get("Content-Length") || 0);
+      if (len > 0) totalEstimate = Math.max(totalEstimate, loaded + len);
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        loaded += value.length;
+        prefetchPct = Math.min(99, Math.round(loaded / totalEstimate * 100));
+        updatePrefetchUI(prefetchPct);
+      }
+    }
+  } catch { /* network error — silent fail, user will download on navigate */ }
+  prefetchDone = true;
+  prefetchPct = 100;
+  updatePrefetchUI(100);
+}
+
+function updatePrefetchUI(pct) {
+  const el = document.getElementById("prefetch-bar");
+  if (el) el.style.width = pct + "%";
+  const txt = document.getElementById("prefetch-text");
+  if (txt) txt.textContent = pct >= 100 ? "게임 준비 완료" : `게임 다운로드 ${pct}%`;
+}
+
+function goToGame() {
+  localStorage.setItem("gangup_resume", resumeToken);
+  intentionalClose = true;
+  location.href = "/";
+}
+
+setTimeout(prefetchGame, 2000);
 
 function resetRoom() {
   players = []; roomInfo = null; snap = null; snapBuf.length = 0;
@@ -537,7 +596,24 @@ const msgHandlers = {
     renderWait();
   },
   chat(msg) { addChat(msg.from, msg.text, msg.slot, false); },
-  start(msg) { you = msg.you; setPhase("play"); },
+  start(msg) {
+    you = msg.you;
+    if (prefetchDone) {
+      goToGame();
+    } else {
+      // Show progress modal and navigate when done
+      showBanner(`게임 로딩 중… ${prefetchPct}%`);
+      const checkInterval = setInterval(() => {
+        if (prefetchDone) {
+          clearInterval(checkInterval);
+          hideBanner();
+          goToGame();
+        } else {
+          showBanner(`게임 로딩 중… ${prefetchPct}%`);
+        }
+      }, 300);
+    }
+  },
   snap(msg) {
     snap = msg;
     snapBuf.push({ at: performance.now(), snap: msg });
