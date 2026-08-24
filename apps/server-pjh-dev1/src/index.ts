@@ -7,23 +7,62 @@ import { WebSocket, WebSocketServer } from "ws";
 import promClient from "prom-client";
 import { MAX_PLAYERS, MODES, TICK_HZ } from "./modes.js";
 
-const PORT = Number(process.env.PORT || 9120);
-const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
-const TYPES: Record<string, string> = {
+// --- Configuration ---
+
+const CONFIG = {
+  port: Number(process.env.PORT || 9120),
+  slot: process.env.SLOT_FOLDER || "server-pjh-dev1",
+  graceLobbyMs: 20_000,
+  gracePlayMs: 60_000,
+  maxPayload: 64 * 1024,
+  defaultName: "손님",
+  defaultMode: "classic",
+  maxNameLength: 12,
+  maxTitleLength: 24,
+  maxChatLength: 120,
+  chatCooldownMs: 400,
+  rateBudget: 60,
+  rateRefillPerMs: 0.04,
+  snapDeltaLogInterval: 100,
+  resetToLobbyDelayMs: 5_000,
+  pingIntervalMs: 10_000,
+  metricsIntervalMs: 5_000,
+} as const;
+
+const Phase = { LOBBY: "lobby", PLAYING: "playing" } as const;
+type Phase = (typeof Phase)[keyof typeof Phase];
+
+const MSG = {
+  WELCOME: "welcome", HELLO: "hello", ROOMS: "rooms", CREATE: "create",
+  JOIN: "join", LEAVE: "leave", START: "start", KICK: "kick", CHAT: "chat",
+  INPUT: "input", HOST_SNAP: "host_snap", SNAP: "snap",
+  PEER_INPUT: "peer_input", PEER_PARKED: "peer_parked", PEER_RECLAIMED: "peer_reclaimed",
+  JOINED: "joined", PEERS: "peers", LEFT: "left", KICKED: "kicked",
+  LOBBY: "lobby", ERROR: "error", PING: "ping", PONG: "pong",
+  DROPPED: "dropped", RESUME: "resume", MODE: "mode",
+} as const;
+
+const ROUTES = {
+  health: ["/health", "/gang-up/health"] as readonly string[],
+  metrics: ["/metrics", "/gang-up/metrics"] as readonly string[],
+  status: ["/status", "/gang-up/status"] as readonly string[],
+  prefix: "/gang-up",
+} as const;
+
+const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
 };
-const GRACE_LOBBY_MS = 20_000;
-const GRACE_PLAY_MS = 60_000;
+
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const SERVER_START = Date.now();
-const SLOT = process.env.SLOT_FOLDER || "server-pjh-dev1";
 
 // --- Prometheus ---
 
 const promRegister = new promClient.Registry();
-promRegister.setDefaultLabels({ slot: SLOT });
+promRegister.setDefaultLabels({ slot: CONFIG.slot });
 promClient.collectDefaultMetrics({ register: promRegister });
 
 const gaugeClients = new promClient.Gauge({ name: "gangup_clients_total", help: "Connected clients", registers: [promRegister] });
@@ -62,7 +101,7 @@ interface Room {
   mode: string;
   title: string;
   members: string[];
-  phase: "lobby" | "playing";
+  phase: Phase;
   hostClientId: string | null;
   timer: ReturnType<typeof setTimeout> | null;
   lastSnap: Record<string, unknown> | null;
@@ -87,10 +126,9 @@ function resumeToken(): string {
 const sanitize = (s: unknown, max: number): string =>
   String(s || "").replace(/[<>&"'`]/g, "").trim().slice(0, max);
 
-// Fix 5: token bucket rate limiter (40/s refill, 60 burst)
 function rateOk(c: Client): boolean {
   const now = Date.now();
-  c.msgBudget = Math.min(60, c.msgBudget + (now - c.msgRefillAt) * 0.04);
+  c.msgBudget = Math.min(CONFIG.rateBudget, c.msgBudget + (now - c.msgRefillAt) * CONFIG.rateRefillPerMs);
   c.msgRefillAt = now;
   if (c.msgBudget < 1) return false;
   c.msgBudget -= 1;
@@ -200,12 +238,12 @@ function peersPayload(room: Room) {
 }
 
 function notifyRoom(room: Room, extra?: Record<string, unknown>): void {
-  sendRoom(room, { t: "peers", players: peersPayload(room), room: roomPublic(room), ...extra });
+  sendRoom(room, { t: MSG.PEERS, players: peersPayload(room), room: roomPublic(room), ...extra });
 }
 
 function broadcastRooms(): void {
-  const list = [...rooms.values()].filter((r) => r.phase === "lobby").map(roomPublic);
-  const text = JSON.stringify({ t: "rooms", rooms: list });
+  const list = [...rooms.values()].filter((r) => r.phase === Phase.LOBBY).map(roomPublic);
+  const text = JSON.stringify({ t: MSG.ROOMS, rooms: list });
   for (const c of clients.values()) {
     if (!c.dead) send(c.ws, text);
   }
@@ -215,13 +253,13 @@ function broadcastRooms(): void {
 function parkPlayer(_room: Room, _clientId: string): void {
   // Notify host that a player parked (host handles CPU takeover)
   if (_room.hostClientId) {
-    sendTo(_room.hostClientId, { t: "peer_parked", slot: _room.members.indexOf(_clientId) });
+    sendTo(_room.hostClientId, { t: MSG.PEER_PARKED, slot: _room.members.indexOf(_clientId) });
   }
 }
 
 function reclaimPlayer(_room: Room, _clientId: string, _name: string): void {
   if (_room.hostClientId) {
-    sendTo(_room.hostClientId, { t: "peer_reclaimed", slot: _room.members.indexOf(_clientId), name: _name });
+    sendTo(_room.hostClientId, { t: MSG.PEER_RECLAIMED, slot: _room.members.indexOf(_clientId), name: _name });
   }
 }
 
@@ -248,13 +286,13 @@ function parkClient(client: Client): void {
   client.dead = true;
   client.deadAt = Date.now();
   // If the host disconnects during play, end the match for everyone
-  if (room.phase === "playing" && room.hostClientId === client.id) {
+  if (room.phase === Phase.PLAYING && room.hostClientId === client.id) {
     notifyRoom(room, { notice: `호스트(${client.name})의 연결이 끊겨 게임이 종료됩니다.` });
     resetToLobby(room);
     return;
   }
   parkPlayer(room, client.id);
-  const grace = room.phase === "playing" ? GRACE_PLAY_MS : GRACE_LOBBY_MS;
+  const grace = room.phase === Phase.PLAYING ? CONFIG.gracePlayMs : CONFIG.graceLobbyMs;
   client.dropTimer = setTimeout(() => dropClient(client), grace);
   notifyRoom(room, { notice: `${client.name} 연결이 끊겼습니다. ${Math.round(grace / 1000)}초 안에 다시 들어오면 자리가 유지됩니다.` });
   broadcastRooms();
@@ -314,7 +352,7 @@ function attachResume(fresh: Client, token: string): Client {
     const room = old.roomId ? rooms.get(old.roomId) : null;
     if (room) {
       reclaimPlayer(room, old.id, old.name);
-      const playing = room.phase === "playing";
+      const playing = room.phase === Phase.PLAYING;
       send(old.ws, {
         t: "resume",
         id: old.id,
@@ -327,7 +365,7 @@ function attachResume(fresh: Client, token: string): Client {
       });
       notifyRoom(room, { notice: `${old.name} 이(가) 다시 연결되었습니다.` });
     } else {
-      send(old.ws, { t: "welcome", id: old.id, resume: old.resume, modes: MODES, max: MAX_PLAYERS });
+      send(old.ws, { t: MSG.WELCOME, id: old.id, resume: old.resume, modes: MODES, max: MAX_PLAYERS });
       broadcastRooms();
     }
     return old;
@@ -342,20 +380,20 @@ function resetToLobby(room: Room): void {
   room.lastSnap = null;
   room.prevSnap = null;
   room.snapCount = 0;
-  room.phase = "lobby";
+  room.phase = Phase.LOBBY;
   if (livingIds(room).length === 0) {
     rooms.delete(room.id);
     broadcastRooms();
     return;
   }
-  sendRoom(room, { t: "lobby" });
+  sendRoom(room, { t: MSG.LOBBY });
   notifyRoom(room, { notice: "게임이 끝났습니다. 대기실로 돌아왔습니다." });
   broadcastRooms();
 }
 
 function startMatch(room: Room): void {
-  if (room.phase !== "lobby") return;
-  room.phase = "playing";
+  if (room.phase !== Phase.LOBBY) return;
+  room.phase = Phase.PLAYING;
   room.hostClientId = hostId(room);
   for (const id of room.members) {
     const c = clients.get(id);
@@ -364,7 +402,7 @@ function startMatch(room: Room): void {
     } else {
       const slot = room.members.indexOf(id);
       const isHost = id === room.hostClientId;
-      sendTo(id, { t: "start", you: slot, host: isHost, room: roomPublic(room) });
+      sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room) });
     }
   }
   broadcastRooms();
@@ -375,7 +413,7 @@ function startMatch(room: Room): void {
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url || "/", "http://localhost").pathname;
 
-  if (pathname === "/health" || pathname === "/gang-up/health") {
+  if (ROUTES.health.includes(pathname)) {
     res.writeHead(200, {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
@@ -383,14 +421,14 @@ const server = http.createServer((req, res) => {
     });
     res.end(JSON.stringify({
       ok: true,
-      slot: process.env.SLOT_FOLDER || "",
+      slot: CONFIG.slot,
       rooms: rooms.size,
       modes: Object.keys(MODES),
     }));
     return;
   }
 
-  if (pathname === "/metrics" || pathname === "/gang-up/metrics") {
+  if (ROUTES.metrics.includes(pathname)) {
     promRegister.metrics().then((metrics) => {
       res.writeHead(200, { "content-type": promRegister.contentType, "access-control-allow-origin": "*", "cache-control": "no-store" });
       res.end(metrics);
@@ -398,13 +436,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (pathname === "/status" || pathname === "/gang-up/status") {
+  if (ROUTES.status.includes(pathname)) {
     const alive = [...clients.values()].filter((c) => !c.dead);
     const rtts = alive.map((c) => c.rtt).filter((r) => r > 0);
     res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
     res.end(JSON.stringify({
-      ok: true, slot: SLOT, uptime: Math.floor((Date.now() - SERVER_START) / 1000), tickHz: TICK_HZ,
-      clients: { total: alive.length, playing: alive.filter((c) => rooms.get(c.roomId!)?.phase === "playing").length },
+      ok: true, slot: CONFIG.slot, uptime: Math.floor((Date.now() - SERVER_START) / 1000), tickHz: TICK_HZ,
+      clients: { total: alive.length, playing: alive.filter((c) => rooms.get(c.roomId!)?.phase === Phase.PLAYING).length },
       ping: { avg: rtts.length ? Math.round(rtts.reduce((a, b) => a + b, 0) / rtts.length) : 0, min: rtts.length ? Math.min(...rtts) : 0, max: rtts.length ? Math.max(...rtts) : 0 },
       players: alive.map((c) => ({ id: c.id, name: c.name, rtt: c.rtt, roomId: c.roomId, phase: c.roomId ? rooms.get(c.roomId)?.phase ?? null : null })),
       rooms: [...rooms.values()].map((r) => ({ id: r.id, mode: r.mode, title: r.title, phase: r.phase, playerCount: livingIds(r).length })),
@@ -414,7 +452,7 @@ const server = http.createServer((req, res) => {
 
   // Static file serving
   const url = new URL(req.url || "/", "http://localhost");
-  const raw = url.pathname.replace(/^\/gang-up/, "") || "/";
+  const raw = url.pathname.replace(new RegExp(`^${ROUTES.prefix}`), "") || "/";
   const file = raw === "/" ? "/index.html" : raw;
   const full = path.normalize(path.join(PUBLIC_DIR, file));
   // Fix 11: include path separator in prefix check
@@ -428,15 +466,14 @@ const server = http.createServer((req, res) => {
       res.end("not found");
       return;
     }
-    res.writeHead(200, { "content-type": TYPES[path.extname(full)] || "application/octet-stream" });
+    res.writeHead(200, { "content-type": MIME_TYPES[path.extname(full)] || "application/octet-stream" });
     res.end(buf);
   });
 });
 
 // --- WebSocket Server ---
 
-// maxPayload: 64KB allows host_snap relay; regular client messages are much smaller
-const wss = new WebSocketServer({ server, maxPayload: 65_536 });
+const wss = new WebSocketServer({ server, maxPayload: CONFIG.maxPayload });
 
 wss.on("connection", (ws: WebSocket, req) => {
   // TCP_NODELAY: disable Nagle's algorithm for minimal latency
@@ -447,20 +484,20 @@ wss.on("connection", (ws: WebSocket, req) => {
     id: `p${nextId++}`,
     resume: resumeToken(),
     ws,
-    name: "손님",
-    mode: "classic",
+    name: CONFIG.defaultName,
+    mode: CONFIG.defaultMode,
     roomId: null,
     dead: false,
     deadAt: 0,
     dropTimer: null,
     rtt: 0,
-    msgBudget: 60,
+    msgBudget: CONFIG.rateBudget,
     msgRefillAt: now,
   };
   clients.set(client.id, client);
   // Fix 6: bind ws → client
   (ws as TaggedWebSocket)._session = client;
-  send(ws, { t: "welcome", id: client.id, resume: client.resume, modes: MODES, max: MAX_PLAYERS });
+  send(ws, { t: MSG.WELCOME, id: client.id, resume: client.resume, modes: MODES, max: MAX_PLAYERS });
 
   ws.on("message", (raw: Buffer) => {
     const session = clientByWs(ws);
@@ -501,46 +538,46 @@ wss.on("connection", (ws: WebSocket, req) => {
 function handleMessage(client: Client, msg: Record<string, unknown>): void {
   const t = msg.t;
 
-  if (t === "ping") {
-    send(client.ws, { t: "pong", ts: msg.ts });
+  if (t === MSG.PING) {
+    send(client.ws, { t: MSG.PONG, ts: msg.ts });
     return;
   }
 
-  if (t === "hello") {
+  if (t === MSG.HELLO) {
     const token = String(msg.resume || "");
     if (/^[a-f0-9]{32}$/.test(token)) {
       const adopted = attachResume(client, token);
       if (adopted !== client) {
-        adopted.name = sanitize(msg.name, 12) || adopted.name; // Fix 2
+        adopted.name = sanitize(msg.name, CONFIG.maxNameLength) || adopted.name;
         adopted.mode = MODES[String(msg.mode)] ? String(msg.mode) : adopted.mode;
         broadcastRooms();
         return;
       }
       if (msg.wantResume && token !== client.resume) {
-        send(client.ws, { t: "dropped", msg: "이전 자리를 찾지 못했습니다. 로비로 갑니다.", resume: client.resume });
+        send(client.ws, { t: MSG.DROPPED, msg: "이전 자리를 찾지 못했습니다. 로비로 갑니다.", resume: client.resume });
       }
     }
-    client.name = sanitize(msg.name, 12) || "손님"; // Fix 2
-    client.mode = MODES[String(msg.mode)] ? String(msg.mode) : "classic";
+    client.name = sanitize(msg.name, CONFIG.maxNameLength) || CONFIG.defaultName;
+    client.mode = MODES[String(msg.mode)] ? String(msg.mode) : CONFIG.defaultMode;
     broadcastRooms();
     return;
   }
 
-  if (t === "rooms") {
+  if (t === MSG.ROOMS) {
     broadcastRooms();
     return;
   }
 
-  if (t === "create") {
+  if (t === MSG.CREATE) {
     if (client.roomId) leaveRoom(client);
     const id = `r${nextRoom++}`;
-    const mode = MODES[client.mode] ? client.mode : "classic";
+    const mode = MODES[client.mode] ? client.mode : CONFIG.defaultMode;
     const room: Room = {
       id,
       mode,
-      title: sanitize(msg.title, 24) || `${MODES[mode]!.title} #${id}`, // Fix 2
+      title: sanitize(msg.title, CONFIG.maxTitleLength) || `${MODES[mode]!.title} #${id}`,
       members: [client.id],
-      phase: "lobby",
+      phase: Phase.LOBBY,
       hostClientId: null,
       timer: null,
       lastSnap: null,
@@ -549,16 +586,16 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     };
     rooms.set(id, room);
     client.roomId = id;
-    send(client.ws, { t: "joined", you: 0, room: roomPublic(room), players: peersPayload(room) });
+    send(client.ws, { t: MSG.JOINED, you: 0, room: roomPublic(room), players: peersPayload(room) });
     broadcastRooms();
     return;
   }
 
-  if (t === "join") {
+  if (t === MSG.JOIN) {
     const room = rooms.get(String(msg.roomId));
-    if (!room || room.phase !== "lobby") { send(client.ws, { t: "error", msg: "방을 찾을 수 없습니다" }); return; }
+    if (!room || room.phase !== Phase.LOBBY) { send(client.ws, { t: MSG.ERROR, msg: "방을 찾을 수 없습니다" }); return; }
     client.mode = room.mode;
-    if (room.members.length >= MAX_PLAYERS) { send(client.ws, { t: "error", msg: "방이 가득 찼습니다 (8)" }); return; }
+    if (room.members.length >= MAX_PLAYERS) { send(client.ws, { t: MSG.ERROR, msg: "방이 가득 찼습니다 (8)" }); return; }
     if (client.roomId) leaveRoom(client);
     room.members.push(client.id);
     client.roomId = room.id;
@@ -573,10 +610,10 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     return;
   }
 
-  if (t === "mode") {
+  if (t === MSG.MODE) {
     const room = rooms.get(client.roomId!);
-    if (!room || room.phase !== "lobby") { send(client.ws, { t: "error", msg: "지금은 게임을 바꿀 수 없습니다" }); return; }
-    if (hostId(room) !== client.id) { send(client.ws, { t: "error", msg: "호스트만 게임을 바꿀 수 있습니다" }); return; }
+    if (!room || room.phase !== Phase.LOBBY) { send(client.ws, { t: MSG.ERROR, msg: "지금은 게임을 바꿀 수 없습니다" }); return; }
+    if (hostId(room) !== client.id) { send(client.ws, { t: MSG.ERROR, msg: "호스트만 게임을 바꿀 수 있습니다" }); return; }
     const next = MODES[String(msg.mode)] ? String(msg.mode) : room.mode;
     room.mode = next;
     for (const id of room.members) {
@@ -588,50 +625,50 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     return;
   }
 
-  if (t === "leave") {
+  if (t === MSG.LEAVE) {
     leaveRoom(client);
-    send(client.ws, { t: "left" });
+    send(client.ws, { t: MSG.LEFT });
     return;
   }
 
-  if (t === "start") {
+  if (t === MSG.START) {
     const room = rooms.get(client.roomId!);
-    if (!room || hostId(room) !== client.id) { send(client.ws, { t: "error", msg: "호스트만 시작할 수 있습니다" }); return; }
+    if (!room || hostId(room) !== client.id) { send(client.ws, { t: MSG.ERROR, msg: "호스트만 시작할 수 있습니다" }); return; }
     startMatch(room);
     return;
   }
 
-  if (t === "kick") {
+  if (t === MSG.KICK) {
     const room = rooms.get(client.roomId!);
-    if (!room || room.phase !== "lobby") { send(client.ws, { t: "error", msg: "지금은 내보낼 수 없습니다" }); return; }
-    if (hostId(room) !== client.id) { send(client.ws, { t: "error", msg: "호스트만 내보낼 수 있습니다" }); return; }
+    if (!room || room.phase !== Phase.LOBBY) { send(client.ws, { t: MSG.ERROR, msg: "지금은 내보낼 수 없습니다" }); return; }
+    if (hostId(room) !== client.id) { send(client.ws, { t: MSG.ERROR, msg: "호스트만 내보낼 수 있습니다" }); return; }
     const slot = Number(msg.slot);
     const targetId = room.members[slot];
     if (!targetId || targetId === client.id) return;
     const target = clients.get(targetId);
     if (!target) return;
     leaveRoom(target, { silent: true });
-    send(target.ws, { t: "kicked", msg: "호스트가 방에서 내보냈습니다." });
+    send(target.ws, { t: MSG.KICKED, msg: "호스트가 방에서 내보냈습니다." });
     notifyRoom(room, { notice: `${target.name} 이(가) 내보내졌습니다.` });
     return;
   }
 
-  if (t === "chat") {
+  if (t === MSG.CHAT) {
     const room = rooms.get(client.roomId!);
     if (!room) return;
-    const text = String(msg.text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    const text = String(msg.text || "").replace(/\s+/g, " ").trim().slice(0, CONFIG.maxChatLength);
     if (!text) return;
     const now = Date.now();
-    if (client.lastChatAt && now - client.lastChatAt < 400) return;
+    if (client.lastChatAt && now - client.lastChatAt < CONFIG.chatCooldownMs) return;
     client.lastChatAt = now;
-    sendRoom(room, { t: "chat", from: client.name, slot: slotOf(room, client.id), text }); // Fix 3
+    sendRoom(room, { t: MSG.CHAT, from: client.name, slot: slotOf(room, client.id), text }); // Fix 3
     return;
   }
 
   // Relay mode: forward inputs from non-host to host
-  if (t === "input") {
+  if (t === MSG.INPUT) {
     const room = rooms.get(client.roomId!);
-    if (!room || room.phase !== "playing" || client.dead) return;
+    if (!room || room.phase !== Phase.PLAYING || client.dead) return;
     if (client.id === room.hostClientId) return; // host handles own input locally
     const slot = room.members.indexOf(client.id);
     if (slot < 0) return;
@@ -647,18 +684,18 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
   }
 
   // Relay mode: host broadcasts snapshot to all other clients
-  if (t === "host_snap") {
+  if (t === MSG.HOST_SNAP) {
     const room = rooms.get(client.roomId!);
-    if (!room || room.phase !== "playing") return;
+    if (!room || room.phase !== Phase.PLAYING) return;
     if (client.id !== room.hostClientId) return; // only host can send snapshots
     const snapData = msg as Record<string, unknown>;
-    snapData.t = "snap";
+    snapData.t = MSG.SNAP;
     room.prevSnap = room.lastSnap;
     room.lastSnap = snapData;
     room.snapCount += 1;
     const text = JSON.stringify(snapData);
     // Delta measurement (log every 100 snaps)
-    if (room.prevSnap && room.snapCount % 100 === 0) {
+    if (room.prevSnap && room.snapCount % CONFIG.snapDeltaLogInterval === 0) {
       const delta = computeHeroDelta(room.prevSnap, snapData);
       const deltaSize = JSON.stringify(delta).length;
       const fullSize = text.length;
@@ -669,8 +706,8 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
       if (id !== client.id) sendTo(id, text); // don't echo back to host
     }
     // Check for match end — host signals result in the snapshot
-    if (snapData.result && snapData.result !== "playing") {
-      room.timer = setTimeout(() => resetToLobby(room), 5_000);
+    if (snapData.result && snapData.result !== Phase.PLAYING) {
+      room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
     }
     return;
   }
@@ -682,12 +719,12 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
 setInterval(() => {
   const alive = [...clients.values()].filter((c) => !c.dead);
   gaugeClients.set(alive.length);
-  gaugeClientsPlaying.set(alive.filter((c) => rooms.get(c.roomId!)?.phase === "playing").length);
+  gaugeClientsPlaying.set(alive.filter((c) => rooms.get(c.roomId!)?.phase === Phase.PLAYING).length);
   gaugeRooms.set(rooms.size);
-  gaugeRoomsPlaying.set([...rooms.values()].filter((r) => r.phase === "playing").length);
-  gaugeRoomsLobby.set([...rooms.values()].filter((r) => r.phase === "lobby").length);
+  gaugeRoomsPlaying.set([...rooms.values()].filter((r) => r.phase === Phase.PLAYING).length);
+  gaugeRoomsLobby.set([...rooms.values()].filter((r) => r.phase === Phase.LOBBY).length);
   gaugeUptime.set(Math.floor((Date.now() - SERVER_START) / 1000));
-}, 5_000);
+}, CONFIG.metricsIntervalMs);
 
 setInterval(() => {
   for (const c of clients.values()) {
@@ -701,10 +738,10 @@ setInterval(() => {
       }
     }
   }
-}, 10_000);
+}, CONFIG.pingIntervalMs);
 
 // --- Start ---
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[gang-up] web http://127.0.0.1:${PORT}  ws://127.0.0.1:${PORT}  max=${MAX_PLAYERS}`);
+server.listen(CONFIG.port, "0.0.0.0", () => {
+  console.log(`[gang-up] web http://127.0.0.1:${CONFIG.port}  ws://127.0.0.1:${CONFIG.port}  max=${MAX_PLAYERS}`);
 });

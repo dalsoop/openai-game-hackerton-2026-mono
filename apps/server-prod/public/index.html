@@ -264,7 +264,51 @@
   <div id="curtain"></div>
 
 <script>
-/* ===================== PRESERVED GAME LOGIC ===================== */
+/* ===================== CONSTANTS ===================== */
+const CANVAS_W = 1600;
+const CANVAS_H = 900;
+
+const NET = {
+  INTERP_MS: 100,
+  SNAP_BUF_MAX: 16,
+  PING_INTERVAL_MS: 5000,
+  INPUT_INTERVAL_MS: 50,
+  RECONNECT_BASE_MS: 500,
+  RECONNECT_MAX_MS: 30000,
+  RECONNECT_JITTER_MS: 250,
+  PING_UPDATE_INTERVAL_MS: 2000,
+};
+
+const MODE_TITLES = {
+  classic: "클래식",
+  "gun-semi": "무기 · 단발",
+  "gun-auto": "무기 · 연발",
+  item: "아이템",
+  full: "합본",
+};
+
+const HUD = {
+  canvasBg: "#0b0e13",
+  bg: "rgba(8,10,14,0.85)",
+  text: "#fff",
+  textMuted: "#aebaca",
+  hpBar: "#6ef3a5",
+  hpBarBg: "#000",
+  pingGood: "#3fb950",
+  pingOk: "#d29922",
+  pingBad: "#f85149",
+  arenaWater: "#123047",
+  arenaGround: "#c4a574",
+  zoneShrink: "#ff4f68",
+  zoneIdle: "#70e7ff",
+  lootGun: "#ffd166",
+  lootItem: "#6ef3a5",
+  bullet: "#ffe066",
+};
+
+const MAX_PLAYERS = 8;
+
+/* ===================== VISUAL ASSETS ===================== */
 const PLAYER_COLORS = ['var(--p1)','var(--p2)','var(--p3)','var(--p4)','var(--p5)','var(--p6)','var(--p7)','var(--p8)'];
 const AVATAR_SHAPES = [
   '<circle cx="16" cy="13" r="8"/>',
@@ -297,9 +341,8 @@ let selectedMode = params.get("mode") || "classic";
 let roomInfo = null;
 let snap = null;
 const snapBuf = [];
-const INTERP_MS = 100;
 let keys = {};
-let mouse = { x: 800, y: 450, down: false };
+let mouse = { x: CANVAS_W / 2, y: CANVAS_H / 2, down: false };
 let myPing = 0;
 let resultShown = false;
 const nameIn = document.getElementById("name");
@@ -403,7 +446,7 @@ function connect() {
   ws.onclose = () => {
     if (intentionalClose) return;
     showBanner(`연결이 끊겼습니다. 다시 연결하는 중… (${reconnectAttempt + 1}번째 시도)`);
-    const delay = Math.min(500 * Math.pow(2, reconnectAttempt) + Math.random() * 250, 30000);
+    const delay = Math.min(NET.RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt) + Math.random() * NET.RECONNECT_JITTER_MS, NET.RECONNECT_MAX_MS);
     reconnectAttempt++;
     setTimeout(connect, delay);
   };
@@ -412,18 +455,22 @@ function connect() {
 
 window.addEventListener("beforeunload", () => { intentionalClose = true; });
 
-function onMessage(ev) {
-  const msg = JSON.parse(ev.data);
-  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
-  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+function storeToken(token) {
+  if (token) { resumeToken = token; sessionStorage.setItem("gangup.resume", resumeToken); }
+}
 
-  if (msg.t === "welcome") {
+function resetRoom() {
+  players = []; roomInfo = null; snap = null; snapBuf.length = 0;
+  resultShown = false;
+  document.getElementById("result").classList.remove("show");
+  history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
+}
+
+const msgHandlers = {
+  welcome(msg) {
     if (msg.id) myId = msg.id;
     const prevToken = resumeToken;
-    if (msg.resume) {
-      resumeToken = msg.resume;
-      sessionStorage.setItem("gangup.resume", resumeToken);
-    }
+    storeToken(msg.resume);
     modes = msg.modes || {};
     if (!welcomed) {
       welcomed = true;
@@ -431,7 +478,7 @@ function onMessage(ev) {
         if (myPing > 0 && !document.getElementById("reconnect-banner")?.style.display?.includes("block")) {
           updatePingDisplay();
         }
-      }, 2000);
+      }, NET.PING_UPDATE_INTERVAL_MS);
       const roomId = params.get("room");
       if (roomId) setTimeout(() => send({ t: "join", roomId }), 80);
     }
@@ -439,109 +486,76 @@ function onMessage(ev) {
     renderModes();
     send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode, resume: prevToken, wantResume: !!prevToken && wantResume });
     send({ t: "rooms" });
-    return;
-  }
-
-  if (msg.t === "resume") {
+  },
+  resume(msg) {
     if (msg.id) myId = msg.id;
     you = msg.you;
     players = msg.players || [];
     roomInfo = msg.room;
     snapBuf.length = 0;
-    if (msg.resume) { resumeToken = msg.resume; sessionStorage.setItem("gangup.resume", resumeToken); }
+    storeToken(msg.resume);
     if (msg.playing) {
-      if (msg.snap) {
-        snap = msg.snap;
-        snapBuf.push({ at: performance.now(), snap: msg.snap });
-      }
+      if (msg.snap) { snap = msg.snap; snapBuf.push({ at: performance.now(), snap: msg.snap }); }
       setPhase("play");
     } else {
-      setPhase("wait");
-      renderWait();
+      setPhase("wait"); renderWait();
     }
     hideBanner();
-    return;
-  }
-
-  if (msg.t === "dropped") {
-    if (msg.resume) {
-      resumeToken = msg.resume;
-      sessionStorage.setItem("gangup.resume", resumeToken);
-    }
-    setPhase("hub");
-    hello();
-    return;
-  }
-
-  if (msg.t === "kicked") {
-    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
-    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
-    setPhase("hub");
-    hello();
+  },
+  dropped(msg) {
+    storeToken(msg.resume);
+    setPhase("hub"); hello();
+  },
+  kicked(msg) {
+    resetRoom();
+    setPhase("hub"); hello();
     toast(msg.msg || "방에서 내보내졌습니다.", "leave");
-    return;
-  }
-
-  if (msg.t === "lobby") {
-    snap = null;
-    snapBuf.length = 0;
-    resultShown = false;
+  },
+  lobby() {
+    snap = null; snapBuf.length = 0; resultShown = false;
     document.getElementById("result").classList.remove("show");
-    setPhase("wait");
-    renderWait();
-    return;
-  }
-
-  if (msg.t === "rooms") { rooms = msg.rooms || []; renderRooms(); }
-
-  if (msg.t === "joined") {
+    setPhase("wait"); renderWait();
+  },
+  rooms(msg) { rooms = msg.rooms || []; renderRooms(); },
+  joined(msg) {
     you = msg.you;
     players = msg.players || [];
     roomInfo = msg.room;
     selectedMode = msg.room.mode;
     history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}&room=${encodeURIComponent(msg.room.id)}`);
     document.getElementById("chatLog").innerHTML = "";
-    setPhase("wait");
-    renderWait();
-  }
-
-  if (msg.t === "peers") {
+    setPhase("wait"); renderWait();
+  },
+  peers(msg) {
     players = msg.players || [];
     if (msg.room) roomInfo = msg.room;
     const me = players.find(p => p.id === myId);
     if (me) you = me.slot;
     if (msg.notice) addChat("", msg.notice, 0, true);
     renderWait();
-  }
-
-  if (msg.t === "chat") {
-    addChat(msg.from, msg.text, msg.slot, false);
-  }
-
-  if (msg.t === "start") { you = msg.you; setPhase("play"); }
-
-  if (msg.t === "snap") {
+  },
+  chat(msg) { addChat(msg.from, msg.text, msg.slot, false); },
+  start(msg) { you = msg.you; setPhase("play"); },
+  snap(msg) {
     snap = msg;
     snapBuf.push({ at: performance.now(), snap: msg });
-    while (snapBuf.length > 16) snapBuf.shift();
+    while (snapBuf.length > NET.SNAP_BUF_MAX) snapBuf.shift();
     if (msg.result !== "playing") document.body.className = "play";
     if (phase !== "play") setPhase("play");
     if (msg.result && msg.result !== "playing" && !resultShown) {
-      resultShown = true;
-      showResult(msg);
+      resultShown = true; showResult(msg);
     }
-  }
+  },
+  left() { resetRoom(); setPhase("hub"); hello(); },
+  error(msg) { toast(msg.msg, "leave"); },
+};
 
-  if (msg.t === "left") {
-    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
-    resultShown = false;
-    document.getElementById("result").classList.remove("show");
-    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
-    setPhase("hub");
-    hello();
-  }
-
-  if (msg.t === "error") toast(msg.msg, "leave");
+function onMessage(ev) {
+  const msg = JSON.parse(ev.data);
+  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
+  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+  const handler = msgHandlers[msg.t];
+  if (handler) handler(msg);
 }
 
 /* ===================== RENDER FUNCTIONS ===================== */
@@ -571,7 +585,7 @@ function renderModeSelect() {
 }
 
 function renderRooms() {
-  const titles = { classic: "클래식", "gun-semi": "무기 \xb7 단발", "gun-auto": "무기 \xb7 연발", item: "아이템", full: "합본" };
+  const titles = MODE_TITLES;
   document.getElementById("roomCount").textContent = rooms.length;
   const el = document.getElementById("rooms");
   if (!rooms.length) {
@@ -580,11 +594,11 @@ function renderRooms() {
   }
   el.innerHTML = rooms.map(r => {
     let pips = '';
-    for (let i = 0; i < 8; i++) pips += `<i${i < r.count ? ` style="background:${PLAYER_COLORS[i]}"` : ''}></i>`;
+    for (let i = 0; i < MAX_PLAYERS; i++) pips += `<i${i < r.count ? ` style="background:${PLAYER_COLORS[i]}"` : ''}></i>`;
     return `<div class="room-card" data-id="${esc(r.id)}">
       <div class="room-info"><b>${esc(r.title)}</b><div class="room-pips">${pips}</div></div>
       <span class="room-mode-badge">${esc(titles[r.mode] || r.mode)}</span>
-      <span class="room-count">${r.count}/8</span>
+      <span class="room-count">${r.count}/${MAX_PLAYERS}</span>
       <span class="room-enter">입장 →</span>
     </div>`;
   }).join("");
@@ -592,7 +606,7 @@ function renderRooms() {
 }
 
 function renderWait() {
-  const titles = { classic: "클래식", "gun-semi": "무기 \xb7 단발", "gun-auto": "무기 \xb7 연발", item: "아이템", full: "합본" };
+  const titles = MODE_TITLES;
   const modeName = titles[roomInfo?.mode] || "";
   document.getElementById("waitTitle").textContent = roomInfo?.title || "대기실";
   document.getElementById("waitMode").textContent = modeName;
@@ -609,7 +623,7 @@ function renderWait() {
   }
 
   const cells = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < MAX_PLAYERS; i++) {
     const p = players.find(x => x.slot === i);
     if (p) {
       const isMe = p.id === myId;
@@ -729,16 +743,16 @@ setInterval(() => {
     aimX: mouse.x,
     aimY: mouse.y,
   });
-}, 50);
+}, NET.INPUT_INTERVAL_MS);
 
-setInterval(() => { send({ t: "ping", ts: Date.now() }); }, 5000);
+setInterval(() => { send({ t: "ping", ts: Date.now() }); }, NET.PING_INTERVAL_MS);
 
 /* ===================== CANVAS RENDERING (PRESERVED) ===================== */
 
 function viewSnap() {
   if (snapBuf.length === 0) return snap;
   if (snapBuf.length === 1) return snapBuf[0].snap;
-  const renderAt = performance.now() - INTERP_MS;
+  const renderAt = performance.now() - NET.INTERP_MS;
   let a = snapBuf[0];
   let b = snapBuf[snapBuf.length - 1];
   for (let i = 0; i < snapBuf.length - 1; i++) {
@@ -767,43 +781,66 @@ function viewSnap() {
   return { ...bs, zoneR: mix(as.zoneR || 420, bs.zoneR || 420, t), players: playersView, bullets };
 }
 
-function draw() {
-  requestAnimationFrame(draw);
-  if (phase !== "play" || !snap) return;
-  const view = viewSnap() || snap;
-  ctx.fillStyle = "#0b0e13"; ctx.fillRect(0, 0, 1600, 900);
+function pingColor(ms) {
+  if (ms <= 50) return HUD.pingGood;
+  if (ms <= 150) return HUD.pingOk;
+  return HUD.pingBad;
+}
+
+function drawWorld(view) {
+  const cx = CANVAS_W / 2, cy = CANVAS_H / 2;
+  ctx.fillStyle = HUD.canvasBg; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   const zoneR = view.zoneR || 420;
-  ctx.beginPath(); ctx.arc(800, 450, 430, 0, Math.PI*2); ctx.fillStyle = "#123047"; ctx.fill();
-  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.fillStyle = "#c4a574"; ctx.fill();
-  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.strokeStyle = view.shrinking ? "#ff4f68" : "#70e7ff"; ctx.lineWidth = 4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, 430, 0, Math.PI * 2); ctx.fillStyle = HUD.arenaWater; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, zoneR, 0, Math.PI * 2); ctx.fillStyle = HUD.arenaGround; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, zoneR, 0, Math.PI * 2); ctx.strokeStyle = view.shrinking ? HUD.zoneShrink : HUD.zoneIdle; ctx.lineWidth = 4; ctx.stroke();
   for (const drop of view.loot || []) {
-    ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
-    ctx.fillStyle = drop.kind === "gun" ? "#ffd166" : "#6ef3a5"; ctx.fill();
+    ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = drop.kind === "gun" ? HUD.lootGun : HUD.lootItem; ctx.fill();
   }
   for (const b of view.bullets || []) {
-    ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fillStyle = "#ffe066"; ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fillStyle = HUD.bullet; ctx.fill();
   }
+}
+
+function drawPlayers(view) {
   let me = null, alive = 0;
   for (const p of view.players || []) {
     if (p.alive) alive++;
     ctx.globalAlpha = p.alive ? 1 : 0.25;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fillStyle = p.color || "#fff"; ctx.fill();
-    if (p.slot === you) { me = p; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI * 2); ctx.fillStyle = p.color || HUD.text; ctx.fill();
+    if (p.slot === you) { me = p; ctx.strokeStyle = HUD.text; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = HUD.text; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(p.name, p.x, p.y - 24);
-    ctx.fillStyle = "#000"; ctx.fillRect(p.x - 18, p.y + 20, 36, 5);
-    ctx.fillStyle = "#6ef3a5"; ctx.fillRect(p.x - 18, p.y + 20, 36 * Math.max(0, p.hp/100), 5);
+    ctx.fillStyle = HUD.hpBarBg; ctx.fillRect(p.x - 18, p.y + 20, 36, 5);
+    ctx.fillStyle = HUD.hpBar; ctx.fillRect(p.x - 18, p.y + 20, 36 * Math.max(0, p.hp / 100), 5);
   }
-  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(16, 16, 460, 70);
-  ctx.fillStyle = "#fff"; ctx.font = "18px sans-serif"; ctx.textAlign = "left";
-  ctx.fillText(`생존 ${alive}/8   킬 ${me?.kills||0}   ${me?.weapon||""}`, 28, 44);
-  ctx.fillStyle = "#aebaca"; ctx.font = "14px sans-serif";
+  return { me, alive };
+}
+
+function drawHUD(me, alive) {
+  ctx.fillStyle = HUD.bg; ctx.fillRect(16, 16, 460, 70);
+  ctx.fillStyle = HUD.text; ctx.font = "18px sans-serif"; ctx.textAlign = "left";
+  ctx.fillText(`생존 ${alive}/${MAX_PLAYERS}   킬 ${me?.kills || 0}   ${me?.weapon || ""}`, 28, 44);
+  ctx.fillStyle = HUD.textMuted; ctx.font = "14px sans-serif";
   ctx.fillText(`아이템 ${me?.item || "-"}   WASD 클릭사격  SPACE대시  E아이템  ESC로비`, 28, 68);
-  const pingColor = myPing <= 50 ? "#3fb950" : myPing <= 150 ? "#d29922" : "#f85149";
-  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(1460, 16, 124, 32);
-  ctx.fillStyle = pingColor; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "right";
-  ctx.fillText(`${myPing}ms`, 1572, 38);
+}
+
+function drawPing() {
+  ctx.fillStyle = HUD.bg; ctx.fillRect(CANVAS_W - 140, 16, 124, 32);
+  ctx.fillStyle = pingColor(myPing); ctx.font = "bold 16px sans-serif"; ctx.textAlign = "right";
+  ctx.fillText(`${myPing}ms`, CANVAS_W - 28, 38);
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (phase !== "play" || !snap) return;
+  const view = viewSnap() || snap;
+  drawWorld(view);
+  const { me, alive } = drawPlayers(view);
+  drawHUD(me, alive);
+  drawPing();
 }
 
 /* ===================== INIT ===================== */
