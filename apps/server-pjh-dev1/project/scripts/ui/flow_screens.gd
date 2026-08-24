@@ -5,29 +5,20 @@ signal request_quit_to_intro
 signal request_resume
 signal control_mode_changed(mode: String)
 
-const BG := Color("F5F2EA")
-const INK := Color("1C2430")
-const MUTED := Color("6B7380")
-const CARD := Color("FFFDF8")
-const LINE := Color("E4DDD2")
-const BLUE := Color("2F6BFF")
-const GREEN := Color("1F9D55")
-const SLOT_COUNT := 8
-const ANIMALS := ["토끼", "쥐", "호랑이", "황소", "용", "말", "닭", "돼지"]
-# lobby animals -> lhj atlas frames (Rat=0 Ox=1 Tiger=2 Rabbit=3 Snake=4 Dragon=5 Horse=6 Goat=7 Monkey=8 Rooster=9 Dog=10 Pig=11)
-const LOBBY_ANIMAL_FRAME := [3, 0, 2, 1, 5, 6, 9, 11]
-const NICKS := ["토토", "찍찍", "호랑", "황소", "용용", "말말", "꼬끼오", "꿀꿀"]
-const SLOT_COLORS := [
-    Color("5bc0eb"), Color("9bc53d"), Color("e55934"), Color("fa7921"),
-    Color("b084cc"), Color("70e7ff"), Color("ffd166"), Color("ff8dac")
-]
-const MODES := [
-    {"id":"classic", "title":"클래식", "desc":"시작부터 각자 다른 총. 필드 힐만.", "art":"mode_classic.png"},
-    {"id":"gun-semi", "title":"단발", "desc":"모두 단발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_semi.png"},
-    {"id":"gun-auto", "title":"연발", "desc":"모두 연발 권총 시작. 처치 시 총 업그레이드.", "art":"mode_gun_auto.png"},
-    {"id":"item", "title":"아이템", "desc":"같은 총 고정. 액티브 하나. E 사용. 사망 시 드롭.", "art":"mode_item.png"},
-    {"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
-]
+# Constants and factory functions are in UiTheme (class_name)
+const BG := UiTheme.BG
+const INK := UiTheme.INK
+const MUTED := UiTheme.MUTED
+const CARD := UiTheme.CARD
+const LINE := UiTheme.LINE
+const BLUE := UiTheme.BLUE
+const GREEN := UiTheme.GREEN
+const SLOT_COUNT := UiTheme.SLOT_COUNT
+const ANIMALS := UiTheme.ANIMALS
+const LOBBY_ANIMAL_FRAME := UiTheme.LOBBY_ANIMAL_FRAME
+const NICKS := UiTheme.NICKS
+const SLOT_COLORS := UiTheme.SLOT_COLORS
+const MODES := UiTheme.MODES
 
 var page := &"lobby"
 var selected_mode := "classic"
@@ -53,7 +44,6 @@ var _lobby_status: Label
 var _lobby_error: Label
 var _local_button: Button
 var _retry_button: Button
-var _mode_buttons: Array[Button] = []
 var _wait_mode_buttons: Array[Button] = []
 var _how_return: StringName = &"lobby"
 var _settings_return: StringName = &"lobby"
@@ -135,265 +125,25 @@ func _build() -> void:
     add_child(_wait)
     add_child(_settings)
 
-func _full(node: Control) -> Control:
-    node.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-    return node
+# Delegate factory functions to UiTheme
+func _full(node: Control) -> Control: return UiTheme.full(node)
+func _lbl(text: String, size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label: return UiTheme.lbl(text, size, color, align)
+func _btn(text: String, bg: Color, min_size: Vector2) -> Button: return UiTheme.btn(text, bg, min_size)
+func _chip(text: String, group: ButtonGroup) -> Button: return UiTheme.chip(text, group)
+func _icon_btn(caption: String) -> Button: return UiTheme.icon_btn(caption)
+func _card_box() -> StyleBoxFlat: return UiTheme.card_box()
+func _load_png(filename: String) -> Texture2D: return UiTheme.load_png(filename)
+func _mode_title(mode_id: String) -> String: return UiTheme.mode_title(mode_id)
 
-func _lbl(text: String, size: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-    var l := Label.new()
-    l.text = text
-    l.horizontal_alignment = align
-    l.add_theme_font_size_override("font_size", size)
-    l.add_theme_color_override("font_color", color)
-    return l
-
-func _btn(text: String, bg: Color, min_size: Vector2) -> Button:
-    var b := Button.new()
-    b.text = text
-    b.custom_minimum_size = min_size
-    b.add_theme_font_size_override("font_size", 22)
-    var sb := StyleBoxFlat.new()
-    sb.bg_color = bg
-    sb.corner_radius_top_left = 16
-    sb.corner_radius_top_right = 16
-    sb.corner_radius_bottom_left = 16
-    sb.corner_radius_bottom_right = 16
-    sb.content_margin_left = 18
-    sb.content_margin_right = 18
-    sb.shadow_color = Color(0, 0, 0, 0.18)
-    sb.shadow_size = 6
-    sb.shadow_offset = Vector2(0, 3)
-    b.add_theme_stylebox_override("normal", sb)
-    var sbh := sb.duplicate()
-    sbh.bg_color = bg.lightened(0.08)
-    b.add_theme_stylebox_override("hover", sbh)
-    b.add_theme_color_override("font_color", Color.WHITE)
-    b.add_theme_color_override("font_hover_color", Color.WHITE)
-    b.add_theme_color_override("font_pressed_color", Color.WHITE)
-    return b
-
-func _chip(text: String, group: ButtonGroup) -> Button:
-    var chip := Button.new()
-    chip.toggle_mode = true
-    chip.button_group = group
-    chip.text = text
-    chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    chip.custom_minimum_size = Vector2(0, 46)
-    for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
-        chip.add_theme_color_override(state, INK)
-    var chip_off := _card_box()
-    chip.add_theme_stylebox_override("normal", chip_off)
-    var chip_on := chip_off.duplicate()
-    chip_on.border_color = BLUE
-    chip_on.border_width_left = 3
-    chip_on.border_width_top = 3
-    chip_on.border_width_right = 3
-    chip_on.border_width_bottom = 3
-    chip.add_theme_stylebox_override("pressed", chip_on)
-    chip.add_theme_stylebox_override("hover", chip_on)
-    chip.add_theme_stylebox_override("hover_pressed", chip_on)
-    chip.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-    return chip
-
-func _icon_btn(caption: String) -> Button:
-    var b := Button.new()
-    b.text = caption
-    b.custom_minimum_size = Vector2(72, 52)
-    b.add_theme_font_size_override("font_size", 22)
-    var sb := StyleBoxFlat.new()
-    sb.bg_color = CARD
-    sb.border_color = LINE
-    sb.border_width_left = 1
-    sb.border_width_top = 1
-    sb.border_width_right = 1
-    sb.border_width_bottom = 1
-    sb.corner_radius_top_left = 14
-    sb.corner_radius_top_right = 14
-    sb.corner_radius_bottom_left = 14
-    sb.corner_radius_bottom_right = 14
-    b.add_theme_stylebox_override("normal", sb)
-    b.add_theme_color_override("font_color", INK)
-    return b
-
-func _card_box() -> StyleBoxFlat:
-    var sb := StyleBoxFlat.new()
-    sb.bg_color = CARD
-    sb.border_color = LINE
-    sb.border_width_left = 1
-    sb.border_width_top = 1
-    sb.border_width_right = 1
-    sb.border_width_bottom = 1
-    sb.corner_radius_top_left = 18
-    sb.corner_radius_top_right = 18
-    sb.corner_radius_bottom_left = 18
-    sb.corner_radius_bottom_right = 18
-    return sb
-
-func _load_png(filename: String) -> Texture2D:
-    var res_path := "res://assets/ui/%s" % filename
-    if ResourceLoader.exists(res_path):
-        return load(res_path)
-    var abs_path := ProjectSettings.globalize_path(res_path)
-    if FileAccess.file_exists(abs_path):
-        var img := Image.load_from_file(abs_path)
-        if img != null:
-            return ImageTexture.create_from_image(img)
-    return null
-
-func _mode_title(mode_id: String) -> String:
-    for mode in MODES:
-        if str(mode["id"]) == mode_id:
-            return str(mode["title"])
-    return mode_id
-
+# Select and Intro screens removed — web hub handles lobby entry
 func _build_select() -> Control:
-    var root := _full(Control.new())
-    var col := VBoxContainer.new()
-    col.set_anchors_and_offsets_preset(PRESET_FULL_RECT, PRESET_MODE_MINSIZE, 28)
-    col.add_theme_constant_override("separation", 14)
-    var head := HBoxContainer.new()
-    var titles := VBoxContainer.new()
-    titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    titles.add_child(_lbl("모드 선택", 14, MUTED))
-    titles.add_child(_lbl("다굴", 32, INK))
-    titles.add_child(_lbl("방 안에서 게임을 고를 수 있습니다.", 15, MUTED))
-    head.add_child(titles)
-    var how := _icon_btn("?")
-    how.pressed.connect(func(): show_page(&"how"))
-    head.add_child(how)
-    col.add_child(head)
-    var banner := TextureRect.new()
-    banner.custom_minimum_size = Vector2(0, 160)
-    banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-    var banner_tex := _load_png("banner_select.png")
-    if banner_tex != null:
-        banner.texture = banner_tex
-    else:
-        var fallback := ColorRect.new()
-        fallback.custom_minimum_size = Vector2(0, 160)
-        fallback.color = Color("E8E0D2")
-        col.add_child(fallback)
-    if banner_tex != null:
-        col.add_child(banner)
-    var grid := HBoxContainer.new()
-    grid.add_theme_constant_override("separation", 12)
-    grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    _mode_buttons.clear()
-    var group := ButtonGroup.new()
-    for mode in MODES:
-        var card := _make_mode_card(mode)
-        card.button_group = group
-        grid.add_child(card)
-    col.add_child(grid)
-    var go := _btn("이 모드로 로비 입장", BLUE, Vector2(280, 58))
-    go.pressed.connect(func(): show_page(&"lobby"))
-    col.add_child(go)
-    root.add_child(col)
-    return root
-
-func _make_mode_card(mode: Dictionary) -> Button:
-    var card := Button.new()
-    card.toggle_mode = true
-    card.button_pressed = str(mode["id"]) == selected_mode
-    card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    card.custom_minimum_size = Vector2(180, 260)
-    var sb := _card_box()
-    card.add_theme_stylebox_override("normal", sb)
-    var on := sb.duplicate()
-    on.border_color = BLUE
-    on.border_width_left = 3
-    on.border_width_top = 3
-    on.border_width_right = 3
-    on.border_width_bottom = 3
-    card.add_theme_stylebox_override("pressed", on)
-    card.add_theme_stylebox_override("hover", on)
-    card.add_theme_color_override("font_color", Color(0, 0, 0, 0))
-    var inner := VBoxContainer.new()
-    inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    inner.set_anchors_and_offsets_preset(PRESET_FULL_RECT, PRESET_MODE_MINSIZE, 12)
-    inner.add_theme_constant_override("separation", 8)
-    var art := TextureRect.new()
-    art.custom_minimum_size = Vector2(0, 140)
-    art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-    art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var tex := _load_png(str(mode["art"]))
-    if tex != null:
-        art.texture = tex
-    inner.add_child(art)
-    inner.add_child(_lbl(str(mode["title"]), 20, INK, HORIZONTAL_ALIGNMENT_CENTER))
-    var desc := _lbl(str(mode["desc"]), 13, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-    desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    inner.add_child(desc)
-    card.add_child(inner)
-    var mode_id := str(mode["id"])
-    card.pressed.connect(func(): _pick_mode(mode_id))
-    _mode_buttons.append(card)
-    return card
-
-func _pick_mode(mode_id: String) -> void:
-    selected_mode = mode_id
-    for i in _mode_buttons.size():
-        _mode_buttons[i].button_pressed = str(MODES[i]["id"]) == selected_mode
+    return _full(Control.new())
 
 func _build_intro() -> Control:
-    var root := _full(Control.new())
-    var col := VBoxContainer.new()
-    col.set_anchors_preset(PRESET_CENTER)
-    col.offset_left = -420
-    col.offset_right = 420
-    col.offset_top = -220
-    col.offset_bottom = 220
-    col.add_theme_constant_override("separation", 16)
-    var kicker := _lbl("최대 8인 난전 서바이벌", 16, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-    var title := _lbl("다굴", 72, INK, HORIZONTAL_ALIGNMENT_CENTER)
-    var tag := _lbl("강해 보이는 순간, 모두의 적이 된다", 22, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-    var row := HBoxContainer.new()
-    row.alignment = BoxContainer.ALIGNMENT_CENTER
-    row.add_theme_constant_override("separation", 14)
-    var play := _btn("로비 입장", BLUE, Vector2(240, 64))
-    play.pressed.connect(func(): show_page(&"lobby"))
-    var how := _btn("조작 설명", Color("3D4654"), Vector2(180, 64))
-    how.pressed.connect(func(): show_page(&"how"))
-    row.add_child(play)
-    row.add_child(how)
-    col.add_child(kicker)
-    col.add_child(title)
-    col.add_child(tag)
-    col.add_child(row)
-    root.add_child(col)
-    return root
+    return _full(Control.new())
 
 func _build_how() -> Control:
-    var root := _full(Control.new())
-    var panel := Panel.new()
-    panel.set_anchors_preset(PRESET_CENTER)
-    panel.offset_left = -460
-    panel.offset_right = 460
-    panel.offset_top = -280
-    panel.offset_bottom = 280
-    panel.add_theme_stylebox_override("panel", _card_box())
-    var col := VBoxContainer.new()
-    col.set_anchors_and_offsets_preset(PRESET_FULL_RECT, PRESET_MODE_MINSIZE, 28)
-    col.add_theme_constant_override("separation", 10)
-    col.add_child(_lbl("로비  >  조작", 14, MUTED))
-    col.add_child(_lbl("조작", 28, INK))
-    for line in [
-        "가로 화면 기준입니다.",
-        "키보드: WASD 이동  ·  마우스 조준",
-        "터치: 왼쪽 스틱 이동  ·  오른쪽 스틱 조준",
-        "LMB / 공격 버튼 기본 공격  ·  RMB / 스킬 버튼",
-        "SHIFT / dash button flash  ·  SPACE hop  ·  Q / ult button  ·  E / item button",
-        "최후의 1인이 이깁니다. 안전 구역은 줄어듭니다.",
-    ]:
-        col.add_child(_lbl(line, 18, MUTED))
-    var back := _btn("뒤로", Color("3D4654"), Vector2(140, 48))
-    back.pressed.connect(func(): pop_page())
-    col.add_child(back)
-    panel.add_child(col)
-    root.add_child(panel)
-    return root
+    return HowToPlayPopup.build(func(): pop_page())
 
 func _build_lobby() -> Control:
     var root := _full(Control.new())
@@ -821,71 +571,21 @@ func _sync_settings_ui() -> void:
         _settings_sound.set_pressed_no_signal(sound_on)
 
 func _build_settings() -> Control:
-    var root := _full(Control.new())
-    var dim := ColorRect.new()
-    dim.color = Color(0, 0, 0, 0.28)
-    dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-    dim.gui_input.connect(func(ev):
-        if ev is InputEventMouseButton and ev.pressed:
-            pop_page()
+    var result := SettingsPopup.build(
+        func(): pop_page(),
+        func(): _quit_to_select(),
+        control_mode,
+        sound_on,
+        func(mode_id): set_control_mode(mode_id),
+        func(on):
+            sound_on = on
+            AudioServer.set_bus_mute(0, not on)
+            SettingsStore.save(control_mode, sound_on)
     )
-    root.add_child(dim)
-    var panel := Panel.new()
-    panel.set_anchors_preset(PRESET_CENTER)
-    panel.offset_left = -270
-    panel.offset_right = 270
-    panel.offset_top = -165
-    panel.offset_bottom = 165
-    panel.add_theme_stylebox_override("panel", _card_box())
-    var col := VBoxContainer.new()
-    col.set_anchors_and_offsets_preset(PRESET_FULL_RECT, PRESET_MODE_MINSIZE, 24)
-    col.add_theme_constant_override("separation", 12)
-    col.add_child(_lbl("설정", 24, INK))
-
-    col.add_child(_lbl("조작 방식", 15, INK))
-    var mode_row := HBoxContainer.new()
-    mode_row.add_theme_constant_override("separation", 8)
-    var mode_group := ButtonGroup.new()
-    _settings_mode_buttons.clear()
-    for mode in SettingsStore.MODES:
-        var chip := _chip(SettingsStore.mode_title(mode), mode_group)
-        var mode_id := str(mode)
-        chip.pressed.connect(func(): set_control_mode(mode_id))
-        _settings_mode_buttons[mode_id] = chip
-        mode_row.add_child(chip)
-    col.add_child(mode_row)
-    _settings_mode_desc = _lbl("", 13, MUTED)
-    _settings_mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    col.add_child(_settings_mode_desc)
-
-    col.add_child(_lbl("소리", 15, INK))
-    _settings_sound = CheckButton.new()
-    _settings_sound.text = "효과음 켜기"
-    for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
-        _settings_sound.add_theme_color_override(state, INK)
-    _settings_sound.button_pressed = sound_on
-    _settings_sound.toggled.connect(func(on):
-        sound_on = on
-        AudioServer.set_bus_mute(0, not on)
-        SettingsStore.save(control_mode, sound_on)
-    )
-    col.add_child(_settings_sound)
-
-    var spacer := Control.new()
-    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    col.add_child(spacer)
-    var actions := HBoxContainer.new()
-    actions.add_theme_constant_override("separation", 10)
-    var back := _btn("닫기", Color("3D4654"), Vector2(160, 44))
-    back.pressed.connect(func(): pop_page())
-    var intro := _btn("로비로 나가기", Color("8A93A3"), Vector2(160, 44))
-    intro.pressed.connect(func(): _quit_to_select())
-    actions.add_child(back)
-    actions.add_child(intro)
-    col.add_child(actions)
-    panel.add_child(col)
-    root.add_child(panel)
-    return root
+    _settings_mode_buttons = result["mode_buttons"]
+    _settings_mode_desc = result["mode_desc"]
+    _settings_sound = result["sound_check"]
+    return result["root"]
 
 var _animal_atlas: Texture2D = null
 
