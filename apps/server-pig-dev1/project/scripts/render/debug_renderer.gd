@@ -100,6 +100,8 @@ func _sync_roar_fx() -> void:
 
 func _ready() -> void:
     lite_draw = OS.has_feature("web")
+    if lite_draw:
+        RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
     island_texture = _load_tex("res://assets/world/island_bg.png")
@@ -418,8 +420,10 @@ func _draw_safe_zone() -> void:
     var outer := maxf(world.ARENA_SIZE.x, world.ARENA_SIZE.y)
     var mid := (radius + outer) * 0.5
     var width := maxf(12.0, outer - radius)
-    draw_arc(center, mid, 0.0, TAU, 96, Color(0.45, 0.10, 0.78, 0.30), width)
-    draw_arc(center, mid, 0.0, TAU, 96, Color(0.30, 0.02, 0.50, 0.22), width * 0.55)
+    var seg := 32 if lite_draw else 96
+    draw_arc(center, mid, 0.0, TAU, seg, Color(0.45, 0.10, 0.78, 0.30), width)
+    if not lite_draw:
+        draw_arc(center, mid, 0.0, TAU, seg, Color(0.30, 0.02, 0.50, 0.22), width * 0.55)
     var shrinking := bool(world.safe_zone_shrinking)
     var ring := ZONE_RING_HOT if shrinking else ZONE_RING
     var pulse := 7.0 + (3.0 if shrinking else 0.0) + sin(float(world.tick) * 0.12) * 1.4
@@ -524,7 +528,12 @@ func _draw_cores() -> void:
         draw_string(GameFont.get_font(), pos + Vector2(-18.0, 5.0), "P%d" % (slot + 1), HORIZONTAL_ALIGNMENT_CENTER, 36.0, 11, Color(color, 0.5))
 
 func _draw_deployables() -> void:
+    var max_deploy := 4 if lite_draw else 999
+    var deploy_drawn := 0
     for mine in world.deployables:
+        if lite_draw and deploy_drawn >= max_deploy:
+            break
+        deploy_drawn += 1
         var mine_pos: Vector2 = mine["pos"]
         var mine_owner := int(mine["owner"])
         var mine_color: Color = _slot_color(mine_owner)
@@ -657,7 +666,12 @@ func _draw_projectiles() -> void:
                     draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
 
 func _draw_zones() -> void:
+    var max_zones := 4 if lite_draw else 999
+    var zone_drawn := 0
     for zone in world.zones:
+        if lite_draw and zone_drawn >= max_zones:
+            break
+        zone_drawn += 1
         var zone_color: Color = zone.get("color", _slot_color(int(zone["owner"])))
         var delay := float(zone.get("delay", 0.0))
         var warning_duration := maxf(0.01, float(zone.get("warning_duration", delay)))
@@ -707,7 +721,12 @@ func _draw_zones() -> void:
                 draw_string(GameFont.get_font(), zone_pos + Vector2(-68.0, 6.0), "%s  %.1f" % [warning_label, delay], HORIZONTAL_ALIGNMENT_CENTER, 136.0, 13, Color.WHITE)
 
 func _draw_effects() -> void:
+    var max_effects := 8 if lite_draw else 999
+    var drawn := 0
     for effect in world.effects:
+        if lite_draw and drawn >= max_effects:
+            break
+        drawn += 1
         var effect_color: Color = effect["color"]
         var ratio := clampf(float(effect["time"]) / float(effect["max_time"]), 0.0, 1.0)
         var effect_pos: Vector2 = effect["pos"]
