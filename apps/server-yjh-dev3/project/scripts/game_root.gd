@@ -257,6 +257,9 @@ func _physics_process(_delta: float) -> void:
                 screens.pop_page()
         return
     if _edge(KEY_ESCAPE):
+        if world != null and bool(world.finish_cine.get("on", false)):
+            world.finish_cine = {}
+            return
         _set_phase(&"wait")
         return
     if not net_active and world != null and world.result != &"playing":
@@ -326,7 +329,8 @@ func _physics_process(_delta: float) -> void:
             "mobility":mobility_edge,
             "hop":hop_edge,
             "medkit":medkit_edge,
-            "reload":reload_edge
+            "reload":reload_edge,
+            "finish":_edge(KEY_F)
         }
         previous_right_mouse = equipment_held
         previous_left_mouse = primary
@@ -347,7 +351,7 @@ func _physics_process(_delta: float) -> void:
         shake = Vector2(sin(float(world.tick) * 2.8), cos(float(world.tick) * 4.1)) * (2.0 + world.impact_ticks * 0.4) * attenuation
     var zoom_target := _camera_zoom_target()
     camera.zoom = camera.zoom.lerp(Vector2.ONE * zoom_target, 0.065)
-    var camera_follow := 0.24 if world.ultimate_focus_time > 0.0 else 0.42
+    var camera_follow := 0.24 if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot else 0.42
     camera.position = camera.position.lerp(_camera_target(), camera_follow) + shake
     hud.spectate_slot = spectate_slot
     world_view.queue_redraw()
@@ -465,7 +469,7 @@ func _play_new_events() -> void:
             Input.start_joy_vibration(0, 0.88, 1.0, 0.62)
 
 func _edge(keycode: int) -> bool:
-    var now := Input.is_key_pressed(keycode)
+    var now := Input.is_key_pressed(keycode) or Input.is_physical_key_pressed(keycode)
     var was := bool(previous_keys.get(keycode, false))
     previous_keys[keycode] = now
     return now and not was
@@ -523,7 +527,7 @@ func _camera_zoom_target() -> float:
         return 1.38
     if world.result != &"playing" and world.winner_slot >= 0:
         return 1.52
-    if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot >= 0:
+    if world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot:
         return 1.48
     var me_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
     if not bool(world.heroes[me_slot]["alive"]):
@@ -547,8 +551,8 @@ func _camera_target() -> Vector2:
     var focus_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
     if world.result != &"playing" and world.winner_slot >= 0:
         focus_slot = world.winner_slot
-    elif world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot >= 0 and world.ultimate_focus_slot < world.heroes.size():
-        focus_slot = world.ultimate_focus_slot
+    elif world.ultimate_focus_time > 0.0 and world.ultimate_focus_slot == world.local_slot:
+        focus_slot = world.local_slot
     elif bool(world.heroes[focus_slot]["eliminated"]) and _spectator_valid(spectate_slot):
         focus_slot = spectate_slot
     var focus: Dictionary = world.heroes[focus_slot]

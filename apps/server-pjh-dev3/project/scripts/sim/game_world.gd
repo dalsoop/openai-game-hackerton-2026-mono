@@ -60,7 +60,7 @@ const SOURCE_HEALTH_PICKUP_POINTS := [
     Vector2(2040.0, 850.0)
 ]
 const SAFE_ZONE_INITIAL_RADIUS := 3304.0
-const SAFE_ZONE_DAMAGE_PER_SEC := 8.0
+const SAFE_ZONE_DAMAGE_PER_SEC := 16.0
 const SAFE_ZONE_TICK_INTERVAL := 0.50
 const SAFE_ZONE_EDGE_BUFFER := 252.0
 const SAFE_ZONE_PHASES := [
@@ -93,6 +93,7 @@ var horse_kicks: Array[Dictionary] = []
 var rooster_eggs: Array[Dictionary] = []
 var pig_muds: Array[Dictionary] = []
 var dog_bones: Array[Dictionary] = []
+var finish_cine: Dictionary = {}
 var crate_orbs: Array[Dictionary] = []
 var mid_tower: Dictionary = {}
 var next_entity_id: int = 100
@@ -503,6 +504,7 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
     _update_item_pulses(dt)
     _update_safe_zone(dt)
     _apply_human(command)
+    _tick_finish_cine(command, dt)
     _update_cpus(dt)
     _tick_ox_charges(dt)
     _apply_rat_tides(dt)
@@ -648,6 +650,13 @@ func _update_timers(dt: float) -> void:
 
 func _apply_human(command: Dictionary) -> void:
     if heroes.is_empty():
+        return
+    if bool(command.get("finish", false)):
+        if bool(finish_cine.get("on", false)):
+            _cancel_finish_cine()
+            return
+        _try_begin_finish(0)
+    if bool(finish_cine.get("on", false)):
         return
     var h: Dictionary = heroes[0]
     if bool(h["eliminated"]):
@@ -882,6 +891,9 @@ func _update_cpus(dt: float) -> void:
                 _apply_cpu_move(slot, h, hazard_escape, hazard_cc_speed * hazard_lock_speed)
                 h["action"] = &"DODGE_WARNING"
         heroes[slot] = h
+        if float(h.get("ultimate_charge", 0.0)) >= ULTIMATE_MAX - 0.5 and not _hero_has_timed(h, "turtle"):
+            if _cpu_try_ultimate(slot):
+                h = heroes[slot]
         var current_target := int(h["target"])
         if current_target >= 0 and _target_valid(current_target):
             var target_pos := _target_position(current_target)
@@ -2116,7 +2128,10 @@ func _stamp_gun_fire(h: Dictionary, slot: int, equipment_id: String) -> void:
     h["muzzle_time"] = float(frames) * 0.055
     h["muzzle_scale"] = float(fx.get("scale", 1.0))
     if slot == local_slot:
-        local_fire_shake = int(fx.get("shake", 3))
+        var shake := int(fx.get("shake", 3))
+        if bool(h.get("heavy_shot", false)):
+            shake = maxi(shake * 3, 10)
+        local_fire_shake = shake
 
 func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var h: Dictionary = heroes[slot]
@@ -2148,6 +2163,14 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var pierce := int(equipment.get("normal_pierce", 0))
     var splash := float(equipment.get("normal_splash", 0.0))
     var radius := float(equipment.get("normal_radius", 5.0))
+    var heavy := false
+    if equipment_id == "brawler":
+        var n := int(h.get("brawler_shot", 0)) + 1
+        h["brawler_shot"] = n
+        if n % 3 == 0:
+            damage *= 2.0
+            radius *= 2.5
+            heavy = true
     var interval := float(equipment.get("normal_interval", 0.2))
     interval *= maxf(0.35, 1.0 - _roulette_stat(slot, "rate"))
     ttl *= 1.0 + _roulette_stat(slot, "range")
@@ -2155,6 +2178,11 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
     var kick: Vector2 = GunSig.spray_kick(equipment_id, spray_i)
     h["spray_index"] = float(spray_i + 1)
     h["spray_idle"] = 0.0
+    h["heavy_shot"] = heavy
+    if heavy:
+        kick *= 2.7
+        kick += Vector2(0.0, -7.0)
+        h["spray_index"] = float(spray_i + 3)
     if slot == local_slot:
         local_mouse_kick = kick
     if equipment_id == "mortar":
@@ -2165,6 +2193,8 @@ func _try_normal_attack(slot: int, direction: Vector2) -> void:
             if pellet_count > 1:
                 offset = (float(index) - float(pellet_count - 1) * 0.5) * spread
             _spawn_projectile(slot, base_dir.rotated(offset), damage, speed, radius, ttl, &"normal", splash, false, pierce, 0.0, knockback, kind, 0.0, "", false)
+            if heavy:
+                projectiles[projectiles.size() - 1]["heavy"] = true
     var burst_cap := int(equipment.get("burst_shots", 0))
     var mag_cap := int(equipment.get("mag_size", 0))
     if burst_cap > 0 and mag_cap <= 0:
@@ -2513,9 +2543,9 @@ func _try_equipment_attack(_slot: int, _direction: Vector2, _charge_ratio: float
 
 
 
-func _begin_ox_gore(slot: int, direction: Vector2) -> void:
+func _begin_ox_gore(slot: int, aim_pos: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    var dir: Vector2 = direction
+    var dir: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
     if dir.length_squared() < 0.05:
         dir = Vector2(h.get("facing", Vector2.RIGHT))
     if dir.length_squared() < 0.05:
@@ -2527,8 +2557,7 @@ func _begin_ox_gore(slot: int, direction: Vector2) -> void:
     h["ox_hit"] = []
     h["facing"] = dir
     heroes[slot] = h
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.40
+    _set_ultimate_focus(slot, 0.40)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "ox_gore"})
 
 func _tick_ox_charges(dt: float) -> void:
@@ -2576,9 +2605,9 @@ func _tick_ox_charges(dt: float) -> void:
                 h["vel"] = Vector2.ZERO
         heroes[slot] = h
 
-func _begin_rat_tide(slot: int, direction: Vector2) -> void:
+func _begin_rat_tide(slot: int, aim_pos: Vector2) -> void:
     var h: Dictionary = heroes[slot]
-    var dir: Vector2 = direction
+    var dir: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
     if dir.length_squared() < 0.05:
         dir = Vector2(h.get("facing", Vector2.RIGHT))
     if dir.length_squared() < 0.05:
@@ -2593,8 +2622,7 @@ func _begin_rat_tide(slot: int, direction: Vector2) -> void:
         "half_w": 118.0,
         "length": 360.0
     })
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.28
+    _set_ultimate_focus(slot, 0.28)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rat_tide"})
 
 func _hero_in_rat_tide(hpos: Vector2, tide: Dictionary) -> bool:
@@ -2633,6 +2661,69 @@ func _apply_rat_tides(dt: float) -> void:
         kept.append(tide)
     rat_tides = kept
 
+
+func _cpu_try_ultimate(slot: int) -> bool:
+    var h: Dictionary = heroes[slot]
+    if not bool(h.get("alive", false)) or bool(h.get("downed", false)) or bool(h.get("eliminated", false)):
+        return false
+    if float(h.get("stun_time", 0.0)) > 0.0 or bool(h.get("burrowed", false)):
+        return false
+    var animal := posmod(int(h.get("animal", slot)), 12)
+    var tslot := int(h.get("target", -1))
+    var dist := 99999.0
+    var aim: Vector2 = Vector2(h["pos"]) + Vector2(h.get("facing", Vector2.RIGHT)) * 240.0
+    if tslot >= 0 and _target_valid(tslot):
+        var tpos := _target_position(tslot)
+        dist = Vector2(h["pos"]).distance_to(tpos)
+        aim = tpos
+    var hp_ratio := 1.0
+    if float(h.get("max_hp", 1.0)) > 1.0:
+        hp_ratio = float(h.get("hp", 0.0)) / float(h["max_hp"])
+    var want := false
+    match animal:
+        0:
+            want = dist < 520.0
+        1:
+            want = dist < 300.0
+        2:
+            want = dist < 340.0
+        3:
+            want = dist < 640.0 or hp_ratio < 0.42
+        4:
+            want = dist < 420.0
+        5:
+            want = hp_ratio < 0.55 or dist < 220.0
+        6:
+            want = dist < 210.0
+        7:
+            want = dist < 380.0 or hp_ratio < 0.50
+        8:
+            want = dist < 480.0
+        9:
+            want = dist < 360.0
+        10:
+            want = dist > 80.0 and dist < 520.0
+        11:
+            want = dist < 300.0
+        _:
+            want = dist < 420.0
+    if tslot < 0 and animal != 5 and animal != 7:
+        want = false
+    if not want:
+        return false
+    if not rng.chance(0.38):
+        return false
+    _try_ultimate(slot, aim)
+    return true
+
+
+func _set_ultimate_focus(slot: int, time: float) -> void:
+    if slot != local_slot:
+        return
+    ultimate_focus_slot = slot
+    ultimate_focus_time = time
+    ultimate_focus_max = maxf(0.16, time)
+
 func _try_ultimate(slot: int, _direction: Vector2) -> void:
     if slot < 0 or slot >= heroes.size():
         return
@@ -2666,7 +2757,7 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
         _begin_snake_shed(slot)
         return
     if animal == 6:
-        _begin_horse_kick(slot)
+        _begin_horse_kick(slot, _direction)
         return
     if animal == 7:
         _begin_wool_shield(slot)
@@ -2698,8 +2789,7 @@ func _try_ultimate(slot: int, _direction: Vector2) -> void:
         })
     h["ult_clones"] = clones
     heroes[slot] = h
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.28
+    _set_ultimate_focus(slot, 0.28)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "mirage", "clones": 7})
 
 
@@ -2720,8 +2810,7 @@ func _begin_dog_fetch(slot: int, aim_pos: Vector2) -> void:
     h["dog_bone"] = dest
     h["dog_hit"] = []
     heroes[slot] = h
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.18
+    _set_ultimate_focus(slot, 0.18)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "dog_fetch"})
 
 func _tick_dog_rush(dt: float) -> void:
@@ -2798,6 +2887,91 @@ func _tick_dog_rush(dt: float) -> void:
     dog_bones = kept
 
 
+
+func _cancel_finish_cine() -> void:
+    finish_cine = {}
+
+func _try_begin_finish(slot: int) -> void:
+
+    if bool(finish_cine.get("on", false)):
+        return
+    if slot < 0 or slot >= heroes.size():
+        return
+    var me: Dictionary = heroes[slot]
+    if not bool(me.get("alive", false)) or bool(me.get("downed", false)):
+        return
+    var best := -1
+    var best_d := 280.0
+    for t in range(heroes.size()):
+        if t == slot:
+            continue
+        var vic: Dictionary = heroes[t]
+        if not bool(vic.get("downed", false)) or not bool(vic.get("alive", false)):
+            continue
+        var d: float = Vector2(me["pos"]).distance_to(Vector2(vic["pos"]))
+        if d < best_d:
+            best_d = d
+            best = t
+    if best < 0:
+        return
+    finish_cine = {
+        "on": true,
+        "atk": slot,
+        "vic": best,
+        "t": 0.0,
+        "hit": false,
+        "fly": 0.0,
+        "vic_x": 0.0,
+        "vic_y": 0.0,
+        "vic_spin": 0.0,
+        "atk_x": 0.0,
+        "rush": false,
+        "mid": (Vector2(me["pos"]) + Vector2(heroes[best]["pos"])) * 0.5
+    }
+    event_log.emit(tick, &"finish_start", slot, best, {})
+
+func _tick_finish_cine(command: Dictionary, dt: float) -> void:
+    if not bool(finish_cine.get("on", false)):
+        return
+    var atk := int(finish_cine.get("atk", 0))
+    var vic := int(finish_cine.get("vic", -1))
+    if vic < 0 or vic >= heroes.size() or atk < 0 or atk >= heroes.size():
+        finish_cine = {}
+        return
+    var vh: Dictionary = heroes[vic]
+    if not bool(vh.get("downed", false)) or not bool(vh.get("alive", false)):
+        _cancel_finish_cine()
+        return
+    var ah: Dictionary = heroes[atk]
+    if not bool(ah.get("alive", false)) or bool(ah.get("eliminated", false)):
+        _cancel_finish_cine()
+        return
+    ah["vel"] = Vector2.ZERO
+    heroes[atk] = ah
+    vh["down_left"] = maxf(0.12, float(vh.get("down_left", 0.0)))
+    heroes[vic] = vh
+    finish_cine["t"] = float(finish_cine.get("t", 0.0)) + dt
+    if bool(command.get("finish", false)) and float(finish_cine.get("t", 0.0)) > 0.12:
+        _cancel_finish_cine()
+        return
+    if bool(finish_cine.get("hit", false)):
+        finish_cine["fly"] = float(finish_cine.get("fly", 0.0)) + dt
+        finish_cine["vic_x"] = float(finish_cine.get("vic_x", 0.0)) + 1450.0 * dt
+        finish_cine["vic_y"] = float(finish_cine.get("vic_y", 0.0)) - 420.0 * dt
+        finish_cine["vic_spin"] = float(finish_cine.get("vic_spin", 0.0)) + 18.0 * dt
+        if float(finish_cine["fly"]) >= 0.95:
+            finish_cine = {}
+            _down_hero(atk, vic)
+        return
+    if float(finish_cine.get("t", 0.0)) >= 0.35:
+        finish_cine["rush"] = true
+    if bool(finish_cine.get("rush", false)):
+        finish_cine["atk_x"] = float(finish_cine.get("atk_x", 0.0)) + 980.0 * dt
+        if float(finish_cine.get("atk_x", 0.0)) >= 220.0:
+            finish_cine["rush"] = false
+            finish_cine["hit"] = true
+            finish_cine["fly"] = 0.0
+
 func _wool_shield_pos(h: Dictionary) -> Vector2:
     return Vector2(h["pos"])
 
@@ -2807,8 +2981,7 @@ func _begin_wool_shield(slot: int) -> void:
     h["wool_hp"] = 5
     h["wool_max"] = 5
     heroes[slot] = h
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.16
+    _set_ultimate_focus(slot, 0.16)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "wool_shield"})
 
 func _tick_wool_shields(dt: float) -> void:
@@ -2883,8 +3056,7 @@ func _begin_pig_mud(slot: int) -> void:
         "radius": 200.0,
         "ttl": 6.0
     })
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.18
+    _set_ultimate_focus(slot, 0.18)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "pig_mud"})
 
 func _tick_pig_muds(dt: float) -> void:
@@ -2917,8 +3089,7 @@ func _begin_rooster_egg(slot: int) -> void:
         "trigger": 150.0,
         "alive": true
     })
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.18
+    _set_ultimate_focus(slot, 0.18)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rooster_egg"})
 
 func _tick_rooster_eggs(dt: float) -> void:
@@ -2974,9 +3145,11 @@ func _explode_rooster_egg(egg: Dictionary) -> void:
     _add_effect(&"stun_burst", origin, 70.0, 0.36, Color("#ffe27a"), "EGG")
     event_log.emit(tick, &"rooster_egg_boom", owner, -1, {})
 
-func _begin_horse_kick(slot: int) -> void:
+func _begin_horse_kick(slot: int, aim_pos: Vector2 = Vector2.ZERO) -> void:
     var h: Dictionary = heroes[slot]
-    var face: Vector2 = Vector2(h.get("facing", Vector2.RIGHT))
+    var face: Vector2 = Vector2(h["pos"]).direction_to(aim_pos)
+    if face.length_squared() < 0.05:
+        face = Vector2(h.get("facing", Vector2.RIGHT))
     if face.length_squared() < 0.05:
         face = Vector2.RIGHT
     face = face.normalized()
@@ -3006,8 +3179,7 @@ func _begin_horse_kick(slot: int) -> void:
         vic["vel"] = push
         vic["pos"] = _resolve_cover_motion(Vector2(vic["pos"]), back * 72.0)
         heroes[t] = vic
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.22
+    _set_ultimate_focus(slot, 0.22)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "horse_kick"})
 
 func _tick_horse_kicks(dt: float) -> void:
@@ -3034,8 +3206,7 @@ func _begin_rabbit_burrow(slot: int, aim_pos: Vector2) -> void:
     h["burrow_exit"] = exit_pos
     h["vel"] = Vector2.ZERO
     heroes[slot] = h
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.20
+    _set_ultimate_focus(slot, 0.20)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "rabbit_burrow"})
 
 func _tick_rabbit_burrows(dt: float) -> void:
@@ -3078,8 +3249,7 @@ func _begin_tiger_roar(slot: int) -> void:
         vic["flee_time"] = 1.5
         vic["flee_from"] = origin
         heroes[t] = vic
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.24
+    _set_ultimate_focus(slot, 0.24)
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "tiger_roar"})
 
 func _tick_tiger_roars(dt: float) -> void:
@@ -3110,11 +3280,10 @@ func _begin_dragon_smoke(slot: int) -> void:
     dragon_smokes.append({
         "owner": slot,
         "pos": Vector2(h["pos"]),
-        "radius": 560.0,
+        "radius": 300.0,
         "ttl": 15.0
     })
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.22
+    _set_ultimate_focus(slot, 0.22)
     _add_effect(&"afterimage", Vector2(h["pos"]), 90.0, 0.28, Color("#c8c8c8"), "SMOKE")
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "dragon_smoke"})
 
@@ -3170,8 +3339,7 @@ func _begin_snake_shed(slot: int) -> void:
         "alive": true
     })
     _apply_roulette_face(slot, {"id":"giant", "name":"GIANT", "kind":"timed", "atk":3.0, "spd":5.0, "def":0.0, "hp":3.0, "rate":0.0, "range":0.0, "shield":0.0, "dur":12.0})
-    ultimate_focus_slot = slot
-    ultimate_focus_time = 0.28
+    _set_ultimate_focus(slot, 0.28)
     _add_effect(&"afterimage", Vector2(h["pos"]), 64.0, 0.32, Color("#9ad47a"), "SHED")
     event_log.emit(tick, &"ultimate_used", slot, -1, {"id": "snake_shed"})
 
@@ -4114,10 +4282,18 @@ func _tick_downs(dt: float) -> void:
             h["downed"] = false
             heroes[slot] = h
             continue
+        var cine_vic := bool(finish_cine.get("on", false)) and slot == int(finish_cine.get("vic", -1))
+        if cine_vic:
+            h["down_left"] = maxf(0.12, float(h.get("down_left", 0.0)))
+            heroes[slot] = h
+            continue
         h["down_left"] = maxf(0.0, float(h.get("down_left", 0.0)) - dt)
         heroes[slot] = h
         if float(h["down_left"]) <= 0.0:
-            _stand_up(slot)
+            if not _hero_in_safe_zone(slot):
+                _down_hero(-1, slot)
+            else:
+                _stand_up(slot)
 
 func _down_hero(owner: int, target: int) -> void:
     var h: Dictionary = heroes[target]
@@ -4344,14 +4520,15 @@ func _damage_hero_environment(target: int, amount: float, show_tick: bool) -> vo
     var h: Dictionary = heroes[target]
     if not bool(h["alive"]) or amount <= 0.0:
         return
-    if float(h.get("spawn_protect_time", 0.0)) > 0.0:
-        return
-    h["hp"] = float(h["hp"]) - amount
+    var zone_amt := amount
+    if bool(h.get("downed", false)):
+        zone_amt *= 3.0
+    h["hp"] = float(h["hp"]) - zone_amt
     heroes[target] = h
     if show_tick:
         _add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
         event_log.emit(tick, &"hero_hit", -1, target, {"damage":SAFE_ZONE_DAMAGE_PER_SEC * SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
-    _apply_lethal_or_down(-1, target, amount)
+    _apply_lethal_or_down(-1, target, zone_amt)
 
 func _hero_hp_ratio(slot: int) -> float:
     if slot < 0 or slot >= heroes.size() or bool(heroes[slot]["eliminated"]):
@@ -4543,6 +4720,7 @@ func _update_mid_tower(dt: float) -> void:
         return
     mid_tower["boing"] = maxf(0.0, float(mid_tower.get("boing", 0.0)) - dt)
     mid_tower["fire_cd"] = maxf(0.0, float(mid_tower.get("fire_cd", 0.0)) - dt)
+    _tower_point_blank(dt)
     if float(mid_tower["fire_cd"]) > 0.0:
         return
     var best := -1
@@ -4634,6 +4812,35 @@ func _tower_shell(tpos: Vector2, dir: Vector2, speed: float, splash: float, dmg:
         "source": &"tower"
     })
     next_entity_id += 1
+
+
+func _tower_point_blank(dt: float) -> void:
+    if not bool(mid_tower.get("alive", false)):
+        return
+    mid_tower["crush_cd"] = maxf(0.0, float(mid_tower.get("crush_cd", 0.0)) - dt)
+    if float(mid_tower.get("crush_cd", 0.0)) > 0.0:
+        return
+    var tpos: Vector2 = mid_tower["pos"]
+    var reach := TOWER_RADIUS + HERO_RADIUS + 26.0
+    var hit_any := false
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if not bool(h.get("alive", false)) or bool(h.get("eliminated", false)):
+            continue
+        if Vector2(h["pos"]).distance_to(tpos) > reach:
+            continue
+        hit_any = true
+        _damage_hero_environment(slot, TOWER_DAMAGE * 0.85, true)
+        var push := tpos.direction_to(Vector2(h["pos"]))
+        if push.length_squared() < 0.05:
+            push = Vector2.RIGHT.rotated(float(slot))
+        h = heroes[slot]
+        h["pos"] = _resolve_cover_motion(Vector2(h["pos"]), push * 34.0)
+        heroes[slot] = h
+        _add_effect(&"explosion", Vector2(h["pos"]), 42.0, 0.18, Color("#ff7a3a"), "TOWER")
+    if hit_any:
+        mid_tower["crush_cd"] = 0.32
+        mid_tower["boing"] = 0.16
 
 func _tower_ring_shot(tpos: Vector2, count: int, rot: float) -> void:
     for i in range(count):

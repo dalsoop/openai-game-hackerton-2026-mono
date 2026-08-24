@@ -23,6 +23,8 @@ var rabbit_hole_tex: Texture2D = null
 var pig_mud_tex: Texture2D = null
 var dog_bone_tex: Texture2D = null
 var wool_shield_tex: Texture2D = null
+var finish_bg_tex: Texture2D = null
+var finish_glove_tex: Texture2D = null
 var roar_shader: Shader = null
 var roar_fx: Array = []
 var stun_spin_tex: Texture2D = null
@@ -109,6 +111,8 @@ func _ready() -> void:
     pig_mud_tex = _load_tex("res://assets/fx/pig-mud.png")
     dog_bone_tex = _load_tex("res://assets/fx/dog-bone.png")
     wool_shield_tex = _load_tex("res://assets/fx/sheep-wool-ring.png")
+    finish_bg_tex = _load_tex("res://assets/fx/finish-bg.png")
+    finish_glove_tex = _load_tex("res://assets/fx/finish-glove.png")
     roar_shader = load("res://assets/fx/roar_distort.gdshader") as Shader
     stun_spin_tex = _load_tex("res://assets/fx/stun-spin.png")
     gun_texture = _load_tex("res://assets/items/gun.png")
@@ -333,12 +337,12 @@ func _bullet_src_rect(kind: String, tick: int) -> Rect2:
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
 
 
-func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String) -> void:
+func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String, scale: float = 1.0) -> void:
     if bullet_atlas == null:
         return
     var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
     var src := _bullet_src_rect(kind, int(world.tick))
-    var dest := Rect2(Vector2(-28.0, -10.0), Vector2(56.0, 20.0))
+    var dest := Rect2(Vector2(-28.0, -10.0) * scale, Vector2(56.0, 20.0) * scale)
     draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
     draw_texture_rect_region(bullet_atlas, dest, src)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -641,7 +645,7 @@ func _draw_projectiles() -> void:
                 draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
                 draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
             "pellet", "burst", "bolt":
-                _draw_lhj_bullet(projectile_pos, direction, kind)
+                _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
             _:
                 if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
                     _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
@@ -1013,6 +1017,89 @@ func _timed_body_scale(hero: Dictionary) -> float:
 
 
 
+
+
+func _draw_keycap(center: Vector2, letter: String) -> void:
+    var box := Rect2(center + Vector2(-16.0, -18.0), Vector2(32.0, 32.0))
+    draw_rect(box.grow(2.0), Color(0.10, 0.08, 0.06, 0.55))
+    draw_rect(box, Color("#f4efe4"))
+    draw_rect(Rect2(box.position + Vector2(2.0, 2.0), Vector2(box.size.x - 4.0, box.size.y - 5.0)), Color("#fffaf2"))
+    draw_rect(box, Color("#c8bba8"), false, 2.0)
+    draw_string(GameFont.get_font(), box.position + Vector2(0.0, 23.0), letter, HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 16, Color("#2a2218"))
+
+func _draw_finish_prompts() -> void:
+    if world == null:
+        return
+    if not world.finish_cine.is_empty() and bool(world.finish_cine.get("on", false)):
+        return
+    var me := int(world.local_slot)
+    if me < 0 or me >= world.heroes.size():
+        me = 0
+    var me_pos: Vector2 = world.heroes[me]["pos"]
+    if bool(world.heroes[me].get("downed", false)) or not bool(world.heroes[me].get("alive", false)):
+        return
+    for hero in world.heroes:
+        var slot := int(hero.get("slot", -1))
+        if slot == me:
+            continue
+        if not bool(hero.get("downed", false)) or not bool(hero.get("alive", false)):
+            continue
+        var pos: Vector2 = hero["pos"]
+        if me_pos.distance_to(pos) > 180.0:
+            continue
+        var bob := sin(float(world.tick) * 0.18) * 3.0
+        var cap := pos + Vector2(0.0, -78.0 + bob)
+        _draw_keycap(cap, "F")
+
+func _draw_finish_actor(pos: Vector2, animal: int, face_right: bool, scale: float, spin: float, opacity: float, flash: float) -> void:
+    var tint := Color(3.2, 3.2, 3.2, opacity) if flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
+    var flip := 1.0 if face_right else -1.0
+    draw_set_transform(pos, spin, Vector2(flip * scale, scale))
+    if animal_atlas != null:
+        draw_texture_rect_region(animal_atlas, Rect2(Vector2(-40.0, -40.0), Vector2(80.0, 80.0)), _animal_src_rect(animal), tint)
+    else:
+        draw_circle(Vector2.ZERO, 28.0, Color(_slot_color(animal), opacity))
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_finish_cine() -> void:
+    if world == null:
+        return
+    var cine: Dictionary = world.finish_cine
+    if cine.is_empty() or not bool(cine.get("on", false)):
+        return
+    var atk := int(cine.get("atk", 0))
+    var vic := int(cine.get("vic", -1))
+    if atk < 0 or vic < 0 or atk >= world.heroes.size() or vic >= world.heroes.size():
+        return
+    if finish_bg_tex == null:
+        finish_bg_tex = _load_tex("res://assets/fx/finish-bg.png")
+    var mid := Vector2.ZERO
+    var cam := get_viewport().get_camera_2d()
+    if cam != null:
+        mid = cam.get_screen_center_position()
+    elif cine.has("mid"):
+        mid = Vector2(cine["mid"])
+    if finish_bg_tex != null:
+        draw_texture_rect(finish_bg_tex, Rect2(mid + Vector2(-520.0, -260.0), Vector2(1040.0, 520.0)), false)
+    else:
+        draw_circle(mid, 220.0, Color(1.0, 0.32, 0.28, 0.6))
+    var atk_h: Dictionary = world.heroes[atk]
+    var vic_h: Dictionary = world.heroes[vic]
+    var atk_an := int(atk_h.get("animal", atk))
+    var vic_an := int(vic_h.get("animal", vic))
+    var atk_pos := mid + Vector2(-150.0 + float(cine.get("atk_x", 0.0)), 28.0)
+    var vic_pos := mid + Vector2(150.0, 36.0) + Vector2(float(cine.get("vic_x", 0.0)), float(cine.get("vic_y", 0.0)))
+    _draw_finish_actor(atk_pos, atk_an, true, 1.55, 0.0, 1.0, 0.0)
+    var spin := float(cine.get("vic_spin", 0.0))
+    if not bool(cine.get("hit", false)):
+        spin = 0.85
+    var fade := 1.0
+    if bool(cine.get("hit", false)):
+        fade = clampf(1.0 - float(cine.get("fly", 0.0)) / 0.95, 0.15, 1.0)
+    _draw_finish_actor(vic_pos, vic_an, false, 1.45, spin, fade, 0.4 if bool(cine.get("hit", false)) else 0.0)
+    if not bool(cine.get("hit", false)):
+        draw_string(GameFont.get_font(), mid + Vector2(-110.0, -176.0), "F / ESC", HORIZONTAL_ALIGNMENT_CENTER, 220.0, 14, Color("#fff4d2"))
+
 func _draw_wool_shields() -> void:
     if world == null:
         return
@@ -1137,19 +1224,10 @@ func _draw_dragon_smokes() -> void:
         return
     for smoke in world.dragon_smokes:
         var pos: Vector2 = smoke.get("pos", Vector2.ZERO)
-        var rad := float(smoke.get("radius", 560.0))
+        var rad := float(smoke.get("radius", 300.0))
         var life := clampf(float(smoke.get("ttl", 0.0)) / 15.0, 0.0, 1.0)
-        var puff := rad * 0.72
-        for i in range(7):
-            var ang := float(i) * TAU / 7.0 + float(world.tick) * 0.008
-            var wob := 1.0 + 0.06 * sin(float(world.tick) * 0.07 + float(i))
-            var p: Vector2 = pos + Vector2(cos(ang), sin(ang)) * (rad * 0.28)
-            var sz := puff * wob
-            draw_set_transform(p, ang * 0.15, Vector2.ONE)
-            draw_texture_rect(dragon_smoke_tex, Rect2(Vector2(-sz * 0.5, -sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.55 * life + 0.22))
-            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-        var core := puff * 1.05
-        draw_texture_rect(dragon_smoke_tex, Rect2(pos - Vector2(core * 0.5, core * 0.5), Vector2(core, core)), false, Color(1.0, 1.0, 1.0, 0.62 * life + 0.18))
+        var sz := rad * 2.0
+        draw_texture_rect(dragon_smoke_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.78 * life + 0.18))
 
 func _draw_snake_skins() -> void:
     for skin in world.snake_skins:
@@ -1525,10 +1603,12 @@ func _draw() -> void:
     _draw_rabbit_holes()
     _draw_tiger_roars()
     _draw_heroes()
+    _draw_finish_prompts()
     _draw_rat_tides()
     _draw_snake_skins()
     _draw_dragon_smokes()
     _draw_combat_texts()
+    _draw_finish_cine()
 
 func _draw_crates() -> void:
     if world.crates.is_empty():
