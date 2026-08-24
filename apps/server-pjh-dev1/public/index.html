@@ -250,7 +250,7 @@
 
     <div class="host-bar" id="hostBar" style="display:none">
       <select id="modeChange"></select>
-      <button class="cta" id="start">같이 시작<small>빈자리 CPU</small></button>
+      <button class="cta" id="start">게임으로 이동</button>
     </div>
   </section>
 
@@ -778,7 +778,17 @@ document.getElementById("copy").onclick = async () => {
 };
 
 document.getElementById("leave").onclick = () => send({ t: "leave" });
-document.getElementById("start").onclick = () => send({ t: "start" });
+document.getElementById("start").onclick = () => {
+  if (prefetchDone) {
+    goToGame();
+  } else {
+    showBanner(`게임 로딩 중… ${prefetchPct}%`);
+    const ci = setInterval(() => {
+      if (prefetchDone) { clearInterval(ci); hideBanner(); goToGame(); }
+      else showBanner(`게임 로딩 중… ${prefetchPct}%`);
+    }, 300);
+  }
+};
 
 document.getElementById("modeChange").onchange = (e) => {
   send({ t: "mode", mode: e.target.value });
