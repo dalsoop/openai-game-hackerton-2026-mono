@@ -1,4 +1,4 @@
-// File: /Users/jeonghan/Documents/WORK/Github/dalsoop/openai-game-hackerton-2026-mono/.claude/worktrees/agent-a790e9f7bf60bc6b4/web/app/dagul/page.tsx
+// File: /Users/jeonghan/Documents/WORK/Github/dalsoop/openai-game-hackerton-2026-mono/web/app/dagul/page.tsx
 import * as entry from '../../../../app/dagul/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

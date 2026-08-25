@@ -1,14 +1,14 @@
 import { WebSocket } from "ws";
-import { HUB_CONFIG, MSG, KO, MODES } from "./config.js";
-import type { Client, Room, TaggedWebSocket } from "./types.js";
-import { Phase } from "./types.js";
+import { HUB_CONFIG, MSG, KO, MODES } from "./config";
+import type { Client, Room, TaggedWebSocket } from "./types";
+import { Phase } from "./types";
 import {
   clients, rooms, allocClientId, allocRoomId, resumeToken,
   sanitize, rateOk, send, sendTo, sendRoom,
   clientByWs, livingIds, hostId, slotOf, roomPublic, peersPayload,
   notifyRoom, broadcastRooms, parkPlayer,
   leaveRoom, startMatch, resetToLobby, attachResume, parkClient, dropClient,
-} from "./room-manager.js";
+} from "./room-manager";
 
 export function onConnection(ws: WebSocket, game: string): void {
   const id = allocClientId();
@@ -164,7 +164,7 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     const room = rooms.get(client.roomId);
     if (!room || room.phase !== Phase.PLAYING) return;
     if (client.id !== room.hostClientId) return;
-    const snapData = { ...msg, t: MSG.SNAP };
+    const snapData: Record<string, unknown> = { ...msg, t: MSG.SNAP };
     room.prevSnap = room.lastSnap;
     room.lastSnap = snapData;
     room.snapCount += 1;
@@ -174,7 +174,7 @@ function handleMessage(client: Client, msg: Record<string, unknown>): void {
     if (isEnded && (!room.prevSnap || room.prevSnap["result"] === Phase.PLAYING)) {
       if (room.timer) { clearTimeout(room.timer); room.timer = null; }
       room.timer = setTimeout(() => { const r = rooms.get(room.id); if (r) resetToLobby(r); }, HUB_CONFIG.resetToLobbyDelayMs);
-    } else if (snapData.result === Phase.PLAYING && room.timer) {
+    } else if ((snapData as Record<string, unknown>).result === Phase.PLAYING && room.timer) {
       clearTimeout(room.timer); room.timer = null;
     }
     return;

@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import { WebSocket } from "ws";
-import { HUB_CONFIG, MSG, KO, MODES } from "./config.js";
-import type { Client, Room, TaggedWebSocket } from "./types.js";
-import { Phase } from "./types.js";
+import { HUB_CONFIG, MSG, KO, MODES } from "./config";
+import type { Client, Room, TaggedWebSocket } from "./types";
+import { Phase } from "./types";
 
 let nextId = 1;
 let nextRoom = 1;
