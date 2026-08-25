@@ -1,6 +1,47 @@
 #!/bin/sh
-python3 lint_gd.py apps/server-yjh-dev1/project/scripts
-if [ $? -ne 0 ]; then
-  echo "❌ GDScript 린트 실패 — 700줄 초과 파일 또는 코드 품질 문제"
-  exit 1
+# 커밋 게이트 — 1) GD 린트(정규식) 2) Godot 파스+유닛(런타임).
+# 훅 활성화(1회): git config core.hooksPath .githooks
+set -e
+
+# GDScript 가 스테이지에 있을 때만 GD 게이트 (속도 가드)
+if git diff --cached --name-only | grep -q "\.gd$"; then
+  echo "▶ GD 게이트: lint_gd"
+  python3 lint_gd.py apps/server-yjh-dev1/project/scripts --baseline lint_gd_baseline.json
+
+  echo "▶ GD 게이트: 스테이지 파일 파스 (고아 파일 포함)"
+  GODOT="${GODOT_BIN:-/Applications/Godot.app/Contents/MacOS/Godot}"
+  for f in $(git diff --cached --name-only | grep "\.gd$"); do
+    RES=$(cd apps/server-yjh-dev1 && ls project 2>/dev/null >/dev/null && echo "apps/server-yjh-dev1/project")
+    # 저장소 루트 기준 res:// 경로로 변환 (server-yjh-dev1 하위만 — 그 외 슬롯은 건너뛴다)
+    REL="${f#apps/server-yjh-dev1/project/}"
+    [ "$REL" = "$f" ] && continue
+    OUT=$("$GODOT" --headless --path apps/server-yjh-dev1/project --check-only --script "res://$REL" 2>&1 || true)
+    echo "$OUT" | grep -E "Parse Error|SCRIPT ERROR" && {
+      echo "❌ pre-commit: 파스 실패 — $f"
+      exit 1
+    }
+  done
+
+  echo "▶ GD 게이트: Godot 파스+유닛테스트"
+  TEST_LOG=$("$GODOT" --headless --path apps/server-yjh-dev1/project --script res://tests/run_tests.gd 2>&1 || true)
+  echo "$TEST_LOG" | grep -E "GDTEST FAIL|SCRIPT ERROR|Parse Error" && {
+    echo "❌ pre-commit: GDScript 파스/테스트 실패"
+    exit 1
+  }
+  echo "$TEST_LOG" | grep "GDTEST SUMMARY" || {
+    echo "❌ pre-commit: GD 테스트 러너 미기동 (Godot/경로 확인)"
+    exit 1
+  }
+fi
+
+# 웹 게이트 — 스테이지에 web 코드가 있으면 풀 체인 (다 고쳐야만 커밋)
+if git diff --cached --name-only | grep -qE "^apps/server-yjh-dev1/web/.*\.(ts|tsx|mjs|json)$"; then
+  echo "▶ WEB 게이트: tsc + eslint + vitest"
+  (cd apps/server-yjh-dev1/web \
+    && npx tsc --noEmit \
+    && npx eslint . \
+    && npx vitest run --reporter=dot 2>&1 | tail -3) || {
+    echo "❌ pre-commit: 웹 게이트 실패 — 전부 고친 뒤 다시 커밋"
+    exit 1
+  }
 fi

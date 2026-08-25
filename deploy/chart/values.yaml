@@ -49,12 +49,24 @@ hub:
     tag: ""
   env:
     PORT: "8080"
+  # 다중 복제 시: strategy: RollingUpdate + publicPrefix: "%s.external.kr/hubp"
+  # (printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결)
+  strategy: ""
+  publicPrefix: ""
   resources:
     requests:
       cpu: 50m
       memory: 64Mi
     limits:
       memory: 256Mi
+
+redis:
+  enabled: true
+  # 차트에 Redis 1대. 모든 허브가 이 URL 을 쓴다.
+  url: "redis://redis:6379"
+  image: redis:7-alpine
+  serviceName: redis
+  storage: 1Gi
 
 games: []
 hubs: []

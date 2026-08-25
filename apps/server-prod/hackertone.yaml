@@ -6,7 +6,8 @@ players: 1–8
 web:
   enabled: true
   exportDir: project/web
+  skipExport: true
 hub:
   enabled: true
-  pathPrefix: /gang-up
-  dockerfile: Dockerfile
+  pathPrefix: /
+  dockerfile: web/Dockerfile

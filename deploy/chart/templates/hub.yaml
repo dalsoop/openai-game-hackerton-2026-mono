@@ -11,7 +11,12 @@ metadata:
 spec:
   replicas: {{ $.Values.hub.replicaCount }}
   strategy:
-    type: Recreate
+    type: {{ $.Values.hub.strategy | default "Recreate" }}
+    {{- if eq ($.Values.hub.strategy | default "Recreate") "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- end }}
   selector:
     matchLabels:
       {{- include "hackertone-games.selectorLabels" $ | nindent 6 }}
@@ -38,6 +43,18 @@ spec:
               value: {{ $.Values.hub.env.PORT | quote }}
             - name: SLOT_FOLDER
               value: {{ .folder | quote }}
+            {{- if and $.Values.redis.enabled $.Values.redis.url }}
+            - name: REDIS_URL
+              value: {{ $.Values.redis.url | quote }}
+            {{- end }}
+            {{- if $.Values.hub.publicPrefix }}
+            - name: HUB_PUBLIC_PREFIX
+              value: {{ printf $.Values.hub.publicPrefix .folder | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080
@@ -75,4 +92,27 @@ spec:
     - name: http
       port: 80
       targetPort: 8080
+{{- if $.Values.hub.publicPrefix }}
+---
+# Pod별 안정 DNS — publicAddress(/hubp/<pod-name>) 직접연결 라우팅용.
+# 기존 ClusterIP Service 는 매치메이킹 라운드로빈용으로 그대로 유지된다.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .folder }}-hub-pods
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "hackertone-games.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+{{- end }}
 {{- end }}

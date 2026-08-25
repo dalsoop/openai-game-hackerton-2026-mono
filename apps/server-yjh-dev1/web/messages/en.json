@@ -1,0 +1,116 @@
+{
+  "app": {
+    "title": "Dagulz",
+    "description": "Dagulz"
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting...",
+    "offline": "Offline",
+    "ping": "{ms}ms"
+  },
+  "game": {
+    "loading": {
+      "ready": "Game Ready",
+      "downloading": "Downloading game {pct}%",
+      "compiling": "Compiling WASM...",
+      "preparing": "Preparing Download"
+    },
+    "downloadingAsset": "Receiving game assets. You can start when complete.",
+    "serverConnecting": "Connecting to server...",
+    "serverConnectFailed": "Cannot connect to server.",
+    "reconnect": "Rejoin",
+    "kickedTitle": "You left the room",
+    "kickedBody": "The host removed you from the room.",
+    "droppedTitle": "Connection lost",
+    "droppedBody": "You left the room. You can rejoin.",
+    "back": "Back",
+    "resuming": "Reconnecting to your previous session...",
+    "startFresh": "Start fresh",
+    "errors": {
+      "engineMissing": "Game engine script not found",
+      "engineLoadFailed": "Failed to load game engine",
+      "matchSignalMissing": "Game failed to join the server match (no match signal)",
+      "webgl2Missing": "This browser does not support WebGL2. Open Chrome or Safari with hardware acceleration enabled."
+    }
+  },
+  "intro": {
+    "namePlaceholder": "Your Name",
+    "startButton": "Start",
+    "defaultPlayer": "Player",
+    "loggedInAs": "Signed in as {name}",
+    "logout": "Sign out"
+  },
+  "logo": {
+    "word": "Dagulz"
+  },
+  "lobby": {
+    "title": "Open Rooms",
+    "refresh": "Refresh",
+    "emptyRooms": "No rooms open yet.",
+    "room": "Room",
+    "createButton": "Create Room",
+    "join": "Join",
+    "modeFull": "Full",
+    "mineHost": "My room · Host",
+    "mine": "My room",
+    "inProgress": "In progress",
+    "closed": "Closed",
+    "gameSelect": "Select game",
+    "games": {
+      "dagul": { "title": "Dagul" },
+      "sparring": { "title": "Sparring" }
+    }
+  },
+  "create": {
+    "title": "Create Room",
+    "blurb": "Pick a game and name the room.",
+    "roomTitle": "Room name",
+    "roomTitlePlaceholder": "Leave empty for a default name",
+    "gameSelect": "Game",
+    "meta": "{version} · {size}",
+    "versionUnknown": "Version unknown",
+    "sizeUnknown": "Size unknown",
+    "sizeB": "{amount}B",
+    "sizeKb": "{amount}KB",
+    "sizeMb": "{amount}MB",
+    "submit": "Create Room",
+    "cancel": "Back to lobby"
+  },
+  "room": {
+    "mode": "Full",
+    "title": "Waiting Room",
+    "leaveButton": "Leave",
+    "me": "Me",
+    "waitingReconnect": "Reconnecting",
+    "host": "Host",
+    "waiting": "Waiting",
+    "cpuAtStart": "CPU at Start",
+    "playerCount": "{count}/{max} players · Empty slots filled by CPU at start",
+    "startButton": "Start Game",
+    "waitingForHost": "Waiting for host to start"
+  },
+  "godot": {
+    "starting": "Starting game...",
+    "loadingEngine": "Loading Godot engine",
+    "startError": "Cannot start game",
+    "backToLobby": "Back to lobby"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "connection": "Cannot reach the server. Please try again in a moment.",
+    "unknown": "An unexpected error occurred.",
+    "retry": "Try again",
+    "detail": "Error details"
+  },
+  "games": {
+    "dagul": {
+      "title": "Dagul",
+      "blurb": "Eight players loot guns and items on one map and fight."
+    },
+    "sparring": {
+      "title": "Sparring (demo)",
+      "blurb": "Short demo. Exchange snaps only and practice hosting."
+    }
+  }
+}

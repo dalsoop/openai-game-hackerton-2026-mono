@@ -1,0 +1,60 @@
+name: web-lint
+
+# yjh-dev1 웹 앱 게이트 — 정적(lint·타입·빌드·단위) + 통합(허브 실왕복 스모크).
+# 브라우저 E2E는 로컬 담당(비용) · 배포는 apps.yml 이 담당한다.
+on:
+  pull_request:
+    paths:
+      - "apps/server-yjh-dev1/web/**"
+      - ".github/workflows/web-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/server-yjh-dev1/web/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server-yjh-dev1/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/server-yjh-dev1/web/package-lock.json
+      - run: npm ci
+      # build 스크립트 = check-contract → eslint → next build → tsc(server)
+      - run: npm run build
+      # 단위 테스트 — tests/README.md 4층 구성의 1·2층
+      - run: npx vitest run
+
+  smoke:
+    # 3층 통합 — 프로덕션 서버를 띄워 허브 실왕복을 검증한다.
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: apps/server-yjh-dev1/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/server-yjh-dev1/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: 서버 기동 (포트 3000)
+        run: |
+          npm start &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:3000/ >/dev/null && exit 0
+            sleep 2
+          done
+          echo "서버 기동 실패"; exit 1
+      - run: npm run smoke
+      - run: npm run smoke:resume
+      - run: node scripts/catalog-packs.mjs

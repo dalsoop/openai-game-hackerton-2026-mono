@@ -3,18 +3,18 @@ config_version=5
 [application]
 
 config/name="다굴게임 Godot Graybox"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://core/shell/boot.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
-NetworkManager="*res://autoload/network_manager.gd"
-GameState="*res://autoload/game_state.gd"
-Audio="*res://scripts/audio/game_audio.gd"
+NetworkManager="*res://core/autoload/network_manager.gd"
+GameState="*res://core/autoload/game_state.gd"
+Audio="*res://core/autoload/game_audio.gd"
 
 [gui]
 
-theme/custom_font="res://assets/fonts/GmarketSansMedium.otf"
+theme/custom_font="res://core/assets/fonts/GmarketSansMedium.otf"
 
 [internationalization]
 
@@ -40,3 +40,7 @@ textures/default_filters/use_nearest_mipmap_filter=false
 
 common/physics_ticks_per_second=60
 
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/colyseus/plugin.cfg")

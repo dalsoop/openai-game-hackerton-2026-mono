@@ -1,0 +1,119 @@
+{
+  "app": {
+    "title": "다굴즈",
+    "description": "다굴즈"
+  },
+  "connection": {
+    "connected": "접속됨",
+    "connecting": "연결 중...",
+    "offline": "오프라인",
+    "ping": "{ms}ms"
+  },
+  "game": {
+    "loading": {
+      "ready": "게임 준비 완료",
+      "downloading": "게임 다운로드 {pct}%",
+      "compiling": "WASM 컴파일 중...",
+      "preparing": "게임 다운로드 준비 중"
+    },
+    "downloadingAsset": "게임 에셋을 받는 중입니다. 완료되면 시작할 수 있습니다.",
+    "serverConnecting": "서버에 연결하는 중입니다...",
+    "serverConnectFailed": "서버에 연결할 수 없습니다.",
+    "reconnect": "다시 접속하기",
+    "kickedTitle": "방에서 나왔습니다",
+    "kickedBody": "호스트가 방에서 내보냈습니다.",
+    "droppedTitle": "연결이 끊겼습니다",
+    "droppedBody": "방에서 나왔습니다. 다시 접속할 수 있습니다.",
+    "back": "뒤로",
+    "resuming": "이전 세션에 재접속 중입니다...",
+    "startFresh": "새로 시작하기",
+    "errors": {
+      "engineMissing": "게임 엔진 스크립트를 찾지 못했습니다",
+      "engineLoadFailed": "게임 엔진 로드에 실패했습니다",
+      "matchSignalMissing": "게임이 서버 매치에 합류하지 못했습니다 (매치 신호 없음)",
+      "webgl2Missing": "이 브라우저는 WebGL2를 지원하지 않습니다. Chrome 또는 Safari에서 하드웨어 가속을 켠 뒤 다시 열어 주세요."
+    }
+  },
+  "intro": {
+    "namePlaceholder": "내 이름",
+    "startButton": "시작하기",
+    "defaultPlayer": "플레이어",
+    "loggedInAs": "{name}으로 로그인됨",
+    "logout": "로그아웃"
+  },
+  "logo": {
+    "word": "다굴즈"
+  },
+  "lobby": {
+    "title": "열린 방",
+    "refresh": "새로고침",
+    "emptyRooms": "아직 열린 방이 없습니다.",
+    "room": "방",
+    "createButton": "방 만들기",
+    "join": "입장",
+    "modeFull": "합본",
+    "mineHost": "내 방 · 방장",
+    "mine": "내 방",
+    "inProgress": "진행 중",
+    "closed": "닫힘",
+    "gameSelect": "게임 선택",
+    "games": {
+      "dagul": { "title": "다굴" },
+      "sparring": { "title": "스파링" }
+    }
+  },
+  "create": {
+    "title": "방 만들기",
+    "blurb": "플레이할 게임을 고르고 방 이름을 정하세요.",
+    "roomTitle": "방 이름",
+    "roomTitlePlaceholder": "비워 두면 기본 이름이 들어갑니다",
+    "gameSelect": "게임",
+    "meta": "{version} · {size}",
+    "versionUnknown": "버전 없음",
+    "sizeUnknown": "용량 없음",
+    "sizeB": "{amount}B",
+    "sizeKb": "{amount}KB",
+    "sizeMb": "{amount}MB",
+    "submit": "방 만들기",
+    "cancel": "로비로"
+  },
+  "room": {
+    "mode": "합본",
+    "title": "대기실",
+    "leaveButton": "나가기",
+    "me": "나",
+    "waitingReconnect": "재접속 대기",
+    "host": "호스트",
+    "waiting": "대기 중",
+    "cpuAtStart": "시작 시 CPU",
+    "playerCount": "{count}/{max}명 · 빈 자리는 시작 시 CPU가 채웁니다",
+    "startButton": "게임 시작",
+    "waitingForHost": "호스트가 시작할 때까지 기다리세요",
+    "open": "방 열기",
+    "close": "방 닫기",
+    "downloading": "게임 받는 중"
+  },
+  "godot": {
+    "starting": "게임을 시작하는 중...",
+    "loadingEngine": "Godot 엔진을 로딩하고 있습니다",
+    "startError": "게임을 시작할 수 없습니다",
+    "backToLobby": "로비로 돌아가기"
+  },
+  "error": {
+    "title": "문제가 발생했습니다",
+    "connection": "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    "unknown": "예기치 않은 오류가 발생했습니다.",
+    "retry": "다시 시도",
+    "detail": "오류 내용"
+  },
+  "games": {
+    "dagul": {
+      "title": "다굴",
+      "blurb": "여덟 명이 한 맵에서 총과 아이템을 주워 싸운다."
+    },
+    "sparring": {
+      "title": "스파링(데모)",
+      "blurb": "짧은 데모. 스냅만 주고받으며 호스트를 연습한다."
+    }
+  }
+}

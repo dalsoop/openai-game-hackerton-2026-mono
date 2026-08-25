@@ -1,0 +1,41 @@
+name: gd-lint
+
+# GD(Godot) 정적 게이트 — lint 래칫 + 헤드리스 유닛테스트.
+# 웹 PR에 Godot 비용을 넣지 않도록 web-lint.yml 과 경로를 분리한다.
+on:
+  pull_request:
+    paths:
+      - "apps/server-yjh-dev1/project/**"
+      - "lint_gd.py"
+      - "lint_gd_baseline.json"
+      - "scripts/gd_test.py"
+      - ".github/workflows/gd-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/server-yjh-dev1/project/**"
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # lint 래칫 — baseline 초과(신규 위반 유입)면 실패
+      - run: python3 lint_gd.py apps/server-yjh-dev1/project --baseline lint_gd_baseline.json
+
+      # GD 유닛테스트 — Godot 헤드리스 바이너리 캐시(apply-apps.py 의 다운로드 로직이 miss 시 채움)
+      - name: Cache Godot binary
+        uses: actions/cache@v4
+        with:
+          path: deploy/.godot-cache
+          key: godot-4.7.1-linux-x86_64
+      - name: Cache Godot import
+        uses: actions/cache@v4
+        with:
+          path: apps/server-yjh-dev1/project/.godot
+          key: godot-import-${{ hashFiles('apps/server-yjh-dev1/project/**/*.gd', 'apps/server-yjh-dev1/project/**/*.tscn') }}
+      - run: python3 scripts/gd_test.py
