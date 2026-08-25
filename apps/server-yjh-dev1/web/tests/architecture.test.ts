@@ -144,6 +144,12 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
     expect(e2e).toContain("isWebGLAvailable(2)");
     expect(e2e).not.toMatch(/getElementById\(['"]godot-canvas['"]\)[\s\S]{0,80}getContext\(['"]webgl2['"]\)/);
   });
+
+  it("e2e 는 Godot 의 matchmake/reconnect 를 감시한다", () => {
+    const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
+    expect(e2e).toContain("/matchmake/reconnect");
+    expect(e2e).toContain("reconnectHits");
+  });
 });
 
 describe("계약: 허브 소켓 주인은 React", () => {

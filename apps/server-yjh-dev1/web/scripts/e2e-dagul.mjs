@@ -24,8 +24,12 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 const page = await ctx.newPage();
 
 const consoleErrors = [];
+const reconnectHits = [];
 page.on("console", (m) => { if (m.type() === "error") {consoleErrors.push(m.text());} });
 page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+page.on("request", (req) => {
+  if (req.url().includes("/matchmake/reconnect")) {reconnectHits.push(req.url());}
+});
 await page.addInitScript(() => {
   window.__e2eMatchStarted = false;
   window.addEventListener("godot-match-start", () => { window.__e2eMatchStarted = true; }, { once: true });
@@ -90,6 +94,7 @@ const matchStarted = await page.evaluate(
 );
 await page.screenshot({ path: `${SHOT}-5-match.png` });
 ok("5. Godot 매치 합류 (godot-match-start)", matchStarted);
+ok("5b. Godot 부팅 후 matchmake/reconnect 없음", reconnectHits.length === 0, reconnectHits[0] ?? "");
 
 // 6. 시뮬이 돌고 카운트다운이 끝난 뒤 WASD 로 좌표가 바뀐다.
 const simOk = await page
