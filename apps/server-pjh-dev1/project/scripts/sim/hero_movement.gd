@@ -25,7 +25,7 @@ func apply_human(command: Dictionary) -> void:
 		w.heroes[ls] = h
 		return
 	if bool(h.get("burrowed", false)):
-		h["vel"] = Vector2.ZERO
+		lock_locomotion(h)
 		w.heroes[ls] = h
 		return
 	if bool(h.get("dog_rush", false)):
@@ -37,11 +37,11 @@ func apply_human(command: Dictionary) -> void:
 		var crawl: Vector2 = command.get("move", Vector2.ZERO)
 		if crawl.length_squared() > 1.0:
 			crawl = crawl.normalized()
-		h["vel"] = crawl * hero_move_speed(ls) * 0.16
+		apply_locomotion(h, crawl, hero_move_speed(ls) * 0.16, w.FIXED_DT, &"down")
 		w.heroes[ls] = h
 		return
 	if float(h["launch_time"]) > 0.0:
-		h["vel"] = Vector2.ZERO
+		lock_locomotion(h)
 		w.heroes[ls] = h
 		return
 	var move: Vector2 = command.get("move", Vector2.ZERO)
@@ -55,7 +55,7 @@ func apply_human(command: Dictionary) -> void:
 	if float(h["root_time"]) > 0.0:
 		control_speed = 0.0
 	if float(h["stun_time"]) > 0.0:
-		h["vel"] = Vector2.ZERO
+		lock_locomotion(h)
 		h["charging_skill"] = false
 		h["charge_time"] = 0.0
 		w.heroes[ls] = h
@@ -70,16 +70,16 @@ func apply_human(command: Dictionary) -> void:
 		control_speed *= 0.62
 	if float(h.get("slide_time", 0.0)) > 0.0:
 		w.act_item.steer_slide(ls, h, move, control_speed, w.FIXED_DT)
+		mark_slide_locomotion(h)
 	else:
-		var cruise: Vector2 = move * hero_move_speed(ls) * control_speed * w.dmg.streak_move_multiplier(ls)
-		h["vel"] = cruise
+		var max_spd: float = hero_move_speed(ls) * control_speed * w.dmg.streak_move_multiplier(ls)
+		apply_locomotion(h, move, max_spd, w.FIXED_DT, &"run")
 		if float(h.get("spring_time", 0.0)) > 0.0:
 			var boost_dir: Vector2 = move
 			if boost_dir.length_squared() < 0.1:
 				boost_dir = Vector2(h["facing"])
 			if boost_dir.length_squared() > 0.1:
-				var boosted: Vector2 = Vector2(h["vel"]) + boost_dir.normalized() * w.SPRING_BOOST
-				h["vel"] = boosted
+				h["vel"] = Vector2(h["vel"]) + boost_dir.normalized() * w.SPRING_BOOST
 	if bool(command.get("hop", false)) and not w.roul.hero_has_timed(h, "turtle"):
 		var hop_ready: bool = float(h.get("hop_time", 0.0)) <= 0.0 and float(h.get("hop_lock", 0.0)) <= 0.0
 		if hop_ready and float(h["root_time"]) <= 0.0:
@@ -125,7 +125,7 @@ func apply_peer_humans() -> void:
 			var crawl := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
 			if crawl.length_squared() > 1.0:
 				crawl = crawl.normalized()
-			h["vel"] = crawl * hero_move_speed(slot) * 0.16
+			apply_locomotion(h, crawl, hero_move_speed(slot) * 0.16, w.FIXED_DT, &"down")
 			w.heroes[slot] = h
 			continue
 		if float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
@@ -146,7 +146,7 @@ func apply_peer_humans() -> void:
 			control_speed *= 0.72
 		if float(h["attack_lock_time"]) > 0.0:
 			control_speed *= 0.76
-		h["vel"] = move * hero_move_speed(slot) * control_speed
+		apply_locomotion(h, move, hero_move_speed(slot) * control_speed, w.FIXED_DT, &"run")
 		w.heroes[slot] = h
 		if bool(cmd.get("dash", false)) and float(h["mobility_cd"]) <= 0.0:
 			w.act_item.try_mobility(slot, Vector2(h["facing"]))
@@ -160,7 +160,7 @@ func apply_peer_humans() -> void:
 		if not consumed.has(slot) and not w.peer_commands.has(slot):
 			var h: Dictionary = w.heroes[slot]
 			if bool(h["alive"]) and not bool(h["eliminated"]):
-				h["vel"] = Vector2.ZERO
+				lock_locomotion(h)
 				w.heroes[slot] = h
 	for key in consumed:
 		w.peer_commands.erase(key)
@@ -331,6 +331,100 @@ func update_knockouts(dt: float) -> void:
 		if float(knockout["time"]) > 0.0:
 			kept.append(knockout)
 	w.knockouts = kept
+
+
+func lock_locomotion(h: Dictionary) -> void:
+	h["vel"] = Vector2.ZERO
+	var prev := str(h.get("move_state", "idle"))
+	h["move_state"] = &"locked"
+	h["move_lean"] = 0.0
+	h["move_plant"] = 0.0
+	if prev != "locked" and int(h.get("slot", -1)) == w.local_slot:
+		print("[gangup] move_state " + prev + "->locked")
+
+
+func mark_slide_locomotion(h: Dictionary) -> void:
+	h["move_state"] = &"slide"
+	h["move_plant"] = 0.0
+	_refresh_lean(h, Vector2(h["vel"]), maxf(80.0, Vector2(h["vel"]).length()), &"slide", w.FIXED_DT)
+
+
+func apply_locomotion(h: Dictionary, wish: Vector2, max_speed: float, dt: float, mode: StringName) -> void:
+	if wish.length_squared() > 1.0:
+		wish = wish.normalized()
+	var vel: Vector2 = h.get("vel", Vector2.ZERO)
+	var hopping := float(h.get("hop_time", 0.0)) > 0.0
+	if hopping:
+		mode = &"hop"
+	var has_wish := wish.length_squared() > 0.04 and max_speed > 8.0
+	var target := (wish * max_speed) if has_wish else Vector2.ZERO
+	var spd := vel.length()
+	var accel := 2200.0
+	var brake := 3000.0
+	if mode == &"down":
+		accel = 900.0
+		brake = 1400.0
+	elif hopping:
+		accel = 1400.0
+		brake = 700.0
+	var reversing := false
+	if has_wish and spd > 46.0:
+		reversing = vel.normalized().dot(wish) < 0.12
+	var state: StringName = &"idle"
+	if reversing:
+		vel = vel.move_toward(Vector2.ZERO, brake * 1.2 * dt)
+		if vel.length() < 48.0:
+			vel = vel.move_toward(target, accel * dt)
+			state = &"accel"
+		else:
+			state = &"brake"
+	elif not has_wish:
+		vel = vel.move_toward(Vector2.ZERO, brake * dt)
+		state = &"brake" if spd > 30.0 else &"idle"
+	else:
+		vel = vel.move_toward(target, accel * dt)
+		if vel.length() >= max_speed * 0.86:
+			state = &"cruise"
+		else:
+			state = &"accel"
+	if hopping:
+		h["move_plant"] = 0.0
+	else:
+		var prev := str(h.get("move_state", "idle"))
+		var plant := float(h.get("move_plant", 0.0))
+		if prev == "brake" and state == &"idle":
+			plant = 1.0
+		elif prev == "idle" and state == &"accel":
+			plant = -0.7
+		elif plant > 0.0:
+			plant = maxf(0.0, plant - dt * 4.8)
+		elif plant < 0.0:
+			plant = minf(0.0, plant + dt * 5.2)
+		h["move_plant"] = plant
+	h["vel"] = vel
+	var prev_state := str(h.get("move_state", "idle"))
+	h["move_state"] = state
+	_refresh_lean(h, vel, maxf(max_speed, 80.0), state, dt)
+	if mode == &"down":
+		h["move_lean"] = float(h.get("move_lean", 0.0)) * 0.4
+	if prev_state != str(state) and int(h.get("slot", -1)) == w.local_slot:
+		print("[gangup] move_state " + prev_state + "->" + str(state) + " spd=" + str(snapped(vel.length(), 1)) + " mode=" + str(mode))
+
+
+func _refresh_lean(h: Dictionary, vel: Vector2, ref_speed: float, state: StringName, dt: float) -> void:
+	var lean_tgt := 0.0
+	if vel.length() > 28.0 and state != &"locked":
+		lean_tgt = clampf(vel.x / maxf(ref_speed, 1.0), -1.0, 1.0) * 0.20
+		if state == &"accel":
+			lean_tgt *= 1.35
+		elif state == &"brake":
+			lean_tgt *= -0.6
+		elif state == &"cruise":
+			lean_tgt *= 0.72
+		elif state == &"down":
+			lean_tgt *= 0.35
+	h["move_lean"] = lerpf(float(h.get("move_lean", 0.0)), lean_tgt, 1.0 - exp(-14.0 * dt))
+
 
 func hero_move_speed(slot: int) -> float:
 	if slot < 0 or slot >= w.heroes.size():
