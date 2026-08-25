@@ -470,7 +470,7 @@ function goToGame() {
   localStorage.setItem("gangup_from_hub", "1");
   localStorage.setItem("gangup_name", nameIn.value || "웹");
   intentionalClose = true;
-  location.href = "/game.html";
+  location.href = "/game.html?from_hub=1";
 }
 
 setTimeout(prefetchGame, 2000);

@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
+<script>
+if (/from_hub=1/.test(String(location.search||''))) document.documentElement.classList.add('from-hub');
+</script>
+<style>
+html.from-hub #lobby-root, html.from-hub .status-bar { display:none !important; }
+</style>
+
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
@@ -420,6 +427,23 @@ function switchToGame() {
 	canvas.classList.add('ready');
 	document.querySelector('.status-bar').style.display = 'none';
 	if (ws) { ws.close(); ws = null; }
+
+(function autoFromHub() {
+	var fromHub = false;
+	try {
+		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
+			|| localStorage.getItem('gangup_from_hub') === '1';
+	} catch (e) {
+		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
+	}
+	if (!fromHub) return;
+	var lobby = document.getElementById('lobby-root');
+	if (lobby) lobby.classList.add('hidden');
+	var bar = document.querySelector('.status-bar');
+	if (bar) bar.style.display = 'none';
+	if (typeof launchGodot === 'function') launchGodot();
+})();
+
 }
 
 /* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */

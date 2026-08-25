@@ -356,6 +356,9 @@ func _save_resume(token: String) -> void:
 func consume_hub_launch() -> bool:
     if not OS.has_feature("web"):
         return false
+    var q := _js_text("String(window.location.search||'')")
+    if q.find("from_hub=1") >= 0:
+        return true
     var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
     return v == "1"
 

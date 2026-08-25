@@ -47,6 +47,7 @@ var _pending_create := false
 var _intro_name_edit: LineEdit
 
 func _ready() -> void:
+	_try_bind_hub()
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
 	var t := Theme.new()
@@ -291,6 +292,7 @@ func _on_lobby_refresh() -> void:
 		hub.reconnect_now()
 
 func _on_create_pressed() -> void:
+	_try_bind_hub()
 	if hub == null:
 		_lobby_error.text = "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
 		return
@@ -334,7 +336,18 @@ func _on_spectate_pressed(room_id: String) -> void:
 		return
 	hub.join_room(room_id)
 
+func _try_bind_hub() -> void:
+	if hub != null:
+		return
+	var net = get_node_or_null("/root/NetworkManager")
+	if net != null:
+		bind_hub(net)
+
 func bind_hub(client) -> void:
+	if client == null:
+		return
+	if hub == client:
+		return
 	hub = client
 	hub.rooms_updated.connect(_on_hub_rooms)
 	hub.joined_room.connect(_on_hub_joined)

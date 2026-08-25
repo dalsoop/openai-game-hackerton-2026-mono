@@ -37,6 +37,13 @@ func _ready() -> void:
 	if _is_server_mode:
 		_start_dedicated_server()
 		return
+	hub = get_node_or_null("/root/NetworkManager")
+	if hub != null:
+		screens.bind_hub(hub)
+	if GameState.hub_launched:
+		screens.visible = false
+		world_view.visible = false
+		hud.visible = false
 	_sfx = SfxManager.new()
 	_sfx.setup(self)
 	_attach_touch()
@@ -45,12 +52,15 @@ func _ready() -> void:
 	_tutorial.name = "TutorialOverlay"
 	$HUD.add_child(_tutorial)
 	_tutorial.z_index = 30
-	hub = get_node("/root/NetworkManager")
-	screens.bind_hub(hub)
-	hub.match_started.connect(_on_net_match_started)
-	hub.match_resumed.connect(_on_net_match_resumed)
-	hub.snapshot_received.connect(_on_net_snapshot)
-	hub.status_changed.connect(_on_hub_status)
+	if hub != null:
+		hub.match_started.connect(_on_net_match_started)
+		hub.match_resumed.connect(_on_net_match_resumed)
+		hub.snapshot_received.connect(_on_net_snapshot)
+		hub.status_changed.connect(_on_hub_status)
+		if GameState.hub_launched:
+			hub.left_room.connect(func(): _return_to_hub())
+			hub.hub_error.connect(func(_msg: String): _return_to_hub())
+			hub.joined_room.connect(func(_r, _p, _y): pass)
 	_restart()
 	camera.position = _camera_target()
 	screens.start_match.connect(_on_start_match)
@@ -63,9 +73,6 @@ func _ready() -> void:
 		screens.visible = false
 		world_view.visible = false
 		hud.visible = false
-		hub.left_room.connect(func(): _return_to_hub())
-		hub.hub_error.connect(func(_msg: String): _return_to_hub())
-		hub.joined_room.connect(func(_r, _p, _y): pass)
 	else:
 		_set_phase(&"intro")
 
