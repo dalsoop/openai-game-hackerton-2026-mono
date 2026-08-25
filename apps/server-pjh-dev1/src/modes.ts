@@ -14,6 +14,14 @@ export interface ModeDef {
 }
 
 export const MODES: Record<string, ModeDef> = {
+  classic: {
+    id: "classic",
+    title: KO.MODE_CLASSIC,
+    blurb: KO.MODE_CLASSIC_BLURB,
+    startWeapon: "signature",
+    lootGuns: false,
+    lootItems: false,
+  },
   full: {
     id: "full",
     title: KO.MODE_FULL,

@@ -3,7 +3,7 @@ extends Control
 const GunSig = preload("res://scripts/sim/gun_signature.gd")
 
 var world
-var mode_id: String = "full"
+var mode_id: String = "classic"
 var spectate_slot: int = 0
 var hud_mode: int = 0
 var touch_hints: bool = false

@@ -107,7 +107,7 @@ func _handle_http(conn: StreamPeerTCP) -> void:
 func _handle_start_match(conn: StreamPeerTCP, payload: Dictionary) -> void:
 	var room_id := str(payload.get("room_id", ""))
 	var players: Array = payload.get("players", [])
-	var mode := str(payload.get("mode", "full"))
+	var mode := str(payload.get("mode", "classic"))
 	var seed_val := int(payload.get("seed", randi()))
 	if room_id.is_empty() or players.is_empty():
 		_http_respond(conn, 400, "{\"error\":\"missing room_id or players\"}")

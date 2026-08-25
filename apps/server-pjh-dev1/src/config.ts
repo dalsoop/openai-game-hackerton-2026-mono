@@ -5,7 +5,7 @@ export const CONFIG = {
   gracePlayMs: 60_000,
   maxPayload: 256 * 1024,
   defaultName: "손님",
-  defaultMode: "full",
+  defaultMode: "classic",
   gameServerUrl: process.env.GAME_SERVER_URL || "http://127.0.0.1:9122",
   maxNameLength: 12,
   maxTitleLength: 24,
