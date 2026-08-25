@@ -1,7 +1,5 @@
-{{- if .Values.redis.enabled }}
-# Colyseus 다중 인스턴스 필수 의존(공식 scalability 문서) —
-# RedisPresence(프로세스 간 IPC/pub-sub) + RedisDriver(매치메이킹 저장).
-# 릴레이 게임 특성상 매치메이킹 캐시·헬스체크만 오감 — 단일 인스턴스로 충분.
+{{- if and .Values.redis.enabled .Values.redis.standalone }}
+# 기본은 허브 사이드카. 같은 슬롯 replica 를 여러 개 쓸 때만 standalone.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

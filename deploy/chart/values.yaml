@@ -61,10 +61,15 @@ hub:
       memory: 256Mi
 
 redis:
-  enabled: false
-  url: ""            # redis://redis:6379 (enabled 시 필수)
-  serviceName: redis
+  enabled: true
+  # 비우면 허브 Pod에 redis 사이드카를 넣고 REDIS_URL=redis://127.0.0.1:6379
+  # 슬롯마다 방을 격리한다. Redis pub/sub 은 DB 번호로 나뉘지 않는다.
+  # 외부 Redis 를 쓰면 url 만 채운다. 사이드카는 안 뜬다.
+  url: ""
   image: redis:7-alpine
+  # 같은 슬롯을 여러 replica 로 올릴 때만 true. 공용 Deployment+PVC.
+  standalone: false
+  serviceName: redis
   storage: 1Gi
 
 games: []
