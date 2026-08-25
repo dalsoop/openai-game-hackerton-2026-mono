@@ -141,7 +141,7 @@ func _ready() -> void:
         RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://assets/world/Tex_BG_Field.png")
+    island_texture = _load_tex("res://assets/world/Tex_BG_Field_Wide.png")
     rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
     crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
     for projectile_kind in PROJECTILE_TEXTURE_SIZES:
