@@ -27,7 +27,11 @@ func _init() -> void:
 
 func _run_all() -> void:
 	for suite_path in SUITES:
-		var suite = load(suite_path).new()
+		var script = load(suite_path)
+		if script == null:
+			check("load " + suite_path, false)
+			continue
+		var suite = script.new()
 		suite.run(self)
 	print("GDTEST SUMMARY pass=%d fail=%d" % [pass_count, fail_count])
 	quit(1 if fail_count > 0 else 0)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -63,8 +64,16 @@ def main() -> int:
     for folder, kind in rows:
         host = f"{folder}.external.kr"
         url = f"https://{host}/health" if kind == "hub" else f"https://{host}/"
-        status, detail = probe(url)
-        ok = 200 <= status < 400
+        status, detail = 0, ""
+        ok = False
+        for attempt in range(4):
+            status, detail = probe(url)
+            ok = 200 <= status < 400
+            if ok:
+                break
+            if status not in (0, 502, 503, 504):
+                break
+            time.sleep(3 * (attempt + 1))
         if kind == "hub" and ok:
             try:
                 body = json.loads(detail)

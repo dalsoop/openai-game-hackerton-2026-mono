@@ -1,5 +1,8 @@
 extends RefCounted
 ## 무기 서명 매핑 — 12동물 슬롯×장비·비주얼·계열 정합성.
+## class_name 은 --script 단독 실행에서 글로벌 캐시에 없다. preload 가 정본이다.
+
+const GunSignature := preload("res://games/dagul/sim/gun_signature.gd")
 
 func run(t) -> void:
 	# 12동물 전 슬롯이 서명 무기를 갖는다
