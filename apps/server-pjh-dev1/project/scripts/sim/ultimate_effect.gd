@@ -143,7 +143,7 @@ func absorb_wool_shield(owner: int, target: int, pos: Vector2, radius: float) ->
 func pop_wool_shield(slot: int) -> void:
     var h: Dictionary = w.heroes[slot]
     var center: Vector2 = wool_shield_pos(h)
-    w.proj.add_effect(&"explosion", center, 150.0, 0.36, Color("#fff1c8"), "")
+    w.proj.add_effect(&"sheep_pop", center, 150.0, 0.36, Color("#fff1c8"), "")
     for t in range(w.heroes.size()):
         if t == slot:
             continue
@@ -215,7 +215,7 @@ func pop_ult_clone(slot: int, index: int) -> void:
     clones.remove_at(index)
     h["ult_clones"] = clones
     w.heroes[slot] = h
-    w.proj.add_effect(&"hit_spark", pos, 42.0, 0.22, Color("#c9e7ff"), "")
+    w.proj.add_effect(&"monkey_pop", pos, 54.0, 0.28, Color("#c9e7ff"), "")
     w.event_log.emit(w.tick, &"clone_pop", slot, -1, {})
 
 func hit_ult_clone(owner: int, ppos: Vector2, radius: float) -> bool:

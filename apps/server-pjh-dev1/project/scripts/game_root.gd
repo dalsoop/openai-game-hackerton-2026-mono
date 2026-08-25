@@ -353,7 +353,7 @@ func _set_dev_dash_test(enabled: bool) -> void:
 		$HUD.add_child(_dev_dash_label)
 		_dev_dash_label.z_index = 30
 	_dev_dash_label.visible = enabled
-	_dev_dash_label.text = "DEV: DASH COOLDOWN 0.08s  [NUMPAD 5]"
+	_dev_dash_label.text = "DEV: DASH 0.08s + ULT 100%  [NUMPAD 5]"
 
 func _apply_dev_dash_cooldown() -> void:
 	if not _dev_dash_test or world == null or (GameState.net_active and not GameState.net_host):
@@ -363,6 +363,7 @@ func _apply_dev_dash_cooldown() -> void:
 		return
 	var hero: Dictionary = world.heroes[slot]
 	hero["mobility_cd"] = minf(float(hero.get("mobility_cd", 0.0)), 0.08)
+	hero["ultimate_charge"] = world.ULTIMATE_MAX
 	world.heroes[slot] = hero
 
 func _restart() -> void:
