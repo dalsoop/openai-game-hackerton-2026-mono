@@ -177,7 +177,7 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
     const room = rooms.get(client.roomId);
     if (!room || room.phase !== Phase.PLAYING) return;
     if (client.id !== room.hostClientId) return;
-    const snapData = { ...msg, t: MSG.SNAP };
+    const snapData: Record<string, unknown> = { ...msg, t: MSG.SNAP };
     room.prevSnap = room.lastSnap;
     room.lastSnap = snapData;
     room.snapCount += 1;
