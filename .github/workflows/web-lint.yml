@@ -1,0 +1,32 @@
+name: web-lint
+
+# yjh-dev1 웹 앱 정적 게이트 — lint·타입·빌드가 깨지면 PR을 못 합치게 한다.
+# 동작 검증(실왕복)은 scripts/smoke-hub.mjs · 배포는 apps.yml 이 담당한다.
+on:
+  pull_request:
+    paths:
+      - "apps/server-yjh-dev1/web/**"
+      - ".github/workflows/web-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/server-yjh-dev1/web/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server-yjh-dev1/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/server-yjh-dev1/web/package-lock.json
+      - run: npm ci
+      # build 스크립트 = check-contract → eslint → next build → tsc(server)
+      - run: npm run build
+      # 단위 테스트 (roster 도메인 · hub config 계약)
+      - run: npx vitest run

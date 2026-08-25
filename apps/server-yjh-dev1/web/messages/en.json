@@ -1,0 +1,68 @@
+{
+  "app": {
+    "title": "Dagulz",
+    "description": "Dagulz"
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting...",
+    "offline": "Offline"
+  },
+  "game": {
+    "loading": {
+      "ready": "Game Ready",
+      "downloading": "Downloading Game",
+      "compiling": "Compiling WASM...",
+      "preparing": "Preparing Download"
+    },
+    "downloadingAsset": "Receiving game assets. You can start when complete.",
+    "serverConnecting": "Connecting to server...",
+    "serverConnectFailed": "Cannot connect to server.",
+    "reconnect": "Reconnect",
+    "back": "Back"
+  },
+  "intro": {
+    "namePlaceholder": "Your Name",
+    "startButton": "Start",
+    "defaultPlayer": "Player"
+  },
+  "logo": {
+    "word": "Dagulz"
+  },
+  "lobby": {
+    "title": "Open Rooms",
+    "refresh": "Refresh",
+    "emptyRooms": "No rooms open yet. Create a room to start.",
+    "room": "Room",
+    "createButton": "Create Room",
+    "spectate": "Spectate",
+    "join": "Join",
+    "modeFull": "Full"
+  },
+  "room": {
+    "mode": "Full",
+    "title": "Waiting Room",
+    "leaveButton": "Leave",
+    "me": "Me",
+    "waitingReconnect": "Reconnecting",
+    "host": "Host",
+    "waiting": "Waiting",
+    "cpuAtStart": "CPU at Start",
+    "playerCount": "{count}/{max} players · Empty slots filled by CPU at start",
+    "startButton": "Start Game",
+    "waitingForHost": "Waiting for host to start"
+  },
+  "godot": {
+    "starting": "Starting game...",
+    "loadingEngine": "Loading Godot engine",
+    "startError": "Cannot start game",
+    "backToLobby": "Back to lobby"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "connection": "Cannot reach the server. Please try again in a moment.",
+    "unknown": "An unexpected error occurred.",
+    "retry": "Try again",
+    "detail": "Error details"
+  }
+}

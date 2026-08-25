@@ -21,8 +21,9 @@
 
 ## GDScript 코드 규칙
 
-`AGENTS.md`의 "GDScript 코드 규칙" 절을 따른다. 핵심:
+`AGENTS.md`의 "GDScript 코드 규칙" + "온라인 단일 구성 · 정본 지도" 절을 따른다. 핵심:
 - 파일 700줄 이하, 함수 40줄 이하, 중첩 3단 이하
 - 매직 컬러 금지, SSOT(정본 1곳), 모듈 패턴
+- 온라인 전용: 로비=React(`web/`), 허브=`web/lib/hub/`, Godot WS=`autoload/network_manager.gd`만. GD에 로비 동사·폐기 UI 부활 금지 (lint가 잡음)
 - 검증: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts`
 - 정본: `apps/server-yjh-dev1/`

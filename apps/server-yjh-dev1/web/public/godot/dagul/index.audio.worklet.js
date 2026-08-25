@@ -1,0 +1,1 @@
+../../../../project/web/index.audio.worklet.js

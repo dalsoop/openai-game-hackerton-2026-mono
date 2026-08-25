@@ -1,0 +1,21 @@
+// 게임 페이즈 순수 전이 로직 — 훅(useGameFlow)과 테스트가 같이 쓰는 SSOT.
+// React 의존 없음: 같은 입력엔 같은 출력 (tests/game-flow-state.test.ts 가 전수 검증).
+import type { GamePhase, HubStatus } from "@/types";
+
+/** 허브 상태가 화면 페이즈를 몰아간다 — 아니면 현재 유지. */
+export function phaseFromHubStatus(status: HubStatus, current: GamePhase): GamePhase {
+  if (status === "in-room") {return "room";}
+  if (status === "playing") {return "playing";}
+  return current;
+}
+
+/** 매치 종료 후 페이즈 — 연결이 살아있으면 로비로, 아니면 인트로로. */
+export function phaseAfterMatchEnd(status: HubStatus): GamePhase {
+  if (status === "playing" || status === "in-room" || status === "lobby") {return "lobby";}
+  return "intro";
+}
+
+/** 표시 이름 — 입력값 우선, 비면 기본 플레이어. */
+export function displayNameOf(name: string, defaultPlayer: string): string {
+  return name.trim() || defaultPlayer;
+}

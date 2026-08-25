@@ -28,3 +28,20 @@ deploy/.godot-cache/
 deploy/usability/last-report.json
 __pycache__/
 *.pyc
+.dryforge/
+web/node_modules/
+web/.next/
+
+# 빌드 산출물 (AGENTS: wasm/pck는 git에 넣지 않는다)
+web/.next/
+apps/*/project/web/index.wasm
+apps/*/project/web/index.pck
+apps/*/project/web/*.br
+apps/*/project/web/*.gz
+.claude/worktrees/
+apps/*/project/web/manifest.json
+
+# 앱별 웹 빌드 산출물 (apps/*/web — 루트 web/ 패턴은 여기 안 닿음)
+apps/*/web/.next/
+apps/*/web/node_modules/
+apps/*/web/next-env.d.ts

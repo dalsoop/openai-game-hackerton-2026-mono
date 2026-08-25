@@ -1,0 +1,219 @@
+extends Node
+## 인게임 Colyseus 연결의 단일 소유자 — 공식 Godot SDK(native-sdk)를 쓴다.
+## 로비·대기실은 React 페이지가 소유한다. 매치 시작 시 페이지가 방을 떠나며
+## 재접속 토큰(KEY_RESUME)과 시작 정보(KEY_MATCH)를 localStorage 에 남기고,
+## 이 노드가 client.reconnect(token) 으로 같은 세션·좌석을 이어받는다.
+## 브릿지(window 전역)는 없다 — 핸드오프는 localStorage 1회, 이후는 자체 WebSocket.
+
+signal status_changed(status: String)  # lint-gd: public-api
+signal joined_room(room: Dictionary, players: Array, you: int)  # lint-gd: public-api
+signal match_started(you: int, room: Dictionary)  # lint-gd: public-api
+signal match_resumed(you: int, room: Dictionary, snap: Dictionary)  # lint-gd: public-api
+signal snapshot_received(snap: Dictionary)  # lint-gd: public-api
+signal left_room  # lint-gd: public-api
+signal hub_error(message: String)  # lint-gd: public-api
+signal peer_input_received(slot: int, input_data: Dictionary)  # lint-gd: public-api
+# 좌석 이탈/복귀 통지 — 서버 state 의 connected 토글로 파생한다.
+signal peer_parked_received(slot: int)  # lint-gd: public-api
+signal peer_reclaimed_received(slot: int, player_name: String)  # lint-gd: public-api
+
+const STATUS_LOBBY := "로비"  # lint-gd: public-api
+const STATUS_OFFLINE := "오프라인 로컬"  # lint-gd: public-api
+
+var player_name := "플레이어"  # lint-gd: public-api
+var mode := WebContract.DEFAULT_MODE  # lint-gd: public-api
+var status := STATUS_OFFLINE  # lint-gd: public-api
+var players: Array = []  # lint-gd: public-api
+var room: Dictionary = {}  # lint-gd: public-api
+var you := -1  # lint-gd: public-api
+var in_room := false  # lint-gd: public-api
+var match_running := false  # lint-gd: public-api
+var is_host := false  # lint-gd: public-api
+var rtt_ms: int = 0  # lint-gd: public-api
+var resume_token := ""  # lint-gd: public-api
+
+var _client: Colyseus.Client = null
+var _colyseus_room = null
+var _last_phase := ""
+var _deliberate_leave := false
+
+func _ready() -> void:
+    var hub_name := get_hub_name()
+    if hub_name != "":
+        player_name = hub_name
+    call_deferred("_connect")
+
+func _connect() -> void:
+    if not OS.has_feature("web"):
+        return
+    var token := _read_ls(WebContract.KEY_RESUME)
+    if token == "":
+        hub_error.emit("재접속 토큰이 없습니다 — 허브 페이지에서 시작해야 합니다")
+        return
+    resume_token = token
+    var endpoint := str(JavaScriptBridge.eval(
+        "location.origin.replace(/^http/, 'ws')", true))
+    _client = Colyseus.Client.new(endpoint)
+    _colyseus_room = _client.reconnect(resume_token)
+    if _colyseus_room == null:
+        hub_error.emit("서버에 재접속하지 못했습니다")
+        return
+    _wire_room(_colyseus_room)
+    _set_status(STATUS_LOBBY)
+    _consume_pending_match()
+
+func _wire_room(colyseus_room) -> void:
+    colyseus_room.joined.connect(_on_joined)
+    colyseus_room.state_changed.connect(_on_state_changed)
+    colyseus_room.message_received.connect(_on_message)
+    colyseus_room.error.connect(func(_code: int, message: String) -> void:
+        hub_error.emit(message))
+    colyseus_room.left.connect(_on_left)
+
+func _on_joined() -> void:
+    in_room = true
+    _sync_state(_colyseus_room.get_state())
+
+func _on_state_changed() -> void:
+    _sync_state(_colyseus_room.get_state())
+
+func _on_left(_code: int, _reason: String) -> void:
+    in_room = false
+    match_running = false
+    _set_status(STATUS_OFFLINE)
+    left_room.emit()
+
+# --- 수신 ---
+
+func _on_message(type: Variant, data: Variant) -> void:
+    var msg: Dictionary = data if data is Dictionary else {}
+    match str(type):
+        "start":
+            _apply_start(msg)
+        "snap":
+            if not msg.is_empty():
+                snapshot_received.emit(msg)
+        "peer_input":
+            peer_input_received.emit(int(msg.get("slot", -1)), msg)
+        "error":
+            hub_error.emit(str(msg.get("msg", "")))
+
+## Godot 는 START 이후에 부팅하므로, 페이지가 남겨둔 시작 정보를 가져온다.
+func _consume_pending_match() -> void:
+    var raw := _read_ls(WebContract.KEY_MATCH)
+    if raw == "":
+        return
+    var parsed: Variant = JSON.parse_string(raw)
+    JavaScriptBridge.eval(
+        "try{localStorage.removeItem('%s')}catch(e){}" % WebContract.KEY_MATCH, true)
+    if parsed is Dictionary:
+        _apply_start(parsed)
+
+func _apply_start(msg: Dictionary) -> void:
+    match_running = true
+    in_room = true
+    you = int(msg.get("you", you))
+    is_host = bool(msg.get("host", false))
+    # 서버가 시작 순간 박제한 좌석 확정본 — 호스트 월드의 사람 좌석 배정에 쓴다.
+    var seats: Array = msg.get("seats", [])
+    if not seats.is_empty():
+        players = []
+        for seat in seats:
+            players.append({
+                "slot": int(seat.get("slot", -1)),
+                "name": str(seat.get("name", "")),
+                "dropped": not bool(seat.get("connected", true)),
+            })
+    if msg.has("room"):
+        room = msg.get("room", room)
+    if msg.has("seed"):
+        room["seed"] = int(msg["seed"])
+    match_started.emit(you, room)
+
+## 방 state 를 우리 인터페이스로 번역한다 — 로스터·페이즈·호스트의 단일 원본.
+func _sync_state(state: Variant) -> void:
+    if not state is Dictionary:
+        return
+    var phase := str(state.get("phase", ""))
+    is_host = str(state.get("hostSessionId", "")) == _colyseus_room.get_session_id()
+    var next_players: Array = []
+    var raw_players: Array = state.get("players") if state.get("players") is Array else []
+    for p in raw_players:
+        next_players.append({
+            "slot": int(p.get("slot", -1)),
+            "name": str(p.get("name", "")),
+            "dropped": not bool(p.get("connected", true)),
+            "session_id": str(p.get("sessionId", "")),
+        })
+    # 이탈/복귀 파생 — connected 토글을 좌석별 통지로 바꾼다.
+    if not players.is_empty() and next_players.size() == players.size():
+        var by_slot := {}
+        for old in players:
+            by_slot[int(old.get("slot", -1))] = old
+        for p in next_players:
+            var slot := int(p.get("slot", -1))
+            var old: Variant = by_slot.get(slot)
+            if old == null:
+                continue
+            if bool(old.get("dropped", false)) and not bool(p.get("dropped", false)):
+                peer_reclaimed_received.emit(slot, str(p.get("name", "")))
+            elif not bool(old.get("dropped", false)) and bool(p.get("dropped", false)):
+                peer_parked_received.emit(slot)
+    players = next_players
+    # 매치 종료 감지: playing → 다른 페이즈.
+    if _last_phase == "playing" and phase != "playing":
+        match_running = false
+        joined_room.emit(room, players, you)
+    _last_phase = phase
+
+# --- 송신 (인게임 메시지만 — 로비 동사는 React 소유) ---
+
+func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, seq: int = 0) -> void:  # lint-gd: public-api
+    var msg := {"mx": move.x, "my": move.y, "fire": fire, "dash": dash, "use": use, "aimX": aim.x, "aimY": aim.y}
+    if seq > 0:
+        msg["seq"] = seq
+    _send("input", msg)
+
+func send_snap(snap: Dictionary) -> void:  # lint-gd: public-api
+    _send("host_snap", snap)
+
+func leave_room() -> void:  # lint-gd: public-api
+    _deliberate_leave = true
+    if _colyseus_room != null:
+        _colyseus_room.leave()
+    in_room = false
+    match_running = false
+    left_room.emit()
+
+func _send(type: String, msg: Dictionary) -> void:
+    if _colyseus_room != null:
+        _colyseus_room.send_message(type, msg)
+
+# --- 상태 · 유틸 ---
+
+func is_open() -> bool:  # lint-gd: public-api
+    return _colyseus_room != null and _colyseus_room.connected
+
+func _set_status(next: String) -> void:
+    if status == next:
+        return
+    status = next
+    status_changed.emit(status)
+
+func consume_hub_launch() -> bool:  # lint-gd: public-api
+    if not OS.has_feature("web"):
+        return false
+    return JavaScriptBridge.eval(
+        "try{localStorage.getItem('%s')}catch(e){''}" % WebContract.KEY_FROM_HUB, true) != null
+
+func get_hub_name() -> String:  # lint-gd: public-api
+    return _read_ls(WebContract.KEY_NAME)
+
+func _read_ls(key: String) -> String:
+    if not OS.has_feature("web"):
+        return ""
+    var text := str(JavaScriptBridge.eval(
+        "try{localStorage.getItem('%s')||''}catch(e){''}" % key, true)).strip_edges()
+    if text == "<null>" or text == "null" or text == "undefined":
+        return ""
+    return text

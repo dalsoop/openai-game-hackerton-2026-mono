@@ -1,0 +1,123 @@
+"use client";
+// 렌더 전용 — 페이즈 상태머신은 useGameFlow, 허브는 useHub, 로더는 useGodotLoader.
+import type { JSX } from "react";
+import { useTranslations } from "next-intl";
+import { useGameFlow } from "@/hooks/useGameFlow";
+import {
+  OfflinePhase,
+  LobbyPhase,
+  InRoomPhase,
+  PlayingPhase,
+} from "@/components/phases";
+import { CONNECTION_CLASS, type HubStatus } from "@/types";
+import type { LoaderState } from "@/hooks/useGodotLoader";
+
+type Translate = (key: string) => string;
+
+// 연결 상태 표시 문구 — Home 본문 복잡도를 낮추기 위해 모듈 레벨 헬퍼로 뺐다.
+function connLabel(status: HubStatus, t: Translate): string {
+  if (status === "connecting") {return t("connection.connecting");}
+  if (status === "offline") {return t("connection.offline");}
+  return t("connection.connected");
+}
+
+// 로딩 진행 문구 — 같은 이유로 추출.
+function loadLabel(state: LoaderState, pct: number, t: Translate): string {
+  if (state === "ready") {return t("game.loading.ready");}
+  if (state === "downloading") {return `${t("game.loading.downloading")} ${pct}%`;}
+  if (state === "compiling") {return t("game.loading.compiling");}
+  return t("game.loading.preparing");
+}
+
+export default function Home(): JSX.Element {
+  const t = useTranslations();
+
+  const {
+    phase,
+    name,
+    setName,
+    hub,
+    loader,
+    matchInfo,
+    findRoom,
+    start,
+    backToIntro,
+    leaveToLobby,
+    matchEnd,
+    errorToIntro,
+  } = useGameFlow("dagul", t("intro.defaultPlayer"));
+
+  if (phase === "playing") {
+    return (
+      <PlayingPhase
+        game="dagul"
+        matchInfo={matchInfo}
+        onMatchEnd={matchEnd}
+        onError={errorToIntro}
+      />
+    );
+  }
+
+  const loadPct = Math.round(loader.progress * 100);
+
+  return (
+    <div className="page-shell">
+      <header className="hero">
+        <div className="logo-word">{t("logo.word")}</div>
+        {phase !== "intro" && (
+          <div className={CONNECTION_CLASS[hub.status]}>
+            <span className="conn-dot" />
+            <span className="conn-txt">{connLabel(hub.status, t)}</span>
+          </div>
+        )}
+      </header>
+
+      {(phase === "lobby" || phase === "room") && (
+        <div className="prefetch-strip">
+          <span className="prefetch-txt">
+            {loadLabel(loader.state, loadPct, t)}
+          </span>
+          <div className="bar-track">
+            {/* 진행률은 동적 값 — width만 인라인 불가피 */}
+            <div
+              className={`bar-fill${loader.state === "ready" ? " done" : ""}`}
+              // eslint-disable-next-line react/forbid-dom-props -- 진행률 동적 값
+              style={{ width: `${loadPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {phase === "intro" && (
+        <OfflinePhase
+          nickname={name}
+          onNameChange={setName}
+          onConnect={findRoom}
+        />
+      )}
+
+      {phase === "lobby" && hub.status !== "in-room" && (
+        <LobbyPhase
+          rooms={hub.rooms}
+          status={hub.status}
+          onCreateRoom={hub.createRoom}
+          onJoinRoom={hub.joinRoom}
+          onRefresh={hub.refreshRooms}
+          onBackToIntro={backToIntro}
+          onReconnect={findRoom}
+        />
+      )}
+
+      {phase === "room" && (
+        <InRoomPhase
+          players={hub.players}
+          you={hub.you}
+          isHost={hub.isHost}
+          loader={loader}
+          onStartGame={start}
+          onLeaveRoom={leaveToLobby}
+        />
+      )}
+    </div>
+  );
+}

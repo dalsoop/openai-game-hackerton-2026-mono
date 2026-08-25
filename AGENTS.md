@@ -84,3 +84,31 @@ PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가�
 7. **검증**: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts` + Godot 파싱 에러 0건
 8. **human_slots**: 로컬 매치에서 반드시 `world.human_slots[world.local_slot] = true` 설정
 9. **정본**: `apps/server-yjh-dev1/`이 정본. 다른 슬롯은 여기서 복사한다.
+
+## 온라인 단일 구성 · 정본 지도 (lint_gd.py + check-contract 가 강제)
+
+로비/방/대기실은 웹(React+Colyseus)이, 인게임은 Godot가 담당한다. 오프라인 모드·채팅 없음.
+웹 플랫폼 위치: `apps/server-yjh-dev1/web/` (허브+로비+Godot 로딩을 한 프로세스로 서빙).
+
+| 역할 | 정본 (여기만 수정) | 금지 사항 |
+|---|---|---|
+| 로비·대기실 UI | `web/app/` + `web/components/` (React) | Godot에 로비 UI 재구현 금지 |
+| 허브 서버 (방·좌석·릴레이) | `web/lib/hub/LobbyRoom.ts` (Colyseus state) | 커스텀 방 상태 메시지 신설 금지 — state 로 표현 |
+| 허브 클라이언트 | `web/hooks/useHub.ts` (colyseus.js — 유일한 SDK import) | 다른 파일에서 colyseus.js 직접 import 금지 |
+| React↔Godot 계약 | `web/lib/hub/config.ts` (HANDOFF·DOM_EVT·BRIDGE) ↔ 거울 `project/core/contract/web_contract.gd` | 키 하드코딩 금지 — check-contract 가 대조 |
+| Godot 네트워크 | `project/core/autoload/network_manager.gd` (페이지 브릿지 소비) | GD 자체 WebSocket 금지 (ws-client-dup) |
+| Godot 셸 | `project/core/shell/match_shell.gd` | 셸에 게임 지식 금지 — core→games 참조 금지 (core-games) |
+| 게임 모듈 | `project/games/<id>/game.gd` (GameModule 계약 구현) | 게임이 방·릴레이·브릿지 세부를 알 필요 없음 |
+| Godot 웹 로딩 | `web/lib/godot/runtime.ts` (GodotRuntime 싱글톤) | 훅·컴포넌트에서 fetch/Engine 직접 조작 금지 |
+| Godot 산출물 버전 | `project/web/manifest.json` (통합 해시) | 버전 쿼리 없는 immutable 캐시 금지 |
+| Godot 빌드 | `npm run godot:build` (export→압축→매니페스트) | export만 하고 매니페스트 생략 금지 |
+
+### 게임 폴더 추상화 (project/)
+
+```
+core/      게임 무관 — autoload(브릿지·상태·오디오) · contract(GameModule·registry·web_contract) · shell · ui(토큰·터치·설정) · assets(fonts)
+games/<id>/  game.gd(계약 구현) + sim/ render/ hud/ net/ camera/ input/ audio/ assets/ + main.tscn
+```
+
+- 새 게임 추가 = `games/<id>/` 폴더 + `game.gd` 구현. core 는 한 줄도 바꾸지 않는다.
+- 검증: `python3 lint_gd.py apps/server-yjh-dev1/project` · `npm run check:contract` · `npm run smoke`
