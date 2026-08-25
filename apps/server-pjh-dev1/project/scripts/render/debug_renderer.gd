@@ -38,6 +38,7 @@ var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
 var impact_atlas: Texture2D = null
+var reload_bubble_atlas: Texture2D = null
 var tracer_fx_atlas: Texture2D = null
 var hit_spark_fx_atlas: Texture2D = null
 var explosion_fx_atlas: Texture2D = null
@@ -144,6 +145,7 @@ func _ready() -> void:
     island_texture = _load_tex("res://assets/world/Tex_BG_Field_Wide.png")
     rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
     crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
+    reload_bubble_atlas = _load_tex("res://assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")
     for projectile_kind in PROJECTILE_TEXTURE_SIZES:
         projectile_textures[projectile_kind] = _load_tex("res://assets/fx/projectiles/projectile_%s.png" % projectile_kind)
     tower_texture = _load_tex("res://assets/world/bounty-tower.png")
@@ -1721,6 +1723,19 @@ func _draw_reload_bubble(body_pos: Vector2, hero: Dictionary) -> void:
     elif mag_now <= 0:
         mode = "NEED"
     if mode == "":
+        return
+    if reload_bubble_atlas != null:
+        var frame := 8
+        if mode == "RELOADING":
+            frame = int(world.tick / 3) % 8
+        elif mode == "RELOADED":
+            var complete_progress := 1.0 - clampf(float(hero.get("reload_flash", 0.0)) / 0.55, 0.0, 1.0)
+            frame = 10 + mini(1, int(complete_progress * 2.0))
+        var frame_size := Vector2(384.0, 384.0)
+        var source := Rect2(Vector2(frame % 4, floori(float(frame) / 4.0)) * frame_size, frame_size)
+        var display_size := Vector2(58.0, 58.0)
+        var display_rect := Rect2(body_pos + Vector2(-display_size.x * 0.5, -116.0), display_size)
+        draw_texture_rect_region(reload_bubble_atlas, display_rect, source)
         return
     var bw := 36.0
     var bh := 28.0
