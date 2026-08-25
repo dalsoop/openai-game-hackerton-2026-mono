@@ -18,6 +18,7 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 from export_html_contract import assert_export_html  # noqa: E402
+from hub_images import folder_from_hub_ref, missing_hub_refs  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
@@ -299,14 +300,24 @@ def hub_refs(mod) -> list[str]:
 def assert_hub_images(mod) -> None:
     listed = remote("k3s ctr images ls -q")
     have = listed.stdout
-    missing = [ref for ref in hub_refs(mod) if ref not in have]
+    missing = missing_hub_refs(hub_refs(mod), have)
     if missing:
         raise SystemExit("helm 중단. 클러스터에 허브 이미지 없음:\n" + "\n".join(missing))
 
 
+def ensure_hub_images(mod) -> None:
+    listed = remote("k3s ctr images ls -q").stdout
+    for ref in missing_hub_refs(hub_refs(mod), listed):
+        folder = folder_from_hub_ref(ref)
+        print(f"build missing hub {ref}")
+        build_hub(folder)
+
+
 def helm_upgrade() -> None:
     run_plant()
-    assert_hub_images(plant_mod())
+    mod = plant_mod()
+    ensure_hub_images(mod)
+    assert_hub_images(mod)
     if on_pve():
         dest = Path(tempfile.mkdtemp(prefix="hackertone-chart-"))
         env_copy = dest / "hackertone-env.yaml"
