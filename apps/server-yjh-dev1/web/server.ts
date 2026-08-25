@@ -9,6 +9,7 @@ import { RedisDriver } from "@colyseus/redis-driver";
 import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
 import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
+import { healthBody } from "./lib/hub/health.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -153,8 +154,8 @@ void app.prepare().then(async () => {
         res.setHeader("cross-origin-resource-policy", "same-origin");
         const pathname = (req.url ?? "/").split("?")[0];
         if (pathname === "/health" || pathname === "/healthz") {
-          res.writeHead(200, { "content-type": "text/plain", "cache-control": "no-store" });
-          res.end("ok");
+          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+          res.end(healthBody());
           return;
         }
         // GDExtension — 페이지가 /ko 이면 엔진이 /ko/libcolyseus... 로 상대 요청한다.
