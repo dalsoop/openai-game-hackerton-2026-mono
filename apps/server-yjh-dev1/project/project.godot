@@ -39,3 +39,4 @@ textures/default_filters/use_nearest_mipmap_filter=false
 [physics]
 
 common/physics_ticks_per_second=60
+
