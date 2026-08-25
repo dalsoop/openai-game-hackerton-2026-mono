@@ -19,6 +19,8 @@ const BULLET_YELLOW := Color("#ffd23f")
 
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
+var dirt_tile_texture: Texture2D = null
+var tree_atlas: Texture2D = null
 var rock_atlas: Texture2D = null
 var crate_atlas: Texture2D = null
 var projectile_textures: Dictionary = {}
@@ -113,7 +115,11 @@ func _ready() -> void:
         RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://assets/world/Tex_BG_Field_Wide.png")
+    island_texture = _load_tex("res://assets/world/Tex_BG_Tile_Grass.png")
+    dirt_tile_texture = _load_tex("res://assets/world/Tex_BG_Tile_Dirt.png")
+    tree_atlas = _load_tex("res://assets/world/Tex_BG_Trees_3x1.png")
+    texture_filter = TEXTURE_FILTER_NEAREST
+    print("[gangup] rpg tiles grass=%s dirt=%s trees=%s" % [island_texture != null, dirt_tile_texture != null, tree_atlas != null])
     rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
     crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
     reload_bubble_atlas = _load_tex("res://assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")
@@ -183,17 +189,18 @@ func _ready() -> void:
     _overlay = RenderOverlayScript.new(self)
 
 func _load_tex(path: String) -> Texture2D:
-    if not ResourceLoader.exists(path):
-        return null
-    var res = load(path)
-    if res is Texture2D:
-        return res
+    if ResourceLoader.exists(path):
+        var res = load(path)
+        if res is Texture2D:
+            return res
     var img := Image.new()
     var err := img.load(ProjectSettings.globalize_path(path))
     if err != OK:
         err = img.load(path)
     if err == OK and img.get_width() > 0:
+        print("[gangup] tex raw %s %sx%s" % [path, img.get_width(), img.get_height()])
         return ImageTexture.create_from_image(img)
+    print("[gangup] tex miss %s" % path)
     return null
 
 func _ultimate_src_rect(texture: Texture2D, frame: int, row: int = 0) -> Rect2:
@@ -521,7 +528,7 @@ func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String,
         return
     var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
     var src := _bullet_src_rect(kind, int(world.tick))
-    var dest := Rect2(Vector2(-28.0, -10.0) * scale, Vector2(56.0, 20.0) * scale)
+    var dest := Rect2(Vector2(-28.0, -10.0) * scale * 3.0, Vector2(56.0, 20.0) * scale * 3.0)
     draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
     draw_texture_rect_region(bullet_atlas, dest, src)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -643,7 +650,7 @@ func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, si
     var texture: Texture2D = projectile_textures.get(kind) as Texture2D
     if texture == null or not PROJECTILE_TEXTURE_SIZES.has(kind):
         return false
-    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale
+    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale * 3.0
     draw_set_transform(pos, direction.angle(), Vector2.ONE)
     draw_texture_rect(texture, Rect2(Vector2(-draw_size.x * 0.72, -draw_size.y * 0.5), draw_size), false)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -1072,6 +1079,7 @@ func _draw() -> void:
     _overlay.world = world
     _env.draw_island()
     _env.draw_safe_zone()
+    _env.draw_trees()
     _draw_world_casings()
     _env.draw_covers()
     _env.draw_crates()

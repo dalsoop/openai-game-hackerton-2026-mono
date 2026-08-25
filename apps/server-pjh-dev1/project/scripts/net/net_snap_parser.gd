@@ -163,7 +163,7 @@ static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> A
 			"kind":"bolt",
 			"source":&"normal",
 			"arc":false,
-			"radius":5.0
+			"radius":15.0
 		})
 	return result
 

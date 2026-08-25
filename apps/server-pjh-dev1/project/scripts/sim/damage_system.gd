@@ -110,7 +110,7 @@ func try_normal_attack(slot: int, direction: Vector2) -> void:
 	var ttl = float(equipment.get("normal_range", 0.6))
 	var pierce = int(equipment.get("normal_pierce", 0))
 	var splash = float(equipment.get("normal_splash", 0.0))
-	var radius = float(equipment.get("normal_radius", 5.0))
+	var radius = float(equipment.get("normal_radius", 5.0)) * 3.0
 	var heavy = false
 	if equipment_id == "brawler":
 		var n = int(h.get("brawler_shot", 0)) + 1

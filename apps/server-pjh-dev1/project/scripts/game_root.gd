@@ -4,6 +4,7 @@ const WorldScript = preload("res://scripts/sim/game_world.gd")
 const NetWorldScript = preload("res://scripts/net/net_world.gd")
 const GameServerScript = preload("res://scripts/net/game_server.gd")
 const GameClientScript = preload("res://scripts/net/game_client.gd")
+const KillFanfareScript = preload("res://scripts/render/kill_fanfare.gd")
 const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
 
 @onready var world_view: Node2D = $WorldView
@@ -33,6 +34,8 @@ var _touch_rematch: Button = null
 var _tutorial: TutorialOverlay = null
 var _dev_dash_test := false
 var _dev_dash_label: Label = null
+var _fanfare: Node2D = null
+var _last_local_kills := -1
 
 func _ready() -> void:
 	_is_server_mode = "--server" in OS.get_cmdline_user_args()
@@ -48,6 +51,16 @@ func _ready() -> void:
 		hud.visible = false
 	_sfx = SfxManager.new()
 	_sfx.setup(self)
+	var fanfare_layer := CanvasLayer.new()
+	fanfare_layer.layer = 80
+	fanfare_layer.name = "KillFanfareLayer"
+	fanfare_layer.follow_viewport_enabled = false
+	fanfare_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(fanfare_layer)
+	_fanfare = KillFanfareScript.new()
+	_fanfare.name = "KillFanfare"
+	fanfare_layer.add_child(_fanfare)
+	print("[gangup] fanfare attached layer=80 self_draw=1")
 	_attach_touch()
 	_build_touch_buttons()
 	_tutorial = TutorialOverlay.new()
@@ -436,6 +449,7 @@ func _physics_process(_delta: float) -> void:
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
 	last_event_id = sfx_result["last_event_id"]
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
+	_check_my_kill_fanfare()
 	_check_tutorial_hints()
 	# Camera
 	_update_spectator()
@@ -673,3 +687,18 @@ func _camera_target() -> Vector2:
 	var half_view := Vector2(800.0, 450.0) / zoom_value
 	var min_y := half_view.y + hud_reserve * 0.15
 	return Vector2(clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x), clampf(desired.y, min_y, world.ARENA_SIZE.y - half_view.y))
+
+func _check_my_kill_fanfare() -> void:
+	if _fanfare == null or world == null or world.heroes.is_empty():
+		_last_local_kills = -1
+		return
+	var me := clampi(int(world.get("local_slot")), 0, world.heroes.size() - 1)
+	var kills := int(world.heroes[me].get("kills", 0))
+	if _last_local_kills < 0:
+		_last_local_kills = kills
+		return
+	if kills > _last_local_kills:
+		print("[gangup] fanfare my_kill slot=", me, " kills=", _last_local_kills, "->", kills)
+		_fanfare.burst()
+	_last_local_kills = kills
+
