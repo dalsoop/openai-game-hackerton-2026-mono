@@ -29,8 +29,8 @@ func _process(_delta: float) -> void:
 	var ps: Dictionary = world.player_snake()
 	if ps.is_empty():
 		return
-	_score_label.text = "SCORE: %d" % int(ps["score"])
-	_length_label.text = "LENGTH: %d" % ps["segments"].size()
+	_score_label.text = "점수: %d" % int(ps["score"])
+	_length_label.text = "길이: %d" % ps["segments"].size()
 	_update_leaderboard()
 	_death_panel.visible = not bool(ps["alive"])
 	if _death_panel.visible:
@@ -67,7 +67,7 @@ func _build_hud() -> void:
 	lb_panel.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(lb_panel)
 	var lb_title := Label.new()
-	lb_title.text = "LEADERBOARD"
+	lb_title.text = "순위"
 	lb_title.add_theme_font_size_override("font_size", 14)
 	lb_title.add_theme_color_override("font_color", ACCENT)
 	lb_title.set_anchors_preset(PRESET_TOP_WIDE)
@@ -99,7 +99,7 @@ func _build_death_screen() -> void:
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	_death_panel.add_child(vbox)
 	var title := Label.new()
-	title.text = "GAME OVER"
+	title.text = "게임 오버"
 	title.add_theme_font_size_override("font_size", 36)
 	title.add_theme_color_override("font_color", Color("#ff6b6b"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -133,7 +133,7 @@ func _build_intro() -> void:
 	vbox.add_theme_constant_override("separation", 16)
 	_intro_panel.add_child(vbox)
 	var title := Label.new()
-	title.text = "SNAKE ARENA"
+	title.text = "뱀 아레나"
 	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", Color("#5bc0eb"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -144,6 +144,12 @@ func _build_intro() -> void:
 	sub.add_theme_color_override("font_color", Color("#aaaaaa"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(sub)
+	var hint := Label.new()
+	hint.text = "WASD 이동 · 마우스 방향 · Shift 부스트 · 다른 뱀에 부딪히면 사망"
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color("#777777"))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
 	_name_edit = LineEdit.new()
 	_name_edit.placeholder_text = "닉네임"
 	_name_edit.custom_minimum_size = Vector2(0, 44)

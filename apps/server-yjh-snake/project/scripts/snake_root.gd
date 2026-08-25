@@ -25,8 +25,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	var input := _build_input()
 	world.step_tick(input)
-	if bool(ps["alive"]):
-		var head := Vector2(ps["segments"][0]["x"], ps["segments"][0]["y"])
+	var segs: Array = ps["segments"]
+	if segs.size() > 0:
+		var head := Vector2(segs[0]["x"], segs[0]["y"])
 		camera.position = camera.position.lerp(head, 8.0 * _delta_safe())
 
 func _build_input() -> Dictionary:

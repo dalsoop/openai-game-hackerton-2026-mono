@@ -15,6 +15,11 @@ const MINIMAP_MARGIN := 16.0
 var world
 var camera_pos := Vector2(2000, 2000)
 var camera_smooth := 8.0
+var _font: Font
+
+func _ready() -> void:
+	var f = load("res://assets/fonts/GmarketSansMedium.otf")
+	_font = f if f != null else ThemeDB.fallback_font
 
 func _process(delta: float) -> void:
 	if world == null:
@@ -92,7 +97,7 @@ func _draw_snakes(offset: Vector2) -> void:
 			draw_circle(trail_pos - Vector2(cos(angle), sin(angle)) * 8, 3.0, Color(1, 0.5, 0.1, 0.4))
 		var name_str: String = str(s["name"])
 		var name_pos := head_pos + Vector2(-30, -22)
-		draw_string(ThemeDB.fallback_font, name_pos, name_str, HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color.WHITE)
+		draw_string(_font, name_pos, name_str, HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color.WHITE)
 
 func _draw_minimap(vp: Vector2) -> void:
 	var mm_pos := Vector2(vp.x - MINIMAP_SIZE - MINIMAP_MARGIN, vp.y - MINIMAP_SIZE - MINIMAP_MARGIN)
