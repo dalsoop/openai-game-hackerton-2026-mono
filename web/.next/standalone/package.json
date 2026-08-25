@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.1",
+    "@tobilu/qmd": "^2.5.3"
+  },
+  "trustedDependencies": [
+    "node-llama-cpp",
+    "tree-sitter-go",
+    "tree-sitter-javascript",
+    "tree-sitter-python",
+    "tree-sitter-rust"
+  ]
+}
