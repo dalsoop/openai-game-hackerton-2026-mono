@@ -1,21 +1,22 @@
 // 방 PIN 프롬프트 — 창 입력 정규화만 담 (useHub 복잡도 분산).
 import { KO } from "@/lib/hub/config";
+import { parsePin } from "@/lib/hub/room-options";
 
-/** 숫자만 남긴다. 취소(null)는 빈 문자열로 흡수한다. */
-function promptDigits(message: string): string {
-  const raw = window.prompt(message) ?? "";
-  return raw.replace(/\D/g, "");
+// PIN 규칙의 정본은 room-options — 여기선 창 입력만 받아 넘긴다.
+function promptPin(message: string): string | null {
+  return window.prompt(message);
 }
 
 /** 방 만들기 PIN(선택) — 숫자만 정규화해 돌려준다 (4자 미만=없음 취급은 호출자가). */
 export function pinForCreate(): string {
-  return promptDigits(KO.PIN_CREATE_PROMPT);
+  // 정본 규칙(room-options)으로 정규화 — 유효하지 않으면 잠금 없음("").
+  return parsePin(promptPin(KO.PIN_CREATE_PROMPT)) ?? "";
 }
 
 /** 잠긴 방 입장 PIN — 취소면 null(입장 중단). */
 export function pinForJoin(): string | null {
-  const pin = promptDigits(KO.PIN_JOIN_PROMPT);
-  return pin === "" ? null : pin;
+  // 유효 PIN 이면 그 값, 취소·불량이면 null (입장 중단).
+  return parsePin(promptPin(KO.PIN_JOIN_PROMPT));
 }
 
 /** 입장 요청 조립 — 잠긴 방이면 PIN 을 묻고, 취소면 null. */
