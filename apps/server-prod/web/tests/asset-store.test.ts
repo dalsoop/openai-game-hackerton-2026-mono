@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AssetStore, assetPlanOf, godotAssetUrl } from "@/lib/godot/asset-store";
+import { AssetStore, assetPlanOf, godotAssetUrl, isExtLibPath } from "@/lib/godot/asset-store";
 import { DEFAULT_GAME_ID, packOf } from "@/lib/games/catalog";
 
 const pack = packOf(DEFAULT_GAME_ID);
@@ -32,6 +32,14 @@ describe("assetPlanOf — URL 체계 SSOT", () => {
     expect(plan.files.pck).toBe(godotAssetUrl(pack, "index.pck"));
     expect(plan.files.sideWasm).toBe(godotAssetUrl(pack, "index.side.wasm"));
     expect(plan.extLibUrl).toBe("/libcolyseus_godot.web.wasm32.release.wasm");
+  });
+
+  it("로케일 상대 경로도 같은 확장 라이브러리다", () => {
+    const file = assetPlanOf(pack).extLibFile;
+    expect(isExtLibPath(`/${file}`)).toBe(true);
+    expect(isExtLibPath(`/ko/${file}`)).toBe(true);
+    expect(isExtLibPath(`/en/${file}`)).toBe(true);
+    expect(isExtLibPath("/godot/dagul/index.wasm")).toBe(false);
   });
 });
 

@@ -52,6 +52,21 @@ export function reconnectJoinId(reason: DropReason | null, lastRoomId: string): 
   return lastRoomId;
 }
 
+/** React 가 허브 reconnect 의 유일한 호출자다. FROM_HUB 는 엔진 부팅 신호일 뿐. */
+export function reactOwnsResume(_fromHub: string | null | undefined, token: string | null | undefined): boolean {
+  return Boolean(token);
+}
+
+/** 반전 가드 — Godot 가 허브 matchmake/reconnect 를 하면 안 된다. */
+export function godotMayHubReconnect(): boolean {
+  return false;
+}
+
+/** 마운트 직후 페이즈 — 재개 성공만 로비. FROM_HUB 만으로는 플레이에 들어가지 않는다. */
+export function phaseOnMount(resumed: boolean): GamePhase | null {
+  return resumed ? "lobby" : null;
+}
+
 /** 유즈맵 — 게임 다운로드는 대기실(방 입장 후)에서만 시작한다. 로비에서 돌리면 idle 이 '준비 중'으로 남는다. */
 export function downloadStartsInRoom(phase: GamePhase): boolean {
   return phase === "room";

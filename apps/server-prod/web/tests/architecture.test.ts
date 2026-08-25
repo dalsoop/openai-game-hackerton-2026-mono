@@ -114,11 +114,107 @@ describe("계약: 방 만들기는 별도 페이지", () => {
   });
 });
 
+describe("계약: 오토로드는 /root 노드", () => {
+  it("셸·게임 모듈은 엔진 싱글톤 API 로 오토로드를 찾지 않는다", () => {
+    const files = [
+      join(ROOT, "..", "project", "core/shell/match_shell.gd"),
+      join(ROOT, "..", "project", "games/dagul/game.gd"),
+    ];
+    const code = files.map((p) => sourceOf(p).split("\n").filter((line) => !line.trimStart().startsWith("#")).join("\n")).join("\n");
+    expect(code).toContain('get_node_or_null("/root/GameState")');
+    expect(code).toContain('get_node_or_null("/root/Audio")');
+    expect(code).not.toMatch(/Engine\.get_singleton\("(GameState|Audio|NetworkManager)"\)/);
+  });
+});
+
+describe("계약: 웹 캔버스 키 포커스", () => {
+  it("런타임은 알탭 복귀용 bindCanvasKeyboardFocus 를 붙인다", () => {
+    const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));
+    expect(runtime).toContain("bindCanvasKeyboardFocus");
+    expect(runtime).toContain("focusCanvas: true");
+    expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("visibilitychange");
+    expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("PAGE_HIDDEN");
+    expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("bindPlayKeyGuard");
+    expect(sourceOf(join(ROOT, "lib/godot/play-keys.ts"))).toContain("event.code");
+    expect(sourceOf(join(ROOT, "lib/godot/play-keys.ts"))).toContain('addEventListener("keydown", onKey, true)');
+    expect(sourceOf(join(ROOT, "lib/godot/play-keys.ts"))).toContain('"Tab"');
+    expect(sourceOf(join(ROOT, "..", "project", "core/input/layout_keys.gd"))).toContain("is_physical_key_pressed");
+    expect(sourceOf(join(ROOT, "..", "project", "core/input/layout_keys.gd"))).not.toContain("is_key_pressed");
+    expect(sourceOf(join(ROOT, "..", "project", "core/shell/match_shell.gd"))).toContain("HeldInputScript.release_all");
+  });
+});
+
 describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
   it("e2e-dagul 은 Engine.isWebGLAvailable(2) 를 쓰고 게임 캔버스에 getContext 하지 않는다", () => {
     const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
     expect(e2e).toContain("isWebGLAvailable(2)");
     expect(e2e).not.toMatch(/getElementById\(['"]godot-canvas['"]\)[\s\S]{0,80}getContext\(['"]webgl2['"]\)/);
+  });
+
+  it("e2e 는 Godot 의 matchmake/reconnect 를 감시한다", () => {
+    const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
+    expect(e2e).toContain("/matchmake/reconnect");
+    expect(e2e).toContain("reconnectHits");
+    expect(e2e).toContain("__e2eJsReconnect");
+    expect(e2e).toContain("godotOwned");
+  });
+});
+
+describe("계약: 허브 소켓 주인은 React", () => {
+  it("Godot NetworkManager 는 Colyseus reconnect 를 호출하지 않는다", () => {
+    const src = sourceOf(join(ROOT, "..", "project", "core/autoload/network_manager.gd"))
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n");
+    expect(src).not.toMatch(/\.reconnect\s*\(/);
+    expect(src).not.toContain("Colyseus.Client");
+    expect(src).toContain("EVT_FROM_ENGINE");
+    expect(src).toContain("EVT_TO_ENGINE");
+  });
+
+  it("반전: START 경로가 leaveOnceForHandoff 로 좌석을 넘기면 실패한다", () => {
+    const src = sourceOf(join(ROOT, "hooks/useGameRoom.ts"));
+    expect(src).not.toContain("leaveOnceForHandoff");
+    expect(src).toContain("HANDOFF.MATCH");
+    expect(src).toContain("HANDOFF.FROM_HUB");
+  });
+
+  it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
+    expect(sourceOf(join(ROOT, "lib/hub/page-bridge.ts"))).not.toContain("onMessage");
+    expect(sourceOf(join(ROOT, "hooks/usePageBridge.ts"))).toContain("useRoomMessage");
+  });
+});
+
+describe("계약: 정적 이미지는 JPEG 금지", () => {
+  const JPEG_REF = /\.(?:jpg|jpeg)(?:\?|#|"|'|`|\s|$)/i;
+  const skipPublic = (name: string): boolean =>
+    name === "godot" || name === "node_modules" || name.startsWith(".");
+
+  function walkPublic(dir: string, out: string[] = []): string[] {
+    for (const name of readdirSync(dir)) {
+      if (skipPublic(name)) {continue;}
+      const full = join(dir, name);
+      let st;
+      try {st = statSync(full);} catch {continue;}
+      if (st.isDirectory()) {walkPublic(full, out);}
+      else {out.push(full);}
+    }
+    return out;
+  }
+
+  it("소스·스타일은 .jpg/.jpeg 경로를 가리키지 않는다", () => {
+    const texts = walk(ROOT, (n) => /\.(ts|tsx|css|mjs|js)$/.test(n));
+    const offenders = texts.filter((p) => {
+      if (rel(p).startsWith("tests/")) {return false;}
+      return JPEG_REF.test(sourceOf(p));
+    });
+    expect(offenders.map(rel), "JPEG 경로 — webp/avif 로").toEqual([]);
+  });
+
+  it("public 산출물(godot 제외)에 jpg/jpeg 파일이 없다", () => {
+    const files = walkPublic(join(ROOT, "public"));
+    const jpegs = files.filter((p) => /\.(?:jpg|jpeg)$/i.test(p));
+    expect(jpegs.map(rel), "JPEG 파일 — webp/avif 로 변환").toEqual([]);
   });
 });
 

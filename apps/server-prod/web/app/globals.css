@@ -17,8 +17,8 @@ html, body { height: 100%; background: var(--bg-0); color: var(--tx-0); font-fam
 input, textarea, select, button { color-scheme: dark; }
 
 /* --- background pattern --- */
-body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('/assets/lobby-bg.png') center/cover no-repeat, var(--bg-0); }
-body.wait::before { background: linear-gradient(rgba(11,14,20,0.82), rgba(11,14,20,0.90)), url('/assets/waiting-bg.png') center/cover no-repeat, var(--bg-0); }
+body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('/assets/lobby-bg.webp') center/cover no-repeat, var(--bg-0); }
+body.wait::before { background: linear-gradient(rgba(11,14,20,0.82), rgba(11,14,20,0.90)), url('/assets/waiting-bg.webp') center/cover no-repeat, var(--bg-0); }
 body::after { content:""; position:fixed; inset:0; z-index:-1; opacity:.4; background-image:radial-gradient(circle, var(--line) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg,transparent,black 30%,black 70%,transparent); pointer-events:none; }
 
 /* --- sections --- */
@@ -74,6 +74,7 @@ body.wait #wait { display: block; }
 .mode-card b { display:block; font-size:15px; margin-bottom:4px; color:var(--tx-0); }
 .mode-card span { color:var(--tx-2); font-size:12px; line-height:1.4; }
 .mode-check { position:absolute; top:8px; right:8px; width:20px; height:20px; background:var(--acc); border-radius:50%; display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(.5); transition:.2s; }
+.mode-check::after { content:""; width:7px; height:4px; border-left:2px solid #1a1400; border-bottom:2px solid #1a1400; transform:rotate(-45deg) translateY(-1px); }
 .mode-card.on .mode-check, .mode-card:has(input:checked) .mode-check { opacity:1; transform:scale(1); }
 
 /* --- room list --- */
@@ -143,10 +144,10 @@ body.wait #wait { display: block; }
 .host-bar select { background:var(--bg-1); color:var(--tx-0); border:1.5px solid var(--line); border-radius:var(--radius-s); padding:8px 12px; font-size:13px; }
 
 /* --- result overlay --- */
-#result { display:none; position:fixed; inset:0; place-items:center; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.88)), url('/assets/victory-bg.png') center/cover no-repeat; backdrop-filter:blur(6px); z-index:40; }
+#result { display:none; position:fixed; inset:0; place-items:center; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.88)), url('/assets/victory-bg.webp') center/cover no-repeat; backdrop-filter:blur(6px); z-index:40; }
 #result.show { display:grid; background:
   linear-gradient(rgba(11,14,20,.62), rgba(11,14,20,.78)),
-  url("/assets/victory-bg.png") center/cover no-repeat; }
+  url("/assets/victory-bg.webp") center/cover no-repeat; }
 .result-card { width:min(540px,92vw); background:var(--bg-1); border:1px solid var(--line); border-radius:20px; padding:28px; animation:riseIn .4s cubic-bezier(.2,1.2,.3,1); text-align:center; }
 .result-banner { font-size:36px; font-weight:900; letter-spacing:.1em; color:var(--acc); text-shadow:0 0 30px rgba(255,210,62,.3); margin-bottom:16px; }
 .result-banner.draw { color:var(--cyan); text-shadow:0 0 30px rgba(62,230,210,.3); }
@@ -192,24 +193,24 @@ body.wait #wait { display: block; }
 .lobby-create-link { margin:0 0 8px; }
 .create-heading { font-size:clamp(22px,3vw,32px); font-weight:800; letter-spacing:-.03em; margin:8px 0 8px; }
 .create-blurb { color:var(--tx-1); margin-bottom:24px; }
-.create-form { display:flex; flex-direction:column; gap:20px; max-width:520px; }
+.create-form { display:flex; flex-direction:column; gap:20px; max-width:720px; }
 .create-fieldset { border:0; }
 .create-field { display:flex; flex-direction:column; gap:8px; }
 .create-field .sec-title { margin:0; }
-.game-list { display:flex; flex-direction:column; gap:8px; }
-.game-row { position:relative; background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); padding:14px 16px; cursor:pointer; transition:.15s; }
-.game-row:hover { border-color:var(--tx-2); transform:translateY(-1px); box-shadow:var(--shadow); }
-.game-row:has(input:checked) { border-color:var(--acc); background:linear-gradient(160deg,rgba(255,210,62,.08),var(--bg-1)); }
-.game-row input { position:absolute; opacity:0; pointer-events:none; }
-.game-row-head { display:flex; align-items:baseline; gap:10px; padding-right:28px; }
-.game-row-head b { font-size:15px; color:var(--tx-0); }
+.game-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+.game-card { position:relative; display:flex; flex-direction:column; background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s; }
+.game-card:hover { transform:translateY(-3px); border-color:var(--tx-2); box-shadow:var(--shadow); }
+.game-card:has(input:checked) { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc), var(--shadow); }
+.game-card input { position:absolute; opacity:0; pointer-events:none; }
+.game-card-art { aspect-ratio:16/9; background:var(--bg-3); }
+.game-card-art img { display:block; width:100%; height:100%; object-fit:cover; }
+.game-card-body { display:flex; flex-direction:column; gap:8px; padding:14px 16px 16px; }
+.game-row-head { display:flex; align-items:center; gap:10px; }
+.game-row-head b { font-size:16px; color:var(--tx-0); }
 .game-meta { font-size:12px; color:var(--tx-2); }
-.game-row .mode-check { top:12px; right:12px; }
-.game-row:has(input:checked) .mode-check { opacity:1; transform:scale(1); }
-.game-preview { display:none; margin-top:12px; }
-.game-row:has(input:checked) .game-preview { display:block; }
-.game-preview img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:var(--bg-3); }
-.game-preview p { margin:10px 0 0; color:var(--tx-1); font-size:13px; line-height:1.5; }
+.game-card .mode-check { top:10px; right:10px; z-index:1; }
+.game-card:has(input:checked) .mode-check { opacity:1; transform:scale(1); }
+.game-card-body p { margin:0; color:var(--tx-1); font-size:13px; line-height:1.5; }
 
 /* --- 로비 상태 패널 --- */
 .back-row { margin-bottom:12px; }

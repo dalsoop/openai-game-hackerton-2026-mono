@@ -24,11 +24,31 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 const page = await ctx.newPage();
 
 const consoleErrors = [];
+const reconnectHits = [];
 page.on("console", (m) => { if (m.type() === "error") {consoleErrors.push(m.text());} });
 page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+page.on("request", (req) => {
+  if (req.url().includes("/matchmake/reconnect")) {reconnectHits.push(req.url());}
+});
 await page.addInitScript(() => {
   window.__e2eMatchStarted = false;
+  window.__e2eJsReconnect = [];
   window.addEventListener("godot-match-start", () => { window.__e2eMatchStarted = true; }, { once: true });
+  const note = (url, via) => {
+    const u = String(url ?? "");
+    if (!u.includes("/matchmake/reconnect")) {return;}
+    window.__e2eJsReconnect.push({ u, via, stack: new Error().stack ?? "" });
+  };
+  const origFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    note(typeof input === "string" ? input : input && input.url, "fetch");
+    return origFetch(input, init);
+  };
+  const origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    note(url, "xhr");
+    return origOpen.call(this, method, url, ...rest);
+  };
 });
 
 // 1. 인트로 — 개발 서버 첫 컴파일·HMR 리로드가 있어도 로비까지 다시 누른다.
@@ -90,6 +110,17 @@ const matchStarted = await page.evaluate(
 );
 await page.screenshot({ path: `${SHOT}-5-match.png` });
 ok("5. Godot 매치 합류 (godot-match-start)", matchStarted);
+const jsReconnect = await page.evaluate(() => window.__e2eJsReconnect ?? []);
+const godotOwned = reconnectHits.filter((url) => {
+  const hit = jsReconnect.find((j) => url.includes(j.u) || j.u.includes(url));
+  if (!hit) {return true;}
+  return /\/godot\//.test(hit.stack);
+});
+ok(
+  "5b. Godot 는 matchmake/reconnect 를 치지 않는다",
+  godotOwned.length === 0,
+  godotOwned[0] ?? (reconnectHits[0] ? `react-sdk ${reconnectHits.length}` : ""),
+);
 
 // 6. 시뮬이 돌고 카운트다운이 끝난 뒤 WASD 로 좌표가 바뀐다.
 const simOk = await page
@@ -115,6 +146,24 @@ const after = await page.evaluate(() => window.__dagulPlay);
 const moved = before && after && Math.hypot(after.x - before.x, after.y - before.y) > 8;
 await page.screenshot({ path: `${SHOT}-6-moved.png` });
 ok("8. WASD 이동", moved, before && after ? `${before.x.toFixed(0)},${before.y.toFixed(0)} → ${after.x.toFixed(0)},${after.y.toFixed(0)}` : "probe 없음");
+
+const autoloadLeak = consoleErrors.some((line) => /non-existent singleton '(GameState|Audio)'/.test(line));
+ok("9. 오토로드는 엔진 싱글톤이 아님", !autoloadLeak);
+
+const pageFocusEvents = await page.evaluate(() => {
+  const seen = { hidden: false, visible: false };
+  const onHidden = () => { seen.hidden = true; };
+  const onVisible = () => { seen.visible = true; };
+  window.addEventListener("godot-page-hidden", onHidden);
+  window.addEventListener("godot-page-visible", onVisible);
+  document.getElementById("godot-canvas")?.blur();
+  window.dispatchEvent(new Event("blur"));
+  window.dispatchEvent(new Event("focus"));
+  window.removeEventListener("godot-page-hidden", onHidden);
+  window.removeEventListener("godot-page-visible", onVisible);
+  return { ...seen, canvas: document.activeElement?.id === "godot-canvas" };
+});
+ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas && pageFocusEvents.hidden && pageFocusEvents.visible);
 
 console.log("\n— 콘솔 에러 —");
 console.log(consoleErrors.length ? consoleErrors.slice(0, 10).join("\n") : "(없음)");

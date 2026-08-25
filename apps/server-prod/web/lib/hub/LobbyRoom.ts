@@ -38,6 +38,7 @@ export class LobbyRoom extends Room {
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => this.relayInput(client, data),
     [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void => this.relaySnap(client, data),
     [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
+    [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
   };
 
   onAuth(_client: Client, _options: Record<string, unknown>): boolean {

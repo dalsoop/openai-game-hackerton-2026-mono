@@ -5,7 +5,7 @@ import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
 import { asGameId } from "@/lib/games/catalog";
-import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, downloadStartsInRoom } from "@/lib/game-flow-state";
+import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, downloadStartsInRoom, phaseOnMount } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
 
 /** useGameFlow 반환 계약 — page.tsx 가 이 필드들만 소비한다. */
@@ -36,7 +36,7 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   const [name, setName] = useState(nickname || "");
 
   const displayName = displayNameOf(name, defaultPlayer);
-  // 핸드오프 후에는 방을 떠나 hub 필드가 비므로, START 때 확정한 matchInfo 를 쓴다.
+  // START 이후에도 React 방이 살아 있다. matchInfo 가 있으면 그 확정본을 쓴다.
   const matchInfo: MatchInfo = hub.matchInfo ?? {
     roomId: hub.roomId,
     name: displayName,
@@ -49,8 +49,9 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   useEffect(() => {
     if (resumeTried.current) {return;} // StrictMode 2회 실행 가드
     resumeTried.current = true;
+    const next = phaseOnMount(hub.tryResume());
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 세션(유예 창) 재개 1회 시도
-    if (hub.tryResume()) {setPhase("lobby");}
+    if (next) {setPhase(next);}
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 최초 마운트 1회 시도
   }, []);
 

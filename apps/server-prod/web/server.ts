@@ -8,7 +8,9 @@ import { RedisPresence } from "@colyseus/redis-presence";
 import { RedisDriver } from "@colyseus/redis-driver";
 import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
+import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
+import { redisConn } from "./lib/hub/redis-conn.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -142,7 +144,7 @@ void app.prepare().then(async () => {
   const gameServer = new ColyseusServer({
     transport,
     greet: false,
-    ...(redisUrl ? { presence: new RedisPresence(redisUrl), driver: new RedisDriver(redisUrl) } : {}),
+    ...(redisUrl ? { presence: new RedisPresence(redisConn(redisUrl)), driver: new RedisDriver(redisConn(redisUrl)) } : {}),
     ...(publicAddress ? { publicAddress } : {}),
     // Colyseus 라우터(매치메이킹 /matchmake/*)가 못 받는 요청은 여기로 폴백된다.
     express: (expressApp): void => {
@@ -157,9 +159,9 @@ void app.prepare().then(async () => {
           res.end(healthBody());
           return;
         }
-        // GDExtension 웹 라이브러리 — Godot dlopen 이 파일명만 요청한다(페이지 루트).
-        if (pathname === "/libcolyseus_godot.web.wasm32.release.wasm" &&
-            serveAddonsAsset(req, res, "/addons/colyseus/bin/" + pathname.slice(1))) {return;}
+        // GDExtension — 페이지가 /ko 이면 엔진이 /ko/libcolyseus... 로 상대 요청한다.
+        if (isExtLibPath(pathname) &&
+            serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
         if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
         if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
         void handle(req, res);

@@ -16,6 +16,7 @@ export const HUB_CONFIG = {
   seedMax: 999_999,
   gameServerTimeoutMs: 5_000,
   matchWatchdogMs: 30_000,
+  rttIntervalMs: 2_000,
 } as const;
 
 export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;
