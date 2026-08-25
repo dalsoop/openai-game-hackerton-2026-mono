@@ -41,14 +41,28 @@
   "lobby": {
     "title": "Open Rooms",
     "refresh": "Refresh",
-    "emptyRooms": "No rooms open yet. Create a room to start.",
+    "emptyRooms": "No rooms open yet.",
     "room": "Room",
     "createButton": "Create Room",
     "join": "Join",
     "modeFull": "Full",
     "mineHost": "My room · Host",
     "mine": "My room",
-    "inProgress": "In progress"
+    "inProgress": "In progress",
+    "gameSelect": "Select game",
+    "games": {
+      "dagul": { "title": "Dagul" },
+      "sparring": { "title": "Sparring" }
+    }
+  },
+  "create": {
+    "title": "Create Room",
+    "blurb": "Pick a game and name the room.",
+    "roomTitle": "Room name",
+    "roomTitlePlaceholder": "Leave empty for a default name",
+    "gameSelect": "Game",
+    "submit": "Create Room",
+    "cancel": "Back to lobby"
   },
   "room": {
     "mode": "Full",

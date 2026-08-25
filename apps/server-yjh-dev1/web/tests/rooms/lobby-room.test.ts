@@ -8,6 +8,7 @@ import { Server } from "colyseus";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
 import { MSG, KO } from "@/lib/hub/config";
+import { parseStartPayload } from "@/lib/hub/start-payload";
 
 let colyseus: ColyseusTestServer;
 
@@ -28,6 +29,21 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.title).toContain("합본 #");
     expect(String(room.state.phase)).toBe("lobby");
     expect(room.state.players.length).toBe(0);
+  });
+
+  it("방 생성 — 유즈맵·제목을 옵션으로 확정한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", {
+      name: "호스트", game: "sparring", title: "저녁 한 판",
+    });
+    expect(room.state.gameId).toBe("sparring");
+    expect(room.state.title).toBe("저녁 한 판");
+  });
+
+  it("방 생성 — 미등재 게임은 기본 게임으로 정규화한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", {
+      name: "호스트", game: "없는맵",
+    });
+    expect(room.state.gameId).toBe("dagul");
   });
 
   it("두 클라이언트 입장 — 첫 입장자가 호스트", async () => {
@@ -63,6 +79,23 @@ describe("LobbyRoom 규칙", () => {
 
     expect(String(room.state.phase)).toBe("playing");
     expect(Number(room.state.seed)).toBeGreaterThan(0);
+  });
+
+  it("호스트 시작 — START 본문은 StartPayload 계약과 맞는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+
+    const startP = host.waitForMessage(MSG.START);
+    host.send(MSG.START, {});
+    const payload = parseStartPayload(await startP);
+
+    expect(payload).not.toBeNull();
+    expect(payload?.you).toBe(0);
+    expect(payload?.host).toBe(true);
+    expect(payload?.seed).toBeGreaterThan(0);
+    expect(payload?.seats).toHaveLength(2);
+    expect(payload?.seats.map((s) => s.name)).toEqual(["호스트", "게스트"]);
   });
 
   it("방 닫기 — 재실자 강퇴·좌석 정리", async () => {

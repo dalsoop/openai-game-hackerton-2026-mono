@@ -25,7 +25,7 @@ export const CONNECTION_CLASS: Record<HubStatus, string> = {
  * 방 입장 요청 타입
  */
 export type JoinRequest =
-  | { kind: "create"; game?: string }
+  | { kind: "create"; game?: string; title?: string }
   | { kind: "join"; id: string; game?: string }
   | { kind: "resume" };
 
@@ -73,9 +73,11 @@ export interface UseHubResult {
 
   // 동작
   connect: (name: string) => void;
-  createRoom: (game?: string) => void;
+  createRoom: (raw?: { game?: string; title?: string }) => void;
   joinRoom: (id: string) => void;
   leaveRoom: () => void;
+  /** 리스트 룸까지 내리고 인트로로 돌아갈 때. */
+  disconnect: () => void;
   returnToLobby: (name: string) => void;
   startMatch: () => void;
   toggleRoom: () => void;

@@ -5,7 +5,7 @@ import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
 import { asGameId } from "@/lib/games/catalog";
-import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf } from "@/lib/game-flow-state";
+import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, downloadStartsInRoom } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
 
 /** useGameFlow 반환 계약 — page.tsx 가 이 필드들만 소비한다. */
@@ -71,8 +71,8 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   }, [hub.status]);
 
   useEffect(() => {
-    if (phase === "room") {loader.start();} // 유즈맵 — 다운로드는 방에 들어와서 시작
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps -- loader는 게임별 런타임
+    if (downloadStartsInRoom(phase)) {loader.start();} // 유즈맵 — 다운로드는 방에 들어와서 시작
+  }, [phase, loader]); // gameId 가 확정되면 런타임이 바뀌므로 start 가 다시 불린다
 
   const findRoom = useCallback(() => {
     saveNickname(displayName);
@@ -87,7 +87,7 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   }, [hub, loader.state]);
 
   const backToIntro = useCallback(() => {
-    hub.leaveRoom();
+    hub.disconnect();
     setPhase("intro");
   }, [hub]);
 

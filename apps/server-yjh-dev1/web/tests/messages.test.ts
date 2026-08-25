@@ -1,6 +1,8 @@
 // KO 사용자 문구 · MODES 정합 — 안내문 계약의 회귀 방지.
 import { describe, expect, it } from "vitest";
 import { KO, MODES, HUB_CONFIG } from "@/lib/hub/config";
+import ko from "../messages/ko.json";
+import en from "../messages/en.json";
 
 describe("KO 안내문 함수", () => {
   it("플레이어 입장/퇴장 문구에 이름이 들어간다", () => {
@@ -20,6 +22,16 @@ describe("KO 안내문 함수", () => {
 
   it("ROOM_FULL 은 maxPlayers 와 함께 렌더링된다", () => {
     expect(KO.ROOM_FULL).toBe(`방이 가득 찼습니다 (${HUB_CONFIG.maxPlayers})`);
+  });
+});
+
+describe("create 문구 — ko/en 키 대칭", () => {
+  it("방 만들기 페이지 키가 양쪽 로케일에 같다", () => {
+    expect(Object.keys(ko.create).sort()).toEqual(Object.keys(en.create).sort());
+    for (const key of Object.keys(ko.create) as Array<keyof typeof ko.create>) {
+      expect(ko.create[key].length).toBeGreaterThan(0);
+      expect(en.create[key].length).toBeGreaterThan(0);
+    }
   });
 });
 

@@ -3,6 +3,7 @@ import { Schema, ArraySchema, type } from "@colyseus/schema";
 import { HUB_CONFIG, MSG, KO, MODES, CLOSE_CODE } from "./config.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
 import { asGameId } from "../games/catalog.js";
+import type { SeatStart, StartPayload } from "./start-payload.js";
 
 // 다굴 로비/대기실/릴레이 — Colyseus 상태 동기화로 표현한다.
 // 방 상태(멤버·phase·호스트)는 state 가 전부이고,
@@ -137,14 +138,15 @@ export class LobbyRoom extends Room {
     // afterNextPatch: phase=playing 패치가 먼저 도착한 뒤 START 가 가게 한다
     // (공식 문서 — 상태 변경 적용 후 메시지 도착 순서 보장).
     for (const p of this.state.players) {
+      const payload: StartPayload = {
+        you: p.slot,
+        host: p.sessionId === this.state.hostSessionId,
+        seed: this.state.seed,
+        mode: this.state.mode,
+        seats,
+      };
       this.clients.find((c) => c.sessionId === p.sessionId)
-        ?.send(MSG.START, {
-          you: p.slot,
-          host: p.sessionId === this.state.hostSessionId,
-          seed: this.state.seed,
-          mode: this.state.mode,
-          seats,
-        }, { afterNextPatch: true });
+        ?.send(MSG.START, payload, { afterNextPatch: true });
     }
 
     this.gameTimer = this.clock.setTimeout(() => {
@@ -214,7 +216,7 @@ export class LobbyRoom extends Room {
     return this.state.players.length;
   }
 
-  private seatsPayload(): Array<{ slot: number; name: string; connected: boolean }> {
+  private seatsPayload(): SeatStart[] {
     return [...this.state.players]
       .sort((a, b) => a.slot - b.slot)
       .map((p) => ({ slot: p.slot, name: p.name, connected: p.connected }));

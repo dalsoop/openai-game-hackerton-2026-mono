@@ -41,7 +41,7 @@
   "lobby": {
     "title": "열린 방",
     "refresh": "새로고침",
-    "emptyRooms": "아직 열린 방이 없습니다. 방을 만들어 시작하세요.",
+    "emptyRooms": "아직 열린 방이 없습니다.",
     "room": "방",
     "createButton": "방 만들기",
     "join": "입장",
@@ -49,7 +49,20 @@
     "mineHost": "내 방 · 방장",
     "mine": "내 방",
     "inProgress": "진행 중",
-    "gameSelect": "게임 선택"
+    "gameSelect": "게임 선택",
+    "games": {
+      "dagul": { "title": "다굴" },
+      "sparring": { "title": "스파링" }
+    }
+  },
+  "create": {
+    "title": "방 만들기",
+    "blurb": "플레이할 게임을 고르고 방 이름을 정하세요.",
+    "roomTitle": "방 이름",
+    "roomTitlePlaceholder": "비워 두면 기본 이름이 들어갑니다",
+    "gameSelect": "게임",
+    "submit": "방 만들기",
+    "cancel": "로비로"
   },
   "room": {
     "mode": "합본",

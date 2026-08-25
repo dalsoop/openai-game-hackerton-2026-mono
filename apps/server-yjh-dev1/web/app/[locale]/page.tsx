@@ -2,9 +2,9 @@
 // 렌더 전용 — 페이즈 상태머신은 useGameFlow, 허브는 useHub, 로더는 useGodotLoader.
 import type { JSX } from "react";
 import { useTranslations } from "next-intl";
-import { useGameFlow } from "@/hooks/useGameFlow";
+import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
-import { shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { shouldShowConnectionLost, downloadStartsInRoom } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
   ConnectingPhase,
@@ -12,6 +12,7 @@ import {
   InRoomPhase,
   PlayingPhase,
 } from "@/components/phases";
+import { asGameId } from "@/lib/games/catalog";
 import { CONNECTION_CLASS, type HubStatus } from "@/types";
 import { PrefetchStatus } from "@/components/PrefetchStatus";
 
@@ -42,7 +43,7 @@ export default function Home(): JSX.Element {
     leaveToLobby,
     matchEnd,
     errorToIntro,
-  } = useGameFlow(t("intro.defaultPlayer"));
+  } = useGameFlowContext();
 
   // 끊김 판정은 페이즈보다 먼저 — 게임 중에도 진행을 막는다.
   const lost = shouldShowConnectionLost(hub.status, phase);
@@ -56,7 +57,7 @@ export default function Home(): JSX.Element {
         {/* inert — 서버가 죽었으면 게임도 조작 불가. 모달로 재접속/복귀만 허용 */}
         <div inert={lost}>
           <PlayingPhase
-            game="dagul"
+            game={asGameId(matchInfo.gameId ?? hub.gameId)}
             matchInfo={matchInfo}
             onMatchEnd={matchEnd}
             onError={errorToIntro}
@@ -83,7 +84,7 @@ export default function Home(): JSX.Element {
 
       {lostModal}
 
-      {(phase === "lobby" || phase === "room") && !lost && (
+      {downloadStartsInRoom(phase) && !lost && loader.state !== "ready" && (
         <PrefetchStatus state={loader.state} pct={loadPct} />
       )}
 
@@ -106,7 +107,6 @@ export default function Home(): JSX.Element {
                 <button
                   className="btn-text"
                   onClick={() => {
-                    hub.leaveRoom();
                     backToIntro();
                   }}
                 >
@@ -119,7 +119,6 @@ export default function Home(): JSX.Element {
               rooms={hub.rooms}
               status={hub.status}
               myRoom={hub.myRoom}
-              onCreateRoom={hub.createRoom}
               onJoinRoom={hub.joinRoom}
               onRefresh={hub.refreshRooms}
               onBackToIntro={backToIntro}

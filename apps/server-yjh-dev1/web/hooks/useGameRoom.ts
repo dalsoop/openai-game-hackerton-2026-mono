@@ -7,6 +7,8 @@ import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF, ROOM_NAME } from "@/lib/hub/config";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
+import { parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
+import { leaveOnceForHandoff } from "@/lib/hub/handoff-leave";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
@@ -15,19 +17,19 @@ import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 // 같은 세션·좌석을 이어받는다(서버 allowReconnection 유예 안에서).
 function handOffToGodot(
   room: BridgeableRoom,
-  onStarted: (payload: Record<string, unknown>) => void,
+  onStarted: (payload: StartPayload) => void,
 ): void {
-  room.onMessage(MSG.START, (payload: unknown): void => {
+  room.onMessage(MSG.START, (raw: unknown): void => {
+    const payload = parseStartPayload(raw);
+    if (!payload) {return;}
     try {
-      localStorage.setItem(HANDOFF.MATCH, JSON.stringify(payload ?? {}));
+      localStorage.setItem(HANDOFF.MATCH, JSON.stringify(payload));
       localStorage.setItem(HANDOFF.RESUME, room.reconnectionToken);
       localStorage.setItem(HANDOFF.FROM_HUB, "1");
     } catch { /* localStorage 불가 — 엔진이 토큰 없이 시도한다 */ }
-    onStarted((payload ?? {}) as Record<string, unknown>);
-    // 페이지 쪽 SDK 자동 재접속을 끈다 — 켜 두면 Godot 의 세션 승계와 싸운다.
-    room.reconnection.enabled = false;
-    // consent=false → close 코드 1000 이외 → 서버가 좌석을 allowReconnection 유예로 유지한다.
-    room.leave(false);
+    // 소켓을 먼저 넘긴 뒤 화면을 바꾼다 — 반대면 닫힌 소켓에 send 가 남는다.
+    leaveOnceForHandoff(room);
+    onStarted(payload);
   });
 }
 
@@ -48,9 +50,13 @@ export function useGameRoom(
   const { room, error: roomError } = useRoom<RosterSnapshot>(
     joinRequest
       ? async (): Promise<Room<RosterSnapshot>> => {
-          const settings = parseRoomSettings({ name: playerName(), game: joinRequest.kind === "create" ? joinRequest.game : undefined }, hubLimits(""));
+          const settings = parseRoomSettings({
+            name: playerName(),
+            game: joinRequest.kind === "create" ? joinRequest.game : undefined,
+            title: joinRequest.kind === "create" ? joinRequest.title : undefined,
+          }, hubLimits(""));
           const r = joinRequest.kind === "create"
-            ? await getClient().create(ROOM_NAME, { name: settings.name, game: settings.game })
+            ? await getClient().create(ROOM_NAME, { name: settings.name, game: settings.game, title: settings.title })
             : joinRequest.kind === "resume"
               ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
               : await getClient().joinById(joinRequest.id, { name: settings.name });
@@ -58,8 +64,10 @@ export function useGameRoom(
             setMatchInfo({
               roomId: r.roomId,
               name: playerName(),
-              slot: Number(payload.you ?? -1),
+              slot: payload.you,
               resumeToken: r.reconnectionToken,
+              match: payload,
+              gameId: (r.state as RosterSnapshot | undefined)?.gameId,
             });
           });
           r.onLeave(() => {

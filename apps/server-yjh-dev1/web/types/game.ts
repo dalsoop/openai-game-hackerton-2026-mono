@@ -8,6 +8,9 @@
  */
 export type GamePhase = "intro" | "lobby" | "room" | "playing";
 
+import type { StartPayload, SeatStart } from "@/lib/hub/start-payload";
+export type { StartPayload, SeatStart };
+
 /**
  * 매치 시작 정보
  */
@@ -16,6 +19,9 @@ export interface MatchInfo {
   name: string;
   slot: number;
   resumeToken: string;
+  /** START 본문 — 엔진 재부팅 때 gangup_match 를 다시 심는다 */
+  match?: StartPayload;
+  gameId?: string;
 }
 
 /**

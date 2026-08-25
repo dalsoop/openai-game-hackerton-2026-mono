@@ -20,6 +20,10 @@ const page = await ctx.newPage();
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") {consoleErrors.push(m.text());} });
 page.on("pageerror", (e) => consoleErrors.push(`PAGEERROR: ${e.message}`));
+await page.addInitScript(() => {
+  window.__e2eMatchStarted = false;
+  window.addEventListener("godot-match-start", () => { window.__e2eMatchStarted = true; }, { once: true });
+});
 
 // 1. 인트로
 await page.goto(URL, { waitUntil: "domcontentloaded" });
@@ -44,7 +48,7 @@ ok("3. 대기실 도착", true);
 await page.click("text=게임 시작");
 console.log("  … Godot 부팅 대기 중 (최대 120초)");
 const bootOk = await page
-  .waitForFunction(() => document.title.includes("다굴") || document.querySelector("canvas") !== null, null, { timeout: 120_000 })
+  .waitForFunction(() => document.querySelector("canvas") !== null, null, { timeout: 120_000 })
   .then(() => true)
   .catch(() => false);
 await page.screenshot({ path: `${SHOT}-4-playing.png` });

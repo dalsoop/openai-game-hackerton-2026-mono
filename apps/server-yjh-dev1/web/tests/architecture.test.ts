@@ -96,3 +96,20 @@ describe("계약: i18n 키 전수 실존", () => {
     expect(missing, "ko.json 에 없는 키 — 런타임에서 깨진다").toEqual([]);
   });
 });
+
+describe("계약: 방 만들기는 별도 페이지", () => {
+  const createPage = join(ROOT, "app/[locale]/create/page.tsx");
+  const lobbySrc = sourceOf(join(ROOT, "components/Lobby.tsx"));
+
+  it("create 라우트가 있다", () => {
+    expect(tsSources.some((p) => rel(p) === "app/[locale]/create/page.tsx")).toBe(true);
+    expect(sourceOf(createPage)).toContain("CreateRoom");
+  });
+
+  it("로비는 생성 폼을 두지 않고 /create 로만 보낸다", () => {
+    expect(lobbySrc).toContain('href="/create"');
+    expect(lobbySrc).not.toMatch(/name=["']game["']/);
+    expect(lobbySrc).not.toMatch(/name=["']title["']/);
+    expect(lobbySrc).not.toMatch(/\bonCreate\b/);
+  });
+});

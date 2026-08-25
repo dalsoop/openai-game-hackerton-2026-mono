@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
+import { GameFlowProvider } from "@/hooks/GameFlowProvider";
 import "../globals.css";
 
 export function generateStaticParams(): Array<{ locale: string }> {
@@ -40,7 +41,9 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <html lang={locale}>
-        <body>{children}</body>
+        <body>
+          <GameFlowProvider>{children}</GameFlowProvider>
+        </body>
       </html>
     </NextIntlClientProvider>
   );

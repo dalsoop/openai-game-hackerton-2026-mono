@@ -108,8 +108,8 @@ export function useHub(): UseHubResult {
     setConnected(true);
   }, []);
 
-  const createRoom = useCallback((game?: string) => {
-    setJoinRequest({ kind: "create", game });
+  const createRoom = useCallback((raw?: { game?: string; title?: string }) => {
+    setJoinRequest({ kind: "create", game: raw?.game, title: raw?.title });
   }, []);
   const joinRoom = useCallback((id: string) => {
     setJoinRequest({ kind: "join", id });
@@ -121,6 +121,11 @@ export function useHub(): UseHubResult {
     setMatchInfo(null);
     setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
   }, [setMatchInfo]);
+
+  const disconnect = useCallback(() => {
+    leaveRoom();
+    setConnected(false); // 리스트 룸도 내린다 — 뒤로가기가 인트로에서 멈추게
+  }, [leaveRoom]);
 
   // 게임 종료 후: Godot 이 세션을 반납했으므로 페이지가 재입장해 대기실로 돌아간다.
   const returnToLobby = useCallback((_name: string) => {
@@ -165,6 +170,7 @@ export function useHub(): UseHubResult {
     createRoom,
     joinRoom,
     leaveRoom,
+    disconnect,
     returnToLobby,
     startMatch,
     toggleRoom,

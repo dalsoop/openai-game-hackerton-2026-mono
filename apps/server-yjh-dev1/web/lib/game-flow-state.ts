@@ -24,3 +24,8 @@ export function displayNameOf(name: string, defaultPlayer: string): string {
 export function shouldShowConnectionLost(status: HubStatus, phase: GamePhase): boolean {
   return status === "offline" && phase !== "intro";
 }
+
+/** 유즈맵 — 게임 다운로드는 대기실(방 입장 후)에서만 시작한다. 로비에서 돌리면 idle 이 '준비 중'으로 남는다. */
+export function downloadStartsInRoom(phase: GamePhase): boolean {
+  return phase === "room";
+}

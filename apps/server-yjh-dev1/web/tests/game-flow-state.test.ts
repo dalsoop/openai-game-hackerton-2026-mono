@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, phaseAfterMatchEnd, phaseFromHubStatus, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { displayNameOf, downloadStartsInRoom, phaseAfterMatchEnd, phaseFromHubStatus, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -45,5 +45,15 @@ describe("shouldShowConnectionLost — 모달 표시 조건", () => {
 
   it.each(["connecting", "lobby", "in-room", "playing"] as HubStatus[])("오프라인이 아니면(%s) 모달 아님", (status) => {
     expect(shouldShowConnectionLost(status, "lobby")).toBe(false);
+  });
+});
+
+describe("downloadStartsInRoom — 유즈맵 다운로드 시점", () => {
+  it("대기실에서만 시작한다", () => {
+    expect(downloadStartsInRoom("room")).toBe(true);
+  });
+
+  it.each(["intro", "lobby", "playing"] as GamePhase[])("방 밖(%s)에서는 시작하지 않는다", (phase) => {
+    expect(downloadStartsInRoom(phase)).toBe(false);
   });
 });

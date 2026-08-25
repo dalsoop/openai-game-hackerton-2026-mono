@@ -5,6 +5,7 @@
 import { HANDOFF, DOM_EVT } from "@/lib/hub/config";
 import { DEFAULT_GAME_ID, type GameId } from "@/lib/games/catalog";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
+import type { StartPayload } from "@/lib/hub/start-payload";
 
 export type RuntimeState =
   | "idle" | "downloading" | "compiling" | "ready" | "running" | "error";
@@ -22,6 +23,7 @@ export interface HandoffInfo {
   name: string;
   slot: number;
   resumeToken: string;
+  match?: StartPayload;
 }
 
 interface Manifest {
@@ -56,6 +58,7 @@ export class GodotRuntime {
   private scriptPromise: Promise<void> | null = null;
   private bootPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
+  private matchSeen = false;
   private listeners = new Set<(s: RuntimeSnapshot) => void>();
   private snap: RuntimeSnapshot = {
     state: "idle", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null,
@@ -173,7 +176,7 @@ export class GodotRuntime {
     }
 
     const engine = new EngineCtor(config);
-    this.armWatchdog();
+    this.catchMatchStart();
     // side.wasm 도 캐시가 찬 뒤에 init — 엔진의 자체 fetch 가 304 로 떨어지게.
     await this.store.sideWasm;
     await engine.init(this.plan.engineBase);
@@ -184,17 +187,12 @@ export class GodotRuntime {
     await engine.start(config);
     this.engine = engine;
     this.update({ state: "running" });
+    this.armWatchdog();
   }
 
   private writeHandoff(info: HandoffInfo): void {
-    try {
-      localStorage.setItem(HANDOFF.FROM_HUB, "1");
-      localStorage.setItem(HANDOFF.GAME, this.game);
-      localStorage.setItem(HANDOFF.NAME, info.name);
-      localStorage.setItem(HANDOFF.ROOM_ID, info.roomId);
-      localStorage.setItem(HANDOFF.SLOT, String(info.slot));
-      if (info.resumeToken) {localStorage.setItem(HANDOFF.RESUME, info.resumeToken);}
-    } catch { /* localStorage 불가 환경 — 엔진이 resume 없이 시도한다 */ }
+    try { persistEngineHandoff(this.game, info); }
+    catch { /* localStorage 불가 환경 — 엔진이 resume 없이 시도한다 */ }
   }
 
   private loadEngineScript(): Promise<void> {
@@ -212,12 +210,20 @@ export class GodotRuntime {
     return this.scriptPromise;
   }
 
-  // 실왕복 게이트: 허브의 매치 신호가 제한시간 내 없으면 실패로 판정한다.
+  // start() 도중 오는 신호도 받도록, 타임아웃보다 먼저 귀를 연다.
+  private catchMatchStart(): void {
+    if (this.matchSeen) {return;}
+    window.addEventListener(DOM_EVT.MATCH_START, () => {
+      this.matchSeen = true;
+      if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+    }, { once: true });
+  }
+
+  // 엔진이 뜬 뒤에만 초를 잰다 — init 이 길다고 매치 실패로 오인하지 않는다.
   private armWatchdog(): void {
-    const clear = (): void => { if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; } };
-    window.addEventListener(DOM_EVT.MATCH_START, clear, { once: true });
+    if (this.matchSeen) {return;}
     this.watchdog = setTimeout((): void => {
-      window.removeEventListener(DOM_EVT.MATCH_START, clear);
+      if (this.matchSeen) {return;}
       this.quit();
       this.update({ state: "error", error: "match-signal-missing" });
     }, MATCH_WATCHDOG_MS);
@@ -225,6 +231,7 @@ export class GodotRuntime {
 
   quit(): void {
     if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+    this.matchSeen = false;
     if (this.engine?.requestQuit) {
       try { this.engine.requestQuit(); } catch { /* 이미 종료됨 */ }
     }
@@ -235,4 +242,14 @@ export class GodotRuntime {
   resetError(): void {
     if (this.snap.state === "error") {this.update({ state: "idle", error: null });}
   }
+}
+
+export function persistEngineHandoff(game: string, info: HandoffInfo): void {
+  localStorage.setItem(HANDOFF.FROM_HUB, "1");
+  localStorage.setItem(HANDOFF.GAME, game);
+  localStorage.setItem(HANDOFF.NAME, info.name);
+  localStorage.setItem(HANDOFF.ROOM_ID, info.roomId);
+  localStorage.setItem(HANDOFF.SLOT, String(info.slot));
+  if (info.resumeToken) {localStorage.setItem(HANDOFF.RESUME, info.resumeToken);}
+  if (info.match) {localStorage.setItem(HANDOFF.MATCH, JSON.stringify(info.match));}
 }

@@ -14,7 +14,7 @@ describe("세션 재개 계약 — 재접속 유예", () => {
 
   it("JoinRequest 는 세션 재개(resume) 종류를 허용한다", () => {
     const requests: JoinRequest[] = [
-      { kind: "create" },
+      { kind: "create", game: "dagul", title: "저녁" },
       { kind: "join", id: "r1" },
       { kind: "resume" },
     ];
