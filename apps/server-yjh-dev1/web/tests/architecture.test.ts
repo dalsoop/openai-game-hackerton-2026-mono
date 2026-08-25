@@ -8,9 +8,11 @@ const ROOT = process.cwd();
 
 function walk(dir: string, pred: (name: string) => boolean, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === ".next" || name === "dist" || name.startsWith(".")) {continue;}
+    if (name === "node_modules" || name === ".next" || name === "dist" || name === "public" || name.startsWith(".")) {continue;}
     const full = join(dir, name);
-    if (statSync(full).isDirectory()) {walk(full, pred, out);}
+    let st;
+    try {st = statSync(full);} catch {continue;} // CI 산출물 깨진 링크 — 소스 스캔 대상 아님
+    if (st.isDirectory()) {walk(full, pred, out);}
     else if (pred(name)) {out.push(full);}
   }
   return out;
