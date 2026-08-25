@@ -2,7 +2,7 @@ export const CONFIG = {
   port: Number(process.env.PORT || 9120),
   slot: process.env.SLOT_FOLDER || "server-yjh-dev1",
   graceLobbyMs: 60_000,
-  gracePlayMs: 60_000,
+  gracePlayMs: 180_000,
   maxPayload: 256 * 1024,
   defaultName: "손님",
   defaultMode: "classic",
@@ -15,7 +15,7 @@ export const CONFIG = {
   rateRefillPerMs: 0.04,
   snapDeltaLogInterval: 100,
   resetToLobbyDelayMs: 5_000,
-  hostBootTimeoutMs: 45_000,
+  hostBootTimeoutMs: 180_000,
   pingIntervalMs: 10_000,
   metricsIntervalMs: 5_000,
 } as const;

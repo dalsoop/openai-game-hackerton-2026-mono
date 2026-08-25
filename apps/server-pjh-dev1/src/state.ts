@@ -164,6 +164,8 @@ export function startMatch(room: Room): void {
   }
   room.timer = setTimeout(() => {
     if (room.phase === Phase.PLAYING && !room.lastSnap) {
+      const host = room.hostClientId ? clients.get(room.hostClientId) : undefined;
+      if (host && host.dead) return;
       sendRoom(room, { t: MSG.ERROR, msg: KO.HOST_BOOT_FAIL });
       resetToLobby(room);
     }
@@ -249,9 +251,13 @@ export function parkClient(client: Client): void {
   if (client.dead) return;
   client.dead = true;
   client.deadAt = Date.now();
+  // Host HTML socket closes on Godot handoff. Park the seat instead of ending the match.
   if (room.phase === Phase.PLAYING && room.hostClientId === client.id) {
-    notifyRoom(room, { notice: KO.hostDisconnectedEnd(client.name) });
-    resetToLobby(room);
+    parkPlayer(room, client.id);
+    const grace = CONFIG.gracePlayMs;
+    client.dropTimer = setTimeout(() => dropClient(client), grace);
+    notifyRoom(room, { notice: KO.playerDropped(client.name, Math.round(grace / 1000)) });
+    broadcastRooms();
     return;
   }
   parkPlayer(room, client.id);
