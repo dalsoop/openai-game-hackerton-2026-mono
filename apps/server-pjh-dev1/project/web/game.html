@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-49 -->
+		<!-- gangup-handoff-50 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -160,17 +160,38 @@ const GODOT_THREADS_ENABLED = false;
 	window.Godot = function (config) {
 		config = config || {};
 		config.instantiateWasm = function (imports, onSuccess) {
-			fetch('index.wasm', { credentials: 'same-origin' }).then(function (res) {
-				if (!res.ok) throw new Error('index.wasm HTTP ' + res.status);
-				return res.arrayBuffer();
-			}).then(function (buf) {
-				return WebAssembly.instantiate(buf, imports);
-			}).then(function (result) {
-				onSuccess(result.instance, result.module);
-			}).catch(function (err) {
-				console.error('wasm instantiate failed', err);
-				if (typeof config.printErr === 'function') config.printErr(String(err && err.message || err));
-			});
+			function loadWasm(n) {
+				glog('wasm.fetch', 'try=' + n);
+				return fetch('index.wasm', { credentials: 'same-origin' }).then(function (res) {
+					glog('wasm.http', String(res.status) + ' len=' + (res.headers.get('content-length') || '?'));
+					if (!res.ok) throw new Error('index.wasm HTTP ' + res.status);
+					if (typeof WebAssembly.instantiateStreaming === 'function') {
+						return WebAssembly.instantiateStreaming(res.clone(), imports).catch(function (streamErr) {
+							gfail('wasm.stream', String(streamErr && streamErr.message || streamErr));
+							return res.arrayBuffer().then(function (buf) {
+								glog('wasm.arrayBuffer', String(buf.byteLength));
+								return WebAssembly.instantiate(buf, imports);
+							});
+						});
+					}
+					return res.arrayBuffer().then(function (buf) {
+						glog('wasm.arrayBuffer', String(buf.byteLength));
+						return WebAssembly.instantiate(buf, imports);
+					});
+				}).then(function (result) {
+					gok('wasm준비', 'try=' + n);
+					onSuccess(result.instance, result.module);
+				}).catch(function (err) {
+					var msg = String(err && err.message || err);
+					gfail('wasm받기', 'try=' + n + ' ' + msg);
+					if (n < 3) {
+						setTimeout(function () { loadWasm(n + 1); }, 700 * n);
+						return;
+					}
+					if (typeof config.printErr === 'function') config.printErr(msg);
+				});
+			}
+			loadWasm(1);
 			return {};
 		};
 		return origGodot(config);
@@ -506,6 +527,7 @@ window.addEventListener('error', function (ev) {
 
 function showEngineFail(err) {
 	var text = (err && (err.message || err.stack)) ? (err.message || String(err)) : String(err || lastEngineErr || 'unknown');
+	gfail('엔진시작', text);
 	console.error('engine fail', err || lastEngineErr);
 	var notice = document.getElementById('status-notice');
 	if (notice) {
@@ -538,6 +560,11 @@ function launchGodot() {
 	}
 	if (godotStarting) { glog('launchGodot.alreadyStarting'); return; }
 	godotStarting = true;
+	if (_prefetchAbort) {
+		try { _prefetchAbort.abort(); } catch (e) {}
+		_prefetchAbort = null;
+		glog('prefetch.abort', 'launchGodot');
+	}
 	glog('launchGodot.startGame');
 	lastEngineErr = '';
 	$assetProgress.innerHTML = '게임 로딩 중… <span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>';
@@ -626,14 +653,19 @@ function switchToGame() {
 /* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */
 var _compiledWasm = null;
 
+var _prefetchAbort = null;
 function prefetchAssets() {
 	glog('prefetch.enter');
-	if (godotStarting || godotReady) { glog('prefetch.skip'); return; }
+	if (godotStarting || godotReady) { glog('prefetch.skip', 'engine'); return; }
+	if (String(location.search||'').indexOf('from_hub=1') >= 0) { glog('prefetch.skip', 'from_hub'); return; }
+	if (_prefetchAbort) { try { _prefetchAbort.abort(); } catch (e) {} }
+	_prefetchAbort = (typeof AbortController === 'function') ? new AbortController() : null;
 	var totalBytes = 0;
 	var loadedBytes = 0;
 
 	function trackFetch(url) {
-		return fetch(url).then(function(r) {
+		glog('prefetch.fetch', url);
+		return fetch(url, _prefetchAbort ? { signal: _prefetchAbort.signal } : {}).then(function(r) {
 			var size = parseInt(r.headers.get('content-length') || '0', 10);
 			totalBytes += size || 1;
 			var reader = r.body.getReader();
@@ -662,7 +694,10 @@ function prefetchAssets() {
 
 
 	// PCK도 캐시에 넣기
-	trackFetch('index.pck').catch(function() {});
+	trackFetch('index.pck').then(function () { gok('prefetch.pck'); }).catch(function (e) {
+		if (e && e.name === 'AbortError') { glog('prefetch.abort', 'index.pck'); return; }
+		gfail('prefetch.pck', String(e && e.message || e));
+	});
 }
 
 
@@ -718,7 +753,8 @@ window.addEventListener('pageshow', function (ev) {
 glog('page.init', location.pathname + location.search);
 connectHub();
 bootFromHub();
-if (!godotStarting && !godotReady) prefetchAssets();
+if (!godotStarting && !godotReady && String(location.search||'').indexOf('from_hub=1') < 0) prefetchAssets();
+else glog('prefetch.skip', 'init');
 glog('page.init.done');
 setInterval(function() { if (hubConnected) sendMsg({t:'ping'}); }, 3000);
 		</script>
