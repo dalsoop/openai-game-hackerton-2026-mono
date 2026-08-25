@@ -240,12 +240,25 @@ func tick_rooster_eggs(dt: float) -> void:
 			continue
 		var origin: Vector2 = egg.get("pos", Vector2.ZERO)
 		var trig = float(egg.get("trigger", 150.0)) + w.HERO_RADIUS
-		var boom := float(egg.get("arm", 0.0)) <= 0.0 and _rooster_egg_triggered(origin, trig)
+		var owner := int(egg.get("owner", -1))
+		var boom: bool = float(egg.get("arm", 0.0)) <= 0.0 and _rooster_egg_triggered(origin, trig, owner)
 		if boom:
 			explode_rooster_egg(egg)
 			continue
 		kept.append(egg)
 	w.rooster_eggs = kept
+
+# 알 폭발 트리거 — 소유자가 아닌 살아 있는 영웅이 감지 반경에 들어왔는지 판정한다.
+func _rooster_egg_triggered(origin: Vector2, trigger: float, owner: int) -> bool:
+	for t in range(w.heroes.size()):
+		if t == owner:
+			continue
+		var hero: Dictionary = w.heroes[t]
+		if not bool(hero.get("alive", false)) or bool(hero.get("eliminated", false)):
+			continue
+		if Vector2(hero["pos"]).distance_to(origin) <= trigger:
+			return true
+	return false
 
 func explode_rooster_egg(egg: Dictionary) -> void:
 	var origin: Vector2 = egg.get("pos", Vector2.ZERO)

@@ -41,6 +41,14 @@ func _advance_shrink_phase() -> void:
 	if ratio >= 1.0:
 		_complete_shrink_phase()
 
+# 수축 완료 — 다음 단계 대기로 넘기거나, 마지막 단계면 수축 종료로 확정한다.
+func _complete_shrink_phase() -> void:
+	w.safe_zone_shrinking = false
+	w.safe_zone_phase_time = 0.0
+	w.safe_zone_phase += 1
+	if w.safe_zone_phase >= w.SAFE_ZONE_PHASES.size():
+		w.safe_zone_complete = true
+
 func _advance_wait_phase() -> void:
 	var wait_time = float(w.SAFE_ZONE_PHASES[w.safe_zone_phase]["wait"])
 	if w.safe_zone_phase_time >= wait_time:
