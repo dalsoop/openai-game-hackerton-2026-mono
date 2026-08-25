@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-42 -->
+		<!-- gangup-handoff-45 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -282,6 +282,7 @@ function handleMsg(msg) {
 				localStorage.setItem('gangup_name', getName());
 				if (resumeToken) localStorage.setItem('gangup_resume', resumeToken);
 			} catch(e) {}
+			try { $assetProgress.childNodes[0].textContent = '게임 로딩 중… '; } catch (e) {}
 			launchGodot();
 			break;
 		case 'chat':
@@ -438,7 +439,6 @@ function launchGodot() {
 		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
 	}
 	if (godotReady) {
-		switchToGame();
 		return;
 	}
 	if (godotStarting) return;
@@ -495,7 +495,7 @@ function launchGodot() {
 		$assetProgress.childNodes[0].textContent = '준비 완료 ';
 		var fill = document.getElementById('asset-fill');
 		if (fill) fill.style.width = '100%';
-		if (showGameWhenReady || matchStartMsg) switchToGame();
+		/* Engine ready is not enough. Stay on the HTML lobby until the match is playing. */
 	}, function(err) {
 		if (settled) return;
 		settled = true;
@@ -554,23 +554,23 @@ function prefetchAssets() {
 
 
 function bootFromHub() {
-	var fromHub = false;
-	var resume = '';
-	try {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
-			|| localStorage.getItem('gangup_from_hub') === '1';
-		resume = localStorage.getItem('gangup_resume') || '';
-	} catch (e) {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
+	var fromQuery = String(location.search||'').indexOf('from_hub=1') >= 0;
+	if (!fromQuery) {
+		try { localStorage.removeItem('gangup_from_hub'); } catch (e) {}
+		return;
 	}
-	if (!fromHub) return;
 	try { window.GANGUP_FROM_HUB = true; } catch (e) {}
-	// Only enter the engine when a match already exists (resume token from HTML start).
+	var resume = '';
+	try { resume = localStorage.getItem('gangup_resume') || ''; } catch (e) {}
 	if (resume.length === 32) {
-		showGameWhenReady = true;
+		$assetProgress.childNodes[0].textContent = '게임 로딩 중… ';
 		if (typeof launchGodot === 'function') launchGodot();
 	}
 }
+
+window.gangupShowGame = function () {
+	switchToGame();
+};
 
 /* ── 시작 ── */
 connectHub();

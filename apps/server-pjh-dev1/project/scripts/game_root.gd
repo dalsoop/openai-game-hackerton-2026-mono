@@ -248,6 +248,8 @@ func _set_phase(next: StringName) -> void:
 		touch.set_playing(playing)
 	_sync_touch_buttons()
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
+	if playing and OS.has_feature("web"):
+		JavaScriptBridge.eval("window.gangupShowGame && window.gangupShowGame()")
 	if not playing:
 		var page := next
 		if page == &"play" or page == &"select":
