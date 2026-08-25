@@ -134,6 +134,10 @@ describe("계약: 웹 캔버스 키 포커스", () => {
     expect(runtime).toContain("focusCanvas: true");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("visibilitychange");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("PAGE_HIDDEN");
+    expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("bindPlayKeyGuard");
+    expect(sourceOf(join(ROOT, "lib/godot/play-keys.ts"))).toContain("event.code");
+    expect(sourceOf(join(ROOT, "..", "project", "core/input/layout_keys.gd"))).toContain("is_physical_key_pressed");
+    expect(sourceOf(join(ROOT, "..", "project", "core/input/layout_keys.gd"))).not.toContain("is_key_pressed");
     expect(sourceOf(join(ROOT, "..", "project", "core/shell/match_shell.gd"))).toContain("HeldInputScript.release_all");
   });
 });

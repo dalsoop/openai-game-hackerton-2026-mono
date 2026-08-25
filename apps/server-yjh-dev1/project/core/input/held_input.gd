@@ -21,8 +21,6 @@ static func release_all() -> void:
 
 
 static func _release_key(keycode: Key) -> void:
-	if not Input.is_key_pressed(keycode) and not Input.is_physical_key_pressed(keycode):
-		return
 	var ev := InputEventKey.new()
 	ev.keycode = keycode
 	ev.physical_keycode = keycode

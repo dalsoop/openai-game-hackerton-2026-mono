@@ -7,6 +7,7 @@ const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const GameServerScript = preload("res://games/dagul/net/game_server.gd")
 const GameClientScript = preload("res://games/dagul/net/game_client.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
+const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
 
 const MODE := "full"
 const TICK := 1.0 / 60.0
@@ -213,12 +214,7 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	hud.queue_redraw()
 
 func _read_move(touch: CanvasLayer) -> Vector2:
-	var move := Vector2(
-		float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
-		float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
-	)
-	if move.length_squared() > 1.0:
-		move = move.normalized()
+	var move := LayoutKeysScript.move_axis()
 	if touch != null and move.length() <= 0.1:
 		move = touch.move
 	return move
@@ -243,8 +239,8 @@ func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_hel
 		hud.net_connected = bool(hub.is_open())
 		_apply_recoil_mouse(world_view)
 		return
-	var dash_held: bool = Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
-	var use_held: bool = Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
+	var dash_held: bool = LayoutKeysScript.held(KEY_SHIFT) or (touch != null and touch.dash_held)
+	var use_held: bool = LayoutKeysScript.held(KEY_E) or (touch != null and touch.medkit_held)
 	world.present(TICK)
 	hud.net_rtt_ms = int(hub.rtt_ms)
 	hud.net_connected = bool(hub.is_open())
@@ -306,7 +302,7 @@ func _apply_recoil_mouse(world_view: Node2D) -> void:
 	vp.warp_mouse(next)
 
 func _edge(keycode: int) -> bool:
-	var now := Input.is_key_pressed(keycode) or Input.is_physical_key_pressed(keycode)
+	var now := LayoutKeysScript.held(keycode as Key)
 	var was := bool(previous_keys.get(keycode, false))
 	previous_keys[keycode] = now
 	return now and not was

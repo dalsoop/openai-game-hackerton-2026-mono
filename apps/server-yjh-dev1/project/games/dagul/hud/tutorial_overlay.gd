@@ -1,6 +1,8 @@
 class_name TutorialOverlay
 extends Control
 
+const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
+
 signal tutorial_finished
 
 const STEPS := [
@@ -130,11 +132,11 @@ func _process(delta: float) -> void:
 	var advance := false
 	match step_key:
 		"move":
-			advance = Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_D)
+			advance = LayoutKeysScript.held(KEY_W) or LayoutKeysScript.held(KEY_A) or LayoutKeysScript.held(KEY_S) or LayoutKeysScript.held(KEY_D)
 		"fire":
 			advance = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 		"dash":
-			advance = Input.is_key_pressed(KEY_SHIFT)
+			advance = LayoutKeysScript.held(KEY_SHIFT)
 		"skill":
 			advance = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 		"done":
