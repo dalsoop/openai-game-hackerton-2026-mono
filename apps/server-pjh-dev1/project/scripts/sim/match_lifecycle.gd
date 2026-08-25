@@ -35,6 +35,7 @@ func update_timers(dt: float) -> void:
 	_decay_ui_ticks(dt)
 	for i in range(w.heroes.size()):
 		var h: Dictionary = w.heroes[i]
+		h["emote_time"] = maxf(0.0, float(h.get("emote_time", 0.0)) - dt)
 		h["fire_cd"] = maxf(0.0, float(h["fire_cd"]) - dt)
 		h["spray_idle"] = float(h.get("spray_idle", 0.0)) + dt
 		if float(h["spray_idle"]) > 0.14:

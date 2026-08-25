@@ -51,6 +51,20 @@ func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.
 func draw_hero_gun(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, extra_squash: float = 0.0) -> void:
 	r._draw_hero_gun(pos, slot, aim, opacity, extra_squash)
 
+func draw_emote(body_pos: Vector2, hero: Dictionary, slot: int) -> void:
+	if float(hero.get("emote_time", 0.0)) <= 0.0:
+		return
+	var animal := posmod(int(hero.get("animal", slot)), 12)
+	var texture: Texture2D = r.emote_atlases.get(animal)
+	if texture == null:
+		return
+	var frame := clampi(int(hero.get("emote", 0)), 0, 3)
+	var cell := Vector2(float(texture.get_width()) / 4.0, float(texture.get_height()))
+	var size := Vector2(132.0, 99.0)
+	var center := body_pos + Vector2(-78.0, -68.0)
+	var alpha := clampf(float(hero.get("emote_time", 0.0)) * 3.0, 0.0, 1.0)
+	r.draw_texture_rect_region(texture, Rect2(center - size * 0.5, size), Rect2(Vector2(cell.x * frame, 0.0), cell), Color(1.0, 1.0, 1.0, alpha))
+
 func draw_dog_alert(body_pos: Vector2, hero: Dictionary) -> void:
 	if float(hero.get("dog_windup", 0.0)) <= 0.0 and not bool(hero.get("dog_rush", false)):
 		return
@@ -408,6 +422,7 @@ func draw_heroes() -> void:
 			r.draw_circle(pos, 40.0, Color(0.25, 0.78, 1.0, 0.16))
 			r.draw_arc(pos, 42.0 + sin(float(world.tick) * 0.22) * 2.0, 0.0, TAU, 36, Color(Color("#70e7ff"), 0.95), 6.0)
 		var hit_flash: float = float(hero.get("hit_flash", 0.0))
+		draw_emote(body_pos, hero, slot)
 		_draw_hero_body(pos, body_pos, slot, aim, hero, is_down, is_turtle, hop_lift, hop_scale, body_squash, ghost, hit_flash, comb_nudge, timed_ids)
 		_draw_hero_buff_icons(body_pos, timed_ids)
 		var hp_ratio := maxf(0.0, float(hero["hp"]) / float(hero["max_hp"]))

@@ -116,6 +116,7 @@ func _snap_players() -> Array:
 			"weapon": str(h.get("equipment", {}).get("name", "")),
 			"item": "medkit" if int(h.get("medkits", 0)) > 0 else "",
 			"kills": int(h["kills"]),
+			"animal": int(h.get("animal", h["slot"])), "emote": int(h.get("emote", -1)), "emoteTime": float(h.get("emote_time", 0.0)),
 			"ack": _peer_seq.get(int(h["slot"]), 0)
 		})
 	return arr

@@ -18,6 +18,9 @@ func apply_human(command: Dictionary) -> void:
 	if bool(w.finish_cine.get("on", false)):
 		return
 	var h: Dictionary = w.heroes[ls]
+	var emote := int(command.get("emote", -1))
+	if emote >= 0 and emote < 4:
+		h["emote"] = emote; h["emote_time"] = 2.0; w.heroes[ls] = h
 	if bool(h["eliminated"]):
 		w.heroes[ls] = h
 		return
@@ -119,6 +122,9 @@ func apply_peer_humans() -> void:
 		consumed.append(slot_key)
 		var cmd: Dictionary = w.peer_commands[slot_key]
 		var h: Dictionary = w.heroes[slot]
+		var emote := int(cmd.get("emote", -1))
+		if emote >= 0 and emote < 4:
+			h["emote"] = emote; h["emote_time"] = 2.0; w.heroes[slot] = h
 		if bool(h["eliminated"]) or not bool(h["alive"]):
 			continue
 		if bool(h.get("downed", false)):

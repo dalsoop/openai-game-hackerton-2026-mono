@@ -469,10 +469,13 @@ func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_hel
 		hud.net_rtt_ms = int(hub.rtt_ms)
 		hud.net_connected = bool(hub.is_open())
 		var seq: int = int(world.predict_local(move, dash_held, aim_world, 1.0 / 60.0))
+		var net_emote := -1
+		for emote_index in range(4):
+			if _edge(KEY_1 + emote_index): net_emote = emote_index
 		if _game_client != null and _game_client.is_connected_to_server():
-			_game_client.send_input({"mx":move.x, "my":move.y, "fire":primary, "dash":dash_held, "use":use_held, "aimX":aim_world.x, "aimY":aim_world.y, "seq":seq})
+			_game_client.send_input({"mx":move.x, "my":move.y, "fire":primary, "dash":dash_held, "use":use_held, "aimX":aim_world.x, "aimY":aim_world.y, "seq":seq, "emote":net_emote})
 		else:
-			hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
+			hub.send_input(move, primary, dash_held, use_held, aim_world, seq, net_emote)
 		previous_right_mouse = equipment_held
 		return
 	var command := _build_command(move, aim_world, primary, equipment_held)
@@ -514,6 +517,9 @@ func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: 
 	var hop_edge := _edge(KEY_SPACE)
 	var medkit_edge := _edge(KEY_E)
 	var reload_edge := _edge(KEY_R)
+	var emote := -1
+	for emote_index in range(4):
+		if _edge(KEY_1 + emote_index): emote = emote_index
 	if touch != null:
 		ultimate_edge = touch.consume_ult() or ultimate_edge
 		mobility_edge = touch.consume_dash() or mobility_edge
@@ -527,7 +533,7 @@ func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: 
 		"equipment_released": not equipment_held and previous_right_mouse,
 		"ultimate": ultimate_edge, "mobility": mobility_edge,
 		"hop": hop_edge, "medkit": medkit_edge,
-		"reload": reload_edge, "finish": _edge(KEY_F)
+		"reload": reload_edge, "finish": _edge(KEY_F), "emote": emote
 	}
 
 func _compute_shake() -> Vector2:

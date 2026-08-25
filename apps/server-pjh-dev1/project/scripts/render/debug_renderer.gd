@@ -56,6 +56,7 @@ var death_burst_atlas: Texture2D = null
 var zone_lightning_atlas: Texture2D = null
 var zone_impact_atlas: Texture2D = null
 var ultimate_fx_atlases: Dictionary = {}
+var emote_atlases: Dictionary = {}
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -159,6 +160,9 @@ func _ready() -> void:
     var ultimate_names := ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Sheep", "Monkey", "Rooster", "Dog", "Pig"]
     for ultimate_index in range(ultimate_names.size()):
         ultimate_fx_atlases[ultimate_index] = _load_tex("res://assets/fx/ultimates/Tex_FX_Ult_%s_4x2.png" % ultimate_names[ultimate_index])
+    var emote_names := ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Sheep", "Monkey", "Rooster", "Dog", "Pig"]
+    for emote_index in range(emote_names.size()):
+        emote_atlases[emote_index] = _load_tex("res://assets/fx/emotes/Tex_UI_Emote_%s_4x1.png" % emote_names[emote_index])
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
