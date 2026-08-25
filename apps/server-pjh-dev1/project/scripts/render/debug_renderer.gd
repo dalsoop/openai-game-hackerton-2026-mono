@@ -165,10 +165,11 @@ func _ready() -> void:
     _overlay = RenderOverlayScript.new(self)
 
 func _load_tex(path: String) -> Texture2D:
-    if ResourceLoader.exists(path):
-        var res = load(path)
-        if res is Texture2D:
-            return res
+    if not ResourceLoader.exists(path):
+        return null
+    var res = load(path)
+    if res is Texture2D:
+        return res
     var img := Image.new()
     var err := img.load(ProjectSettings.globalize_path(path))
     if err != OK:
