@@ -46,6 +46,7 @@ var reload_bubble_atlas: Texture2D = null
 var tracer_fx_atlas: Texture2D = null
 var hit_spark_fx_atlas: Texture2D = null
 var explosion_fx_atlas: Texture2D = null
+var ammo_casing_texture: Texture2D = null
 var mobility_fx_atlases: Dictionary = {}
 var dash_departure_atlas: Texture2D = null
 var rooster_beam_step_atlas: Texture2D = null
@@ -67,6 +68,8 @@ var recoil_strap: Array = []
 var recoil_decay: Array = []
 var muzzle_life: Array = []
 var rooster_comb_lag: float = 0.0
+var world_casings: Array[Dictionary] = []
+var world_casing_serial: int = 0
 
 const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
 const ANIMAL_COLS := 4
@@ -133,6 +136,7 @@ func _ready() -> void:
     tracer_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Tracer_4x1.png")
     hit_spark_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_HitSpark_4x1.png")
     explosion_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    ammo_casing_texture = _load_tex("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
     var mobility_files := {
         "speed_streak": "Tex_FX_MobilityDash_4x1.png", "beam_step": "Tex_FX_BeamStep_4x1.png",
         "drain": "Tex_FX_DrainStep_4x1.png", "guard": "Tex_FX_GuardStep_4x1.png",
@@ -275,6 +279,8 @@ func _consume_shot_events() -> void:
             var slot := int(event.get("actor_id", -1))
             if slot >= 0 and slot < recoil_kick.size():
                 _apply_shot_recoil(slot)
+                if et == &"gun_fire":
+                    _spawn_world_casing(slot)
         elif et == &"tower_hit":
             var td: Dictionary = event.get("data", {})
             var tdmg := float(td.get("damage", 0.0))
@@ -321,6 +327,73 @@ func _consume_shot_events() -> void:
                 var vis: Dictionary = GunSig.visual_for_equipment(hid)
                 hrow = int(vis.get("impact_row", 1))
                 impact_flashes.append({"pos":htpos, "row":hrow, "time":0.0})
+
+func _world_casing_size(equipment_id: String) -> Vector2:
+    var family := GunSig.family_of(equipment_id)
+    match family:
+        "pistol":
+            return Vector2(10.0, 7.0)
+        "smg":
+            return Vector2(12.0, 8.0)
+        "shotgun":
+            return Vector2(16.0, 11.0)
+        "heavy":
+            return Vector2(18.0, 12.0)
+        _:
+            return Vector2(14.0, 9.0)
+
+func _spawn_world_casing(slot: int) -> void:
+    if slot < 0 or slot >= world.heroes.size():
+        return
+    var hero: Dictionary = world.heroes[slot]
+    if not bool(hero.get("alive", false)):
+        return
+    var aim := Vector2(hero.get("aim", Vector2.RIGHT))
+    if aim.length_squared() < 0.0001:
+        aim = Vector2.RIGHT
+    aim = aim.normalized()
+    var side := Vector2(-aim.y, aim.x)
+    var equipment: Dictionary = hero.get("equipment", {})
+    var equipment_id := str(equipment.get("id", "burst"))
+    world_casing_serial += 1
+    var seed := fposmod(float(world_casing_serial * 37), 101.0) / 101.0
+    world_casings.append({
+        "pos": Vector2(hero.get("pos", Vector2.ZERO)) + aim * 24.0 + side * (7.0 + seed * 5.0),
+        "aim": aim,
+        "age": 0.0,
+        "seed": seed,
+        "spin": 1.5 + fposmod(float(world_casing_serial * 23), 100.0) / 100.0,
+        "clockwise": 1.0 if world_casing_serial % 2 == 0 else -1.0,
+        "size": _world_casing_size(equipment_id),
+    })
+    while world_casings.size() > 48:
+        world_casings.pop_front()
+
+func _tick_world_casings(dt: float) -> void:
+    var alive: Array[Dictionary] = []
+    for casing in world_casings:
+        casing["age"] = float(casing.get("age", 0.0)) + dt
+        if float(casing["age"]) < 0.95:
+            alive.append(casing)
+    world_casings = alive
+
+func _draw_world_casings() -> void:
+    for casing in world_casings:
+        var age := float(casing.get("age", 0.0))
+        var seed := float(casing.get("seed", 0.0))
+        var aim := Vector2(casing.get("aim", Vector2.RIGHT))
+        var origin := Vector2(casing.get("pos", Vector2.ZERO))
+        var velocity := aim * (110.0 + seed * 34.0) + Vector2(0.0, -90.0 - seed * 24.0)
+        var pos := origin + velocity * age + Vector2(0.0, 180.0 * age * age)
+        var rotation := float(casing.get("clockwise", 1.0)) * TAU * float(casing.get("spin", 2.0)) * age + seed * TAU
+        var alpha := 0.72 * (1.0 - clampf((age - 0.58) / 0.37, 0.0, 1.0))
+        var casing_size := Vector2(casing.get("size", Vector2(14.0, 9.0)))
+        draw_set_transform(pos, rotation, Vector2.ONE)
+        if ammo_casing_texture != null:
+            draw_texture_rect_region(ammo_casing_texture, Rect2(-casing_size * 0.5, casing_size), Rect2(240.0, 280.0, 800.0, 680.0), Color(1.0, 1.0, 1.0, alpha))
+        else:
+            draw_rect(Rect2(-casing_size * 0.5, casing_size), Color(0.95, 0.64, 0.18, alpha))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func feel_muzzle_max(row: int) -> float:
     var counts := [2, 3, 4]
@@ -867,6 +940,7 @@ func _draw() -> void:
         return
     _consume_shot_events()
     _tick_recoil(1.0 / 60.0)
+    _tick_world_casings(1.0 / 60.0)
     _tick_combat_texts(1.0 / 60.0)
     _env.world = world
     _heroes.world = world
@@ -874,6 +948,7 @@ func _draw() -> void:
     _overlay.world = world
     _env.draw_island()
     _env.draw_safe_zone()
+    _draw_world_casings()
     _env.draw_covers()
     _env.draw_crates()
     _env.draw_mid_tower()
