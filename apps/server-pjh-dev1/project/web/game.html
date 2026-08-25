@@ -5,8 +5,7 @@
 if (/from_hub=1/.test(String(location.search||''))) document.documentElement.classList.add('from-hub');
 </script>
 <style>
-html.from-hub #lobby-root { opacity: 0; pointer-events: none; }
-html.from-hub .status-bar { display: flex !important; }
+/* from_hub: do not hide lobby until Godot actually starts */
 </style>
 
 		<meta charset="utf-8">
@@ -375,28 +374,18 @@ function launchGodot() {
 	if (matchStartMsg) {
 		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
 	}
-	if (godotReady || godotStarting) {
+	if (godotReady) {
 		switchToGame();
 		return;
 	}
+	if (godotStarting) return;
 	godotStarting = true;
 	$assetProgress.innerHTML = '게임 로딩 중… <span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>';
 
-	var missing = Engine.getMissingFeatures({threads: GODOT_THREADS_ENABLED});
+	var missing = [];
+	try { missing = Engine.getMissingFeatures({threads: false}) || []; } catch (e) { missing = []; }
 	if (missing.length) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			var swp;
-			try { swp = navigator.serviceWorker.getRegistration(); }
-			catch(e) { swp = Promise.reject(new Error('SW failed')); }
-			Promise.race([
-				swp.then(function(r){ if(r) return Promise.reject(new Error('exists')); return r; }).then(function(){ return engine.installServiceWorker(); }),
-				new Promise(function(res){ setTimeout(res, 2000); })
-			]).then(function(){ window.location.reload(); }).catch(function(){});
-		} else {
-			document.getElementById('status-notice').style.display = 'block';
-			document.getElementById('status-notice').textContent = '이 브라우저에서는 지원되지 않습니다: ' + missing.join(', ');
-		}
-		return;
+		console.warn('Godot missing features, starting anyway', missing);
 	}
 
 	engine.startGame({
@@ -426,6 +415,10 @@ function launchGodot() {
 		console.error(err);
 		document.getElementById('status-notice').style.display = 'block';
 		document.getElementById('status-notice').textContent = '게임 로드 실패: ' + (err.message || err);
+		lobbyRoot.classList.remove('hidden');
+		lobbyRoot.style.opacity = '1';
+		lobbyRoot.style.pointerEvents = 'auto';
+		godotStarting = false;
 	});
 }
 
@@ -440,6 +433,7 @@ function switchToGame() {
 var _compiledWasm = null;
 
 function prefetchAssets() {
+	if (godotStarting || godotReady) return;
 	var totalBytes = 0;
 	var loadedBytes = 0;
 
