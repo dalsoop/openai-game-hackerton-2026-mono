@@ -539,6 +539,8 @@ function showEngineFail(err) {
 	lobbyRoot.style.opacity = '1';
 	lobbyRoot.style.pointerEvents = 'auto';
 	godotStarting = false;
+	htmlWsDone = false;
+	glog('htmlWs.reopen', 'engine.fail');
 	// Engine.unload()+new Engine() leaves index.js initPromise resolved
 	// on the old instance, so the next startGame hits "must be initialized".
 	var poisoned = /must be initialized/i.test(text);
@@ -573,6 +575,8 @@ function launchGodot() {
 	}
 	if (godotStarting) { glog('launchGodot.alreadyStarting'); return; }
 	godotStarting = true;
+	htmlWsDone = true;
+	glog('htmlWs.done', 'launchGodot');
 	if (_prefetchAbort) {
 		try { _prefetchAbort.abort(); } catch (e) {}
 		_prefetchAbort = null;
