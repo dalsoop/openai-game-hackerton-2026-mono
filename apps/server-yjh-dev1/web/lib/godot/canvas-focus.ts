@@ -1,6 +1,7 @@
 // Godot 웹은 캔버스 포커스가 있어야 키를 받는다(공식 셸 주석).
 // 알탭은 그 포커스를 깨므로, 복귀 때 캔버스를 다시 잡고 엔진에 숨김/복귀를 알린다.
 import { DOM_EVT } from "@/lib/contract";
+import { bindPlayKeyGuard } from "@/lib/godot/play-keys";
 
 export function grabCanvasKeyboard(canvas: HTMLCanvasElement): void {
   if (typeof document !== "undefined" && document.visibilityState === "hidden") {return;}
@@ -27,7 +28,9 @@ export function bindCanvasKeyboardFocus(canvas: HTMLCanvasElement): () => void {
   window.addEventListener("focus", show);
   document.addEventListener("visibilitychange", onVis);
   canvas.addEventListener("pointerdown", show);
+  const stopKeys = bindPlayKeyGuard(canvas);
   return (): void => {
+    stopKeys();
     window.removeEventListener("blur", hide);
     window.removeEventListener("focus", show);
     document.removeEventListener("visibilitychange", onVis);

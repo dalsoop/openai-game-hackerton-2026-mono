@@ -3,6 +3,8 @@ extends RefCounted
 
 ## Builds per-tick input commands from keyboard + touch.
 
+const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
+
 var previous_keys: Dictionary = {}
 var previous_right_mouse: bool = false
 var previous_left_mouse: bool = false
@@ -15,19 +17,14 @@ func _init(touch_layer: CanvasLayer = null) -> void:
 
 
 func edge(keycode: int) -> bool:
-	var now := Input.is_key_pressed(keycode) or Input.is_physical_key_pressed(keycode)
+	var now := LayoutKeysScript.held(keycode as Key)
 	var was := bool(previous_keys.get(keycode, false))
 	previous_keys[keycode] = now
 	return now and not was
 
 
 func read_move() -> Vector2:
-	var keyboard_move := Vector2(
-		float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
-		float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
-	)
-	if keyboard_move.length_squared() > 1.0:
-		keyboard_move = keyboard_move.normalized()
+	var keyboard_move := LayoutKeysScript.move_axis()
 	if touch != null and keyboard_move.length() <= 0.1:
 		return touch.move
 	return keyboard_move
@@ -49,11 +46,11 @@ func read_equipment() -> bool:
 
 
 func read_dash() -> bool:
-	return Input.is_key_pressed(KEY_SHIFT) or (touch != null and touch.dash_held)
+	return LayoutKeysScript.held(KEY_SHIFT) or (touch != null and touch.dash_held)
 
 
 func read_use() -> bool:
-	return Input.is_key_pressed(KEY_E) or (touch != null and touch.medkit_held)
+	return LayoutKeysScript.held(KEY_E) or (touch != null and touch.medkit_held)
 
 
 func build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool) -> Dictionary:
