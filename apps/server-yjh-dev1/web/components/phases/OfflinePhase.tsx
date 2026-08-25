@@ -8,14 +8,18 @@ import { Button } from "@/components/ui";
 
 interface OfflinePhaseProps {
   nickname: string;
+  hasSavedName: boolean;
   onNameChange: (name: string) => void;
   onConnect: () => void;
+  onResetName: () => void;
 }
 
 export function OfflinePhase({
   nickname,
+  hasSavedName,
   onNameChange,
   onConnect,
+  onResetName,
 }: OfflinePhaseProps): JSX.Element {
   const t = useTranslations();
 
@@ -25,6 +29,15 @@ export function OfflinePhase({
         {/* eslint-disable-next-line @next/next/no-img-element -- 정적 장식 배너, 반응형 폭 유지 위해 img 유지 */}
         <img src="/assets/banner.png" alt="" />
       </div>
+
+      {hasSavedName && (
+        <div className="login-chip">
+          <span>{t("intro.loggedInAs", { name: nickname })}</span>
+          <button className="btn-text" onClick={onResetName}>
+            {t("intro.logout")}
+          </button>
+        </div>
+      )}
 
       <div className="intro-form">
         <input

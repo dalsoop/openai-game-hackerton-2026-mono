@@ -39,6 +39,8 @@ export default function Home(): JSX.Element {
     phase,
     name,
     setName,
+    resetName,
+    hasSavedName,
     hub,
     loader,
     matchInfo,
@@ -115,8 +117,10 @@ export default function Home(): JSX.Element {
       {phase === "intro" && (
         <OfflinePhase
           nickname={name}
+          hasSavedName={hasSavedName}
           onNameChange={setName}
           onConnect={findRoom}
+          onResetName={resetName}
         />
       )}
 

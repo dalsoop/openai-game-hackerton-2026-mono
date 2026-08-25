@@ -304,3 +304,6 @@ body.wait #wait { display: block; }
 .room-mine-badge { padding:2px 8px; font-size:10px; color:var(--tx-0); background:var(--acc); border-radius:999px; }
 .room-mine-badge.host { background:var(--cyan); }
 .room-playing { font-size:11px; color:var(--tx-2); }
+
+/* --- 인트로 로그인 상태 칩 --- */
+.login-chip { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding:6px 12px; align-self:center; background:var(--bg-1); border:1px solid var(--line); border-radius:999px; font-size:12px; color:var(--tx-1); }

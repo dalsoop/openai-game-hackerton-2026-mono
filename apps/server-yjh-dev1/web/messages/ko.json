@@ -26,7 +26,9 @@
   "intro": {
     "namePlaceholder": "내 이름",
     "startButton": "시작하기",
-    "defaultPlayer": "플레이어"
+    "defaultPlayer": "플레이어",
+    "loggedInAs": "{name}으로 로그인됨",
+    "logout": "로그아웃"
   },
   "logo": {
     "word": "다굴즈"
