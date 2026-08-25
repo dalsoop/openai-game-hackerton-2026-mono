@@ -52,10 +52,10 @@ async function main() {
   const observer = new Client(BASE);
   const obs = await observer.joinById(roomId, { name: "관측자" });
   await new Promise((r) => { if (obs.state) {r(null);} else {obs.onStateChange(r);} });
-  await waitFor(obs, (st) => st.players.length === 2, "관측자 입장");
+  await waitFor(obs, (st) => (st?.players?.length ?? 0) === 2, "관측자 입장");
   await waitFor(
     obs,
-    (st) => st.players.some((p) => p.name === "재개테스터" && !p.connected),
+    (st) => (st?.players ?? []).some((p) => p.name === "재개테스터" && !p.connected),
     "단절자 좌석이 재접속 대기로 유지",
   );
   step("대기실 유예 — 좌석 유지(connected=false) 관측");
@@ -66,7 +66,7 @@ async function main() {
   if (resumed.roomId !== roomId) {fail("재개 방 불일치", `${resumed.roomId} ≠ ${roomId}`);}
   await new Promise((r) => { if (resumed.state) {r(null);} else {resumed.onStateChange(r);} });
   await waitFor(resumed, (st) => {
-    const me = st.players.find((p) => p.name === "재개테스터");
+    const me = (st?.players ?? []).find((p) => p.name === "재개테스터");
     return me && me.connected;
   }, "재개 좌석 connected=true");
   step(`세션 재개 — 같은 방·같은 좌석 (room=${resumed.roomId})`);
