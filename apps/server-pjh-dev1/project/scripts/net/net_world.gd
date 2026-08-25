@@ -404,7 +404,7 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
     var player_name := str(p.get("name", "P%d" % (slot + 1)))
     var kills := int(p.get("kills", 0))
     return {
-        "slot":slot, "alive":alive, "eliminated":not alive,
+		"slot":slot, "alive":alive, "eliminated":not alive, "animal":int(p.get("animal", slot)), "emote":int(p.get("emote", -1)), "emote_time":_f(p, "emoteTime", 0.0),
         "pos":pos, "vel":vel, "aim":aim,
         "hp":_f(p, "hp", 0.0), "max_hp":100.0,
         "kills":kills, "deaths":deaths,

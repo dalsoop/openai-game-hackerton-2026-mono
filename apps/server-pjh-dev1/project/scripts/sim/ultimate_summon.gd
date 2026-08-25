@@ -157,7 +157,7 @@ func hurt_snake_skin(index: int, damage: float) -> bool:
 		skin["hp"] = 0.0
 		skin["alive"] = false
 		w.snake_skins[index] = skin
-		w._add_effect(&"hit_spark", Vector2(skin["pos"]), 52.0, 0.28, Color("#c8e8a8"), "SHED")
+		w._add_effect(&"snake_pop", Vector2(skin["pos"]), 62.0, 0.34, Color("#c8e8a8"), "SHED")
 		w.event_log.emit(w.tick, &"snake_shed_break", -1, -1, {})
 		return true
 	w.snake_skins[index] = skin
@@ -275,5 +275,5 @@ func explode_rooster_egg(egg: Dictionary) -> void:
 		vic["stun_time"] = maxf(float(vic.get("stun_time", 0.0)), 1.20)
 		vic["vel"] = away * 220.0
 		w.heroes[t] = vic
-	w._add_effect(&"stun_burst", origin, 70.0, 0.36, Color("#ffe27a"), "EGG")
+	w._add_effect(&"rooster_burst", origin, 82.0, 0.42, Color("#ffe27a"), "EGG")
 	w.event_log.emit(w.tick, &"rooster_egg_boom", owner, -1, {})

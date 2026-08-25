@@ -3,6 +3,12 @@ extends RefCounted
 
 var w
 
+const FINISH_PREP := 0.35
+const FINISH_RUSH := 0.184
+const FINISH_HIT_STOP := 0.40
+const FINISH_TOTAL := 1.525
+const FINISH_FLY := FINISH_TOTAL - FINISH_PREP - FINISH_RUSH - FINISH_HIT_STOP
+
 func _init(world) -> void:
     w = world
 
@@ -37,6 +43,7 @@ func try_begin_finish(slot: int) -> void:
         "vic": best,
         "t": 0.0,
         "hit": false,
+        "hit_age": 0.0,
         "fly": 0.0,
         "vic_x": 0.0,
         "vic_y": 0.0,
@@ -72,21 +79,30 @@ func tick_finish_cine(command: Dictionary, dt: float) -> void:
         cancel_finish_cine()
         return
     if bool(w.finish_cine.get("hit", false)):
-        w.finish_cine["fly"] = float(w.finish_cine.get("fly", 0.0)) + dt
-        w.finish_cine["vic_x"] = float(w.finish_cine.get("vic_x", 0.0)) + 1450.0 * dt
-        w.finish_cine["vic_y"] = float(w.finish_cine.get("vic_y", 0.0)) - 420.0 * dt
-        w.finish_cine["vic_spin"] = float(w.finish_cine.get("vic_spin", 0.0)) + 18.0 * dt
-        if float(w.finish_cine["fly"]) >= 0.95:
+        var hit_age := float(w.finish_cine.get("hit_age", 0.0)) + dt
+        w.finish_cine["hit_age"] = hit_age
+        if hit_age <= FINISH_HIT_STOP:
+            return
+        var fly_time := minf(hit_age - FINISH_HIT_STOP, FINISH_FLY)
+        var fly_t := clampf(fly_time / FINISH_FLY, 0.0, 1.0)
+        var fly_ease: float = 1.0 - pow(1.0 - fly_t, 3.0)
+        w.finish_cine["fly"] = fly_time
+        w.finish_cine["vic_x"] = 1580.0 * fly_ease
+        w.finish_cine["vic_y"] = -470.0 * fly_ease - 38.0 * sin(PI * fly_t)
+        w.finish_cine["vic_spin"] = TAU * 2.85 * fly_ease
+        if fly_time >= FINISH_FLY:
             w.finish_cine = {}
             w.lifecycle.down_hero(atk, vic)
         return
-    if float(w.finish_cine.get("t", 0.0)) >= 0.35:
+    if float(w.finish_cine.get("t", 0.0)) >= FINISH_PREP:
         w.finish_cine["rush"] = true
     if bool(w.finish_cine.get("rush", false)):
-        w.finish_cine["atk_x"] = float(w.finish_cine.get("atk_x", 0.0)) + 980.0 * dt
-        if float(w.finish_cine.get("atk_x", 0.0)) >= 220.0:
+        var rush_t := clampf((float(w.finish_cine.get("t", 0.0)) - FINISH_PREP) / FINISH_RUSH, 0.0, 1.0)
+        w.finish_cine["atk_x"] = 220.0 * rush_t * rush_t * rush_t
+        if rush_t >= 1.0:
             w.finish_cine["rush"] = false
             w.finish_cine["hit"] = true
+            w.finish_cine["hit_age"] = maxf(0.0, float(w.finish_cine.get("t", 0.0)) - FINISH_PREP - FINISH_RUSH)
             w.finish_cine["fly"] = 0.0
 
 func wool_shield_pos(h: Dictionary) -> Vector2:
@@ -143,7 +159,7 @@ func absorb_wool_shield(owner: int, target: int, pos: Vector2, radius: float) ->
 func pop_wool_shield(slot: int) -> void:
     var h: Dictionary = w.heroes[slot]
     var center: Vector2 = wool_shield_pos(h)
-    w.proj.add_effect(&"explosion", center, 150.0, 0.36, Color("#fff1c8"), "")
+    w.proj.add_effect(&"sheep_pop", center, 150.0, 0.36, Color("#fff1c8"), "")
     for t in range(w.heroes.size()):
         if t == slot:
             continue
@@ -215,7 +231,7 @@ func pop_ult_clone(slot: int, index: int) -> void:
     clones.remove_at(index)
     h["ult_clones"] = clones
     w.heroes[slot] = h
-    w.proj.add_effect(&"hit_spark", pos, 42.0, 0.22, Color("#c9e7ff"), "")
+    w.proj.add_effect(&"monkey_pop", pos, 54.0, 0.28, Color("#c9e7ff"), "")
     w.event_log.emit(w.tick, &"clone_pop", slot, -1, {})
 
 func hit_ult_clone(owner: int, ppos: Vector2, radius: float) -> bool:

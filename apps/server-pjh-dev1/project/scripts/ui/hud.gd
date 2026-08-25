@@ -12,6 +12,7 @@ var net_connected: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
 const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
+const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
 const PANEL_BG := Color(0.012, 0.018, 0.028, 0.86)
 const ZONE_PURPLE := Color("#c65cff")
 
@@ -20,6 +21,7 @@ var medkit_texture: Texture2D = null
 var ammo_round_texture: Texture2D = null
 var ammo_casing_texture: Texture2D = null
 var zone_lightning_texture: Texture2D = null
+var animal_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
 var _controls_overlay_time: float = 4.0
 var _controls_dismissed: bool = false
@@ -48,6 +50,8 @@ func _ready() -> void:
         ammo_casing_texture = load("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
     if ResourceLoader.exists("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png"):
         zone_lightning_texture = load("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
+    if ResourceLoader.exists("res://assets/lhj/Tex_Animal_4x3.png"):
+        animal_texture = load("res://assets/lhj/Tex_Animal_4x3.png")
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -61,9 +65,70 @@ func reset_match_visuals() -> void:
     _ammo_last_tick = -1
     _ammo_world_instance_id = 0
 
-func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
-    draw_string(GameFont.get_font(), pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
-    draw_string(GameFont.get_font(), pos, text, align, width, size, color)
+func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT, bold: bool = false) -> void:
+    var font := GameFont.get_bold_font() if bold else GameFont.get_font()
+    draw_string(font, pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
+    draw_string(font, pos, text, align, width, size, color)
+
+func _draw_pixel_panel(rect: Rect2, accent: Color, fill: Color) -> void:
+    var cut := 12.0
+    var points := PackedVector2Array([
+        rect.position + Vector2(cut, 0.0), rect.position + Vector2(rect.size.x - cut, 0.0),
+        rect.position + Vector2(rect.size.x, cut), rect.position + Vector2(rect.size.x, rect.size.y - cut),
+        rect.position + Vector2(rect.size.x - cut, rect.size.y), rect.position + Vector2(cut, rect.size.y),
+        rect.position + Vector2(0.0, rect.size.y - cut), rect.position + Vector2(0.0, cut)
+    ])
+    draw_colored_polygon(points, fill)
+    var outline := points.duplicate()
+    outline.append(points[0])
+    draw_polyline(outline, Color(accent, 0.92), 3.0)
+    draw_line(rect.position + Vector2(cut + 8.0, 7.0), rect.position + Vector2(rect.size.x - cut - 8.0, 7.0), Color(accent, 0.28), 2.0)
+    draw_rect(Rect2(rect.position + Vector2(8.0, 18.0), Vector2(4.0, rect.size.y - 36.0)), Color(accent, 0.76))
+
+func _draw_winner_god_rays(center: Vector2, accent: Color) -> void:
+    var pulse := 0.88 + sin(float(world.tick) * 0.055) * 0.12
+    var gold := Color("#ffd166")
+    var top_y := 140.0
+    var bottom_y := center.y + 142.0
+    var outer_beam := PackedVector2Array([
+        Vector2(center.x - 42.0, top_y), Vector2(center.x + 42.0, top_y),
+        Vector2(center.x + 142.0, bottom_y), Vector2(center.x - 142.0, bottom_y)
+    ])
+    var middle_beam := PackedVector2Array([
+        Vector2(center.x - 25.0, top_y), Vector2(center.x + 25.0, top_y),
+        Vector2(center.x + 104.0, bottom_y), Vector2(center.x - 104.0, bottom_y)
+    ])
+    var core_beam := PackedVector2Array([
+        Vector2(center.x - 11.0, top_y), Vector2(center.x + 11.0, top_y),
+        Vector2(center.x + 62.0, bottom_y), Vector2(center.x - 62.0, bottom_y)
+    ])
+    draw_colored_polygon(outer_beam, Color(accent, 0.045 * pulse))
+    draw_colored_polygon(middle_beam, Color(gold, 0.075 * pulse))
+    draw_colored_polygon(core_beam, Color("#fff3bd", 0.085 * pulse))
+    for step_index in range(6):
+        var step_y := top_y + 28.0 + step_index * 53.0
+        var spread := 50.0 + step_index * 17.0
+        draw_line(Vector2(center.x - spread, step_y), Vector2(center.x - spread + 16.0, step_y), Color(gold, 0.22 * pulse), 3.0)
+        draw_line(Vector2(center.x + spread - 16.0, step_y), Vector2(center.x + spread, step_y), Color(gold, 0.22 * pulse), 3.0)
+    draw_rect(Rect2(center.x - 45.0, top_y, 90.0, 5.0), Color("#fff3bd", 0.62 * pulse))
+    draw_rect(Rect2(center.x - 29.0, top_y + 7.0, 58.0, 3.0), Color(gold, 0.34 * pulse))
+    draw_set_transform(center + Vector2(0.0, 112.0), 0.0, Vector2(1.0, 0.34))
+    draw_circle(Vector2.ZERO, 132.0, Color(gold, 0.11 * pulse))
+    draw_arc(Vector2.ZERO, 132.0, 0.0, TAU, 32, Color(gold, 0.42 * pulse), 5.0)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    for dust_index in range(10):
+        var dust_x := center.x - 92.0 + float((dust_index * 37) % 184)
+        var dust_y := top_y + 38.0 + float((dust_index * 61) % 310)
+        var flicker := 0.45 + sin(float(world.tick) * 0.09 + float(dust_index)) * 0.25
+        var dust_size := 2.0 if dust_index % 3 != 0 else 4.0
+        draw_rect(Rect2(Vector2(roundf(dust_x / 2.0) * 2.0, roundf(dust_y / 2.0) * 2.0), Vector2(dust_size, dust_size)), Color(gold, flicker * pulse))
+
+func _animal_src_rect(animal: int) -> Rect2:
+    if animal_texture == null:
+        return Rect2()
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
+    var cell := Vector2(float(animal_texture.get_width()) / 4.0, float(animal_texture.get_height()) / 3.0)
+    return Rect2(Vector2(frame % 4, int(frame / 4)) * cell, cell)
 
 func _draw() -> void:
     if world == null or world.heroes.is_empty():
@@ -588,44 +653,59 @@ func _draw_scoreboard() -> void:
         _text(Vector2(1442.0, y), state, 11, Color("#ff9ca4") if state != "LIVE" else Color("#8be3ff"))
 
 func _draw_match_result() -> void:
-    draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.005, 0.008, 0.014, 0.72))
+    draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.005, 0.008, 0.014, 0.58))
     if world.winner_slot < 0:
-        draw_rect(Rect2(430.0, 290.0, 740.0, 260.0), Color(0.02, 0.03, 0.05, 0.98))
-        _text(Vector2(470.0, 410.0), "DRAW", 54, Color.WHITE, 660.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(470.0, 478.0), "NO SURVIVORS", 22, Color("#aebaca"), 660.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _draw_pixel_panel(Rect2(470.0, 302.0, 660.0, 240.0), Color("#8b96a8"), Color(0.018, 0.026, 0.040, 0.97))
+        _text(Vector2(510.0, 390.0), "MATCH DRAW", 48, Color.WHITE, 580.0, HORIZONTAL_ALIGNMENT_CENTER, true)
+        _text(Vector2(510.0, 446.0), "NO SURVIVORS", 20, Color("#aebaca"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(510.0, 500.0), "ESC  대기실", 16, Color("#dbe5f0"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
         return
     var winner: Dictionary = world.heroes[world.winner_slot]
     var equipment: Dictionary = winner["equipment"]
     var accent: Color = player_colors[world.winner_slot]
-    var reason_title := "HP DECISION WINNER" if world.result_reason == &"time_limit" else "LAST ONE STANDING"
-    draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(0.012, 0.018, 0.028, 0.98))
-    draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(accent, 0.92), false, 6.0)
-    draw_rect(Rect2(330.0, 154.0, 940.0, 72.0), Color(accent, 0.17))
-    _text(Vector2(375.0, 201.0), reason_title, 23, Color("#ffd166"), 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(375.0, 278.0), "P%d  %s  WINS" % [world.winner_slot + 1, equipment["character_name"]], 48, Color.WHITE, 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(375.0, 318.0), "%s  /  %s  /  %s" % [equipment["role"], equipment["name"], equipment["special_name"]], 18, accent, 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    draw_rect(Rect2(422.0, 346.0, 756.0, 72.0), Color(0.035, 0.048, 0.068, 0.95))
-    _text(Vector2(445.0, 379.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), 25, Color("#6ef3a5"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(695.0, 379.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), 25, Color("#c65cff"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(945.0, 379.0), "SCORE  %d" % roundi(float(winner["score"])), 25, Color("#ffd166"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
+    var panel := Rect2(300.0, 124.0, 1000.0, 650.0)
+    _draw_pixel_panel(panel, accent, Color(0.010, 0.017, 0.027, 0.97))
+    draw_rect(Rect2(panel.position + Vector2(14.0, 14.0), Vector2(310.0, panel.size.y - 28.0)), Color(accent, 0.10))
+    _draw_winner_god_rays(Vector2(465.0, 330.0), accent)
+    draw_rect(Rect2(panel.position + Vector2(325.0, 14.0), Vector2(3.0, panel.size.y - 28.0)), Color(accent, 0.48))
+    _text(Vector2(650.0, 174.0), "MATCH WINNER", 18, Color("#ffd166"), 600.0, HORIZONTAL_ALIGNMENT_CENTER, true)
+    _text(Vector2(650.0, 232.0), "P%d  %s" % [world.winner_slot + 1, equipment["character_name"]], 43, Color.WHITE, 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(650.0, 270.0), "%s  ·  %s" % [equipment["name"], equipment["special_name"]], 17, Color(accent), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+    if animal_texture != null:
+        var animal := int(winner.get("animal", world.winner_slot))
+        var pulse := 1.0 + sin(float(world.tick) * 0.08) * 0.025
+        draw_circle(Vector2(465.0, 330.0), 108.0, Color(accent, 0.10))
+        draw_arc(Vector2(465.0, 330.0), 112.0, -0.25, TAU - 0.25, 40, Color(accent, 0.72), 4.0)
+        draw_set_transform(Vector2(465.0, 330.0), 0.0, Vector2.ONE * pulse)
+        draw_texture_rect_region(animal_texture, Rect2(-92.0, -92.0, 184.0, 184.0), _animal_src_rect(animal))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    _text(Vector2(350.0, 482.0), "P%d" % (world.winner_slot + 1), 17, Color(accent), 230.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(350.0, 516.0), str(equipment["role"]), 19, Color.WHITE, 230.0, HORIZONTAL_ALIGNMENT_CENTER)
+    for stat in range(3):
+        var chip := Rect2(650.0 + stat * 198.0, 302.0, 178.0, 64.0)
+        draw_rect(chip, Color(0.035, 0.050, 0.072, 0.94))
+        draw_rect(chip, Color(accent, 0.34), false, 2.0)
+    _text(Vector2(662.0, 340.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), 20, Color("#6ef3a5"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(860.0, 340.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), 20, Color("#c65cff"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(1058.0, 340.0), "SCORE  %d" % roundi(float(winner["score"])), 20, Color("#ffd166"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
     var standings: Array[Dictionary] = world.final_standings()
-    _text(Vector2(410.0, 455.0), "FINAL STANDINGS", 16, Color("#aebaca"))
+    _text(Vector2(650.0, 410.0), "FINAL STANDINGS", 14, Color("#aebaca"))
     for rank in range(mini(3, standings.size())):
         var row: Dictionary = standings[rank]
         var slot := int(row["slot"])
         var row_equipment: Dictionary = world.heroes[slot]["equipment"]
-        var row_y := 490.0 + rank * 52.0
-        draw_rect(Rect2(404.0, row_y - 27.0, 792.0, 42.0), Color(player_colors[slot], 0.16 if rank > 0 else 0.28))
-        draw_circle(Vector2(430.0, row_y - 6.0), 9.0, player_colors[slot])
-        _text(Vector2(452.0, row_y), "%d   P%d  %s / %s" % [rank + 1, slot + 1, row_equipment["character_name"], row_equipment["name"]], 16, Color.WHITE, 380.0)
-        _text(Vector2(845.0, row_y), "HP %3d%%" % roundi(float(row["hp_ratio"]) * 100.0), 15, Color("#6ef3a5"), 92.0)
-        _text(Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"), 112.0)
-        _text(Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), 15, Color("#ffd166"), 86.0, HORIZONTAL_ALIGNMENT_RIGHT)
+        var card := Rect2(650.0, 430.0 + rank * 66.0, 600.0, 52.0)
+        draw_rect(card, Color(player_colors[slot], 0.24 if rank == 0 else 0.11))
+        draw_rect(Rect2(card.position, Vector2(6.0, card.size.y)), player_colors[slot])
+        _text(card.position + Vector2(20.0, 32.0), "%d" % (rank + 1), 21, Color("#ffd166") if rank == 0 else Color.WHITE, 34.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(card.position + Vector2(66.0, 31.0), "P%d  %s / %s" % [slot + 1, row_equipment["character_name"], row_equipment["name"]], 15, Color.WHITE, 310.0)
+        _text(card.position + Vector2(390.0, 31.0), "HP %d%%" % roundi(float(row["hp_ratio"]) * 100.0), 14, Color("#6ef3a5"), 88.0)
+        _text(card.position + Vector2(490.0, 31.0), "%d" % roundi(float(row["score"])), 15, Color("#ffd166"), 92.0, HORIZONTAL_ALIGNMENT_RIGHT)
     if bool(world.get("is_net")):
-        _text(Vector2(450.0, 701.0), "대기실로 버튼을 누르세요" if touch_hints else "대기실로 버튼 또는 ESC", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(650.0, 724.0), "대기실로 버튼" if touch_hints else "ESC  대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
     else:
         if not touch_hints:
-            _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+            _text(Vector2(650.0, 724.0), "R  재경기    ·    ESC  나가기", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 func _draw_ultimate_cinematic() -> void:
     if world.ultimate_focus_time <= 0.0 or world.ultimate_focus_slot < 0 or world.ultimate_focus_slot >= world.heroes.size():
@@ -664,10 +744,31 @@ func _draw_critical(me: Dictionary) -> void:
         draw_rect(Rect2(520.0, 52.0, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
         _text(Vector2(530.0, 78.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.start_countdown > 0.0:
-        var count_text := str(ceili(world.start_countdown))
-        draw_circle(Vector2(800.0, 450.0), 82.0, Color(0.02, 0.03, 0.05, 0.88))
-        draw_arc(Vector2(800.0, 450.0), 86.0, 0.0, TAU, 64, Color("#ff5d73"), 7.0)
-        _text(Vector2(720.0, 480.0), count_text, 82, Color.WHITE, 160.0, HORIZONTAL_ALIGNMENT_CENTER)
+        var countdown_center := Vector2(800.0, 450.0)
+        var count_value := clampi(ceili(world.start_countdown), 1, 3)
+        var countdown_fraction := fposmod(world.start_countdown, 1.0)
+        var countdown_beat := 1.0 - countdown_fraction
+        if countdown_fraction < 0.001:
+            countdown_beat = 0.0
+        var countdown_punch := lerpf(1.22, 1.0, clampf(countdown_beat / 0.22, 0.0, 1.0))
+        var countdown_colors := [Color("#ff5d49"), Color("#ff9f43"), Color("#ffd166")]
+        var countdown_accent: Color = countdown_colors[count_value - 1]
+        draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.01, 0.015, 0.025, 0.12))
+        _draw_pixel_panel(Rect2(countdown_center - Vector2(104.0, 104.0), Vector2(208.0, 208.0)), countdown_accent, Color(0.025, 0.035, 0.055, 0.94))
+        draw_arc(countdown_center, 90.0, -PI * 0.5, -PI * 0.5 + TAU * countdown_fraction, 32, countdown_accent, 6.0)
+        for tick_index in range(8):
+            var tick_angle := TAU * float(tick_index) / 8.0
+            var tick_from := countdown_center + Vector2.from_angle(tick_angle) * 112.0
+            var tick_to := countdown_center + Vector2.from_angle(tick_angle) * (124.0 if tick_index % 2 == 0 else 119.0)
+            draw_line(tick_from, tick_to, Color(countdown_accent, 0.88), 4.0)
+        _text(Vector2(696.0, 314.0), "GET READY", 16, Color("#d9e7f2"), 208.0, HORIZONTAL_ALIGNMENT_CENTER, true)
+        draw_set_transform(countdown_center, 0.0, Vector2.ONE * countdown_punch)
+        _text(Vector2(-80.0, 31.0), str(count_value), 82, Color.WHITE, 160.0, HORIZONTAL_ALIGNMENT_CENTER, true)
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+        for step_index in range(3):
+            var step_rect := Rect2(755.0 + step_index * 32.0, 574.0, 24.0, 6.0)
+            var step_active := step_index >= 3 - count_value
+            draw_rect(step_rect, countdown_accent if step_active else Color(0.25, 0.3, 0.36, 0.55))
     elif not bool(me["alive"]) and world.result == &"playing":
         var target_slot := spectate_slot if spectate_slot >= 0 and spectate_slot < world.heroes.size() and spectate_slot != world.local_slot else clampi(world.local_slot, 0, world.heroes.size() - 1)
         var target: Dictionary = world.heroes[target_slot]

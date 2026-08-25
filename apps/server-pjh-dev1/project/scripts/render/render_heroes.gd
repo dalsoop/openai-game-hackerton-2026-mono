@@ -51,12 +51,36 @@ func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.
 func draw_hero_gun(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, extra_squash: float = 0.0) -> void:
 	r._draw_hero_gun(pos, slot, aim, opacity, extra_squash)
 
+func draw_down_sprite(pos: Vector2, animal: int, opacity: float = 1.0, rotation: float = 0.0, size: float = 78.0) -> bool:
+	if r.animal_down_atlas == null:
+		return false
+	r.draw_set_transform(pos, rotation, Vector2.ONE)
+	r.draw_texture_rect_region(r.animal_down_atlas, Rect2(Vector2(-size * 0.5, -size * 0.5), Vector2.ONE * size), r._animal_down_src_rect(animal), Color(1.0, 1.0, 1.0, opacity))
+	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	return true
+
+func draw_emote(body_pos: Vector2, hero: Dictionary, slot: int) -> void:
+	if float(hero.get("emote_time", 0.0)) <= 0.0:
+		return
+	var animal := posmod(int(hero.get("animal", slot)), 12)
+	var texture: Texture2D = r.emote_atlases.get(animal)
+	if texture == null:
+		return
+	var frame := clampi(int(hero.get("emote", 0)), 0, 3)
+	var cell := Vector2(float(texture.get_width()) / 4.0, float(texture.get_height()))
+	var size := Vector2(132.0, 99.0)
+	var center := body_pos + Vector2(-78.0, -68.0)
+	var alpha := clampf(float(hero.get("emote_time", 0.0)) * 3.0, 0.0, 1.0)
+	r.draw_texture_rect_region(texture, Rect2(center - size * 0.5, size), Rect2(Vector2(cell.x * frame, 0.0), cell), Color(1.0, 1.0, 1.0, alpha))
+
 func draw_dog_alert(body_pos: Vector2, hero: Dictionary) -> void:
 	if float(hero.get("dog_windup", 0.0)) <= 0.0 and not bool(hero.get("dog_rush", false)):
 		return
-	var mark := body_pos + Vector2(0.0, -124.0)
+	var mark := body_pos + Vector2(0.0, -112.0)
+	var frame := posmod(int(world.tick / 4), 4)
+	if r.draw_ultimate_frame(10, mark, Vector2.ONE * 72.0, frame, 0, 0.0, 0.92):
+		return
 	var pulse := 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.018)
-	r.draw_circle(mark + Vector2(0.0, 2.0), 18.0 * pulse, Color(0.12, 0.02, 0.02, 0.55))
 	r.draw_circle(mark, 16.0 * pulse, Color("#ff2a2a"))
 	r.draw_circle(mark, 13.0 * pulse, Color("#ffef6a"))
 	r.draw_string(GameFont.get_font(), mark + Vector2(-16.0, 10.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 32.0, 28, Color("#d40000"))
@@ -133,7 +157,9 @@ func draw_knockouts() -> void:
 				r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		else:
 			r._draw_motion_trail(knockout_trail, r._slot_color(knockout_slot), 9.0, knockout_fade)
-		if r.animal_atlas != null:
+		if r.animal_down_atlas != null:
+			draw_down_sprite(knockout_pos, knockout_slot, 0.78 * knockout_fade, spin * 5.0, 68.0)
+		elif r.animal_atlas != null:
 			r.draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
 			r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), r._animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
 			r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -182,9 +208,11 @@ func draw_wool_shields() -> void:
 			continue
 		var pos: Vector2 = hero["pos"]
 		var hp_a := clampf(float(hero.get("wool_hp", 0)) / maxf(1.0, float(hero.get("wool_max", 5))), 0.45, 1.0)
-		var sz := 128.0
-		if r.wool_shield_tex != null:
-			r.draw_texture_rect(r.wool_shield_tex, Rect2(pos - Vector2(sz, sz), Vector2(sz * 2.0, sz * 2.0)), false, Color(1.0, 1.0, 1.0, maxf(0.82, hp_a)))
+		var sz := 164.0
+		if r.draw_ultimate_frame(7, pos, Vector2.ONE * sz, posmod(int(world.tick / 6), 4), 0, 0.0, maxf(0.82, hp_a)):
+			pass
+		elif r.wool_shield_tex != null:
+			r.draw_texture_rect(r.wool_shield_tex, Rect2(pos - Vector2(sz, sz) * 0.5, Vector2.ONE * sz), false, Color(1.0, 1.0, 1.0, maxf(0.82, hp_a)))
 		else:
 			r.draw_arc(pos, 56.0, 0.0, TAU, 40, Color(1.0, 0.96, 0.88, 0.95), 14.0)
 
@@ -211,7 +239,9 @@ func draw_pig_muds() -> void:
 		var ttl := float(mud.get("ttl", 0.0))
 		var fade := clampf(ttl / 1.4, 0.0, 1.0)
 		var sz := rad * 2.15
-		if r.pig_mud_tex != null:
+		if r.draw_ultimate_frame(11, pos, Vector2(sz, sz * 0.76), posmod(int(world.tick / 8), 4), 0, 0.0, 0.4 + 0.6 * fade):
+			pass
+		elif r.pig_mud_tex != null:
 			r.draw_texture_rect(r.pig_mud_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.38), Vector2(sz, sz * 0.76)), false, Color(1, 1, 1, 0.4 + 0.6 * fade))
 		else:
 			r.draw_circle(pos, rad, Color(0.36, 0.22, 0.08, 0.55 * fade))
@@ -224,11 +254,11 @@ func draw_rooster_eggs() -> void:
 		if not bool(egg.get("alive", true)):
 			continue
 		var pos: Vector2 = egg.get("pos", Vector2.ZERO)
-		r.draw_set_transform(pos + Vector2(0.0, 4.0), 0.0, Vector2(1.0, 1.18))
-		r.draw_circle(Vector2.ZERO, 16.0, Color("#f4e6c8"))
-		r.draw_arc(Vector2.ZERO, 16.0, 0.0, TAU, 20, Color("#3a2a18"), 3.0)
-		r.draw_circle(Vector2(-4.0, -5.0), 4.0, Color("#fff6e4"))
-		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var arm := float(egg.get("arm", 0.0))
+		var ttl := float(egg.get("ttl", 0.0))
+		var frame := 0 if arm > 0.35 else (1 if arm > 0.0 else 2 + posmod(int(ttl * 8.0), 2))
+		if not r.draw_ultimate_frame(9, pos + Vector2(0.0, -4.0), Vector2.ONE * 58.0, frame, 0):
+			r.draw_circle(pos, 16.0, Color("#f4e6c8"))
 
 func draw_horse_kicks() -> void:
 	if world == null:
@@ -243,17 +273,9 @@ func draw_horse_kicks() -> void:
 		var t := clampf(float(kick.get("age", 0.0)) / maxf(0.01, float(kick.get("life", 0.42))), 0.0, 1.0)
 		var fade := 1.0 - t
 		var ang := dir.angle()
-		var pts: PackedVector2Array = PackedVector2Array()
-		pts.append(pos)
-		for i in range(12):
-			var a := ang - 1.15 + 2.30 * (float(i) / 11.0)
-			pts.append(pos + Vector2(cos(a), sin(a)) * reach)
-		r.draw_colored_polygon(pts, Color(0.62, 0.42, 0.16, 0.16 * fade))
-		r.draw_arc(pos, reach * (0.35 + t * 0.65), ang - 1.15, ang + 1.15, 28, Color(0.92, 0.72, 0.32, 0.85 * fade), 7.0)
-		for i in range(6):
-			var a := ang - 1.00 + 2.00 * (float(i) / 6.0)
-			var p: Vector2 = pos + Vector2(cos(a), sin(a)) * (70.0 + t * 150.0)
-			r.draw_circle(p, 10.0 + (1.0 - t) * 8.0, Color(0.45, 0.30, 0.12, 0.35 * fade))
+		var frame := clampi(int(t * 4.0), 0, 3)
+		if not r.draw_ultimate_frame(6, pos + dir * reach * 0.28, Vector2(reach * 1.18, reach * 0.82), frame, 0, ang, fade):
+			r.draw_arc(pos, reach * (0.35 + t * 0.65), ang - 1.15, ang + 1.15, 28, Color(0.92, 0.72, 0.32, 0.85 * fade), 7.0)
 
 func draw_rabbit_holes() -> void:
 	if world == null:
@@ -265,7 +287,10 @@ func draw_rabbit_holes() -> void:
 		var ttl := float(hole.get("ttl", 0.0))
 		var fade := clampf(ttl / 1.2, 0.0, 1.0)
 		var sz := 118.0
-		if r.rabbit_hole_tex != null:
+		var row := 0 if str(hole.get("kind", "in")) == "in" else 1
+		if r.draw_ultimate_frame(3, pos, Vector2(sz, sz * 0.86), posmod(int(world.tick / 7), 4), row, 0.0, 0.35 + 0.65 * fade):
+			pass
+		elif r.rabbit_hole_tex != null:
 			r.draw_texture_rect(r.rabbit_hole_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.42), Vector2(sz, sz * 0.86)), false, Color(1, 1, 1, 0.35 + 0.65 * fade))
 		else:
 			r.draw_circle(pos, 34.0, Color(0.18, 0.08, 0.04, 0.85 * fade))
@@ -280,22 +305,22 @@ func draw_tiger_roars() -> void:
 		var t := clampf(float(roar_data.get("age", 0.0)) / life, 0.0, 1.0)
 		var front := rad * t
 		var fade := 1.0 - t * 0.28
-		r.draw_circle(pos, front, Color(1.0, 0.72, 0.12, 0.10 * fade))
-		r.draw_arc(pos, front, 0.0, TAU, 64, Color(1.0, 0.86, 0.26, 0.95 * fade), 8.0)
+		var frame := clampi(int(t * 4.0), 0, 3)
+		if not r.draw_ultimate_frame(2, pos, Vector2.ONE * maxf(84.0, front * 2.15), frame, 0, 0.0, fade):
+			r.draw_arc(pos, front, 0.0, TAU, 64, Color(1.0, 0.86, 0.26, 0.95 * fade), 8.0)
 
 func draw_dragon_smokes() -> void:
 	if world == null:
 		return
 	if r.dragon_smoke_tex == null:
 		r.dragon_smoke_tex = r._load_tex("res://assets/fx/dragon-smoke.png")
-	if r.dragon_smoke_tex == null:
-		return
 	for smoke in world.dragon_smokes:
 		var pos: Vector2 = smoke.get("pos", Vector2.ZERO)
 		var rad := float(smoke.get("radius", 300.0))
 		var life := clampf(float(smoke.get("ttl", 0.0)) / 15.0, 0.0, 1.0)
 		var sz := rad * 2.0
-		r.draw_texture_rect(r.dragon_smoke_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.78 * life + 0.18))
+		if not r.draw_ultimate_frame(4, pos, Vector2.ONE * sz, posmod(int(world.tick / 9), 4), 0, 0.0, 0.78 * life + 0.18) and r.dragon_smoke_tex != null:
+			r.draw_texture_rect(r.dragon_smoke_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false, Color(1.0, 1.0, 1.0, 0.78 * life + 0.18))
 
 func draw_snake_skins() -> void:
 	for skin in world.snake_skins:
@@ -307,6 +332,7 @@ func draw_snake_skins() -> void:
 		var aim: Vector2 = skin.get("aim", Vector2.RIGHT)
 		var flash := float(skin.get("flash", 0.0))
 		var sc := float(skin.get("scale", 1.5))
+		r.draw_ultimate_frame(5, pos, Vector2.ONE * 132.0 * sc, posmod(int(world.tick / 8), 4), 0, 0.0, 0.58)
 		draw_hero_sprite(pos, 5, aim, 0.78, 0.0, Vector2(1.02 * sc, 0.92 * sc), flash)
 		var hp_now := float(skin.get("hp", 0.0))
 		var hp_max := float(skin.get("max_hp", 1.0))
@@ -329,19 +355,11 @@ func draw_rat_tides() -> void:
 		if dir.length_squared() < 0.01:
 			dir = Vector2.RIGHT
 		dir = dir.normalized()
-		var perp := dir.rotated(PI * 0.5)
 		var leng := float(tide.get("length", 360.0))
 		var half_w := float(tide.get("half_w", 118.0))
 		var ang := dir.angle()
-		for i in range(30):
-			var u := fposmod(float(i) * 0.173 + float(world.tick) * 0.045, 1.0)
-			var along := (u - 0.28) * leng
-			var side := sin(float(i) * 2.1 + float(world.tick) * 0.31) * half_w * 0.82
-			var p: Vector2 = pos + dir * along + perp * side
-			var bob := 1.0 + 0.08 * sin(float(world.tick) * 0.4 + float(i))
-			r.draw_set_transform(p, ang, Vector2(bob, bob))
-			r.draw_texture_rect(r.rat_run_tex, Rect2(Vector2(-34.0, -24.0), Vector2(68.0, 48.0)), false)
-			r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if r.draw_ultimate_frame(0, pos + dir * leng * 0.16, Vector2(leng * 0.86, half_w * 1.65), posmod(int(world.tick / 5), 4), 0, ang):
+			continue
 
 func draw_heroes() -> void:
 	for hero in world.heroes:
@@ -392,6 +410,19 @@ func draw_heroes() -> void:
 			if absf(lean) < 0.004:
 				lean = clampf(Vector2(hero.get("vel", Vector2.ZERO)).x / 400.0, -1.0, 1.0) * 0.14
 		var body_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+		var ultimate_animal := posmod(int(hero.get("animal", slot)), 12)
+		var ox_phase := str(hero.get("ox_phase", ""))
+		if ultimate_animal == 1 and ox_phase != "":
+			var ox_dir := Vector2(hero.get("ox_dir", aim)).normalized()
+			if ox_dir.length_squared() < 0.01:
+				ox_dir = aim.normalized()
+			var ox_frame := clampi(int((1.0 - clampf(float(hero.get("ox_time", 0.0)) / (0.38 if ox_phase == "rush" else 0.18), 0.0, 1.0)) * 4.0), 0, 3)
+			r.draw_ultimate_frame(1, pos - ox_dir * 42.0, Vector2(178.0, 104.0), ox_frame, 0, ox_dir.angle(), 0.86)
+		if ultimate_animal == 8 and float(hero.get("ult_clone_time", 0.0)) > 0.0:
+			r.draw_ultimate_frame(8, pos, Vector2.ONE * 148.0, posmod(int(world.tick / 5), 4), 0, 0.0, 0.52)
+		if ultimate_animal == 10 and bool(hero.get("dog_rush", false)):
+			var dog_dir := Vector2(hero.get("facing", aim)).normalized()
+			r.draw_ultimate_frame(10, pos - dog_dir * 46.0, Vector2(158.0, 92.0), posmod(int(world.tick / 4), 4), 1, dog_dir.angle(), 0.78)
 		var body_squash := 0.0
 		if slot < r.recoil_body.size():
 			body_squash = float(r.recoil_body[slot])
@@ -422,6 +453,7 @@ func draw_heroes() -> void:
 			r.draw_circle(pos, 40.0, Color(0.25, 0.78, 1.0, 0.16))
 			r.draw_arc(pos, 42.0 + sin(float(world.tick) * 0.22) * 2.0, 0.0, TAU, 36, Color(Color("#70e7ff"), 0.95), 6.0)
 		var hit_flash: float = float(hero.get("hit_flash", 0.0))
+		draw_emote(body_pos, hero, slot)
 		_draw_hero_body(pos, body_pos, slot, aim, hero, is_down, is_turtle, hop_lift, hop_scale, body_squash, ghost, hit_flash, comb_nudge, timed_ids, lean)
 		_draw_hero_buff_icons(body_pos, timed_ids)
 		var hp_ratio := maxf(0.0, float(hero["hp"]) / float(hero["max_hp"]))
@@ -469,6 +501,16 @@ func _draw_hero_status_arcs(pos: Vector2, hero: Dictionary, slot: int) -> void:
 		r.draw_colored_polygon(PackedVector2Array([pos + Vector2(-22.0, crown_y + 17.0), pos + Vector2(-20.0, crown_y), pos + Vector2(-7.0, crown_y + 10.0), pos + Vector2(0.0, crown_y - 6.0), pos + Vector2(7.0, crown_y + 10.0), pos + Vector2(20.0, crown_y), pos + Vector2(22.0, crown_y + 17.0)]), Color("#ffd166"))
 
 func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, hero: Dictionary, is_down: bool, is_turtle: bool, hop_lift: float, hop_scale: Vector2, body_squash: float, ghost: float, hit_flash: float, comb_nudge: float, timed_ids: Array, lean: float = 0.0) -> void:
+	if is_down and r.animal_down_atlas != null:
+		var animal := int(hero.get("animal", slot))
+		draw_blob_shadow(pos, 0.0, 0.9)
+		draw_down_sprite(pos + Vector2(0.0, -2.0), animal, 0.98, 0.0, 82.0)
+		var bleed := clampf(float(hero.get("down_left", 0.0)) / 5.0, 0.0, 1.0)
+		r.draw_arc(pos, 38.0, -PI * 0.5, -PI * 0.5 + TAU * bleed, 28, Color("#ff8d93"), 4.0)
+		var fin := clampf(float(hero.get("down_taken", 0.0)) / 48.0, 0.0, 1.0)
+		r.draw_arc(pos, 32.0, -PI * 0.5, -PI * 0.5 + TAU * fin, 22, Color("#ff3349"), 3.0)
+		r.draw_string(GameFont.get_font(), pos + Vector2(-36.0, 54.0), "DOWN %.1f" % float(hero.get("down_left", 0.0)), HORIZONTAL_ALIGNMENT_CENTER, 72.0, 12, Color("#ffe066"))
+		return
 	if is_turtle:
 		var turtle_tex: Texture2D = r.turtle_body_tex if r.turtle_body_tex != null else r.roulette_icons.get("turtle", null)
 		var turtle_size := 110.0

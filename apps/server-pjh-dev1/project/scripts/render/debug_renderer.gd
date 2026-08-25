@@ -40,6 +40,7 @@ var stun_spin_tex: Texture2D = null
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var animal_atlas: Texture2D = null
+var animal_down_atlas: Texture2D = null
 var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
@@ -57,6 +58,8 @@ var knockout_trail_atlas: Texture2D = null
 var death_burst_atlas: Texture2D = null
 var zone_lightning_atlas: Texture2D = null
 var zone_impact_atlas: Texture2D = null
+var ultimate_fx_atlases: Dictionary = {}
+var emote_atlases: Dictionary = {}
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -137,6 +140,7 @@ func _ready() -> void:
     gun_texture = _load_tex("res://assets/items/gun.png")
     medkit_texture = _load_tex("res://assets/items/medkit.png")
     animal_atlas = _load_tex("res://assets/lhj/Tex_Animal_4x3.png")
+    animal_down_atlas = _load_tex("res://assets/lhj/Tex_AnimalDown_4x3.png")
     bullet_atlas = _load_tex("res://assets/lhj/Tex_FX_Bullet_4x4_256x144.png")
     gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
@@ -161,6 +165,12 @@ func _ready() -> void:
     death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
     zone_lightning_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
     zone_impact_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneImpact_4x2.png")
+    var ultimate_names := ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Sheep", "Monkey", "Rooster", "Dog", "Pig"]
+    for ultimate_index in range(ultimate_names.size()):
+        ultimate_fx_atlases[ultimate_index] = _load_tex("res://assets/fx/ultimates/Tex_FX_Ult_%s_4x2.png" % ultimate_names[ultimate_index])
+    var emote_names := ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Sheep", "Monkey", "Rooster", "Dog", "Pig"]
+    for emote_index in range(emote_names.size()):
+        emote_atlases[emote_index] = _load_tex("res://assets/fx/emotes/Tex_UI_Emote_%s_4x1.png" % emote_names[emote_index])
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -192,6 +202,21 @@ func _load_tex(path: String) -> Texture2D:
         return ImageTexture.create_from_image(img)
     print("[gangup] tex miss %s" % path)
     return null
+
+func _ultimate_src_rect(texture: Texture2D, frame: int, row: int = 0) -> Rect2:
+    if texture == null:
+        return Rect2()
+    var cell := Vector2(float(texture.get_width()) / 4.0, float(texture.get_height()) / 2.0)
+    return Rect2(Vector2(float(clampi(frame, 0, 3)), float(clampi(row, 0, 1))) * cell, cell)
+
+func draw_ultimate_frame(animal: int, pos: Vector2, size: Vector2, frame: int, row: int = 0, rotation: float = 0.0, alpha: float = 1.0) -> bool:
+    var texture: Texture2D = ultimate_fx_atlases.get(posmod(animal, 12), null)
+    if texture == null:
+        return false
+    draw_set_transform(pos, rotation, Vector2.ONE)
+    draw_texture_rect_region(texture, Rect2(-size * 0.5, size), _ultimate_src_rect(texture, frame, row), Color(1.0, 1.0, 1.0, alpha))
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    return true
 
 func _process(_dt: float) -> void:
     _sync_roar_fx()
@@ -459,6 +484,15 @@ func _zodiac_texture(slot: int) -> Texture2D:
 func _animal_src_rect(slot: int) -> Rect2:
     var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
     var cell := Vector2(float(animal_atlas.get_width()) / float(ANIMAL_COLS), float(animal_atlas.get_height()) / float(ANIMAL_ROWS))
+    var col := frame % ANIMAL_COLS
+    var row := int(frame / ANIMAL_COLS)
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+func _animal_down_src_rect(slot: int) -> Rect2:
+    if animal_down_atlas == null:
+        return Rect2()
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+    var cell := Vector2(float(animal_down_atlas.get_width()) / float(ANIMAL_COLS), float(animal_down_atlas.get_height()) / float(ANIMAL_ROWS))
     var col := frame % ANIMAL_COLS
     var row := int(frame / ANIMAL_COLS)
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
@@ -785,6 +819,20 @@ func _draw_effects() -> void:
         var progress := 1.0 - ratio
         var follow_slot := int(effect.get("follow_slot", -1))
         var effect_label := str(effect.get("label", ""))
+        var ultimate_effect_animal := -1
+        match effect_kind:
+            &"snake_pop":
+                ultimate_effect_animal = 5
+            &"sheep_pop":
+                ultimate_effect_animal = 7
+            &"monkey_pop":
+                ultimate_effect_animal = 8
+            &"rooster_burst":
+                ultimate_effect_animal = 9
+        if ultimate_effect_animal >= 0:
+            var ultimate_frame := clampi(int(progress * 4.0), 0, 3)
+            draw_ultimate_frame(ultimate_effect_animal, effect_pos, Vector2.ONE * effect_radius * 2.35, ultimate_frame, 1, direction.angle(), clampf(ratio * 1.25, 0.0, 1.0))
+            continue
         var mobility_texture := _mobility_fx_texture(effect_kind, effect_label)
         if effect_label == "SIGHTLINE STEP" and effect_kind == &"beam_step" and rooster_beam_step_atlas != null:
             mobility_texture = rooster_beam_step_atlas

@@ -234,8 +234,8 @@ func send_hello() -> void:
         hello["resume"] = resume_token
     _send(hello)
 
-func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, seq: int = 0) -> void:
-    var msg := {"t":"input", "mx":move.x, "my":move.y, "fire":fire, "dash":dash, "use":use, "aimX":aim.x, "aimY":aim.y}
+func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, seq: int = 0, emote: int = -1) -> void:
+	var msg := {"t":"input", "mx":move.x, "my":move.y, "fire":fire, "dash":dash, "use":use, "aimX":aim.x, "aimY":aim.y, "emote":emote}
     if seq > 0:
         msg["seq"] = seq
     _send(msg)
