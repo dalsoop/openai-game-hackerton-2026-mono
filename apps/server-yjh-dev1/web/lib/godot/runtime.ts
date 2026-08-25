@@ -74,10 +74,11 @@ export class GodotRuntime {
     for (const fn of this.listeners) {fn(this.snap);}
   }
 
-  // 버전이 붙은 산출물 URL — 매니페스트 버전이 바뀌면 URL이 바뀐다.
+  // 산출물 URL — 무버전으로 통일한다: 엔진이 boot 때 스스로 fetch 하는 URL과
+  // 같아야 캐시 엔트리가 공유되어 ETag 304(본문 0바이트)로 재검증된다.
+  // 버전드 URL 을 쓰면 엔진 fetch 가 캐시 미스로 풀 재다운로드한다.
   private assetUrl(file: string): string {
-    const v = this.manifest ? `?v=${this.manifest.version}` : "";
-    return `/godot/${this.game}/${file}${v}`;
+    return `/godot/${this.game}/${file}`;
   }
 
   private async loadManifest(): Promise<Manifest> {

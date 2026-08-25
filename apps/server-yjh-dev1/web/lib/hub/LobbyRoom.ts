@@ -49,10 +49,11 @@ export class LobbyRoom extends Room {
   }
 
   // 재접속 유예 안에서 같은 좌석 복귀를 시도한다. 성공하면 true.
-  private async tryReclaimSeat(client: Client, player: PlayerSchema | undefined): Promise<boolean> {
+  // 유예 길이는 페이즈별로: 플레이 중 180초, 대기실 60초 (HUB_CONFIG).
+  private async tryReclaimSeat(client: Client, player: PlayerSchema | undefined, graceSeconds: number): Promise<boolean> {
     if (player) {player.connected = false;}
     try {
-      await this.allowReconnection(client, HUB_CONFIG.gracePlayMs / 1000);
+      await this.allowReconnection(client, graceSeconds);
       if (player) {player.connected = true;} // 같은 좌석으로 복귀
       return true;
     } catch {
@@ -62,8 +63,10 @@ export class LobbyRoom extends Room {
 
   async onLeave(client: Client, code?: number): Promise<void> {
     const player = this.playerOf(client.sessionId);
-    if (this.state.phase === "playing" && code !== 1000) {
-      if (await this.tryReclaimSeat(client, player)) {return;}
+    // 비의도적 단절(새로고침 포함)은 페이즈 무관 유예 — 같은 세션으로 재접근하면 복귀.
+    if (code !== 1000) {
+      const graceMs = this.state.phase === "playing" ? HUB_CONFIG.gracePlayMs : HUB_CONFIG.graceLobbyMs;
+      if (await this.tryReclaimSeat(client, player, graceMs / 1000)) {return;}
     }
     const idx = this.state.players.findIndex((p) => p.sessionId === client.sessionId);
     if (idx >= 0) {this.state.players.splice(idx, 1);}

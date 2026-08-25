@@ -9,6 +9,7 @@ import { Button } from "@/components/ui";
 
 interface OfflinePhaseProps {
   nickname: string;
+  hasSavedName: boolean;
   onNameChange: (name: string) => void;
   onConnect: () => void;
   onResetName: () => void;
@@ -16,12 +17,13 @@ interface OfflinePhaseProps {
 
 export function OfflinePhase({
   nickname,
+  hasSavedName,
   onNameChange,
   onConnect,
   onResetName,
 }: OfflinePhaseProps): JSX.Element {
   const t = useTranslations();
-  const [editing, setEditing] = useState(nickname === "");
+  const [editing, setEditing] = useState(false);
 
   return (
     <div className="intro">
@@ -30,7 +32,7 @@ export function OfflinePhase({
         <img src="/assets/banner.png" alt="" />
       </div>
 
-      {!editing && nickname !== "" ? (
+      {hasSavedName && !editing ? (
         <div className="intro-form">
           <div className="welcome-box">
             <div className="welcome-name">{t("intro.welcomeBack", { name: nickname })}</div>

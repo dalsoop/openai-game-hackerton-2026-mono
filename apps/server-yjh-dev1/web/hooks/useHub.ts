@@ -30,6 +30,8 @@ function handOffToGodot(
       localStorage.setItem(HANDOFF.FROM_HUB, "1");
     } catch { /* localStorage 불가 — 엔진이 토큰 없이 시도한다 */ }
     onStarted((payload ?? {}) as Record<string, unknown>);
+    // 페이지 쪽 SDK 자동 재접속을 끈다 — 켜 두면 Godot 의 세션 승계와 싸운다.
+    room.reconnection.enabled = false;
     // consent=false → close 코드 1000 이외 → 서버가 좌석을 allowReconnection 유예로 유지한다.
     room.leave(false);
   });
@@ -56,6 +58,7 @@ export function useHub(_game: string): UseHubResult {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(null);
+  const [resumeFailed, setResumeFailed] = useState(false);
   const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
 
   // 방 목록 — 내장 리스트 룸 구독 (실시간, 폴링 없음).
@@ -95,7 +98,9 @@ export function useHub(_game: string): UseHubResult {
       ? async (): Promise<Room<RosterSnapshot>> => {
           const r = joinRequest.kind === "create"
             ? await getClient().create(ROOM_NAME, { name: nameRef.current })
-            : await getClient().joinById(joinRequest.id, { name: nameRef.current });
+            : joinRequest.kind === "resume"
+              ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
+              : await getClient().joinById(joinRequest.id, { name: nameRef.current });
           handOffToGodot(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({
               roomId: r.roomId,
@@ -123,7 +128,14 @@ export function useHub(_game: string): UseHubResult {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 허브(외부 시스템) 오류 → React 반영
     if (roomError) {setError(roomError.message);}
-  }, [roomError]);
+    if (roomError && joinRequest?.kind === "resume") {
+      // 세션 유예 만료 — 토큰 폐기, 인트로로 되돌린다
+      localStorage.removeItem(HANDOFF.RESUME);
+      setJoinRequest(null);
+      setConnected(false);
+      setResumeFailed(true);
+    }
+  }, [roomError, joinRequest]);
 
   const rooms: HubRoom[] = useMemo(
     () =>
@@ -176,6 +188,7 @@ export function useHub(_game: string): UseHubResult {
   const joinRoom = useCallback((id: string) => setJoinRequest({ kind: "join", id }), []);
 
   const leaveRoom = useCallback(() => {
+    localStorage.removeItem(HANDOFF.RESUME); // 의도적 퇴장 — 세션 종료
     setMatchInfo(null);
     setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
   }, []);
@@ -192,6 +205,17 @@ export function useHub(_game: string): UseHubResult {
 
   // 리스트가 실시간이므로 수동 새로고침은 없다 (인터페이스 호환용 no-op).
   const refreshRooms = useCallback(() => {}, []);
+
+  // 세션 재개 — 저장된 토큰이 있으면 재접속을 시도한다 (성공 여부는 room 상태로 판정).
+  const tryResume = useCallback((): boolean => {
+    const token = localStorage.getItem(HANDOFF.RESUME);
+    if (!token) {return false;}
+    nameRef.current = localStorage.getItem(HANDOFF.NAME) ?? "";
+    setResumeFailed(false);
+    setConnected(true);
+    setJoinRequest({ kind: "resume" });
+    return true;
+  }, []);
 
   return {
     status,
@@ -210,5 +234,8 @@ export function useHub(_game: string): UseHubResult {
     returnToLobby,
     startMatch,
     refreshRooms,
+    tryResume,
+    resuming: joinRequest?.kind === "resume",
+    resumeFailed,
   };
 }

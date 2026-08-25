@@ -14,6 +14,7 @@ export interface UseGameFlowResult {
   displayName: string;
   setName: (name: string) => void;
   resetName: () => void;
+  hasSavedName: boolean;
   hub: ReturnType<typeof useHub>;
   loader: ReturnType<typeof useGodotLoader>;
   matchInfo: MatchInfo;
@@ -96,6 +97,7 @@ export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowRes
     displayName,
     setName,
     resetName,
+    hasSavedName: nickname !== "",
     hub,
     loader,
     matchInfo,

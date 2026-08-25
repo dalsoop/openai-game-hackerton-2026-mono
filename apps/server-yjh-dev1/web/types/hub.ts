@@ -23,7 +23,7 @@ export const CONNECTION_CLASS: Record<HubStatus, string> = {
 /**
  * 방 입장 요청 타입
  */
-export type JoinRequest = { kind: "create" } | { kind: "join"; id: string };
+export type JoinRequest = { kind: "create" } | { kind: "join"; id: string } | { kind: "resume" };
 
 /**
  * 허브 방 메타데이터
@@ -70,6 +70,11 @@ export interface UseHubResult {
   returnToLobby: (name: string) => void;
   startMatch: () => void;
   refreshRooms: () => void;
+
+  // 세션 재개 — 세션이 살아있는(유예 안) 동안 재접근하면 그 세션으로 복귀한다.
+  tryResume: () => boolean;
+  resuming: boolean;
+  resumeFailed: boolean;
 }
 
 /**
@@ -89,6 +94,8 @@ export interface GodotBridge {
  * (제네릭 공변 문제를 피하기 위해 Room 을 직접 확장하지 않는다.)
  */
 export interface BridgeableRoom {
+  /** SDK 0.17 공식 필드 — 핸드오프 전 자동 재접속을 끌 때 쓴다. */
+  reconnection: { enabled: boolean };
   sessionId: string;
   reconnectionToken: string;
   send: (type: string, payload: unknown) => void;

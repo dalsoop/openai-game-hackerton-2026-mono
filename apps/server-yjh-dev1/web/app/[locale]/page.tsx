@@ -39,6 +39,7 @@ export default function Home(): JSX.Element {
     name,
     setName,
     resetName,
+    hasSavedName,
     hub,
     loader,
     matchInfo,
@@ -50,22 +51,33 @@ export default function Home(): JSX.Element {
     errorToIntro,
   } = useGameFlow("dagul", t("intro.defaultPlayer"));
 
+  // 끊김 판정은 페이즈보다 먼저 — 게임 중에도 진행을 막는다.
+  const lost = shouldShowConnectionLost(hub.status, phase);
+  const lostModal = lost ? (
+    <ConnectionLostModal onReconnect={findRoom} onExit={backToIntro} />
+  ) : null;
+
   if (phase === "playing") {
     return (
-      <PlayingPhase
-        game="dagul"
-        matchInfo={matchInfo}
-        onMatchEnd={matchEnd}
-        onError={errorToIntro}
-      />
+      <>
+        {/* inert — 서버가 죽었으면 게임도 조작 불가. 모달로 재접속/복귀만 허용 */}
+        <div inert={lost}>
+          <PlayingPhase
+            game="dagul"
+            matchInfo={matchInfo}
+            onMatchEnd={matchEnd}
+            onError={errorToIntro}
+          />
+        </div>
+        {lostModal}
+      </>
     );
   }
 
   const loadPct = Math.round(loader.progress * 100);
-  const lost = shouldShowConnectionLost(hub.status, phase);
 
   return (
-    <div className="page-shell">
+    <div className="page-shell" inert={lost}>
       <header className="hero">
         <div className="logo-word">{t("logo.word")}</div>
         {phase !== "intro" && (
@@ -76,7 +88,7 @@ export default function Home(): JSX.Element {
         )}
       </header>
 
-      {lost && <ConnectionLostModal onReconnect={findRoom} onExit={backToIntro} />}
+      {lostModal}
 
       {(phase === "lobby" || phase === "room") && !lost &&
         (loader.state === "ready" ? (
@@ -104,6 +116,7 @@ export default function Home(): JSX.Element {
       {phase === "intro" && (
         <OfflinePhase
           nickname={name}
+          hasSavedName={hasSavedName}
           onNameChange={setName}
           onConnect={findRoom}
           onResetName={resetName}

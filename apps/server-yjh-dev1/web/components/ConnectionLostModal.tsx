@@ -20,7 +20,7 @@ export function ConnectionLostModal({ onReconnect, onExit }: ConnectionLostModal
       <h2 className="modal-title">{t("game.serverConnectFailed")}</h2>
       <p className="modal-body">{t("connection.offline")}</p>
       <div className="modal-actions">
-        <Button variant="primary" onClick={onReconnect}>
+        <Button variant="primary" onClick={onReconnect} autoFocus>
           {t("game.reconnect")}
         </Button>
         <Button variant="ghost" onClick={onExit}>
