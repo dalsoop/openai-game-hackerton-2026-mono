@@ -26,7 +26,7 @@ const RETRY_MAX := 6.0
 const PING_EVERY := 2.0
 
 var player_name := "플레이어"
-var mode := "full"
+var mode := "classic"
 var status := STATUS_OFFLINE
 var client_id := ""
 var resume_token := ""
@@ -65,6 +65,15 @@ func _js_text(code: String) -> String:
     if text == "<null>" or text == "null" or text == "undefined":
         return ""
     return text
+
+func _public_game_url(raw: String) -> String:
+    var url := raw.strip_edges()
+    if url == "":
+        return ""
+    if url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0 or url.find("/game-ws") >= 0:
+        push_warning("NetworkManager: ignore unrouted game-ws %s" % url)
+        return ""
+    return url
 
 func _resolve_url() -> String:
     var env := OS.get_environment("GANG_UP_WS")
@@ -274,6 +283,9 @@ func _on_msg(msg: Dictionary) -> void:
             you = int(msg.get("you", 0))
             is_host = bool(msg.get("host", false))
             room = msg.get("room", {})
+            if typeof(room) != TYPE_DICTIONARY:
+                room = {}
+            room["game_url"] = _public_game_url(str(msg.get("gameServerUrl", "")))
             players = msg.get("players", [])
             _set_status(STATUS_LOBBY)
             if bool(msg.get("playing", false)):
@@ -304,7 +316,7 @@ func _on_msg(msg: Dictionary) -> void:
             if msg.has("room"):
                 room = msg.get("room", room)
             if msg.has("gameServerUrl"):
-                room["game_url"] = str(msg["gameServerUrl"])
+                room["game_url"] = _public_game_url(str(msg["gameServerUrl"]))
             if msg.has("seed"):
                 room["seed"] = int(msg["seed"])
             match_started.emit(you, room)
@@ -356,6 +368,12 @@ func _save_resume(token: String) -> void:
 func consume_hub_launch() -> bool:
     if not OS.has_feature("web"):
         return false
+    var q := _js_text("String(window.location.search||'')")
+    if q.find("from_hub=1") >= 0:
+        return true
+    var flag := _js_text("String(window.GANGUP_FROM_HUB||'')")
+    if flag == "1" or flag == "true":
+        return true
     var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
     return v == "1"
 

@@ -95,6 +95,9 @@ const wss = new WebSocketServer({ server, maxPayload: CONFIG.maxPayload });
 wss.on("connection", (ws: WebSocket, req) => {
   const sock = req.socket;
   if ("setNoDelay" in sock) (sock as import("node:net").Socket).setNoDelay(true);
+  const xfHost = String(req.headers["x-forwarded-host"] || "");
+  const rawHost = String((xfHost.split(",")[0] || req.headers.host || "")).trim();
+  const publicHost = rawHost.replace(/:443$/, "");
 
   const now = Date.now();
   const client = {
@@ -110,6 +113,7 @@ wss.on("connection", (ws: WebSocket, req) => {
     rtt: 0,
     msgBudget: CONFIG.rateBudget,
     msgRefillAt: now,
+    publicHost,
   };
   clients.set(client.id, client);
   (ws as TaggedWebSocket)._session = client;

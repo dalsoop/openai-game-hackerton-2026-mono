@@ -95,6 +95,19 @@ func draw_reload_bubble(body_pos: Vector2, hero: Dictionary) -> void:
 		mode = "NEED"
 	if mode == "":
 		return
+	if r.reload_bubble_atlas != null:
+		var frame := 8
+		if mode == "RELOADING":
+			frame = int(world.tick / 3) % 8
+		elif mode == "RELOADED":
+			var complete_progress := 1.0 - clampf(float(hero.get("reload_flash", 0.0)) / 0.55, 0.0, 1.0)
+			frame = 10 + mini(1, int(complete_progress * 2.0))
+		var frame_size := Vector2(384.0, 384.0)
+		var source := Rect2(Vector2(frame % 4, floori(float(frame) / 4.0)) * frame_size, frame_size)
+		var display_size := Vector2(58.0, 58.0)
+		var display_rect := Rect2(body_pos + Vector2(-display_size.x * 0.5, -116.0), display_size)
+		r.draw_texture_rect_region(r.reload_bubble_atlas, display_rect, source)
+		return
 	var bw := 36.0
 	var bh := 28.0
 	var origin: Vector2 = body_pos + Vector2(-bw * 0.5, -88.0)

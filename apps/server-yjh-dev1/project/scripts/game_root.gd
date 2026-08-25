@@ -31,12 +31,21 @@ var _net_banner: Label = null
 var _touch_exit: Button = null
 var _touch_rematch: Button = null
 var _tutorial: TutorialOverlay = null
+var _dev_dash_test := false
+var _dev_dash_label: Label = null
 
 func _ready() -> void:
 	_is_server_mode = "--server" in OS.get_cmdline_user_args()
 	if _is_server_mode:
 		_start_dedicated_server()
 		return
+	hub = get_node_or_null("/root/NetworkManager")
+	if hub != null:
+		screens.bind_hub(hub)
+	if GameState.hub_launched:
+		screens.visible = false
+		world_view.visible = false
+		hud.visible = false
 	_sfx = SfxManager.new()
 	_sfx.setup(self)
 	_attach_touch()
@@ -45,12 +54,15 @@ func _ready() -> void:
 	_tutorial.name = "TutorialOverlay"
 	$HUD.add_child(_tutorial)
 	_tutorial.z_index = 30
-	hub = get_node("/root/NetworkManager")
-	screens.bind_hub(hub)
-	hub.match_started.connect(_on_net_match_started)
-	hub.match_resumed.connect(_on_net_match_resumed)
-	hub.snapshot_received.connect(_on_net_snapshot)
-	hub.status_changed.connect(_on_hub_status)
+	if hub != null:
+		hub.match_started.connect(_on_net_match_started)
+		hub.match_resumed.connect(_on_net_match_resumed)
+		hub.snapshot_received.connect(_on_net_snapshot)
+		hub.status_changed.connect(_on_hub_status)
+		if GameState.hub_launched:
+			hub.left_room.connect(func(): _return_to_hub())
+			hub.hub_error.connect(func(_msg: String): _return_to_hub())
+			hub.joined_room.connect(func(_r, _p, _y): pass)
 	_restart()
 	camera.position = _camera_target()
 	screens.start_match.connect(_on_start_match)
@@ -59,13 +71,12 @@ func _ready() -> void:
 	screens.control_mode_changed.connect(_apply_control_mode)
 	_apply_control_mode(screens.control_mode)
 	Engine.max_fps = 60
+	if not GameState.hub_launched and hub != null:
+		GameState.hub_launched = hub.consume_hub_launch()
 	if GameState.hub_launched:
 		screens.visible = false
 		world_view.visible = false
 		hud.visible = false
-		hub.left_room.connect(func(): _return_to_hub())
-		hub.hub_error.connect(func(_msg: String): _return_to_hub())
-		hub.joined_room.connect(func(_r, _p, _y): pass)
 	else:
 		_set_phase(&"intro")
 
@@ -125,10 +136,13 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_host = hub.is_host
 	var game_url = str(room.get("game_url", ""))
 	if game_url != "" and not GameState.net_host:
+		print("game_root path=game_server url=", game_url)
 		_start_with_game_server(you, room, game_url)
 	elif GameState.net_host:
+		print("game_root path=host")
 		_start_as_host(you, room)
 	else:
+		print("game_root path=hub_client")
 		_start_as_hub_client(you, room)
 	world_view.world = world
 	hud.world = world
@@ -237,6 +251,12 @@ func _set_phase(next: StringName) -> void:
 		touch.set_playing(playing)
 	_sync_touch_buttons()
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.glog && window.glog('game_root.phase','%s')" % str(next))
+		if playing:
+			JavaScriptBridge.eval("window.gangupShowGame && window.gangupShowGame()")
+		else:
+			JavaScriptBridge.eval("window.gangupHideGame && window.gangupHideGame()")
 	if not playing:
 		var page := next
 		if page == &"play" or page == &"select":
@@ -273,6 +293,32 @@ func _set_net_banner(text: String) -> void:
 	wrap_node.visible = text != ""
 	_net_banner.text = text
 
+func _set_dev_dash_test(enabled: bool) -> void:
+	_dev_dash_test = enabled
+	if _dev_dash_label == null:
+		_dev_dash_label = Label.new()
+		_dev_dash_label.name = "DevDashTestLabel"
+		_dev_dash_label.position = Vector2(18.0, 78.0)
+		_dev_dash_label.add_theme_font_size_override("font_size", 16)
+		_dev_dash_label.add_theme_color_override("font_color", Color("#fff2a6"))
+		_dev_dash_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+		_dev_dash_label.add_theme_constant_override("shadow_offset_x", 2)
+		_dev_dash_label.add_theme_constant_override("shadow_offset_y", 2)
+		$HUD.add_child(_dev_dash_label)
+		_dev_dash_label.z_index = 30
+	_dev_dash_label.visible = enabled
+	_dev_dash_label.text = "DEV: DASH COOLDOWN 0.08s  [NUMPAD 5]"
+
+func _apply_dev_dash_cooldown() -> void:
+	if not _dev_dash_test or world == null or (GameState.net_active and not GameState.net_host):
+		return
+	var slot := int(world.get("local_slot"))
+	if slot < 0 or slot >= world.heroes.size():
+		return
+	var hero: Dictionary = world.heroes[slot]
+	hero["mobility_cd"] = minf(float(hero.get("mobility_cd", 0.0)), 0.08)
+	world.heroes[slot] = hero
+
 func _restart() -> void:
 	world = WorldScript.new(seed)
 	world.set_mode(screens.selected_mode)
@@ -305,6 +351,9 @@ func _physics_process(_delta: float) -> void:
 			return
 		_set_phase(&"wait")
 		return
+	if OS.is_debug_build() and _edge(KEY_KP_5) and (not GameState.net_active or GameState.net_host):
+		_set_dev_dash_test(not _dev_dash_test)
+	_apply_dev_dash_cooldown()
 	if not GameState.net_active and world != null and world.result != &"playing":
 		if _edge(KEY_R):
 			seed += 1
