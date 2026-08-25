@@ -29,3 +29,5 @@ deploy/usability/last-report.json
 __pycache__/
 *.pyc
 .dryforge/
+web/node_modules/
+web/.next/
