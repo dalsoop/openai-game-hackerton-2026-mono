@@ -5,6 +5,7 @@ const RenderEnvScript = preload("res://games/dagul/render/render_environment.gd"
 const RenderHeroesScript = preload("res://games/dagul/render/render_heroes.gd")
 const RenderProjScript = preload("res://games/dagul/render/render_projectiles.gd")
 const RenderOverlayScript = preload("res://games/dagul/render/render_ui_overlay.gd")
+const RenderWorldFxScript = preload("res://games/dagul/render/render_world_fx.gd")
 
 var world
 var colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff"), Color("#ff8dac"), Color("#c9f24d"), Color("#7ad7f0"), Color("#e8a87c")]
@@ -47,6 +48,9 @@ var reload_bubble_atlas: Texture2D = null
 var tracer_fx_atlas: Texture2D = null
 var hit_spark_fx_atlas: Texture2D = null
 var explosion_fx_atlas: Texture2D = null
+var ammo_casing_texture: Texture2D = null
+var world_casings: Array[Dictionary] = []
+var world_casing_serial: int = 0
 var mobility_fx_atlases: Dictionary = {}
 var dash_departure_atlas: Texture2D = null
 var rooster_beam_step_atlas: Texture2D = null
@@ -104,6 +108,7 @@ var _env
 var _heroes
 var _proj
 var _overlay
+var _wfx
 
 
 func _slot_color(index: int) -> Color:
@@ -122,11 +127,12 @@ func _ready() -> void:
     _heroes = RenderHeroesScript.new(self)
     _proj = RenderProjScript.new(self)
     _overlay = RenderOverlayScript.new(self)
+    _wfx = RenderWorldFxScript.new(self)
 
 func _load_world_textures() -> void:
     for index in range(12):
         zodiac_textures.append(_load_tex("res://games/dagul/assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://games/dagul/assets/world/Tex_BG_Field_Wide.png")
+    island_texture = _load_tex("res://games/dagul/assets/world/Tex_BG_Tile_Grass.png")
     dirt_tile_texture = _load_tex("res://games/dagul/assets/world/Tex_BG_Tile_Dirt.png")
     tree_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Trees_3x1.png")
     rock_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Rocks_5x1.png")
@@ -186,6 +192,7 @@ func _load_combat_textures() -> void:
     tracer_fx_atlas = _load_tex("res://games/dagul/assets/fx/combat/Tex_FX_Tracer_4x1.png")
     hit_spark_fx_atlas = _load_tex("res://games/dagul/assets/fx/combat/Tex_FX_HitSpark_4x1.png")
     explosion_fx_atlas = _load_tex("res://games/dagul/assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    ammo_casing_texture = _load_tex("res://games/dagul/assets/fx/ui/Tex_UI_AmmoCasing.png")
 
 func _load_hud_textures() -> void:
     reload_bubble_atlas = _load_tex("res://games/dagul/assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")
@@ -313,6 +320,9 @@ func _consume_shot_events() -> void:
             var slot := int(event.get("actor_id", -1))
             if slot >= 0 and slot < recoil_kick.size():
                 _apply_shot_recoil(slot)
+                if et == &"gun_fire":
+                    _wfx.world = world
+                    _wfx.spawn_casing(slot)
         elif et == &"tower_hit":
             var td: Dictionary = event.get("data", {})
             var tdmg := float(td.get("damage", 0.0))
@@ -625,15 +635,28 @@ func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> 
 func _draw() -> void:
     if world == null:
         return
+    _tick_draw_state()
+    _draw_world_pass()
+    _draw_actor_pass()
+
+
+func _tick_draw_state() -> void:
     _consume_shot_events()
     _tick_recoil(1.0 / 60.0)
+    _wfx.world = world
+    _wfx.tick_casings(1.0 / 60.0)
     _tick_combat_texts(1.0 / 60.0)
     _env.world = world
     _heroes.world = world
     _proj.world = world
     _overlay.world = world
+
+
+func _draw_world_pass() -> void:
     _env.draw_island()
     _env.draw_safe_zone()
+    _env.draw_trees()
+    _wfx.draw_casings()
     _env.draw_covers()
     _env.draw_crates()
     _env.draw_mid_tower()
@@ -644,6 +667,9 @@ func _draw() -> void:
     _draw_zones()
     _draw_projectiles()
     _draw_effects()
+
+
+func _draw_actor_pass() -> void:
     _heroes.draw_knockouts()
     _overlay.draw_pocket_bubbles()
     _heroes.draw_dog_bones()
@@ -654,6 +680,7 @@ func _draw() -> void:
     _heroes.draw_rabbit_holes()
     _heroes.draw_tiger_roars()
     _heroes.draw_heroes()
+    _wfx.draw_zone_impacts()
     _proj.draw_impact_flashes()
     _overlay.draw_finish_prompts()
     _heroes.draw_rat_tides()

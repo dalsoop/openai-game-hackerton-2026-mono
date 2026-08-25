@@ -48,8 +48,8 @@ func spawn_arc_bomb(slot: int, direction: Vector2, distance: float, flight_time:
 	})
 	w.next_entity_id += 1
 
-func add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void:
-	w.effects.append({"kind":kind, "pos":pos, "radius":radius, "time":duration, "max_time":duration, "color":color, "label":label, "direction":direction})
+func add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT, follow_slot: int = -1) -> void:
+	w.effects.append({"kind":kind, "pos":pos, "radius":radius, "time":duration, "max_time":duration, "color":color, "label":label, "direction":direction, "follow_slot":follow_slot})
 
 func add_mobility_effect(slot: int, kind: StringName, start_pos: Vector2, end_pos: Vector2, radius: float, duration: float, color: Color, label: String, direction: Vector2, draw_departure: bool = true) -> void:
 	var shortened_duration := duration * 0.80

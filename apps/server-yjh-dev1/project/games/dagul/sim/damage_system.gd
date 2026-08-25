@@ -493,6 +493,6 @@ func damage_hero_environment(target: int, amount: float, show_tick: bool) -> voi
 	h["hp"] = float(h["hp"]) - zone_amt
 	w.heroes[target] = h
 	if show_tick:
-		w.proj.add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
+		w.proj.add_effect(&"zone_impact", Vector2(h["pos"]), 68.0, 0.28, Color("#c65cff"), "ZONE", Vector2.RIGHT, target)
 		w.event_log.emit(w.tick, &"hero_hit", -1, target, {"damage":w.SAFE_ZONE_DAMAGE_PER_SEC * w.SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
 	w.lifecycle.apply_lethal_or_down(-1, target, zone_amt)
