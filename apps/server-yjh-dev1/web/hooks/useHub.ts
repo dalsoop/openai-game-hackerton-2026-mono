@@ -14,10 +14,15 @@ import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import { useRoomRtt } from "@/hooks/useRoomRtt";
+import { useHealthRtt } from "@/hooks/useHealthRtt";
 import { reactOwnsResume, shouldMarkRoomDropped } from "@/lib/game-flow-state";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
+
+function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): number {
+  return room ? roomRtt : healthRtt;
+}
 
 let _client: Client | null = null;
 function getClient(): Client {
@@ -88,7 +93,9 @@ export function useHub(): UseHubResult {
 
   // 방 상태 = 서버 state 의 불변 스냅샷.
   const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
-  const rttMs = useRoomRtt(room);
+  const roomRtt = useRoomRtt(room);
+  const healthRtt = useHealthRtt(!room);
+  const rttMs = liveRttMs(room, roomRtt, healthRtt);
   usePageBridge(room, matchInfo, snap, rttMs);
 
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {

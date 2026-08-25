@@ -8,6 +8,7 @@ const Keys := preload("res://core/input/layout_keys.gd")
 func run(t) -> void:
 	_reset()
 	t.check("대기 시 이동 없음", Keys.move_axis() == Vector2.ZERO)
+	t.check("자리 라벨이 비지 않는다", Keys.seat_label(KEY_W).length() > 0)
 
 	_press(KEY_W, KEY_W)
 	t.check("QWERTY W 자리는 위", Keys.held(KEY_W) and Keys.move_axis().y < 0.0)

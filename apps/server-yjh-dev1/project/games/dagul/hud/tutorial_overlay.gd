@@ -115,8 +115,20 @@ func _update_display() -> void:
 	if _step >= STEPS.size():
 		return
 	var step_data: Dictionary = STEPS[_step]
-	_label.text = step_data["text"]
-	_sub_label.text = step_data["sub"]
+	var key: String = step_data["key"]
+	if key == "move":
+		var w := LayoutKeysScript.seat_label(KEY_W)
+		var a := LayoutKeysScript.seat_label(KEY_A)
+		var s := LayoutKeysScript.seat_label(KEY_S)
+		var d := LayoutKeysScript.seat_label(KEY_D)
+		_label.text = "%s%s%s%s 자리로 이동해 보세요" % [w, a, s, d]
+		_sub_label.text = "%s 위 · %s 왼 · %s 아래 · %s 오른" % [w, a, s, d]
+	elif key == "dash":
+		_label.text = "%s를 눌러 대시하세요" % LayoutKeysScript.seat_label(KEY_SHIFT)
+		_sub_label.text = step_data["sub"]
+	else:
+		_label.text = step_data["text"]
+		_sub_label.text = step_data["sub"]
 	if step_data["key"] == "done":
 		_skip_btn.visible = false
 	else:
@@ -169,7 +181,15 @@ func show_hint(hint_id: String) -> void:
 	if not HINTS.has(hint_id):
 		return
 	_hints_shown[hint_id] = true
-	_hint_text = HINTS[hint_id]
+	if hint_id == "down":
+		_hint_text = "다운! %s%s%s%s 자리로 기어가세요. 곧 부활합니다" % [
+			LayoutKeysScript.seat_label(KEY_W), LayoutKeysScript.seat_label(KEY_A),
+			LayoutKeysScript.seat_label(KEY_S), LayoutKeysScript.seat_label(KEY_D),
+		]
+	elif hint_id == "ultimate_ready":
+		_hint_text = "궁극기 준비! %s를 누르세요" % LayoutKeysScript.seat_label(KEY_Q)
+	else:
+		_hint_text = HINTS[hint_id]
 	_hint_time = 4.0
 
 func _tick_hints(delta: float) -> void:

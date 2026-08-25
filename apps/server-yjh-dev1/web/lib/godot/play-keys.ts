@@ -1,10 +1,10 @@
 // 플레이 중 한글 IME 가 캔버스에서 조합을 시작하면 Godot 웹은 키 콜백을 버린다.
-// event.code(자리)만 게임 키로 보고, 그 자리의 keydown 은 preventDefault 한다.
+// Godot 는 window 캡처에서 키를 받으므로 가드도 같은 단계에 둔다.
 
 export const PLAY_KEY_CODES: ReadonlySet<string> = new Set([
   "KeyW", "KeyA", "KeyS", "KeyD",
   "KeyQ", "KeyE", "KeyR", "KeyF",
-  "ShiftLeft", "ShiftRight", "Space",
+  "ShiftLeft", "ShiftRight", "Space", "Tab",
 ]);
 
 export type PlayKeyLike = {
@@ -30,14 +30,15 @@ export function shouldBlockIme(ev: PlayKeyLike): boolean {
 
 export function bindPlayKeyGuard(canvas: HTMLCanvasElement): () => void {
   const onKey = (event: KeyboardEvent): void => {
-    if (document.activeElement !== canvas && event.target !== canvas) {return;}
+    if (isTypingField(event.target) || isTypingField(document.activeElement)) {return;}
     if (!shouldBlockIme(event)) {return;}
     event.preventDefault();
+    if (event.code === "Tab") {canvas.focus({ preventScroll: true });}
   };
-  canvas.addEventListener("keydown", onKey);
-  canvas.addEventListener("keyup", onKey);
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("keyup", onKey, true);
   return (): void => {
-    canvas.removeEventListener("keydown", onKey);
-    canvas.removeEventListener("keyup", onKey);
+    window.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("keyup", onKey, true);
   };
 }
