@@ -149,8 +149,8 @@ body {
 		<script src="index.js"></script>
 		<script>
 /* ── 설정 ── */
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":25627548,"index.wasm":38817643},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = true;
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":25627548,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
 
 /* ── 상태 ── */
 let ws = null;
@@ -471,17 +471,6 @@ function prefetchAssets() {
 		if (fill) fill.style.width = pct + '%';
 	}
 
-	// WASM 프리컴파일 (백그라운드 — 메인 스레드 블로킹 최소화)
-	if (typeof WebAssembly !== 'undefined' && WebAssembly.compileStreaming) {
-		WebAssembly.compileStreaming(fetch('index.wasm'))
-			.then(function(mod) {
-				_compiledWasm = mod;
-				$assetProgress.childNodes[0].textContent = '엔진 준비 완료 ';
-				var fill = document.getElementById('asset-fill');
-				if (fill) fill.style.width = '100%';
-			})
-			.catch(function(e) { console.warn('WASM 프리컴파일 실패:', e); });
-	}
 
 	// PCK도 캐시에 넣기
 	trackFetch('index.pck').catch(function() {});
