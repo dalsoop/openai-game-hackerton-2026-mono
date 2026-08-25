@@ -5,7 +5,8 @@
 if (/from_hub=1/.test(String(location.search||''))) document.documentElement.classList.add('from-hub');
 </script>
 <style>
-html.from-hub #lobby-root, html.from-hub .status-bar { display:none !important; }
+html.from-hub #lobby-root { opacity: 0; pointer-events: none; }
+html.from-hub .status-bar { display: flex !important; }
 </style>
 
 		<meta charset="utf-8">
@@ -431,23 +432,6 @@ function switchToGame() {
 	canvas.classList.add('ready');
 	document.querySelector('.status-bar').style.display = 'none';
 	if (ws) { ws.close(); ws = null; }
-
-(function autoFromHub() {
-	var fromHub = false;
-	try {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
-			|| localStorage.getItem('gangup_from_hub') === '1';
-	} catch (e) {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
-	}
-	if (!fromHub) return;
-	var lobby = document.getElementById('lobby-root');
-	if (lobby) lobby.classList.add('hidden');
-	var bar = document.querySelector('.status-bar');
-	if (bar) bar.style.display = 'none';
-	if (typeof launchGodot === 'function') launchGodot();
-})();
-
 }
 
 /* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */
@@ -501,9 +485,24 @@ function prefetchAssets() {
 	trackFetch('index.pck').catch(function() {});
 }
 
+
+function bootFromHub() {
+	var fromHub = false;
+	try {
+		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
+			|| localStorage.getItem('gangup_from_hub') === '1';
+	} catch (e) {
+		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
+	}
+	if (!fromHub) return;
+	try { window.GANGUP_FROM_HUB = true; } catch (e) {}
+	if (typeof launchGodot === 'function') launchGodot();
+}
+
 /* ── 시작 ── */
 connectHub();
 prefetchAssets();
+bootFromHub();
 setInterval(function() { if (hubConnected) sendMsg({t:'ping'}); }, 3000);
 		</script>
 	</body>
