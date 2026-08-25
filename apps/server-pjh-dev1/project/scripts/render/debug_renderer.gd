@@ -893,12 +893,30 @@ func _draw_effects() -> void:
                 draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
                 draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
             &"heal_pickup":
-                var heal_lift := progress * effect_radius * 0.55
-                draw_line(effect_pos + Vector2(-12.0, -heal_lift), effect_pos + Vector2(12.0, -heal_lift), Color(effect_color, ratio), 7.0)
-                draw_line(effect_pos + Vector2(0.0, -12.0 - heal_lift), effect_pos + Vector2(0.0, 12.0 - heal_lift), Color(effect_color, ratio), 7.0)
+                var heal_lift := progress * effect_radius * 0.68
+                var cross_center := effect_pos + Vector2(0.0, -heal_lift)
+                var strong_ratio := clampf(1.0 - progress * 0.72, 0.34, 1.0)
+                var cross_color := Color(effect_color, strong_ratio)
+                draw_rect(Rect2(cross_center + Vector2(-18.0, -6.0), Vector2(36.0, 12.0)), Color(effect_color, strong_ratio * 0.38))
+                draw_rect(Rect2(cross_center + Vector2(-6.0, -18.0), Vector2(12.0, 36.0)), Color(effect_color, strong_ratio * 0.38))
+                draw_rect(Rect2(cross_center + Vector2(-15.0, -5.0), Vector2(30.0, 10.0)), cross_color)
+                draw_rect(Rect2(cross_center + Vector2(-5.0, -15.0), Vector2(10.0, 30.0)), cross_color)
+                draw_rect(Rect2(cross_center + Vector2(-6.0, -6.0), Vector2(12.0, 12.0)), Color(Color.WHITE, strong_ratio * 0.90))
+                var burst_radius := effect_radius * lerpf(0.20, 0.88, progress)
+                draw_arc(effect_pos, burst_radius, 0.0, TAU, 24, Color(effect_color, strong_ratio * 0.76), 6.0)
+                for heal_pixel in range(10):
+                    var heal_angle := TAU * float(heal_pixel) / 10.0 + progress * 1.7
+                    var heal_pos := effect_pos + Vector2.RIGHT.rotated(heal_angle) * effect_radius * lerpf(0.20, 0.82, progress)
+                    var heal_size := 7.0 if heal_pixel % 3 == 0 else 4.0
+                    draw_rect(Rect2(heal_pos - Vector2.ONE * heal_size * 0.5, Vector2.ONE * heal_size), Color(effect_color, strong_ratio * 0.92))
             &"heal_ready":
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), -PI * 0.35, PI * 0.35, 18, Color(effect_color, ratio), 5.0)
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), PI * 0.65, PI * 1.35, 18, Color(effect_color, ratio), 5.0)
+                var ready_radius := effect_radius * lerpf(0.48, 0.88, progress)
+                for ready_pixel in range(12):
+                    if ready_pixel in [2, 3, 8, 9]:
+                        continue
+                    var ready_angle := TAU * float(ready_pixel) / 12.0
+                    var ready_pos := effect_pos + Vector2.RIGHT.rotated(ready_angle) * ready_radius
+                    draw_rect(Rect2(ready_pos - Vector2.ONE * 3.0, Vector2.ONE * 6.0), Color(effect_color, ratio))
             &"respawn":
                 for beam in range(3):
                     var beam_x := (float(beam) - 1.0) * 16.0

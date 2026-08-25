@@ -109,16 +109,28 @@ func draw_pickups() -> void:
 			continue
 		var show_kind := _item_display_kind(pickup)
 		var tint: Color = _item_tint(show_kind)
+		var is_medkit := show_kind == "medkit"
 		var magnet_slot := int(pickup.get("magnet_slot", -1))
 		if magnet_slot >= 0 and magnet_slot < world.heroes.size():
 			var magnet_dir := pickup_pos.direction_to(Vector2(world.heroes[magnet_slot]["pos"]))
 			for trail_index in range(3):
 				var side := magnet_dir.orthogonal() * (float(trail_index) - 1.0) * 7.0
-				r.draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color(tint, 0.72), 4.0)
-			r.draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color(tint, 0.95), 5.0)
+				for pixel_index in range(3):
+					var pixel_pos := pickup_pos - magnet_dir * (24.0 + float(trail_index) * 8.0 + float(pixel_index) * 10.0) + side
+					var pixel_size := 5.0 - float(pixel_index)
+					r.draw_rect(Rect2(pixel_pos - Vector2.ONE * pixel_size * 0.5, Vector2.ONE * pixel_size), Color(tint, 0.80 - float(pixel_index) * 0.18))
 		else:
-			r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
-			r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
+			if is_medkit:
+				var orbit_phase := float(world.tick) * 0.035 + float(pickup["id"])
+				for pixel_index in range(8):
+					var pixel_angle := orbit_phase + TAU * float(pixel_index) / 8.0
+					var pixel_pos := pickup_pos + Vector2.RIGHT.rotated(pixel_angle) * (27.0 + float(pixel_index % 2) * 3.0)
+					var pixel_size := 4.0 if pixel_index % 3 else 6.0
+					r.draw_rect(Rect2(pixel_pos - Vector2.ONE * pixel_size * 0.5, Vector2.ONE * pixel_size), Color(tint, 0.52 + float(pixel_index % 2) * 0.24))
+				r.draw_rect(Rect2(pickup_pos + Vector2(-21.0, 17.0), Vector2(42.0, 4.0)), Color(0.02, 0.07, 0.05, 0.50))
+			else:
+				r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
+				r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
 		if show_kind == "medkit" and r.medkit_texture != null:
 			r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(19.0, 19.0) * pulse, Vector2(38.0, 38.0) * pulse), false)
 		elif show_kind == "medkit":
