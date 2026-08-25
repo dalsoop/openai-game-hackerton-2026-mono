@@ -6,6 +6,7 @@ import re
 import unittest
 from pathlib import Path
 
+from hub_images import folder_from_hub_ref, missing_hub_refs
 from status import hub_health_ok
 from export_html_contract import (
     REQUIRED_PLACEHOLDERS,
@@ -101,6 +102,22 @@ class SlotShells(unittest.TestCase):
             re.search(r'html/custom_html_shell=""', text),
             "hexclash 는 공식 기본 HTML 을 쓴다",
         )
+
+
+class HubImages(unittest.TestCase):
+    def test_folder_from_ref(self) -> None:
+        self.assertEqual(
+            folder_from_hub_ref("harbor.50.internal.xz/library/server-prod:b902eb470f27"),
+            "server-prod",
+        )
+
+    def test_missing_only_absent_tags(self) -> None:
+        refs = [
+            "harbor.50.internal.xz/library/server-yjh-dev1:aaa",
+            "harbor.50.internal.xz/library/server-prod:bbb",
+        ]
+        listed = "harbor.50.internal.xz/library/server-yjh-dev1:aaa\n"
+        self.assertEqual(missing_hub_refs(refs, listed), [refs[1]])
 
 
 class HubHealth(unittest.TestCase):
