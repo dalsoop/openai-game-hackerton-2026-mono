@@ -5,8 +5,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 imagePullPolicy: Never
-# 1만 CCU 는 워커 여러 대가 필요하다. 한 노드에 고정하지 않는다.
-nodeSelector: {}
+nodeSelector:
+  kubernetes.io/hostname: k3s-prod
 
 git:
   repo: https://github.com/dalsoop/openai-game-hackerton-2026-mono
@@ -32,7 +32,7 @@ tls:
     existingCloudflareSecret: cloudflare-api-token
 
 web:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: harbor.50.internal.xz/library/hackertone-games-web
     tag: 0.1.0-dev1
@@ -50,34 +50,16 @@ hub:
     tag: ""
   env:
     PORT: "8080"
-  # printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결
-  strategy: RollingUpdate
-  publicPrefix: "%s.external.kr/hubp"
-  staticSplit: true
+  # 다중 복제 시: strategy: RollingUpdate + publicPrefix: "%s.external.kr/hubp"
+  # (printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결)
+  strategy: ""
+  publicPrefix: ""
   resources:
     requests:
       cpu: 50m
       memory: 64Mi
     limits:
       memory: 256Mi
-  # Colyseus 슬롯만 복제·자원을 올린다. replicaCount ≈ ceil(10000 / 500).
-  scale:
-    folders:
-      - server-yjh-dev1
-      - server-prod
-    replicaCount: 20
-    resources:
-      requests:
-        cpu: "1"
-        memory: 1Gi
-      limits:
-        memory: 2Gi
-    staticResources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        memory: 1Gi
 
 redis:
   enabled: true
@@ -85,7 +67,7 @@ redis:
   url: "redis://redis:6379"
   image: redis:7-alpine
   serviceName: redis
-  storage: 2Gi
+  storage: 1Gi
 
 games: []
 hubs: []
