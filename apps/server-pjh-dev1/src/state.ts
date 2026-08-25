@@ -63,6 +63,13 @@ export function livingIds(room: Room): string[] {
 }
 
 export function hostId(room: Room): string {
+  if (room.phase === Phase.PLAYING && room.hostClientId) {
+    const living0 = livingIds(room)[0];
+    if (living0 && living0 !== room.hostClientId) {
+      console.log(`[gang-up] peers.host stay hostClientId=${room.hostClientId} not living0=${living0}`);
+    }
+    return room.hostClientId;
+  }
   return livingIds(room)[0] ?? room.members[0]!;
 }
 
@@ -129,6 +136,8 @@ export function resetToLobby(room: Room): void {
   room.lastSnap = null;
   room.prevSnap = null;
   room.snapCount = 0;
+  room.seed = 0;
+  console.log(`[gang-up] resetToLobby room=${room.id}`);
   room.members = room.members.filter((id) => !!id);
   room.phase = Phase.LOBBY;
   if (livingIds(room).length === 0) {
@@ -146,12 +155,13 @@ export function startMatch(room: Room): void {
   room.phase = Phase.PLAYING;
   room.hostClientId = hostId(room);
   const seed = Math.floor(Math.random() * 999999) + 1;
+  room.seed = seed;
+  console.log(`[gang-up] startMatch persist seed=${seed} room=${room.id} host=${room.hostClientId}`);
   const players = room.members.map((id, slot) => {
     const c = clients.get(id);
     return { slot, name: c?.name ?? "?", resume_token: c?.resume ?? "" };
   });
   notifyGameServer(room.id, players, room.mode, seed);
-  const gameWsUrl = deriveGameWsUrl();
   for (const id of room.members) {
     const c = clients.get(id);
     if (c?.dead) {
@@ -159,11 +169,16 @@ export function startMatch(room: Room): void {
     } else {
       const slot = room.members.indexOf(id);
       const isHost = id === room.hostClientId;
+      const gameWsUrl = deriveGameWsUrl(c);
+      console.log(`[gang-up] start game-ws slot=${slot} host=${isHost} url=${gameWsUrl || "(empty)"}`);
       sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room), gameServerUrl: gameWsUrl, seed });
     }
   }
   room.timer = setTimeout(() => {
     if (room.phase === Phase.PLAYING && !room.lastSnap) {
+      const host = room.hostClientId ? clients.get(room.hostClientId) : undefined;
+      const hostGone = !host || host.dead || !host.ws || host.ws.readyState !== WebSocket.OPEN;
+      console.log(`[gang-up] host boot timeout room=${room.id} hostGone=${hostGone} lastSnap=empty`);
       sendRoom(room, { t: MSG.ERROR, msg: KO.HOST_BOOT_FAIL });
       resetToLobby(room);
     }
@@ -181,14 +196,14 @@ function notifyGameServer(roomId: string, players: { slot: number; name: string;
   }).catch((err: Error) => console.error(`[gang-up] game server notify failed: ${err.message}`));
 }
 
-function deriveGameWsUrl(): string {
-  const base = CONFIG.gameServerUrl;
-  const host = new URL(base).hostname;
-  const port = 9121;
-  return `wss://${host}:${port}/game-ws`;
+function deriveGameWsUrl(client?: Client): string {
+  // /game-ws is not on Caddy and this slot does not spawn a Godot game server.
+  // Guests play through hub host_snap/input relay.
+  console.log(`[gang-up] game-ws not routed; hub relay for ${client?.id || "?"}`);
+  return "";
 }
 
-export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void {
+export function leaveRoom(client: Client, { silent, explicit }: { silent?: boolean; explicit?: boolean } = {}): void {
   if (client.dropTimer) {
     clearTimeout(client.dropTimer);
     client.dropTimer = null;
@@ -205,7 +220,12 @@ export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {})
     if (wasDead || client.ws.readyState !== WebSocket.OPEN) clients.delete(client.id);
     return;
   }
-  parkPlayer(room, client.id);
+  if (explicit) {
+    console.log(`[gang-up] leave explicit id=${client.id} room=${room.id} phase=${room.phase}`);
+  } else {
+    parkPlayer(room, client.id);
+    console.log(`[gang-up] leave park id=${client.id} room=${room.id} phase=${room.phase}`);
+  }
   if (room.phase === Phase.PLAYING) {
     const idx = room.members.indexOf(client.id);
     if (idx >= 0) room.members[idx] = "";
@@ -249,9 +269,13 @@ export function parkClient(client: Client): void {
   if (client.dead) return;
   client.dead = true;
   client.deadAt = Date.now();
+  // Host HTML socket closes on Godot handoff. Park the seat instead of ending the match.
   if (room.phase === Phase.PLAYING && room.hostClientId === client.id) {
-    notifyRoom(room, { notice: KO.hostDisconnectedEnd(client.name) });
-    resetToLobby(room);
+    parkPlayer(room, client.id);
+    const grace = CONFIG.gracePlayMs;
+    client.dropTimer = setTimeout(() => dropClient(client), grace);
+    notifyRoom(room, { notice: KO.playerDropped(client.name, Math.round(grace / 1000)) });
+    broadcastRooms();
     return;
   }
   parkPlayer(room, client.id);
@@ -292,7 +316,10 @@ export function attachResume(fresh: Client, token: string): Client {
         players: peersPayload(room),
         playing: Boolean(playing),
         snap: playing ? room.lastSnap : null,
+        seed: playing ? room.seed : 0,
+        gameServerUrl: playing ? deriveGameWsUrl(old) : "",
       });
+      console.log(`[gang-up] resume id=${old.id} playing=${playing} seed=${playing ? room.seed : 0}`);
       notifyRoom(room, { notice: KO.playerReconnected(old.name) });
     } else {
       send(old.ws, { t: MSG.WELCOME, id: old.id, resume: old.resume, modes: MODES, max: MAX_PLAYERS });

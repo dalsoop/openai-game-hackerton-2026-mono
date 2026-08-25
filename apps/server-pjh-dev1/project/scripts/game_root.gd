@@ -62,7 +62,7 @@ func _ready() -> void:
 		if GameState.hub_launched:
 			hub.left_room.connect(func(): _return_to_hub())
 			hub.hub_error.connect(func(_msg: String): _return_to_hub())
-			hub.joined_room.connect(func(_r, _p, _y): pass)
+			hub.joined_room.connect(_on_hub_joined_after_launch)
 	_restart()
 	camera.position = _camera_target()
 	screens.start_match.connect(_on_start_match)
@@ -71,6 +71,8 @@ func _ready() -> void:
 	screens.control_mode_changed.connect(_apply_control_mode)
 	_apply_control_mode(screens.control_mode)
 	Engine.max_fps = 60
+	if not GameState.hub_launched and hub != null:
+		GameState.hub_launched = hub.consume_hub_launch()
 	if GameState.hub_launched:
 		screens.visible = false
 		world_view.visible = false
@@ -134,10 +136,13 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_host = hub.is_host
 	var game_url = str(room.get("game_url", ""))
 	if game_url != "" and not GameState.net_host:
+		print("game_root path=game_server url=", game_url)
 		_start_with_game_server(you, room, game_url)
 	elif GameState.net_host:
+		print("game_root path=host")
 		_start_as_host(you, room)
 	else:
+		print("game_root path=hub_client")
 		_start_as_hub_client(you, room)
 	world_view.world = world
 	hud.world = world
@@ -170,7 +175,13 @@ func _start_with_game_server(you: int, room: Dictionary, game_url: String) -> vo
 func _start_as_host(you: int, room: Dictionary) -> void:
 	if _host_ctrl != null:
 		_host_ctrl.disconnect_signals()
-	seed += 1
+	var hub_seed := int(room.get("seed", 0))
+	if hub_seed > 0:
+		seed = hub_seed
+		print("[gangup] host seed from hub=", seed)
+	else:
+		seed += 1
+		print("[gangup] host seed local=", seed)
 	var host_world = WorldScript.new(seed)
 	host_world.set_mode(str(room.get("mode", screens.selected_mode)))
 	host_world.local_slot = you
@@ -200,15 +211,28 @@ func _on_game_server_snapshot(snap: Dictionary) -> void:
 
 func _on_net_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
 	GameState.net_active = true
+	GameState.net_host = hub.is_host
+	print("[gangup] match_resumed host=", GameState.net_host, " snap_empty=", snap.is_empty(), " seed=", room.get("seed", 0))
+	if GameState.net_host:
+		_start_as_host(you, room)
+		world_view.world = world
+		hud.world = world
+		hud.mode_id = str(room.get("mode", screens.selected_mode))
+		spectate_slot = you
+		hud.spectate_slot = spectate_slot
+		print("[gangup] host resume ignore snap rebuild seed=", seed)
+		_set_phase(&"play")
+		return
 	if world == null or not bool(world.get("is_net")):
 		_on_net_match_started(you, room)
 	else:
 		world.local_slot = you
 		spectate_slot = you
 		hud.spectate_slot = spectate_slot
-	if not snap.is_empty() and world != null and bool(world.get("is_net")):
+	if not snap.is_empty() and world != null and world.has_method("push_snap"):
 		world.push_snap(snap)
 		world.present(0.0)
+		print("[gangup] guest resume push_snap")
 	_set_phase(&"play")
 
 func _on_net_snapshot(snap: Dictionary) -> void:
@@ -230,7 +254,32 @@ func _on_hub_status(next_status: String) -> void:
 		if phase == &"play":
 			_return_to_hub()
 
+func _on_hub_joined_after_launch(_r, _p, _y) -> void:
+	print("[gangup] hub joined/lobby launched phase=", phase, " net=", GameState.net_active)
+	if phase == &"play" or GameState.net_active:
+		_leave_play_to_lobby()
+	else:
+		_return_to_hub()
+
+func _leave_play_to_lobby() -> void:
+	print("[gangup] leave play to lobby")
+	if _host_ctrl != null:
+		_host_ctrl.disconnect_signals()
+		_host_ctrl = null
+	GameState.net_active = false
+	GameState.net_host = false
+	if phase == &"play":
+		_set_phase(&"wait")
+	if OS.has_feature("web"):
+		var shown: Variant = JavaScriptBridge.eval("typeof window.gangupShowLobby==='function' ? (window.gangupShowLobby(),1) : 0", true)
+		print("[gangup] gangupShowLobby=", shown)
+		if str(shown) != "1":
+			_return_to_hub()
+	else:
+		_return_to_hub()
+
 func _return_to_hub() -> void:
+	print("[gangup] return_to_hub launched=", GameState.hub_launched)
 	if GameState.hub_launched and OS.has_feature("web"):
 		JavaScriptBridge.eval("location.href='/gang-up/'")
 	else:
@@ -248,6 +297,12 @@ func _set_phase(next: StringName) -> void:
 		touch.set_playing(playing)
 	_sync_touch_buttons()
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.glog && window.glog('game_root.phase','%s')" % str(next))
+		if playing:
+			JavaScriptBridge.eval("window.gangupShowGame && window.gangupShowGame()")
+		else:
+			JavaScriptBridge.eval("window.gangupHideGame && window.gangupHideGame()")
 	if not playing:
 		var page := next
 		if page == &"play" or page == &"select":

@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q '\\.gd'; then python3 lint_gd.py apps/server-yjh-dev1/project/scripts 2>&1 | tail -3; fi",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python3 lint_gd.py*)",
+      "Bash(gdlint*)",
+      "Bash(/Applications/Godot.app/Contents/MacOS/Godot*--headless*)"
+    ]
+  }
+}

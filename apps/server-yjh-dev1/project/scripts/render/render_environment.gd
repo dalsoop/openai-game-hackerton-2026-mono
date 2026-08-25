@@ -47,10 +47,19 @@ func draw_safe_zone() -> void:
 		r._draw_dashed_circle(center, target_radius, Color(1.0, 1.0, 1.0, 0.62), 3.0)
 
 func draw_covers() -> void:
-	for cover in world.covers:
+	for cover_index in range(world.covers.size()):
+		var cover: Dictionary = world.covers[cover_index]
 		var rect: Rect2 = cover["rect"]
 		var c := rect.get_center()
 		var base := minf(rect.size.x, rect.size.y) * 0.5
+		if r.rock_atlas != null:
+			var src: Rect2 = r.ROCK_SOURCE_RECTS[cover_index % r.ROCK_SOURCE_RECTS.size()]
+			var max_size := Vector2(base * 2.0, base * 2.0)
+			var scale_factor: float = minf(max_size.x / src.size.x, max_size.y / src.size.y)
+			var draw_size := src.size * scale_factor
+			var dest := Rect2(c + Vector2(-draw_size.x * 0.5, base - draw_size.y), draw_size)
+			r.draw_texture_rect_region(r.rock_atlas, dest, src)
+			continue
 		r.draw_circle(c + Vector2(3.0, 5.0), base, Color(0.16, 0.17, 0.19, 0.85))
 		r.draw_circle(c, base, Color("#7d838e"))
 		r.draw_circle(c - Vector2(base * 0.25, base * 0.30), base * 0.55, Color("#9aa1ac"))
@@ -138,21 +147,26 @@ func draw_crates() -> void:
 			continue
 		var pos: Vector2 = crate["pos"]
 		var body := Rect2(pos + Vector2(-22.0, -20.0), Vector2(44.0, 40.0))
-		r.draw_rect(body, Color("#5a3a1c"))
-		r.draw_rect(body, Color("#3b2410"), false, 2.0)
-		r.draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
-		r.draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
-		r.draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
 		var hp_now := float(crate.get("hp", 0.0))
 		var hp_max := float(crate.get("max_hp", 48.0))
 		var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
-		var bar := Rect2(pos + Vector2(-40.0, -38.0), Vector2(80.0, 14.0))
-		r.draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
-		r.draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
-		r.draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * hp_ratio, bar.size.y - 4.0)), Color("#e0a15a"))
-		var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
-		r.draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7))
-		r.draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 11.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color.WHITE)
+		if r.crate_atlas != null:
+			var frame := 0 if hp_ratio > 0.66 else (1 if hp_ratio > 0.33 else 2)
+			r.draw_texture_rect_region(r.crate_atlas, body, r.CRATE_SOURCE_RECTS[frame])
+		else:
+			r.draw_rect(body, Color("#5a3a1c"))
+			r.draw_rect(body, Color("#3b2410"), false, 2.0)
+			r.draw_rect(Rect2(pos + Vector2(-20.0, -16.0), Vector2(40.0, 5.0)), Color("#7a5130"))
+			r.draw_rect(Rect2(pos + Vector2(-20.0, -4.0), Vector2(40.0, 5.0)), Color("#6b4526"))
+			r.draw_rect(Rect2(pos + Vector2(-20.0, 8.0), Vector2(40.0, 5.0)), Color("#7a5130"))
+		if hp_ratio < 0.999:
+			var bar := Rect2(pos + Vector2(-31.0, -49.0), Vector2(62.0, 10.0))
+			r.draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.9))
+			r.draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95))
+			r.draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2((bar.size.x - 4.0) * hp_ratio, bar.size.y - 4.0)), Color("#e0a15a"))
+			var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
+			r.draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 9.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 9, Color(0.0, 0.0, 0.0, 0.72))
+			r.draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 8.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 9, Color.WHITE)
 
 func draw_crate_orbs() -> void:
 	if world.crate_orbs.is_empty():

@@ -389,7 +389,7 @@ func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     impact_pos = pos
     impact_ticks = maxi(impact_ticks, 10)
     event_log.emit(tick, &"hero_downed", slot, -1, {})
-    _add_effect(&"death_burst", pos, 120.0, 0.5, Color("#ff3349"))
+    _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
 
 func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
     var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))

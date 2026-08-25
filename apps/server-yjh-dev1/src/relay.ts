@@ -4,10 +4,10 @@ import { KO } from "./messages.js";
 import type { Client, Room } from "./types.js";
 import {
   clients, rooms, allocRoomId,
-  sanitize, send, sendRoom,
-  hostId, slotOf, roomPublic, peersPayload,
+  sanitize, send, sendTo, sendRoom,
+  livingIds, hostId, slotOf, roomPublic, peersPayload,
   notifyRoom, broadcastRooms,
-  leaveRoom, startMatch,
+  leaveRoom, startMatch, resetToLobby,
   attachResume,
 } from "./state.js";
 
@@ -151,5 +151,48 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
     return;
   }
 
-  // input and host_snap relay removed — clients send input directly to Godot game server
+  if (t === MSG.INPUT) {
+    if (!client.roomId) return;
+    const room = rooms.get(client.roomId);
+    if (!room || room.phase !== Phase.PLAYING || client.dead) return;
+    if (client.id === room.hostClientId) return;
+    const slot = room.members.indexOf(client.id);
+    if (slot < 0) return;
+    console.log(`[gang-up] relay input slot=${slot} room=${room.id}`);
+    sendTo(room.hostClientId!, {
+      t: MSG.PEER_INPUT,
+      slot,
+      mx: msg.mx, my: msg.my,
+      fire: msg.fire, dash: msg.dash, use: msg.use,
+      aimX: msg.aimX, aimY: msg.aimY,
+      seq: msg.seq,
+    });
+    return;
+  }
+
+  if (t === MSG.HOST_SNAP) {
+    if (!client.roomId) return;
+    const room = rooms.get(client.roomId);
+    if (!room || room.phase !== Phase.PLAYING) return;
+    if (client.id !== room.hostClientId) return;
+    const snapData = { ...msg, t: MSG.SNAP };
+    room.prevSnap = room.lastSnap;
+    room.lastSnap = snapData;
+    room.snapCount += 1;
+    const text = JSON.stringify(snapData);
+    for (const id of livingIds(room)) {
+      if (id !== client.id) sendTo(id, text);
+    }
+    const isEnded = Boolean(snapData.result && snapData.result !== Phase.PLAYING);
+    if (isEnded) {
+      if (!room.prevSnap || room.prevSnap["result"] === Phase.PLAYING) {
+        if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+        room.timer = setTimeout(() => resetToLobby(room), CONFIG.resetToLobbyDelayMs);
+      }
+    } else if (snapData.result === Phase.PLAYING && room.timer) {
+      clearTimeout(room.timer);
+      room.timer = null;
+    }
+    return;
+  }
 }

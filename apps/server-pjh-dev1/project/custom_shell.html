@@ -11,6 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
+		<!-- gangup-handoff-55 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -20,8 +21,8 @@ body {
 	touch-action: none;
 	font-family: 'Noto Sans KR', 'Pretendard', 'Noto Sans', Arial, sans-serif;
 }
-#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; z-index: 5; }
-#canvas.ready { opacity: 1; }
+#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; visibility: hidden; transition: opacity 0.5s; z-index: 5; pointer-events: none; }
+#canvas.ready { opacity: 1; visibility: visible; pointer-events: auto; }
 #canvas:focus { outline: none; }
 
 /* ── 로비 (즉시 보이는 HTML) ── */
@@ -85,6 +86,7 @@ body {
 .conn-status.online { color: #1f9d55; }
 .conn-status.error { color: #c0392b; }
 .asset-progress { color: #67728a; }
+#gangup-log { color: #8b93a7; max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-bar { width: 100px; height: 4px; background: #1e2736; border-radius: 2px; display: inline-block; vertical-align: middle; margin-left: 6px; overflow: hidden; }
 .asset-bar-fill { height: 100%; background: linear-gradient(90deg, #ffd23e, #3ee6d2); border-radius: 2px; transition: width 0.3s; }
 
@@ -135,6 +137,7 @@ body {
 
 		<div class="status-bar">
 			<span class="conn-status" id="conn-status">연결 중…</span>
+			<span id="gangup-log">로그 대기</span>
 			<span class="asset-progress" id="asset-progress">
 				에셋 준비 중
 				<span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>
@@ -155,17 +158,38 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	window.Godot = function (config) {
 		config = config || {};
 		config.instantiateWasm = function (imports, onSuccess) {
-			fetch('index.wasm', { credentials: 'same-origin' }).then(function (res) {
-				if (!res.ok) throw new Error('index.wasm HTTP ' + res.status);
-				return res.arrayBuffer();
-			}).then(function (buf) {
-				return WebAssembly.instantiate(buf, imports);
-			}).then(function (result) {
-				onSuccess(result.instance, result.module);
-			}).catch(function (err) {
-				console.error('wasm instantiate failed', err);
-				if (typeof config.printErr === 'function') config.printErr(String(err && err.message || err));
-			});
+			function loadWasm(n) {
+				glog('wasm.fetch', 'try=' + n);
+				return fetch('index.wasm', { credentials: 'same-origin' }).then(function (res) {
+					glog('wasm.http', String(res.status) + ' len=' + (res.headers.get('content-length') || '?'));
+					if (!res.ok) throw new Error('index.wasm HTTP ' + res.status);
+					if (typeof WebAssembly.instantiateStreaming === 'function') {
+						return WebAssembly.instantiateStreaming(res.clone(), imports).catch(function (streamErr) {
+							gfail('wasm.stream', String(streamErr && streamErr.message || streamErr));
+							return res.arrayBuffer().then(function (buf) {
+								glog('wasm.arrayBuffer', String(buf.byteLength));
+								return WebAssembly.instantiate(buf, imports);
+							});
+						});
+					}
+					return res.arrayBuffer().then(function (buf) {
+						glog('wasm.arrayBuffer', String(buf.byteLength));
+						return WebAssembly.instantiate(buf, imports);
+					});
+				}).then(function (result) {
+					gok('wasm준비', 'try=' + n);
+					onSuccess(result.instance, result.module);
+				}).catch(function (err) {
+					var msg = String(err && err.message || err);
+					gfail('wasm받기', 'try=' + n + ' ' + msg);
+					if (n < 3) {
+						setTimeout(function () { loadWasm(n + 1); }, 700 * n);
+						return;
+					}
+					if (typeof config.printErr === 'function') config.printErr(msg);
+				});
+			}
+			loadWasm(1);
 			return {};
 		};
 		return origGodot(config);
@@ -185,8 +209,29 @@ let resumeToken = '';
 let godotReady = false;
 let godotStarting = false;
 let matchStartMsg = null;
+let pendingQuickStart = false;
+let showGameWhenReady = false;
+let wantGame = false;
+let htmlWsDone = false;
+let connectHubTimer = null;
+let outbox = [];
+let myClientId = '';
 let assetLoaded = 0;
 let assetTotal = 0;
+
+var _glogN = 0;
+window.__gangupLogs = [];
+function glog(step, extra) {
+	_glogN += 1;
+	var msg = '#' + _glogN + ' ' + step;
+	if (extra != null && extra !== '') msg += ' | ' + extra;
+	try { console.log('[gangup]', msg); } catch (e) {}
+	window.__gangupLogs.push(msg);
+	var el = document.getElementById('gangup-log');
+	if (el) el.textContent = msg;
+}
+function gok(step, extra) { glog('정상 ' + step, extra); }
+function gfail(step, extra) { glog('실패 ' + step, extra); }
 
 /* ── DOM ── */
 const $name = document.getElementById('inp-name');
@@ -216,21 +261,46 @@ function hubUrl() {
 	return proto + '://' + window.location.host + '/gang-up';
 }
 
+function helloPayload() {
+	var o = {t:'hello', name: getName(), mode:'classic'};
+	var r = resumeToken;
+	try { r = r || localStorage.getItem('gangup_resume') || ''; } catch(e) {}
+	r = String(r || '');
+	if (r.length === 32) {
+		o.resume = r;
+		resumeToken = r;
+		glog('hello.payload', 'resume=32');
+	} else {
+		glog('hello.payload', 'resume=none len=' + r.length);
+	}
+	return o;
+}
+
 function connectHub() {
-	if (ws && ws.readyState <= 1) return;
+	glog('connectHub.enter');
+	if (ws && ws.readyState <= 1) { glog('connectHub.skip', 'already-open'); return; }
 	ws = new WebSocket(hubUrl());
+	glog('connectHub.ws', hubUrl());
 	ws.onopen = function() {
 		hubConnected = true;
+		gok('허브연결');
 		$connStatus.textContent = '로비';
 		$connStatus.className = 'conn-status online';
-		sendMsg({t:'hello', name: getName(), mode:'classic'});
+		glog('hello.send', getName());
+		sendMsg(helloPayload());
+		glog('rooms.send');
 		sendMsg({t:'rooms'});
+		flushOutbox();
 	};
 	ws.onclose = function() {
 		hubConnected = false;
+		if (htmlWsDone) { glog('htmlWs.stayClosed'); return; }
+		gfail('허브끊김');
 		$connStatus.textContent = '연결 끊김';
 		$connStatus.className = 'conn-status error';
-		setTimeout(connectHub, 2000);
+		if (connectHubTimer) clearTimeout(connectHubTimer);
+		connectHubTimer = setTimeout(connectHub, 2000);
+		glog('connectHub.queued', '2000');
 	};
 	ws.onerror = function() {};
 	ws.onmessage = function(ev) {
@@ -238,19 +308,74 @@ function connectHub() {
 	};
 }
 
-function sendMsg(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function sendMsg(obj) {
+	if (ws && ws.readyState === 1) {
+		ws.send(JSON.stringify(obj));
+		glog('send.flush', obj && obj.t);
+		return;
+	}
+	outbox.push(obj);
+	glog('send.queue', (obj && obj.t) + ' n=' + outbox.length);
+}
+function flushOutbox() {
+	glog('send.flushAll', outbox.length);
+	while (outbox.length && ws && ws.readyState === 1) {
+		var o = outbox.shift();
+		ws.send(JSON.stringify(o));
+		glog('send.flush', o && o.t);
+	}
+}
 function getName() { return ($name.value || '').trim() || '플레이어'; }
 
 /* ── 메시지 핸들러 ── */
 function handleMsg(msg) {
+	glog('hub.msg', msg && msg.t);
 	switch (msg.t) {
 		case 'welcome':
+			glog('welcome', 'hadResume=' + (resumeToken || '').length);
+			if (msg.id) { myClientId = msg.id; glog('welcome.id', msg.id); }
+			if (msg.resume && msg.resume.length === 32) {
+				if (!resumeToken) {
+					resumeToken = msg.resume;
+					glog('welcome.resume', 'fresh-store');
+					try { localStorage.setItem('gangup_resume', resumeToken); } catch(e) {}
+				} else {
+					glog('welcome.resume', 'keep-prev');
+				}
+			}
+			break;
+		case 'resume':
+			glog('resume.recv', 'playing=' + !!msg.playing + ' you=' + msg.you + ' url=' + (msg.gameServerUrl || ''));
+			inRoom = true;
+			mySlot = msg.you || 0;
+			room = msg.room || {};
+			players = msg.players || [];
+			isHost = !!msg.host;
 			if (msg.resume && msg.resume.length === 32) {
 				resumeToken = msg.resume;
 				try { localStorage.setItem('gangup_resume', resumeToken); } catch(e) {}
+				glog('resume.token', 'len=32');
+			}
+			if (msg.playing) {
+				wantGame = true;
+				matchStartMsg = msg;
+				showGameWhenReady = true;
+				try {
+					window.GANGUP_FROM_HUB = true;
+					localStorage.setItem('gangup_from_hub', '1');
+					localStorage.setItem('gangup_name', getName());
+					if (resumeToken) localStorage.setItem('gangup_resume', resumeToken);
+				} catch(e) {}
+				try { $assetProgress.childNodes[0].textContent = '게임 로딩 중… '; } catch (e) {}
+				glog('resume.launchGodot');
+				launchGodot();
+			} else {
+				showWaitroom();
+				gok('자리회복대기실');
 			}
 			break;
 		case 'rooms':
+			glog('rooms', String((msg.rooms||[]).length));
 			renderRooms(msg.rooms || []);
 			break;
 		case 'joined':
@@ -259,20 +384,43 @@ function handleMsg(msg) {
 			room = msg.room || {};
 			players = msg.players || [];
 			isHost = (mySlot === 0);
+			glog('joined', 'slot=' + mySlot + ' host=' + isHost + ' quick=' + pendingQuickStart);
 			showWaitroom();
+			if (pendingQuickStart && isHost) {
+				pendingQuickStart = false;
+				glog('joined.sendStart');
+				sendMsg({t:'start'});
+			}
 			break;
 		case 'peers':
 			players = msg.players || [];
 			if (msg.room) room = msg.room;
+			for (var pi = 0; pi < players.length; pi++) {
+				var pp = players[pi];
+				if (!pp) continue;
+				if ((myClientId && pp.id === myClientId) || (typeof pp.slot === 'number' && pp.slot === mySlot && mySlot >= 0 && !myClientId)) {
+					mySlot = (typeof pp.slot === 'number') ? pp.slot : mySlot;
+					isHost = !!pp.host;
+				}
+			}
+			glog('peers.sync', 'you=' + mySlot + ' host=' + isHost);
 			renderWaitroom();
 			break;
 		case 'start':
+			glog('start.recv', 'want=' + wantGame + ' inRoom=' + inRoom + ' url=' + (msg.gameServerUrl || ''));
+			if (!wantGame && !inRoom) { gfail('start무시', 'wantGame=0 inRoom=0'); break; }
+			wantGame = true;
 			matchStartMsg = msg;
+			showGameWhenReady = true;
+			glog('start.accept');
 			try {
 				window.GANGUP_FROM_HUB = true;
 				localStorage.setItem('gangup_from_hub', '1');
 				localStorage.setItem('gangup_name', getName());
+				if (resumeToken) localStorage.setItem('gangup_resume', resumeToken);
 			} catch(e) {}
+			try { $assetProgress.childNodes[0].textContent = '게임 로딩 중… '; } catch (e) {}
+			glog('start.launchGodot');
 			launchGodot();
 			break;
 		case 'chat':
@@ -306,13 +454,17 @@ function renderRooms(rooms) {
 	rooms.forEach(function(r) {
 		var card = document.createElement('div');
 		card.className = 'room-card';
-		var pCount = (r.players || []).length;
+		var pCount = (r.players || r.count || []).length || r.count || 0;
+		var isPlaying = !!(r.playing || r.phase === 'playing');
 		card.innerHTML = '<div><div class="room-title">' + esc(r.title || '방 ' + (r.id||'').slice(0,4)) + '</div>'
-			+ '<div class="room-info">' + pCount + '/8명' + (r.playing ? ' · 게임 중' : '') + '</div></div>'
-			+ '<div class="room-join">' + (r.playing ? '관전' : '참가') + '</div>';
+			+ '<div class="room-info">' + pCount + '/8명' + (isPlaying ? ' · 게임 중' : '') + '</div></div>'
+			+ '<div class="room-join">' + (isPlaying ? '진행중' : '참가') + '</div>';
 		card.onclick = function() {
+			if (isPlaying) { gfail('참가거절', '이미시작 ' + r.id); return; }
 			try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
-			sendMsg({t:'hello', name: getName(), mode:'classic'});
+			wantGame = true;
+			gok('시작클릭', '참가 ' + r.id);
+			sendMsg(helloPayload());
 			sendMsg({t:'join', roomId: r.id});
 		};
 		$roomList.appendChild(card);
@@ -371,16 +523,26 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 
 /* ── 버튼 이벤트 ── */
 document.getElementById('btn-quick').onclick = function() {
-	try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
-	launchGodot();
+	wantGame = true;
+	gok('시작클릭', '바로시작');
+	try {
+		localStorage.setItem('gangup_name', getName());
+		localStorage.setItem('gangup_from_hub', '1');
+		window.GANGUP_FROM_HUB = true;
+	} catch(e) {}
+	pendingQuickStart = true;
+	sendMsg(helloPayload());
+	sendMsg({t:'create'});
 };
 document.getElementById('btn-create').onclick = function() {
-	sendMsg({t:'hello', name: getName(), mode:'classic'});
+	wantGame = true;
+	gok('시작클릭', '방만들기');
+	sendMsg(helloPayload());
 	sendMsg({t:'create'});
 };
 document.getElementById('btn-refresh').onclick = function() { sendMsg({t:'rooms'}); };
 document.getElementById('btn-leave').onclick = function() { leaveRoom(); };
-$btnStart.onclick = function() { sendMsg({t:'start'}); };
+$btnStart.onclick = function() { wantGame = true; gok('시작클릭', '게임시작'); sendMsg({t:'start'}); };
 document.getElementById('btn-chat-send').onclick = function() {
 	var t = $chatInput.value.trim();
 	if (t) { sendMsg({t:'chat', text: t}); $chatInput.value = ''; }
@@ -401,8 +563,10 @@ window.addEventListener('error', function (ev) {
 	console.error('window.error', ev.error || ev.message || ev);
 });
 
-function showEngineFail(err) {
+function showEngineFail(err, opt) {
+	opt = opt || {};
 	var text = (err && (err.message || err.stack)) ? (err.message || String(err)) : String(err || lastEngineErr || 'unknown');
+	gfail('엔진시작', text);
 	console.error('engine fail', err || lastEngineErr);
 	var notice = document.getElementById('status-notice');
 	if (notice) {
@@ -413,21 +577,53 @@ function showEngineFail(err) {
 	lobbyRoot.classList.remove('hidden');
 	lobbyRoot.style.opacity = '1';
 	lobbyRoot.style.pointerEvents = 'auto';
-	godotStarting = false;
-	try { Engine.unload(); } catch (e) {}
-	engine = new Engine(GODOT_CONFIG);
+	if (!(opt && opt.hang)) {
+		godotStarting = false;
+	}
+	glog('htmlWs.keepDone', 'engine.fail htmlWsDone=' + htmlWsDone);
+	// Engine.unload()+new Engine() leaves index.js initPromise resolved
+	// on the old instance, so the next startGame hits "must be initialized".
+	var poisoned = /must be initialized/i.test(text);
+	glog('engine.failKeep', poisoned ? 'poisoned' : 'keep');
+	if (poisoned) {
+		var n = 0;
+		try { n = parseInt(sessionStorage.getItem('gangup_engine_reload') || '0', 10) || 0; } catch (e) {}
+		if (n < 2) {
+			try { sessionStorage.setItem('gangup_engine_reload', String(n + 1)); } catch (e) {}
+			gfail('엔진독소', '페이지다시로드 ' + (n + 1));
+			location.reload();
+			return;
+		}
+		gfail('엔진독소', '재로드한도');
+	}
 }
 
 function launchGodot() {
-	if (matchStartMsg) {
-		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
-	}
-	if (godotReady) {
-		switchToGame();
+	glog('launchGodot.enter', 'want=' + wantGame + ' ready=' + godotReady + ' starting=' + godotStarting);
+	if (!wantGame) {
+		gfail('자동엔진차단', 'wantGame=0');
+		restoreLobby();
 		return;
 	}
-	if (godotStarting) return;
+	if (matchStartMsg) {
+		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
+		glog('launchGodot.flagFromStart');
+	}
+	if (godotReady) {
+		glog('launchGodot.alreadyReady');
+		return;
+	}
+	if (godotStarting) { glog('launchGodot.alreadyStarting'); return; }
 	godotStarting = true;
+	htmlWsDone = true;
+	if (connectHubTimer) { clearTimeout(connectHubTimer); connectHubTimer = null; glog('connectHub.cancel', 'launchGodot'); }
+	glog('htmlWs.done', 'launchGodot forever');
+	if (_prefetchAbort) {
+		try { _prefetchAbort.abort(); } catch (e) {}
+		_prefetchAbort = null;
+		glog('prefetch.abort', 'launchGodot');
+	}
+	glog('launchGodot.startGame');
 	lastEngineErr = '';
 	$assetProgress.innerHTML = '게임 로딩 중… <span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>';
 	if (canvas) {
@@ -443,10 +639,12 @@ function launchGodot() {
 
 	var downloaded = false;
 	var settled = false;
+	var hangFired = false;
 	var hangTimer = setTimeout(function () {
 		if (settled) return;
-		settled = true;
-		showEngineFail(lastEngineErr || (downloaded ? 'wasm 받은 뒤 엔진이 안 켜짐' : '엔진 로딩 타임아웃'));
+		hangFired = true;
+		gfail('엔진행', 'timer no-second-start');
+		showEngineFail(lastEngineErr || (downloaded ? 'wasm 받은 뒤 엔진이 안 켜짐' : '엔진 로딩 타임아웃'), { hang: true });
 	}, 45000);
 
 	engine.startGame({
@@ -472,15 +670,20 @@ function launchGodot() {
 			}
 		}
 	}).then(function() {
-		if (settled) return;
+		if (settled && !hangFired) return;
 		settled = true;
 		clearTimeout(hangTimer);
 		godotReady = true;
 		godotStarting = false;
+		try { sessionStorage.removeItem('gangup_engine_reload'); } catch (e) {}
+		if (hangFired) gok('엔진준비', 'after-hang-ignore-fail');
+		else gok('엔진준비');
+		var notice = document.getElementById('status-notice');
+		if (notice) notice.style.display = 'none';
 		$assetProgress.childNodes[0].textContent = '준비 완료 ';
 		var fill = document.getElementById('asset-fill');
 		if (fill) fill.style.width = '100%';
-		switchToGame();
+		glog('engine.ready.keepLobby');
 	}, function(err) {
 		if (settled) return;
 		settled = true;
@@ -489,23 +692,44 @@ function launchGodot() {
 	});
 }
 
+function restoreLobby() {
+	glog('restoreLobby', 'want=' + wantGame);
+	lobbyRoot.classList.remove('hidden');
+	canvas.classList.remove('ready');
+	var bar = document.querySelector('.status-bar');
+	if (bar) bar.style.display = '';
+}
+
 function switchToGame() {
+	glog('switchToGame.enter', 'want=' + wantGame);
+	if (!wantGame) {
+		gfail('자동표시차단', 'wantGame=0');
+		restoreLobby();
+		return;
+	}
 	lobbyRoot.classList.add('hidden');
 	canvas.classList.add('ready');
 	document.querySelector('.status-bar').style.display = 'none';
-	if (ws) { ws.close(); ws = null; }
+	gok('매치표시');
+	if (ws) { htmlWsDone = true; glog('switchToGame.closeHtmlWs'); ws.close(); ws = null; }
 }
 
 /* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */
 var _compiledWasm = null;
 
+var _prefetchAbort = null;
 function prefetchAssets() {
-	if (godotStarting || godotReady) return;
+	glog('prefetch.enter');
+	if (godotStarting || godotReady) { glog('prefetch.skip', 'engine'); return; }
+	if (String(location.search||'').indexOf('from_hub=1') >= 0) { glog('prefetch.skip', 'from_hub'); return; }
+	if (_prefetchAbort) { try { _prefetchAbort.abort(); } catch (e) {} }
+	_prefetchAbort = (typeof AbortController === 'function') ? new AbortController() : null;
 	var totalBytes = 0;
 	var loadedBytes = 0;
 
 	function trackFetch(url) {
-		return fetch(url).then(function(r) {
+		glog('prefetch.fetch', url);
+		return fetch(url, _prefetchAbort ? { signal: _prefetchAbort.signal } : {}).then(function(r) {
 			var size = parseInt(r.headers.get('content-length') || '0', 10);
 			totalBytes += size || 1;
 			var reader = r.body.getReader();
@@ -534,27 +758,77 @@ function prefetchAssets() {
 
 
 	// PCK도 캐시에 넣기
-	trackFetch('index.pck').catch(function() {});
+	trackFetch('index.pck').then(function () { gok('prefetch.pck'); }).catch(function (e) {
+		if (e && e.name === 'AbortError') { glog('prefetch.abort', 'index.pck'); return; }
+		gfail('prefetch.pck', String(e && e.message || e));
+	});
 }
 
 
 function bootFromHub() {
-	var fromHub = false;
-	try {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
-			|| localStorage.getItem('gangup_from_hub') === '1';
-	} catch (e) {
-		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
+	var fromQuery = String(location.search||'').indexOf('from_hub=1') >= 0;
+	var leftover = '';
+	try { leftover = localStorage.getItem('gangup_from_hub') || ''; } catch (e) {}
+	glog('bootFromHub.enter', 'q=' + fromQuery + ' leftover=' + leftover);
+	if (!fromQuery) {
+		if (leftover === '1') gfail('옛플래그제거', 'gangup_from_hub=1');
+		try { localStorage.removeItem('gangup_from_hub'); } catch (e) {}
+		glog('bootFromHub.clearedFromHub', 'resume유지');
+		try { window.GANGUP_FROM_HUB = false; } catch (e) {}
+		wantGame = false;
+		restoreLobby();
+		gok('로비유지');
+		return;
 	}
-	if (!fromHub) return;
+	wantGame = true;
+	glog('bootFromHub.fromQuery');
 	try { window.GANGUP_FROM_HUB = true; } catch (e) {}
-	if (typeof launchGodot === 'function') launchGodot();
+	var resume = '';
+	try { resume = localStorage.getItem('gangup_resume') || ''; } catch (e) {}
+	glog('bootFromHub.resume', 'len=' + resume.length);
+	if (resume.length === 32) {
+		resumeToken = resume;
+		gok('자리표대기', 'start/resume 기다림');
+	} else {
+		gfail('from_hub인데 resume없음', 'len=' + resume.length);
+	}
 }
 
+window.gangupShowGame = function () {
+	glog('gangupShowGame', 'want=' + wantGame);
+	if (!wantGame) { gfail('ShowGame차단', 'wantGame=0'); restoreLobby(); return; }
+	switchToGame();
+};
+window.gangupShowLobby = function () {
+	glog('gangupShowLobby');
+	wantGame = false;
+	restoreLobby();
+};
+window.gangupHideGame = restoreLobby;
+window.addEventListener('pageshow', function (ev) {
+	var live = !!(godotReady && canvas && document.body.contains(canvas) && canvas.classList.contains('ready'));
+	glog('pageshow', 'persisted=' + ev.persisted + ' want=' + wantGame + ' live=' + live + ' starting=' + godotStarting);
+	if (godotStarting && !ev.persisted) { glog('pageshow.keep', 'engine-starting'); return; }
+	if (ev.persisted && !live) {
+		wantGame = false;
+		restoreLobby();
+		gok('로비복원', 'bfcache');
+		return;
+	}
+	if (!wantGame || (wantGame && !live && !godotStarting)) {
+		wantGame = false;
+		restoreLobby();
+		gok('로비복원', 'pageshow');
+	}
+});
+
 /* ── 시작 ── */
+glog('page.init', location.pathname + location.search);
 connectHub();
 bootFromHub();
-if (!godotStarting && !godotReady) prefetchAssets();
+if (!godotStarting && !godotReady && String(location.search||'').indexOf('from_hub=1') < 0) prefetchAssets();
+else glog('prefetch.skip', 'init');
+glog('page.init.done');
 setInterval(function() { if (hubConnected) sendMsg({t:'ping'}); }, 3000);
 		</script>
 	</body>

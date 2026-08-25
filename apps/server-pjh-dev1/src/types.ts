@@ -19,6 +19,7 @@ export interface Client {
   lastChatAt?: number;
   msgBudget: number;
   msgRefillAt: number;
+  publicHost: string;
 }
 
 export interface Room {
@@ -32,4 +33,5 @@ export interface Room {
   lastSnap: Record<string, unknown> | null;
   prevSnap: Record<string, unknown> | null;
   snapCount: number;
+  seed: number;
 }

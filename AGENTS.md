@@ -66,3 +66,21 @@ cd deploy/usability && node cli.mjs smoke
 `apps/`를 푸시하면 `Apps ship`이 Godot 웹 익스포트·허브 이미지·Helm을 올린다. wasm/pck는 git에 넣지 않는다. 보드는 `https://server-board.external.kr/`.
 
 PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.
+
+새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 → `python3 deploy/scripts/plant-apps.py` → 푸시하면 CI가 자동 배포.
+
+## GDScript 코드 규칙
+
+에이전트가 GDScript 코드를 작성하거나 수정할 때 따라야 할 규칙:
+
+1. **파일 크기**: 모든 .gd 파일은 700줄 이하. 초과하면 모듈로 분리한다.
+2. **함수 크기**: 함수는 40줄 이하. 초과하면 헬퍼로 분리한다.
+3. **중첩 깊이**: if/for/while 중첩은 3단 이하. early return으로 평탄화한다.
+4. **매직 컬러 금지**: `Color("hex")` 대신 `UiTheme.상수`를 사용한다.
+5. **SSOT**: 같은 함수가 2곳 이상에 구현되면 안 된다. 정본 1곳 + 위임 래퍼.
+6. **모듈 패턴**: 큰 클래스는 RefCounted 모듈로 분리하고 파사드가 조합한다.
+   - sim/: GangGameWorld(파사드) + 19개 모듈
+   - render/: debug_renderer(파사드) + 4개 모듈
+7. **검증**: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts` + Godot 파싱 에러 0건
+8. **human_slots**: 로컬 매치에서 반드시 `world.human_slots[world.local_slot] = true` 설정
+9. **정본**: `apps/server-yjh-dev1/`이 정본. 다른 슬롯은 여기서 복사한다.

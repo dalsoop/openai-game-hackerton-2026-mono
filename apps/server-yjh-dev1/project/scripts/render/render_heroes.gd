@@ -14,6 +14,10 @@ func draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> v
 	var radius_x: float = 26.0 * size_mul
 	var radius_y: float = 11.5 * size_mul
 	var center: Vector2 = ground_pos + Vector2(1.5, 34.0)
+	if r.character_shadow_tex != null:
+		var shadow_size := Vector2(radius_x * 2.4, radius_y * 2.4)
+		r.draw_texture_rect(r.character_shadow_tex, Rect2(center - shadow_size * 0.5, shadow_size), false, Color(1.0, 1.0, 1.0, alpha_mul * opacity))
+		return
 	r.draw_set_transform(center, 0.0, Vector2(1.0, radius_y / radius_x))
 	var rings: Array = [[1.00, 0.07], [0.88, 0.10], [0.74, 0.13], [0.58, 0.16], [0.40, 0.17], [0.22, 0.14]]
 	for ring in rings:
@@ -84,9 +88,22 @@ func draw_knockouts() -> void:
 	for knockout in world.knockouts:
 		var knockout_slot := int(knockout["slot"])
 		var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
-		r._draw_motion_trail(knockout.get("trail", []), r._slot_color(knockout_slot), 9.0, knockout_fade)
 		var knockout_pos: Vector2 = knockout["pos"]
 		var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
+		var knockout_trail: Array = knockout.get("trail", [])
+		if r.knockout_trail_atlas != null and not knockout_trail.is_empty():
+			var trail_origin: Vector2 = knockout_trail[0]
+			var trail_vector := knockout_pos - trail_origin
+			if trail_vector.length_squared() > 1.0:
+				var trail_frame := posmod(int(spin / 0.065), 4)
+				var trail_length := clampf(trail_vector.length() + 52.0, 84.0, 260.0)
+				var trail_center := knockout_pos - trail_vector.normalized() * trail_length * 0.43
+				var trail_rect := Rect2(Vector2(-trail_length * 0.5, -38.0), Vector2(trail_length, 76.0))
+				r.draw_set_transform(trail_center, trail_vector.angle(), Vector2.ONE)
+				r.draw_texture_rect_region(r.knockout_trail_atlas, trail_rect, r._horizontal_fx_src_rect(r.knockout_trail_atlas, 4, trail_frame), Color(1.0, 1.0, 1.0, knockout_fade))
+				r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			r._draw_motion_trail(knockout_trail, r._slot_color(knockout_slot), 9.0, knockout_fade)
 		if r.animal_atlas != null:
 			r.draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
 			r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), r._animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))

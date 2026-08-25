@@ -1,110 +1,154 @@
-# spec.md — 멀티플레이어 아키텍처 마이그레이션
+# spec.md — Next.js 게임 플랫폼
 
 ## 목표
 
-호스트 클라이언트가 시뮬레이션을 실행하는 현재 구조를 Godot 헤드리스 서버 권위 모델로 전환한다. 모든 dev 슬롯(yjh-dev1, pjh-dev1, fig-dev1)에 동시 적용한다. Node.js 허브는 방 관리 전용으로 유지한다.
+기존 Node.js 허브 + Godot WASM 3종(다굴/Snake Arena/Hex Clash)을 Next.js App Router 기반 통합 플랫폼으로 재구성한다. React가 로비/방/매칭/채팅을 즉시 제공하고, Godot WASM은 인게임 렌더링만 담당한다.
 
 ## 동기
 
-- 호스트 어드밴티지 제거 (호스트 0ms vs 다른 플레이어 RTT)
-- 치팅 방지 (서버가 모든 판정 권위)
-- 호스트 이탈 시 매치 중단 문제 해결
-- 관전/리플레이 기능의 구조적 기반
+- Godot WASM 66MB 로딩이 브라우저를 프리즈시켜서 로비조차 못 쓰는 문제 해소
+- custom_shell.html에 HTML 로비를 넣는 우회책이 상태 꼬임과 코드 이중 관리를 유발
+- 게임 추가 시 허브/로비/배포를 매번 복제해야 하는 구조 개선
+
+## 아키텍처
+
+```
+Next.js App Router (단일 서버)
+├── / (게임 선택 홈)
+├── /dagul (다굴 로비/방/게임)
+├── /snake (Snake Arena 로비/방/게임)
+├── /hex (Hex Clash 로비/방/게임)
+├── /api/ws (WebSocket 허브 — 방 관리/매칭/채팅)
+└── /api/auth (간단한 세션 — 쿠키 기반)
+```
 
 ## 동작 명세
 
-### 전송 계층
+### 페이지 흐름
 
-- 클라이언트는 두 개의 WebSocket 연결을 유지한다: 하나는 Node.js 허브(로비/채팅), 하나는 Godot 게임 서버(시뮬레이션).
-- 게임 서버 연결은 `WebSocketMultiplayerPeer`를 사용한다.
-- 웹 내보내기에서 `wss://`가 필수이다. URL 해석은 현재 `hub_client.gd`의 `_resolve_url()` 로직을 재활용한다.
-- 허브 연결은 기존 raw `WebSocketPeer`를 유지한다.
+1. `/` — 게임 선택 홈. 3개 게임 카드. 닉네임 입력.
+2. `/dagul` — 다굴 로비. 방 목록, 방 만들기, 참가, 관전.
+3. `/dagul/room/[id]` — 대기실. 8인 슬롯, 채팅, 게임 시작.
+4. `/dagul/play` — 인게임. Godot 캔버스가 전체 화면. 매치 종료 시 결과 오버레이.
 
-### 서버 모델
+Snake, Hex도 동일한 `/snake/...`, `/hex/...` 경로.
 
-- Godot 헤드리스 서버가 `GangGameWorld` 시뮬레이션을 실행한다 (현재 호스트 클라이언트가 하던 것).
-- 서버는 60Hz로 시뮬레이션하고, 20Hz로 스냅샷을 브로드캐스트한다.
-- 입력은 클라이언트가 60Hz로 전송하고, 서버는 도착 순으로 다음 틱에 적용한다.
-- 하나의 서버 프로세스가 여러 매치를 동시에 실행한다 (프로세스 내 다중 매치).
-- 서버는 기존 허브와 같은 서버 머신에서 실행한다.
-- 클라이언트와 서버가 같은 `project.godot`를 공유한다. 서버 진입은 커맨드라인 인자 `-- --server --port 9121`로 분기한다. `game_root.gd`의 `_ready()`에서 `--server` 인자를 감지하면 `game_server.gd`를 기동하고 렌더링/UI를 생략한다.
+### WebSocket 허브 (API Route)
 
-### Node.js 허브 (유지, 축소)
+기존 src/relay.ts + state.ts 로직을 Next.js Custom Server의 WebSocket 핸들러로 이전한다.
 
-- 유지: 방 생성/참가/퇴장, 플레이어 목록, 채팅, 재접속 토큰 발급.
-- 제거: 스냅샷 중계(`host_snap`), 입력 중계(`peer_input`), 매치 상태 관리.
-- 매치 시작 시 허브가 Godot 서버에 HTTP POST `/start-match`로 신호를 보낸다. 페이로드: `{room_id, players: [{slot, name, resume_token}], mode, seed}`. Godot 서버는 내장 HTTPServer(포트 9122)로 이 요청을 수신한다.
-- 허브는 `match_started` 메시지에 게임 서버 WebSocket URL(`wss://<host>/game-ws`)을 포함하여 클라이언트에 전달한다. 클라이언트는 이 URL로 `game_client.gd`가 연결한다.
-- 이후 게임 트래픽은 Godot 서버와 클라이언트가 직접 주고받는다.
+- 경로: 게임별 `/api/ws/dagul`, `/api/ws/snake`, `/api/ws/hex`
+- 프로토콜: 기존과 동일 (hello, rooms, create, join, start, peers, chat, leave, kick, snap, input)
+- 각 게임이 독립된 방 풀을 가진다.
 
-### 히트 판정
+### 세션
 
-- 서버 권위. 서버가 래그 보상(lag compensation)으로 히트 판정을 실행한다.
-- 클라이언트는 발사 시 총구 화염, 반동, 발사음을 즉시 표시한다.
-- 데미지, 히트마커, 사망 판정은 서버 확인 후 반영한다.
-- 래그 보상 임계값: 250ms. 이를 초과하는 입력에는 보상을 제한한다.
+- 쿠키 기반 세션. 서버에서 `crypto.randomUUID()`로 세션 ID 발급.
+- 세션에 저장: 닉네임, 현재 방 ID, 전적(킬/승리 수).
+- 세션 만료: 24시간 비활동 시.
+- 로그인 없이 닉네임만 입력하면 세션 시작.
 
-### 클라이언트 예측 + 서버 재조정
+### Godot WASM 백그라운드 프리로드
 
-- 현재 `net_world.gd`의 예측/보간/재조정 로직을 유지한다: `predict_local()`, `_reconcile()`, `_lerp_motion()`, `_extrapolate()`.
-- 추가: 발사 시 시각 이펙트(총구 화염)를 즉시 표시하는 예측. 실제 판정은 서버.
-- 입력 시퀀스 번호 기반 재조정은 현재 구현을 그대로 사용한다.
+- 게임 선택 또는 로비 진입 시 해당 게임의 WASM+PCK를 `fetch()`로 백그라운드 다운로드 시작.
+- 다운로드 진행률을 로비 하단에 표시 (바이트 단위).
+- `WebAssembly.compileStreaming()`으로 다운로드와 컴파일을 동시 진행.
+- 매치 시작 시 이미 컴파일된 WASM 모듈을 사용해서 Godot Engine을 즉시 시작.
+- 아직 다운로드 중이면 "게임 로딩 중..." 표시하며 완료 대기.
 
-### 관전 모드
+### Godot 캔버스 컴포넌트
 
-- 관전자는 입력을 보내지 않고 스냅샷만 수신하는 읽기 전용 클라이언트이다.
-- 방에서 "관전" 버튼으로 진입한다.
-- 관전자는 플레이어 수(8명)에 포함되지 않는다.
-- 관전자에게는 전체 맵 스냅샷을 전송한다 (특정 플레이어 시점 전환은 이번 범위 밖).
+- React 컴포넌트 `<GodotCanvas game="dagul" matchInfo={...} />`
+- 매치 시작 시 canvas를 표시하고 Godot Engine을 프로그래매틱하게 시작.
+- 매치 정보(방 ID, 닉네임, 슬롯, 허브 URL)를 localStorage로 전달.
+- Godot 측에서 `JavaScriptBridge.eval()`로 React에 매치 종료를 알림.
+- 매치 종료 시 canvas를 숨기고 React 결과 화면 표시.
 
-### 매치 리플레이
+### Godot 측 컷오프
 
-- 서버가 매치 중 모든 입력 커맨드를 시퀀스 번호와 함께 기록한다.
-- 리플레이 데이터: `{seed, mode, player_names, commands: [{tick, slot, input}]}`.
-- 매치 종료 시 리플레이 데이터를 JSON 파일로 저장한다.
-- 리플레이 재생은 `GangGameWorld`를 같은 시드로 초기화하고 저장된 커맨드를 순서대로 적용한다.
-- 리플레이 뷰어 UI는 이번 범위 밖. 데이터 저장과 재생 로직만 구현한다.
+- flow_screens.gd의 인트로/로비/대기실 → **비활성화(분기 처리)**. `GameState.hub_launched`가 true이면 건너뛴다. false이면 기존 Godot 로비가 동작한다 (개발 시 에디터에서 직접 테스트용).
+- custom_shell.html → 최소화 (Godot 엔진 로더만, UI 없음).
+- game_root.gd에서 `GameState.hub_launched = true`일 때 바로 게임 시작하는 기존 로직 활용.
 
-### 재접속
+### 게임 플러그인 구조
 
-- 클라이언트가 끊기면 서버는 해당 슬롯을 30초간 보존한다 (CPU가 대행).
-- `resume_token`으로 재연결 시 같은 슬롯에 복귀한다.
-- 복귀 시 풀 스냅샷을 전송하고, 이후 델타 스냅샷으로 전환한다.
-- `WebSocketMultiplayerPeer`는 재연결 시 새 `peer_id`를 부여하므로, 서버가 `resume_token → slot` 매핑 테이블을 유지한다.
-- 30초 타임아웃 후 영구 이탈 처리.
+게임을 추가할 때 필요한 것:
+1. Godot 프로젝트 (`apps/server-yjh-<name>/project/`)
+2. 게임 설정 파일 (`games/<name>/config.ts` — 이름, 설명, 플레이어 수, 모드, 아이콘)
+3. WebSocket 핸들러 (기본 방 관리는 공통, 게임별 커스텀 메시지만 추가)
 
-### 델타 압축
+공통 모듈:
+- `lib/hub/` — 방 관리, 매칭, 채팅 (게임 무관 공통 로직)
+- `lib/session/` — 세션 관리
+- `lib/godot/` — WASM 로더, 캔버스 컴포넌트
 
-- 평상시: 이전 스냅샷과 변경된 필드만 전송 (델타 스냅샷).
-- 최초 접속/재접속 시: 풀 스냅샷.
-- 직렬화는 Phase 1에서 JSON RPC로 시작하고, Phase 2에서 바이너리(`StreamPeerBuffer`)로 전환한다.
+### Custom Server 실행
 
-### Netfox 틱 동기화 (Phase 4)
+Next.js App Router는 WebSocket을 네이티브 지원하지 않으므로 Custom Server로 실행한다:
+- 진입점: `web/server.ts` — `http.createServer` + `next()` + `ws` WebSocket 핸들러
+- 실행: `node dist/server.js` (tsc 빌드 후), `next dev`는 개발 시에만
+- `web/package.json` scripts: `"dev": "tsx server.ts"`, `"build": "next build && tsc --project tsconfig.server.json"`, `"start": "node dist/server.js"`
 
-- Netfox의 `NetworkTime` + `NetworkTimeSynchronizer`만 도입한다.
-- 롤백은 도입하지 않는다.
-- 서버와 클라이언트 간 틱 drift를 보정하여 보간 품질을 개선한다.
+### Godot Engine 로더 API (4.7 기준)
 
-## 불변 (위반하면 안 되는 것)
+Godot 웹 내보내기가 생성하는 `index.js`는 전역 `Engine` 클래스를 노출한다:
+```typescript
+// web/lib/godot/engine-loader.ts
+const engine = new (window as any).Engine({
+  args: ['--main-pack', `/godot/${game}/index.pck`],
+  canvasResizePolicy: 2,
+  canvas: canvasElement,
+  executable: `/godot/${game}/index`,
+});
+await engine.startGame();
+// 종료: engine.requestQuit()
+```
+- WASM 파일: `/godot/<game>/index.wasm`
+- PCK 파일: `/godot/<game>/index.pck`
+- JS 로더: `/godot/<game>/index.js` — `<script>` 태그로 로드하면 `window.Engine` 등록
 
-- **`GangGameWorld`가 유일한 시뮬레이션 SSOT이다.** 로컬 모드와 서버 모드 모두 동일한 `GangGameWorld`를 실행한다. 서버 전용 시뮬레이션 분기나 서버 전용 게임 로직을 만들지 않는다. 서버가 하는 일은 `GangGameWorld.step_tick()`을 호출하고 결과를 브로드캐스트하는 것뿐이다.
-- 로컬 플레이(인간 1 + CPU 7)가 정본이다. 로컬이 정상 동작해야 서버도 동작한다.
-- 모드 5종 선택이 로비에서 유지되어야 한다.
-- 조작감(입력 반응성)이 현재보다 나빠지지 않아야 한다.
-- 웹 내보내기(HTML5)가 정상 동작해야 한다.
-- `game-pjh-gang-up` 원본은 수정하지 않는다.
+### React ↔ Godot 통신 계약
+
+**React → Godot (매치 시작 시, localStorage 키):**
+- `gangup_from_hub`: `"1"` — Godot가 읽으면 로비를 건너뛰고 바로 게임 진입
+- `gangup_name`: 닉네임 문자열
+- `gangup_room_id`: 방 ID
+- `gangup_you`: 슬롯 번호 문자열
+- `gangup_game_url`: 게임 서버 WebSocket URL (있으면)
+- 타이밍: React가 쓴 직후 Godot Engine.startGame() 호출. Godot는 `_ready()`에서 한 번 읽음.
+
+**Godot → React (매치 종료 시):**
+- Godot: `JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('godot-match-end', {detail: {result: 'win', slot: 0}}))")`
+- React: `window.addEventListener('godot-match-end', handler)`
+
+### 배포 단위
+
+**하나의 Next.js 서버가 3개 게임을 모두 서빙한다.** 기존 `server-*`별 독립 배포 구조에서 단일 서버로 전환. `*.external.kr` 도메인은 하나의 서비스를 가리키고, URL 경로(`/dagul`, `/snake`, `/hex`)로 게임을 분기한다.
+
+### 빌드 파이프라인
+
+1. Next.js 빌드: `next build` → `.next/`
+2. Godot 웹 내보내기: CI에서 각 게임 WASM+PCK 생성 → `apps/server-yjh-<game>/project/web/`
+3. **WASM 복사 단계**: CI가 각 게임의 `project/web/*`를 `web/public/godot/<game>/`로 복사
+4. Docker 이미지: Next.js 서버 + Godot 정적 파일
+5. K3s 배포: 기존 Helm 차트 확장
+
+## 불변
+
+- Godot 시뮬레이션 코드(game_world.gd 등)는 건드리지 않는다.
+- 기존 게임플레이가 유지된다.
+- 웹 내보내기(HTML5)가 동작한다.
+- 멀티플레이어 WebSocket 프로토콜이 호환된다.
 
 ## 범위 경계
 
-- 포함: 전송 교체, 서버 권위 이전, 관전 모드, 리플레이 저장/재생, 델타 압축, Netfox 틱 동기화, 재접속, 모든 dev 슬롯 적용.
-- 제외: 리플레이 뷰어 UI, 관전자 시점 전환, 안티치트(입력 검증은 기본만), MultiplayerSynchronizer를 로비에 적용, 바이너리 프로토콜 최적화.
+- 포함: Next.js 앱, WebSocket 허브 이전, React 로비/방/게임선택, Godot 캔버스 래퍼, 세션, 프리로더, Godot 컷오프, Docker/Helm 배포.
+- 제외: OAuth 인증, 리더보드 DB, 관전 모드 UI (기본 구조만), 결제, 모바일 네이티브.
 
 ## 검증
 
-- 8인 온라인 매치가 정상 동작한다 (모드 5종 각각).
-- 로컬 매치(인간 1 + CPU 7)가 정상 동작한다.
-- 관전자가 매치를 실시간으로 볼 수 있다.
-- 재접속 시 30초 이내에 같은 슬롯으로 복귀한다.
-- 리플레이 데이터가 저장되고, 같은 시드로 재생 시 동일한 결과가 나온다.
-- 웹 내보내기에서 위 항목이 모두 동작한다.
-- `deploy/usability && node cli.mjs smoke` 통과.
+- Next.js `next build` 성공.
+- 3개 게임 로비/방 만들기/참가/매치 시작이 동작.
+- Godot WASM이 백그라운드 프리로드 후 매치 시 즉시 시작.
+- 기존 WebSocket 프로토콜 호환 (기존 Godot 클라이언트로도 접속 가능).
+- K3s 배포 후 `*.external.kr` 접속 가능.

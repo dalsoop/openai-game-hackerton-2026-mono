@@ -326,11 +326,27 @@ let reconnectAttempt = 0;
 let intentionalClose = false;
 let resumeToken = localStorage.getItem("gangup_resume") || sessionStorage.getItem("gangup.resume") || "";
 let welcomed = false;
+let outbox = [];
+let pendingFreshResume = "";
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function send(msg) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify(msg));
+    console.log("[gangup] send.flush", msg && msg.t);
+    return;
+  }
+  outbox.push(msg);
+  console.log("[gangup] send.queue", msg && msg.t, "n=" + outbox.length);
+}
+function flushOutbox() {
+  console.log("[gangup] send.flushAll", outbox.length);
+  while (outbox.length && ws && ws.readyState === 1) {
+    const o = outbox.shift();
+    ws.send(JSON.stringify(o));
+    console.log("[gangup] send.flush", o && o.t);
+  }
 }
 
 function setPhase(next) {
@@ -406,6 +422,8 @@ function connect() {
     wantResume = reconnectAttempt > 0;
     reconnectAttempt = 0;
     hideBanner();
+    flushOutbox();
+    console.log("[gangup] ws.open flush");
   };
   ws.onmessage = onMessage;
   ws.onclose = () => {
@@ -434,7 +452,13 @@ let prefetchDone = false;
 let prefetchPct = 0;
 
 async function prefetchGame() {
-  if (navigator.connection && navigator.connection.saveData) return;
+  if (navigator.connection && navigator.connection.saveData) {
+    prefetchDone = true;
+    prefetchPct = 100;
+    updatePrefetchUI(100);
+    console.log("[gangup] prefetch skip saveData done=true");
+    return;
+  }
   let loaded = 0;
   let totalEstimate = 40 * 1024 * 1024;
   try {
@@ -486,7 +510,20 @@ const msgHandlers = {
   welcome(msg) {
     if (msg.id) myId = msg.id;
     const prevToken = resumeToken;
-    storeToken(msg.resume);
+    if (!prevToken) {
+      storeToken(msg.resume);
+      console.log("[gangup] welcome store fresh token (no prev)");
+    } else {
+      pendingFreshResume = msg.resume || "";
+      console.log("[gangup] welcome keep prev token until attach");
+      setTimeout(() => {
+        if (pendingFreshResume && resumeToken === prevToken) {
+          storeToken(pendingFreshResume);
+          pendingFreshResume = "";
+          console.log("[gangup] persist fresh token, attach missed");
+        }
+      }, 500);
+    }
     modes = msg.modes || {};
     if (!welcomed) {
       welcomed = true;
@@ -508,7 +545,9 @@ const msgHandlers = {
     you = msg.you;
     players = msg.players || [];
     roomInfo = msg.room;
+    pendingFreshResume = "";
     storeToken(msg.resume);
+    console.log("[gangup] resume attach ok playing=" + !!msg.playing);
     if (msg.playing) {
       goToGame();
     } else {
@@ -616,15 +655,23 @@ function renderRooms() {
   }
   el.innerHTML = rooms.map(r => {
     let pips = '';
+    const isPlaying = !!(r.playing || r.phase === "playing");
     for (let i = 0; i < MAX_PLAYERS; i++) pips += `<i${i < r.count ? ` style="background:${PLAYER_COLORS[i]}"` : ''}></i>`;
-    return `<div class="room-card" data-id="${esc(r.id)}">
-      <div class="room-info"><b>${esc(r.title)}</b><div class="room-pips">${pips}</div></div>
-      <span class="room-mode-badge">${esc(titles[r.mode] || r.mode)}</span>
-      <span class="room-count">${r.count}/${MAX_PLAYERS}</span>
-      <span class="room-enter">입장 →</span>
-    </div>`;
+    return `<div class="room-card${isPlaying ? " room-busy" : ''}" data-id="${esc(r.id)}" data-playing="${isPlaying ? "1" : "0"}">` +
+      `<div class="room-info"><b>${esc(r.title)}</b><div class="room-pips">${pips}</div></div>` +
+      `<span class="room-mode-badge">${esc(titles[r.mode] || r.mode)}</span>` +
+      `<span class="room-count">${r.count}/${MAX_PLAYERS}</span>` +
+      `<span class="room-enter">${isPlaying ? "진행중" : "입장 →"}</span>` +
+      `</div>`;
   }).join("");
-  el.querySelectorAll(".room-card[data-id]").forEach(c => c.onclick = () => send({ t: "join", roomId: c.dataset.id }));
+  el.querySelectorAll(".room-card[data-id]").forEach(c => c.onclick = () => {
+    if (c.dataset.playing === "1") {
+      console.log("[gangup] join rejected playing", c.dataset.id);
+      toast("이미 시작된 방입니다.", "leave");
+      return;
+    }
+    send({ t: "join", roomId: c.dataset.id });
+  });
 }
 
 function renderWait() {

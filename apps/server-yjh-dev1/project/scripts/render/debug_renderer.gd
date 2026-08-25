@@ -19,6 +19,9 @@ const BULLET_YELLOW := Color("#ffd23f")
 
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
+var rock_atlas: Texture2D = null
+var crate_atlas: Texture2D = null
+var projectile_textures: Dictionary = {}
 var tower_texture: Texture2D = null
 var rat_run_tex: Texture2D = null
 var dragon_smoke_tex: Texture2D = null
@@ -39,6 +42,16 @@ var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
 var impact_atlas: Texture2D = null
+var reload_bubble_atlas: Texture2D = null
+var tracer_fx_atlas: Texture2D = null
+var hit_spark_fx_atlas: Texture2D = null
+var explosion_fx_atlas: Texture2D = null
+var mobility_fx_atlases: Dictionary = {}
+var dash_departure_atlas: Texture2D = null
+var rooster_beam_step_atlas: Texture2D = null
+var character_shadow_tex: Texture2D = null
+var knockout_trail_atlas: Texture2D = null
+var death_burst_atlas: Texture2D = null
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -60,6 +73,26 @@ const ANIMAL_COLS := 4
 const ANIMAL_ROWS := 3
 const BULLET_COLS := 4
 const BULLET_ROWS := 4
+const ROCK_SOURCE_RECTS := [
+    Rect2(136.0, 205.0, 169.0, 157.0),
+    Rect2(510.0, 158.0, 274.0, 227.0),
+    Rect2(927.0, 204.0, 329.0, 175.0),
+    Rect2(1380.0, 178.0, 283.0, 201.0),
+    Rect2(1743.0, 94.0, 411.0, 297.0),
+]
+const CRATE_SOURCE_RECTS := [
+    Rect2(28.0, 16.0, 344.0, 374.0),
+    Rect2(442.0, 20.0, 342.0, 374.0),
+    Rect2(848.0, 34.0, 340.0, 362.0),
+    Rect2(1242.0, 116.0, 342.0, 262.0),
+]
+const PROJECTILE_TEXTURE_SIZES := {
+    "beam": Vector2(180.0, 42.0), "shell": Vector2(54.0, 28.0),
+    "tether": Vector2(50.0, 26.0), "seeker": Vector2(46.0, 30.0),
+    "slash": Vector2(66.0, 48.0), "fist": Vector2(68.0, 38.0),
+    "bomb": Vector2(34.0, 38.0), "spear": Vector2(106.0, 28.0),
+    "chain": Vector2(72.0, 30.0), "shield": Vector2(52.0, 48.0),
+}
 
 var _env
 var _heroes
@@ -72,7 +105,12 @@ func _ready() -> void:
         RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://assets/world/island_bg.png")
+    island_texture = _load_tex("res://assets/world/Tex_BG_Field_Wide.png")
+    rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
+    crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
+    reload_bubble_atlas = _load_tex("res://assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")
+    for projectile_kind in PROJECTILE_TEXTURE_SIZES:
+        projectile_textures[projectile_kind] = _load_tex("res://assets/fx/projectiles/projectile_%s.png" % projectile_kind)
     tower_texture = _load_tex("res://assets/world/bounty-tower.png")
     rat_run_tex = _load_tex("res://assets/fx/rat-run.png")
     dragon_smoke_tex = _load_tex("res://assets/fx/dragon-smoke.png")
@@ -92,6 +130,23 @@ func _ready() -> void:
     gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
     impact_atlas = _load_tex("res://assets/lhj/Tex_Fx_ImpactFlash.png")
+    tracer_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Tracer_4x1.png")
+    hit_spark_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_HitSpark_4x1.png")
+    explosion_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    var mobility_files := {
+        "speed_streak": "Tex_FX_MobilityDash_4x1.png", "beam_step": "Tex_FX_BeamStep_4x1.png",
+        "drain": "Tex_FX_DrainStep_4x1.png", "guard": "Tex_FX_GuardStep_4x1.png",
+        "slash_dash": "Tex_FX_SlashDash_4x1.png", "fuse": "Tex_FX_FuseStep_4x1.png",
+        "spear_line": "Tex_FX_SpearStep_4x1.png", "chain_arc": "Tex_FX_ChainStep_4x1.png",
+        "blast_hop": "Tex_FX_BlastHop_4x1.png",
+    }
+    for mobility_kind in mobility_files:
+        mobility_fx_atlases[mobility_kind] = _load_tex("res://assets/fx/mobility/%s" % mobility_files[mobility_kind])
+    dash_departure_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_DashDeparture_4x1.png")
+    rooster_beam_step_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_RoosterBeamStep_4x1.png")
+    character_shadow_tex = _load_tex("res://assets/fx/character/Tex_FX_CharacterShadow.png")
+    knockout_trail_atlas = _load_tex("res://assets/fx/character/Tex_FX_KnockoutTrail_4x1.png")
+    death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -110,10 +165,11 @@ func _ready() -> void:
     _overlay = RenderOverlayScript.new(self)
 
 func _load_tex(path: String) -> Texture2D:
-    if ResourceLoader.exists(path):
-        var res = load(path)
-        if res is Texture2D:
-            return res
+    if not ResourceLoader.exists(path):
+        return null
+    var res = load(path)
+    if res is Texture2D:
+        return res
     var img := Image.new()
     var err := img.load(ProjectSettings.globalize_path(path))
     if err != OK:
@@ -191,6 +247,19 @@ func _impact_src_rect(row: int, col: int) -> Rect2:
         return Rect2()
     var cell: Vector2 = Vector2(float(impact_atlas.get_width()) / 4.0, float(impact_atlas.get_height()) / 3.0)
     return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
+
+func _horizontal_fx_src_rect(texture: Texture2D, columns: int, frame: int) -> Rect2:
+    var cell := Vector2(float(texture.get_width()) / float(columns), float(texture.get_height()))
+    return Rect2(Vector2(float(clampi(frame, 0, columns - 1)) * cell.x, 0.0), cell)
+
+func _mobility_fx_texture(kind: StringName, label: String) -> Texture2D:
+    if kind == &"guard" and label not in ["IRON MARCH", "BRACE STEP"]:
+        return null
+    if kind == &"drain" and label != "+8 SHADOW PULL":
+        return null
+    if kind == &"fuse" and label != "BLAST ROLL":
+        return null
+    return mobility_fx_atlases.get(str(kind)) as Texture2D
 
 func _consume_shot_events() -> void:
     if world == null or world.event_log == null:
@@ -445,270 +514,19 @@ func _tick_combat_texts(dt: float) -> void:
             keep.append(ct)
     combat_texts = keep
 
+func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, size_scale: float = 1.0) -> bool:
+    var texture: Texture2D = projectile_textures.get(kind) as Texture2D
+    if texture == null or not PROJECTILE_TEXTURE_SIZES.has(kind):
+        return false
+    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale
+    draw_set_transform(pos, direction.angle(), Vector2.ONE)
+    draw_texture_rect(texture, Rect2(Vector2(-draw_size.x * 0.72, -draw_size.y * 0.5), draw_size), false)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    return true
 
-func _draw_projectiles() -> void:
-    for projectile in world.projectiles:
-        var source := StringName(projectile["source"])
-        var projectile_color: Color = Color.WHITE if source == &"ultimate" else _projectile_color(projectile)
-        var projectile_pos: Vector2 = projectile["pos"]
-        var direction := Vector2(projectile["vel"]).normalized()
-        var kind := str(projectile.get("kind", "bolt"))
-        if bool(projectile.get("arc", false)):
-            _draw_motion_trail(projectile.get("trail", []), projectile_color, 5.0)
-            var arc_progress := clampf(1.0 - float(projectile["ttl"]) / maxf(0.01, float(projectile["max_ttl"])), 0.0, 1.0)
-            var bomb_scale := 0.72 + sin(arc_progress * PI) * 0.95
-            var landing: Vector2 = projectile["landing_pos"]
-            draw_circle(projectile_pos + Vector2(7.0, 9.0), 13.0 * bomb_scale, Color(0.0, 0.0, 0.0, 0.23))
-            draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
-            draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
-            draw_circle(landing, float(projectile["splash"]), Color(0.35, 0.04, 0.03, 0.07))
-            draw_arc(landing, float(projectile["splash"]) * lerpf(1.0, 0.78, arc_progress), 0.0, TAU, 36, Color(1.0, 0.34, 0.22, 0.68), 3.0)
-            continue
-        match kind:
-            "beam":
-                draw_line(projectile_pos - direction * 125.0, projectile_pos + direction * 18.0, Color(projectile_color, 0.28), 18.0)
-                draw_line(projectile_pos - direction * 145.0, projectile_pos + direction * 22.0, Color.WHITE, 3.5)
-                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 18.0, projectile_pos + direction.orthogonal() * 7.0, projectile_pos - direction * 16.0, projectile_pos - direction.orthogonal() * 7.0]), projectile_color)
-            "shell":
-                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
-                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 15.0, projectile_pos + direction.orthogonal() * 10.0, projectile_pos - direction * 11.0, projectile_pos - direction.orthogonal() * 10.0]), Color("#ff503f"))
-                draw_line(projectile_pos - direction * 34.0, projectile_pos - direction * 8.0, Color("#ffcf66"), 8.0)
-            "tether":
-                for segment in range(3):
-                    var center := projectile_pos - direction * float(segment * 13)
-                    draw_line(center - direction.orthogonal() * 7.0, center + direction.orthogonal() * 7.0, projectile_color, 4.0)
-            "seeker":
-                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
-                var star := PackedVector2Array()
-                for point in range(8):
-                    star.append(projectile_pos + Vector2.RIGHT.rotated(TAU * float(point) / 8.0) * (12.0 if point % 2 == 0 else 5.0))
-                draw_colored_polygon(star, projectile_color)
-            "slash":
-                var slash_angle := direction.angle()
-                draw_arc(projectile_pos - direction * 8.0, 31.0, slash_angle - 1.05, slash_angle + 1.05, 18, Color("#b9f3ff"), 10.0)
-                draw_arc(projectile_pos - direction * 8.0, 25.0, slash_angle - 0.95, slash_angle + 0.95, 16, Color.WHITE, 3.0)
-            "fist":
-                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 18.0, projectile_pos + direction.orthogonal() * 13.0, projectile_pos - direction * 13.0 + direction.orthogonal() * 9.0, projectile_pos - direction * 13.0 - direction.orthogonal() * 9.0]), Color("#ff9466"))
-                draw_line(projectile_pos - direction * 38.0, projectile_pos - direction * 8.0, Color("#ffd0ac"), 9.0)
-            "bomb":
-                _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
-                draw_circle(projectile_pos, 13.0, Color("#2c1115"))
-                draw_arc(projectile_pos, 14.0, 0.0, TAU, 22, Color("#ff554a"), 5.0)
-                draw_line(projectile_pos - direction.orthogonal() * 12.0, projectile_pos - direction.orthogonal() * 23.0 - direction * 7.0, Color("#ffe36a"), 4.0)
-            "spear":
-                draw_line(projectile_pos - direction * 66.0, projectile_pos + direction * 24.0, Color("#d0a447"), 7.0)
-                draw_colored_polygon(PackedVector2Array([projectile_pos + direction * 36.0, projectile_pos + direction * 17.0 + direction.orthogonal() * 10.0, projectile_pos + direction * 17.0 - direction.orthogonal() * 10.0]), Color("#fff1a8"))
-            "chain":
-                draw_arc(projectile_pos, 14.0, -direction.angle() - PI * 0.6, -direction.angle() + PI * 0.7, 14, Color("#e2c8ff"), 6.0)
-            "shield":
-                var shield_side := direction.orthogonal()
-                draw_colored_polygon(PackedVector2Array([projectile_pos - shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 18.0 - direction * 8.0, projectile_pos + shield_side * 14.0 + direction * 17.0, projectile_pos + direction * 26.0, projectile_pos - shield_side * 14.0 + direction * 17.0]), Color("#8de1ff"))
-            "tracer":
-                var origin: Vector2 = projectile_pos
-                var trail: Array = projectile.get("trail", [])
-                if trail.size() > 0:
-                    origin = trail[0]
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
-            "pellet", "burst", "bolt":
-                _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
-            _:
-                if bullet_atlas != null and kind not in ["beam", "slash", "fist", "spear", "chain", "shield", "tether", "bomb"]:
-                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 3.0)
-                    _draw_lhj_bullet(projectile_pos, direction, kind)
-                else:
-                    _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 5.0)
-                    draw_circle(projectile_pos + direction * 6.0, 7.0, Color(BULLET_YELLOW, 0.35))
-                    draw_circle(projectile_pos + direction * 6.0, 4.5, BULLET_YELLOW)
-                    draw_circle(projectile_pos + direction * 8.0, 2.2, Color.WHITE)
-
-func _draw_zones() -> void:
-    var max_zones := 4 if lite_draw else 999
-    var zone_drawn := 0
-    for zone in world.zones:
-        if lite_draw and zone_drawn >= max_zones:
-            break
-        zone_drawn += 1
-        var zone_color: Color = zone.get("color", _slot_color(int(zone["owner"])))
-        var delay := float(zone.get("delay", 0.0))
-        var warning_duration := maxf(0.01, float(zone.get("warning_duration", delay)))
-        var warning_ratio := clampf(delay / warning_duration, 0.0, 1.0)
-        var impact_progress := 1.0 - warning_ratio
-        var warning_alpha := 0.08 + impact_progress * 0.18 + 0.04 * sin(float(world.tick) * 0.32)
-        var zone_pos: Vector2 = zone["pos"]
-        var zone_radius := float(zone["radius"])
-        var zone_kind := StringName(zone.get("effect_kind", &"explosion"))
-        if delay <= 0.06:
-            continue
-        draw_circle(zone_pos, zone_radius, Color("#15090b", warning_alpha * 1.35) if zone_kind == &"explosion" else Color(zone_color, warning_alpha * 0.72))
-        draw_arc(zone_pos, zone_radius, 0.0, TAU, 42, Color(zone_color, 0.78), 4.0)
-        if zone_kind == &"rail_strike":
-            draw_line(zone_pos - Vector2(zone_radius * 1.6, 0.0), zone_pos + Vector2(zone_radius * 1.6, 0.0), Color(zone_color, 0.75), 5.0)
-            draw_line(zone_pos - Vector2(0.0, zone_radius * 1.6), zone_pos + Vector2(0.0, zone_radius * 1.6), Color.WHITE, 2.0)
-        elif zone_kind == &"drain":
-            for ring in range(3):
-                draw_arc(zone_pos, zone_radius * (0.35 + ring * 0.23), float(world.tick) * 0.05 + ring, float(world.tick) * 0.05 + ring + PI * 1.35, 24, Color(zone_color, 0.72), 4.0)
-        elif zone_kind == &"shockwave":
-            for spoke in range(8):
-                var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 8.0)
-                draw_line(zone_pos + radial * zone_radius * 0.45, zone_pos + radial * zone_radius, Color(zone_color, 0.75), 4.0)
-        elif zone_kind == &"slashwave":
-            for slash in range(3):
-                var slash_angle := float(world.tick) * 0.08 + slash * PI / 3.0
-                draw_arc(zone_pos, zone_radius * (0.55 + slash * 0.16), slash_angle, slash_angle + PI * 0.85, 18, Color(zone_color, 0.82), 6.0)
-        elif zone_kind == &"fist_burst":
-            for fist_ray in range(6):
-                var fist_dir := Vector2.RIGHT.rotated(TAU * float(fist_ray) / 6.0)
-                draw_line(zone_pos + fist_dir * 18.0, zone_pos + fist_dir * zone_radius, Color(zone_color, 0.82), 10.0)
-        elif zone_kind == &"chain_vortex":
-            for ring in range(3):
-                draw_arc(zone_pos, zone_radius * (0.42 + ring * 0.22), float(world.tick) * -0.08 + ring, float(world.tick) * -0.08 + ring + PI * 1.55, 28, Color(zone_color, 0.86), 7.0)
-        elif zone_kind == &"shield_bash":
-            draw_arc(zone_pos, zone_radius * 0.82, -PI * 0.75, PI * 0.75, 28, Color(zone_color, 0.92), 15.0)
-            draw_line(zone_pos - Vector2(0.0, zone_radius * 0.8), zone_pos + Vector2(0.0, zone_radius * 0.8), Color.WHITE, 4.0)
-        if delay > 0.0:
-            var timer_radius := float(zone["radius"]) * lerpf(0.28, 1.0, warning_ratio)
-            draw_arc(zone_pos, timer_radius, 0.0, TAU, 36, Color.WHITE, 3.0 + impact_progress * 2.0)
-            for warning_tick in range(8):
-                var tick_dir := Vector2.RIGHT.rotated(TAU * float(warning_tick) / 8.0)
-                draw_line(zone_pos + tick_dir * (zone_radius + 5.0), zone_pos + tick_dir * (zone_radius + 13.0), Color(zone_color, 0.82), 3.0)
-            var warning_label := str(zone.get("label", ""))
-            if not warning_label.is_empty() and zone_radius >= 90.0:
-                draw_rect(Rect2(zone_pos + Vector2(-72.0, -13.0), Vector2(144.0, 25.0)), Color(0.04, 0.02, 0.03, 0.76))
-                draw_string(GameFont.get_font(), zone_pos + Vector2(-68.0, 6.0), "%s  %.1f" % [warning_label, delay], HORIZONTAL_ALIGNMENT_CENTER, 136.0, 13, Color.WHITE)
-
-func _draw_effects() -> void:
-    var max_effects := 8 if lite_draw else 999
-    var drawn := 0
-    for effect in world.effects:
-        if lite_draw and drawn >= max_effects:
-            break
-        drawn += 1
-        var effect_color: Color = effect["color"]
-        var ratio := clampf(float(effect["time"]) / float(effect["max_time"]), 0.0, 1.0)
-        var effect_pos: Vector2 = effect["pos"]
-        var effect_radius := float(effect["radius"])
-        var effect_kind := StringName(effect["kind"])
-        var direction := Vector2(effect["direction"]).normalized()
-        var progress := 1.0 - ratio
-        match effect_kind:
-            &"line", &"beam_hit", &"beam_step":
-                var line_start := effect_pos - direction * effect_radius * (0.75 if effect_kind == &"beam_hit" else 1.0)
-                var line_end := effect_pos + direction * effect_radius * (0.65 if effect_kind == &"beam_hit" else 0.05)
-                draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
-                draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
-            &"explosion":
-                var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
-                draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
-                draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
-                draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
-            &"drain":
-                for arc_index in range(4):
-                    var arc_radius := effect_radius * (0.28 + float(arc_index) * 0.18) * (0.65 + progress * 0.35)
-                    var arc_start := progress * TAU * (1.0 if arc_index % 2 == 0 else -1.0) + arc_index
-                    draw_arc(effect_pos, arc_radius, arc_start, arc_start + PI * 1.25, 22, Color(effect_color, ratio), 5.0)
-            &"shockwave":
-                var shock_radius := effect_radius * lerpf(0.25, 1.18, progress)
-                draw_arc(effect_pos, shock_radius, 0.0, TAU, 32, Color(effect_color, ratio), 10.0 * ratio + 2.0)
-                for spoke in range(10):
-                    var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 10.0)
-                    draw_line(effect_pos + radial * shock_radius * 0.48, effect_pos + radial * shock_radius, Color(Color.WHITE, ratio * 0.85), 3.0)
-            &"wall_impact", &"hit_spark":
-                for spark in range(9):
-                    var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
-                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
-            &"speed_streak":
-                for streak in range(5):
-                    var side := direction.orthogonal() * (float(streak) - 2.0) * 9.0
-                    draw_line(effect_pos + side, effect_pos + side + direction * effect_radius, Color(effect_color, ratio * 0.8), 4.0)
-            &"slashwave", &"slash_dash":
-                var slash_angle := direction.angle()
-                var slash_radius := effect_radius * lerpf(0.72, 1.04, progress)
-                draw_arc(effect_pos, slash_radius, slash_angle - 1.05, slash_angle + 1.05, 20, Color(effect_color, ratio), 8.0)
-                draw_arc(effect_pos, slash_radius - 9.0, slash_angle - 0.86, slash_angle + 0.86, 16, Color(Color.WHITE, ratio * 0.72), 2.0)
-            &"fist_burst":
-                draw_line(effect_pos - direction * effect_radius * 0.38, effect_pos + direction * effect_radius * 0.52, Color(effect_color, ratio * 0.42), 18.0)
-                draw_line(effect_pos - direction * 8.0, effect_pos + direction * effect_radius * 0.64, Color.WHITE, ratio, 6.0)
-                draw_line(effect_pos - direction * 2.0, effect_pos + direction.rotated(0.26) * effect_radius * 0.48, Color(effect_color, ratio * 0.74), 5.0)
-            &"hammer_slam":
-                var hammer_side := direction.orthogonal()
-                draw_line(effect_pos - direction * effect_radius * 0.56, effect_pos + direction * effect_radius * 0.16, Color(effect_color, ratio * 0.72), 20.0)
-                draw_line(effect_pos - hammer_side * effect_radius * 0.42, effect_pos + hammer_side * effect_radius * 0.42, Color.WHITE, ratio, 7.0)
-                draw_line(effect_pos, effect_pos + direction.rotated(0.55) * effect_radius * 0.56, Color(effect_color, ratio), 5.0)
-                draw_line(effect_pos, effect_pos + direction.rotated(-0.55) * effect_radius * 0.56, Color(effect_color, ratio), 5.0)
-            &"spear_line":
-                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius * 0.18, Color(effect_color, ratio * 0.34), 22.0)
-                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius * 0.22, Color.WHITE, ratio, 4.0)
-                draw_colored_polygon(PackedVector2Array([effect_pos + direction * effect_radius * 0.28, effect_pos + direction * effect_radius * 0.08 + direction.orthogonal() * 14.0, effect_pos + direction * effect_radius * 0.08 - direction.orthogonal() * 14.0]), Color(effect_color, ratio))
-            &"chain_arc":
-                for link in range(9):
-                    var link_angle := progress * PI * 1.4 + float(link) * 0.19
-                    var link_pos := effect_pos - direction * effect_radius * (float(link) / 9.0) + direction.orthogonal() * sin(link_angle) * 24.0
-                    draw_arc(link_pos, 7.0, 0.0, TAU, 10, Color(effect_color, ratio), 3.0)
-            &"fuse":
-                draw_line(effect_pos, effect_pos + Vector2.UP.rotated(progress * 2.0) * effect_radius * 0.7, Color("#ffe36a", ratio), 5.0)
-                for spark in range(6):
-                    var spark_dir := Vector2.RIGHT.rotated(TAU * float(spark) / 6.0 + progress * 4.0)
-                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * 0.45, Color(effect_color, ratio), 4.0)
-            &"shield_bash":
-                var shield_angle := direction.angle()
-                draw_arc(effect_pos, effect_radius * lerpf(0.55, 1.15, progress), shield_angle - 1.15, shield_angle + 1.15, 30, Color(effect_color, ratio), 18.0)
-                draw_line(effect_pos - direction.orthogonal() * effect_radius * 0.7, effect_pos + direction.orthogonal() * effect_radius * 0.7, Color.WHITE, ratio, 5.0)
-            &"combo_finisher":
-                for ray in range(5):
-                    var ray_dir := (-direction).rotated((float(ray) - 2.0) * 0.13)
-                    draw_line(effect_pos - direction * 10.0, effect_pos + ray_dir * effect_radius * (0.62 + float(ray) * 0.08), Color("#fff2b2", ratio * 0.82), 7.0 - absf(float(ray) - 2.0))
-                draw_line(effect_pos - direction.orthogonal() * 34.0, effect_pos + direction.orthogonal() * 34.0, Color.WHITE, ratio, 6.0)
-            &"charge_release":
-                draw_arc(effect_pos, effect_radius * (0.75 + progress * 0.18), direction.angle() - 0.65, direction.angle() + 0.65, 20, Color(effect_color, ratio), 5.0)
-                draw_line(effect_pos - direction * effect_radius * 0.45, effect_pos + direction * effect_radius * 0.28, Color.WHITE, ratio * 0.8, 3.0)
-            &"victory":
-                for victory_ring in range(3):
-                    var ring_radius := effect_radius * (0.26 + float(victory_ring) * 0.19 + progress * 0.32)
-                    draw_arc(effect_pos, ring_radius, progress * TAU + victory_ring, progress * TAU + victory_ring + PI * 1.45, 42, Color(effect_color, ratio * (0.86 - victory_ring * 0.18)), 7.0 - victory_ring)
-                for victory_ray in range(10):
-                    var ray_dir := Vector2.UP.rotated(TAU * float(victory_ray) / 10.0)
-                    var ray_start := effect_pos + ray_dir * effect_radius * 0.38
-                    draw_line(ray_start, ray_start + ray_dir * effect_radius * (0.22 + progress * 0.26), Color(Color.WHITE, ratio * 0.72), 5.0)
-            &"combo_break", &"afterimage":
-                draw_arc(effect_pos, effect_radius * lerpf(0.45, 1.20, progress), 0.0, TAU, 34, Color(effect_color, ratio), 8.0)
-                draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius, Color(effect_color, ratio * 0.72), 5.0)
-            &"death_burst":
-                var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
-                draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
-                draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
-                draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
-                draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
-            &"guard":
-                draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
-                draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
-            &"heal_pickup":
-                var heal_lift := progress * effect_radius * 0.55
-                draw_line(effect_pos + Vector2(-12.0, -heal_lift), effect_pos + Vector2(12.0, -heal_lift), Color(effect_color, ratio), 7.0)
-                draw_line(effect_pos + Vector2(0.0, -12.0 - heal_lift), effect_pos + Vector2(0.0, 12.0 - heal_lift), Color(effect_color, ratio), 7.0)
-            &"heal_ready":
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), -PI * 0.35, PI * 0.35, 18, Color(effect_color, ratio), 5.0)
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), PI * 0.65, PI * 1.35, 18, Color(effect_color, ratio), 5.0)
-            &"respawn":
-                for beam in range(3):
-                    var beam_x := (float(beam) - 1.0) * 16.0
-                    draw_line(effect_pos + Vector2(beam_x, effect_radius * 0.48), effect_pos + Vector2(beam_x, -effect_radius * (0.35 + progress * 0.48)), Color(effect_color, ratio * (0.55 + float(beam) * 0.18)), 5.0)
-            &"mine_place":
-                draw_arc(effect_pos, effect_radius * lerpf(1.0, 0.35, progress), 0.0, TAU, 28, Color(effect_color, ratio), 7.0)
-                for bolt in range(4):
-                    var bolt_dir := Vector2.RIGHT.rotated(TAU * float(bolt) / 4.0)
-                    draw_line(effect_pos + bolt_dir * 12.0, effect_pos + bolt_dir * effect_radius, Color.WHITE, ratio, 3.0)
-            &"mine_fizzle":
-                for smoke in range(5):
-                    var smoke_dir := Vector2.UP.rotated((float(smoke) - 2.0) * 0.28)
-                    draw_circle(effect_pos + smoke_dir * effect_radius * progress, 7.0 + smoke * 1.5, Color(effect_color, ratio * 0.32))
-            _:
-                var flash_radius := maxf(5.0, effect_radius * lerpf(0.12, 0.28, progress))
-                draw_circle(effect_pos, flash_radius, Color(effect_color, ratio * 0.46))
-                draw_line(effect_pos - Vector2(flash_radius * 1.8, 0.0), effect_pos + Vector2(flash_radius * 1.8, 0.0), Color(Color.WHITE, ratio * 0.7), 2.0)
-        if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
-            draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
-
+func _draw_projectiles() -> void: _proj.draw_projectiles_main()
+func _draw_zones() -> void: _proj.draw_zones_main()
+func _draw_effects() -> void: _proj.draw_effects_main()
 func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
     var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
     var size_mul: float = lerpf(1.0, 0.52, height_t)
@@ -746,7 +564,6 @@ func _draw() -> void:
     _proj.draw_deployables()
     _draw_zones()
     _draw_projectiles()
-    _proj.draw_impact_flashes()
     _draw_effects()
     _heroes.draw_knockouts()
     _overlay.draw_pocket_bubbles()
@@ -758,6 +575,7 @@ func _draw() -> void:
     _heroes.draw_rabbit_holes()
     _heroes.draw_tiger_roars()
     _heroes.draw_heroes()
+    _proj.draw_impact_flashes()
     _overlay.draw_finish_prompts()
     _heroes.draw_rat_tides()
     _heroes.draw_snake_skins()

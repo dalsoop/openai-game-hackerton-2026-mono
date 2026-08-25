@@ -48,6 +48,9 @@ var _retry_wait := 0.0
 var _ping_wait := 0.0
 var _ping_sent_ms: int = 0
 var rtt_ms: int = -1
+var _last_input_ms: int = 0
+var _input_throttle_logged := false
+const INPUT_MIN_MS := 16
 
 func _ready() -> void:
     resume_token = _load_resume()
@@ -65,6 +68,15 @@ func _js_text(code: String) -> String:
     if text == "<null>" or text == "null" or text == "undefined":
         return ""
     return text
+
+func _public_game_url(raw: String) -> String:
+    var url := raw.strip_edges()
+    if url == "":
+        return ""
+    if url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0 or url.find("/game-ws") >= 0:
+        push_warning("NetworkManager: ignore unrouted game-ws %s" % url)
+        return ""
+    return url
 
 func _resolve_url() -> String:
     var env := OS.get_environment("GANG_UP_WS")
@@ -235,6 +247,13 @@ func send_hello() -> void:
     _send(hello)
 
 func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, seq: int = 0) -> void:
+    var now := Time.get_ticks_msec()
+    if now - _last_input_ms < INPUT_MIN_MS:
+        if not _input_throttle_logged:
+            _input_throttle_logged = true
+            print("[gangup] input throttle skip dt=", now - _last_input_ms)
+        return
+    _last_input_ms = now
     var msg := {"t":"input", "mx":move.x, "my":move.y, "fire":fire, "dash":dash, "use":use, "aimX":aim.x, "aimY":aim.y}
     if seq > 0:
         msg["seq"] = seq
@@ -274,16 +293,24 @@ func _on_msg(msg: Dictionary) -> void:
             you = int(msg.get("you", 0))
             is_host = bool(msg.get("host", false))
             room = msg.get("room", {})
+            if typeof(room) != TYPE_DICTIONARY:
+                room = {}
+            room["game_url"] = _public_game_url(str(msg.get("gameServerUrl", "")))
             players = msg.get("players", [])
+            if msg.has("seed"):
+                room["seed"] = int(msg["seed"])
+                print("[gangup] resume seed=", room["seed"])
             _set_status(STATUS_LOBBY)
             if bool(msg.get("playing", false)):
                 match_running = true
                 var snap: Variant = msg.get("snap", {})
                 if typeof(snap) != TYPE_DICTIONARY:
                     snap = {}
+                print("[gangup] resume playing you=", you, " host=", is_host)
                 match_resumed.emit(you, room, snap)
             else:
                 match_running = false
+                print("[gangup] resume lobby you=", you)
                 joined_room.emit(room, players, you)
             var notice := str(msg.get("notice", ""))
             if notice != "":
@@ -292,6 +319,7 @@ func _on_msg(msg: Dictionary) -> void:
             players = msg.get("players", [])
             if msg.has("room"):
                 room = msg.get("room", room)
+            _sync_you_from_players()
             peers_updated.emit(players, room)
             var peer_notice := str(msg.get("notice", ""))
             if peer_notice != "":
@@ -304,9 +332,10 @@ func _on_msg(msg: Dictionary) -> void:
             if msg.has("room"):
                 room = msg.get("room", room)
             if msg.has("gameServerUrl"):
-                room["game_url"] = str(msg["gameServerUrl"])
+                room["game_url"] = _public_game_url(str(msg["gameServerUrl"]))
             if msg.has("seed"):
                 room["seed"] = int(msg["seed"])
+                print("[gangup] start seed=", room["seed"], " you=", you, " host=", is_host)
             match_started.emit(you, room)
         "snap":
             snapshot_received.emit(msg)
@@ -325,6 +354,10 @@ func _on_msg(msg: Dictionary) -> void:
             match_running = false
             if msg.has("room"):
                 room = msg.get("room", room)
+            if msg.has("you"):
+                you = int(msg.get("you", you))
+            _sync_you_from_players()
+            print("[gangup] lobby you=", you, " host=", is_host)
             joined_room.emit(room, players, you)
             var lobby_notice := str(msg.get("notice", ""))
             if lobby_notice != "":
@@ -353,17 +386,29 @@ func _save_resume(token: String) -> void:
     if f != null:
         f.store_string(token)
 
+func _sync_you_from_players() -> void:
+    for p in players:
+        if str(p.get("id", "")) == client_id:
+            you = int(p.get("slot", you))
+            is_host = bool(p.get("host", false))
+            print("[gangup] sync you=", you, " host=", is_host, " id=", client_id)
+            return
+
 func consume_hub_launch() -> bool:
     if not OS.has_feature("web"):
         return false
+    var had := false
     var q := _js_text("String(window.location.search||'')")
     if q.find("from_hub=1") >= 0:
-        return true
+        had = true
     var flag := _js_text("String(window.GANGUP_FROM_HUB||'')")
     if flag == "1" or flag == "true":
-        return true
+        had = true
     var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
-    return v == "1"
+    print("[gangup] consume_hub_launch removeItem from_hub had=", had, " stored=", v)
+    if v == "1":
+        had = true
+    return had
 
 func get_hub_name() -> String:
     if not OS.has_feature("web"):

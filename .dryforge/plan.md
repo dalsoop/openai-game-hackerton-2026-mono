@@ -1,168 +1,116 @@
-# plan.md — 멀티플레이어 마이그레이션 실행 계획
+# plan.md — Next.js 게임 플랫폼 실행 계획
 
-## 단계 개요
+## T1 — Next.js 프로젝트 골격
 
-Phase 0~4를 7개 태스크로 나눈다. 관전 모드와 리플레이는 서버 권위가 확립된 후 추가한다. 모든 dev 슬롯(yjh-dev1, pjh-dev1, fig-dev1)에 동시 적용하므로 yjh-dev1에서 먼저 구현하고 project/ 폴더를 복사하는 방식으로 전파한다.
-
-## T1 — Godot 헤드리스 서버 골격
-
-**목표:** WebSocketMultiplayerPeer로 연결을 받고 에코 응답을 보내는 최소 서버를 만든다.
+**목표:** Next.js App Router 프로젝트를 생성하고 기본 라우팅을 구성한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/game_server.gd` (신규)
-- `apps/server-yjh-dev1/project/scripts/net/server_match.gd` (신규)
-- `apps/server-yjh-dev1/project/project.godot` (서버 메인씬 등록)
+- `web/` (신규 — Next.js 프로젝트 루트)
+- `web/app/layout.tsx`, `web/app/page.tsx`
+- `web/app/dagul/page.tsx`, `web/app/snake/page.tsx`, `web/app/hex/page.tsx`
+- `web/package.json`, `web/tsconfig.json`, `web/next.config.ts`
 
-**동작 계약:** 서버가 `--headless` 모드로 기동되고, WebSocketMultiplayerPeer로 클라이언트 연결을 수용하며, peer_connected/peer_disconnected 시그널이 정상 발화한다.
+**동작 계약:** `next dev`로 실행하면 `/`에서 게임 선택 홈이 뜨고, `/dagul`, `/snake`, `/hex`로 각 게임 로비가 뜬다.
 
-**검증:** `godot --headless --main-pack server.pck -- --port 9121` 실행 후 WebSocket 연결 성공.
-
-**사고 근거:** `WebSocketMultiplayerPeer`는 웹 내보내기에서 동작하는 유일한 공식 MultiplayerPeer. 서버 포트(9121)를 허브(9120)와 분리해야 같은 머신에서 공존 가능.
+**검증:** `next build` 성공, 3개 경로 접속 가능.
 
 ---
 
-## T2 — hub_client.gd 분리 + game_client.gd 작성 + 허브 코드 수정
+## T2 — WebSocket 허브 이전
 
-**목표:** 현재 `hub_client.gd`에서 게임 통신(스냅샷/입력)을 분리하고, `game_client.gd`를 작성하며, Node.js 허브에서 스냅샷/입력 중계를 제거하고 매치 시작 신호를 추가한다.
+**목표:** 기존 src/*.ts의 방 관리/매칭/채팅 로직을 Next.js Custom Server WebSocket으로 이전한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/game_client.gd` (신규)
-- `apps/server-yjh-dev1/project/scripts/net/hub_client.gd` (게임 관련 메시지 제거)
-- `apps/server-yjh-dev1/src/relay.ts` (host_snap/peer_input 중계 제거)
-- `apps/server-yjh-dev1/src/index.ts` (매치 시작 시 Godot 서버에 HTTP POST 추가)
+- `web/server.ts` (Custom Server — WebSocket 핸들링)
+- `web/lib/hub/room-manager.ts` (방 생성/참가/퇴장 — src/state.ts에서 이전)
+- `web/lib/hub/relay.ts` (메시지 라우팅 — src/relay.ts에서 이전)
+- `web/lib/hub/types.ts` (Client, Room 타입)
 
-**동작 계약:**
-- `game_client.gd`는 WebSocketMultiplayerPeer로 게임 서버에 연결한다.
-- RPC로 입력을 전송하고 스냅샷을 수신한다.
-- `hub_client.gd`는 로비 통신(방 관리, 채팅)만 유지한다.
-- 매치 시작 시 `hub_client`가 게임 서버 URL을 클라이언트에 전달하고, `game_client`가 해당 서버에 연결한다.
+**동작 계약:** 기존 WebSocket 프로토콜(hello/rooms/create/join/start/peers/chat)이 Next.js 서버에서 동일하게 동작한다. 기존 Godot 클라이언트(network_manager.gd)로도 접속 가능하다.
 
-**검증:** 로비에서 방 입장 → 매치 시작 → game_client가 서버에 연결되어 스냅샷 수신 확인.
+**검증:** WebSocket 연결 → hello → rooms → create → joined 흐름 동작.
+
+**사고 근거:** Next.js App Router는 WebSocket을 네이티브 지원하지 않으므로 Custom Server(server.ts)가 필요하다. `ws` 라이브러리로 HTTP Upgrade를 처리한다.
 
 ---
 
-## T3 — 서버 시뮬레이션 이전
+## T3 — React 로비/방/대기실 UI
 
-**목표:** `GangGameWorld` 시뮬레이션을 서버로 이전한다. 클라이언트는 입력 전송 + 보간/예측만 수행한다.
+**목표:** React 컴포넌트로 로비, 방, 대기실 UI를 구현한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/server_match.gd` (시뮬레이션 실행 로직)
-- `apps/server-yjh-dev1/project/scripts/net/game_server.gd` (입력 수집 + 스냅샷 브로드캐스트)
-- `apps/server-yjh-dev1/project/scripts/game_root.gd` (호스트/클라이언트 분기 제거)
-- `apps/server-yjh-dev1/project/scripts/net/network_host.gd` (서버로 이동, 클라이언트에서 제거)
+- `web/components/Lobby.tsx` (방 목록, 방 만들기, 새로고침)
+- `web/components/Room.tsx` (대기실 — 슬롯, 채팅, 시작)
+- `web/components/GameSelect.tsx` (홈 — 3게임 카드)
+- `web/components/NicknameInput.tsx` (닉네임 입력)
+- `web/hooks/useHub.ts` (WebSocket 연결 + 메시지 훅)
+- `web/hooks/useSession.ts` (세션 관리)
 
-**동작 계약:**
-- 서버가 60Hz로 `GangGameWorld.step_tick()`을 실행한다.
-- 서버가 20Hz로 `NetworkHost.build_snapshot()`을 호출하여 모든 클라이언트에 브로드캐스트한다.
-- 클라이언트는 `game_root.gd`에서 호스트/클라이언트 분기가 사라지고, 네트워크 모드에서는 항상 보간/예측만 수행한다.
-- 로컬 모드(허브 없이 인간 1 + CPU 7)는 기존과 동일하게 동작한다.
-
-**검증:** 8인 온라인 매치에서 서버가 시뮬레이션을 실행하고 모든 클라이언트가 동기화된 상태를 표시한다. 로컬 매치도 정상 동작한다.
-
-**사고 근거:** `game_root.gd`의 `_tick_world()`에서 `GameState.net_host` 분기를 제거하는 것이 핵심. 클라이언트는 `net_world.gd`의 기존 보간 코드를 그대로 사용한다.
+**동작 계약:** 로비에서 방 목록이 실시간 업데이트되고, 방 만들기/참가/채팅이 동작한다. 대기실에서 플레이어 슬롯이 업데이트되고, 호스트가 시작을 누르면 게임으로 전환된다.
 
 ---
 
-## T4 — 히트 판정 래그 보상 + 서버 입력 검증
+## T4 — Godot WASM 프리로더 + 캔버스
 
-**목표:** 서버에서 래그 보상 히트 판정을 구현하고, 기본 입력 검증을 추가한다.
+**목표:** Godot WASM을 백그라운드로 프리로드하고, 매치 시작 시 캔버스를 표시한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/server_match.gd` (래그 보상 로직)
-- `apps/server-yjh-dev1/project/scripts/sim/game_world.gd` (히트박스 되감기 인터페이스)
+- `web/components/GodotCanvas.tsx` (Godot 캔버스 래퍼)
+- `web/hooks/useGodotLoader.ts` (WASM 프리로드 + compileStreaming)
+- `web/lib/godot/engine-loader.ts` (Godot Engine API 래퍼)
 
-**동작 계약:**
-- 클라이언트가 발사 시 추정 서버 시간을 포함하여 입력을 전송한다.
-- 서버가 `현재 서버 시간 - RTT/2`를 계산하고 히트박스를 과거 위치로 되감아 판정한다.
-- 250ms를 초과하는 보상 요청은 현재 시점으로 판정한다.
-- 이동 속도 검증: 허용 최대 속도 초과 입력 거부.
-- 발사 속도 검증: 무기별 쿨다운보다 빠른 발사 거부.
-
-**검증:** 인위적 지연(100ms, 200ms) 환경에서 히트 판정이 합리적으로 동작한다.
+**동작 계약:** 로비 진입 시 WASM+PCK 다운로드가 백그라운드로 시작된다. 진행률이 UI에 표시된다. 매치 시작 시 캔버스가 나타나고 Godot가 즉시 시작된다. 매치 종료 시 캔버스가 사라지고 React 결과 화면이 뜬다.
 
 ---
 
-## T5 — 재접속 + 델타 압축
+## T5 — 세션 + 전적
 
-**목표:** 서버 권위 모델에서의 재접속 처리와 델타 압축을 구현한다.
+**목표:** 쿠키 기반 세션으로 닉네임과 간단한 전적을 유지한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/game_server.gd` (재접속 토큰 매핑)
-- `apps/server-yjh-dev1/project/scripts/net/game_client.gd` (자동 재연결)
-- `apps/server-yjh-dev1/project/scripts/net/server_match.gd` (풀/델타 스냅샷 분기)
+- `web/lib/session/session-store.ts` (인메모리 세션 저장소)
+- `web/app/api/session/route.ts` (세션 API — 생성/조회)
 
-**동작 계약:**
-- 클라이언트 끊김 시 서버가 30초간 슬롯을 보존하고 CPU가 대행한다.
-- `resume_token`으로 재연결 시 풀 스냅샷을 전송하고 같은 슬롯에 복귀한다.
-- 평상시 델타 스냅샷(변경된 필드만) 전송. JSON diff 기반.
-
-**검증:** 매치 중 브라우저 새로고침 → 30초 이내 재접속 시 같은 슬롯으로 복귀. 델타 스냅샷 크기가 풀 스냅샷의 50% 이하.
+**동작 계약:** 닉네임 입력 시 세션이 생성되고, 같은 브라우저에서 재방문하면 닉네임이 유지된다. 매치 결과(킬/승리)가 세션에 누적된다.
 
 ---
 
-## T6 — 관전 모드
+## T6 — Godot 측 컷오프
 
-**목표:** 읽기 전용 관전자가 매치를 실시간으로 볼 수 있게 한다.
+**목표:** Godot에서 인트로/로비/대기실 UI를 제거하고 인게임만 남긴다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/game_server.gd` (관전자 연결 처리)
-- `apps/server-yjh-dev1/project/scripts/ui/flow_screens.gd` (관전 버튼 추가)
-- `apps/server-yjh-dev1/project/scripts/net/game_client.gd` (관전 모드 플래그)
+- `project/scripts/ui/flow_screens.gd` (인트로/로비 제거, 게임 화면만)
+- `project/scripts/game_root.gd` (`hub_launched` 분기 강화)
+- `project/custom_shell.html` (최소화 — UI 없이 엔진 로더만)
 
-**동작 계약:**
-- 로비에서 진행 중인 방에 "관전" 버튼으로 진입한다.
-- 관전자는 플레이어 수(8명)에 포함되지 않는다.
-- 관전자는 입력을 보내지 않고 스냅샷만 수신한다.
-- 관전자에게는 전체 맵 뷰가 표시된다.
-
-**검증:** 진행 중인 매치에 관전자가 접속하여 실시간 화면을 볼 수 있다.
+**동작 계약:** Godot가 시작되면 바로 게임 화면으로 진입한다. 로비/방은 React가 처리하므로 Godot에서는 불필요하다.
 
 ---
 
-## T7 — 리플레이 저장 + Netfox 틱 동기화
+## T7 — Docker + Helm 배포
 
-**목표:** 매치 리플레이 데이터를 저장하고, Netfox 틱 동기화를 도입한다.
+**목표:** Next.js 서버 + Godot 정적 파일을 Docker로 패키징하고 K3s에 배포한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/scripts/net/server_match.gd` (입력 기록)
-- `apps/server-yjh-dev1/project/scripts/net/replay_recorder.gd` (신규)
-- `apps/server-yjh-dev1/project/addons/netfox/` (Netfox 설치)
-- `apps/server-yjh-dev1/project/project.godot` (Netfox autoload)
+- `web/Dockerfile` (Next.js 빌드 + 서빙)
+- `deploy/chart/` (Helm 차트 확장 — Next.js 서비스 추가)
 
-**동작 계약:**
-- 서버가 매치 중 모든 입력을 `{tick, slot, input}` 형태로 기록한다.
-- 매치 종료 시 `{seed, mode, player_names, commands}` JSON으로 저장한다.
-- Netfox `NetworkTime` + `NetworkTimeSynchronizer`가 서버-클라이언트 틱 drift를 보정한다.
-
-**검증:** 저장된 리플레이를 로드하여 `GangGameWorld`를 재시뮬레이션하면 동일한 최종 상태가 나온다. Netfox 틱 동기화 후 보간 품질이 개선된다.
+**동작 계약:** `*.external.kr`에서 Next.js 앱이 서빙되고, `/godot/<game>/` 경로에서 WASM 파일이 제공된다.
 
 ---
 
-## T8 — 전체 슬롯 전파 + 배포
+## T8 — 게임 플러그인 구조
 
-**목표:** fig-dev1에서 완성한 project/를 다른 슬롯에 복사하고, 배포한다.
+**목표:** 게임 추가를 쉽게 만드는 설정 기반 구조를 구현한다.
 
 **작업 대상:**
-- `apps/server-yjh-dev1/project/` (복사)
-- `apps/server-pjh-dev1/project/` (복사)
-- `apps/server-prod/project/` (복사)
-- `deploy/` (Helm 차트에 게임 서버 포트 추가)
-- 각 슬롯의 `Dockerfile` (Godot 헤드리스 서버 빌드 추가)
+- `web/games/dagul/config.ts`
+- `web/games/snake/config.ts`
+- `web/games/hex/config.ts`
+- `web/lib/game-registry.ts` (게임 목록 자동 수집)
 
-**동작 계약:**
-- 모든 슬롯에서 동일한 게임플레이가 동작한다.
-- `Apps ship` GitHub Actions가 허브 + Godot 웹 + Godot 서버를 모두 빌드/배포한다.
-- 각 `https://<슬롯>.external.kr/`에서 8인 매치가 가능하다.
-
-**검증:** `python3 deploy/scripts/status.py`가 모든 슬롯을 healthy로 표시한다. 보드(`server-board.external.kr`)에서 확인 가능하다.
-
----
-
-## 공유 파일 주의
-
-- `game_world.gd`는 서버와 클라이언트 양쪽에서 사용한다. 서버 전용 수정은 하지 않는다.
-- `network_host.gd`의 `build_snapshot()` 로직은 서버 전용이 된다. 클라이언트에서는 더 이상 호출하지 않는다.
-- `project.godot`는 T1(서버 씬 등록)과 T7(Netfox autoload)이 모두 수정한다. T7은 T1 이후에 실행.
+**동작 계약:** `games/<name>/config.ts`를 추가하면 홈 화면에 게임 카드가 자동으로 나타나고, 해당 게임의 로비/방/게임 경로가 생성된다.
 
 ---
 
@@ -172,31 +120,31 @@ Phase 0~4를 7개 태스크로 나눈다. 관전 모드와 리플레이는 서�
 tasks:
   - id: T1
     depends: []
-    risk: RISKY
+    risk: MECHANICAL
   - id: T2
-    depends: []
+    depends: [T1]
     risk: RISKY
   - id: T3
-    depends: [T1, T2]
+    depends: [T1]
     risk: RISKY
   - id: T4
-    depends: [T3]
+    depends: [T1]
     risk: RISKY
   - id: T5
-    depends: [T3]
-    risk: RISKY
-  - id: T6
-    depends: [T3]
+    depends: [T1]
     risk: MECHANICAL
+  - id: T6
+    depends: [T4]
+    risk: RISKY
   - id: T7
-    depends: [T3]
+    depends: [T2, T3, T4, T5, T6]
     risk: MECHANICAL
   - id: T8
-    depends: [T3, T4, T5, T6, T7]
+    depends: [T2, T3, T4]
     risk: MECHANICAL
 ```
 
-Wave 1: T1, T2 (병렬)
-Wave 2: T3
-Wave 3: T4, T5, T6, T7 (병렬)
-Wave 4: T8
+Wave 1: T1
+Wave 2: T2, T3, T4, T5 (병렬)
+Wave 3: T6, T8 (병렬)
+Wave 4: T7
