@@ -7,7 +7,7 @@ extends RefCounted
 ## 멀티 수송(방·릴레이·재접속)은 core+서버 소유 — 게임은 월드만 소유한다.
 ##
 ## ctx (셸이 만들어 넘기는 공유 자원):
-##   hub: Node          — NetworkManager (send_input/send_snap/players/rtt_ms)
+##   hub: Node          — NetworkManager (send_input(Dictionary)/send_snap/players/rtt_ms)
 ##   world_view: Node2D — 렌더 루트 (게임 씬 소유)
 ##   camera: Camera2D
 ##   hud: Control       — 인게임 HUD 오버레이 (게임 씬 소유)
@@ -28,6 +28,14 @@ func tick(_delta: float, _ctx: Dictionary) -> void:
 
 ## 게스트 미러 월드에 스냅 반영.
 func push_snap(_snap: Dictionary) -> void:
+	pass
+
+## 플레이 중 방장 승계 — 게스트가 권위 시뮬을 이어받는다.
+func become_host(_ctx: Dictionary) -> void:
+	pass
+
+## 플레이 중 방장 해제 — 권위를 넘긴 뒤 미러로 돌아간다.
+func become_guest(_ctx: Dictionary) -> void:
 	pass
 
 ## 매치 종료·이탈 시 정리.

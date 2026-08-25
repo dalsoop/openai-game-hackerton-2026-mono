@@ -12,9 +12,10 @@ interface Props {
   isHost: boolean;
   onStart: () => void;
   onLeave: () => void;
+  canStart: boolean;
 }
 
-export default function Room({ players, you, isHost, onStart, onLeave }: Props): JSX.Element {
+export default function Room({ players, you, isHost, onStart, onLeave, canStart }: Props): JSX.Element {
   const t = useTranslations("room");
   const slots = Array.from(
     { length: HUB_CONFIG.maxPlayers },
@@ -44,7 +45,7 @@ export default function Room({ players, you, isHost, onStart, onLeave }: Props):
 
       <div className="host-bar">
         {isHost ? (
-          <button className="cta block" onClick={onStart}>
+          <button className="cta block" onClick={onStart} disabled={!canStart}>
             {t("startButton")}
           </button>
         ) : (

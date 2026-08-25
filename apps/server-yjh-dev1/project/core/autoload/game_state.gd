@@ -16,10 +16,10 @@ const _TRANSITIONS := {
 }
 
 var current_state: State = State.BOOT  # lint-gd: public-api — FSM 상태 노출 계약
-var net_active := false
-var net_host := false
+var net_active := false  # lint-gd: public-api
+var net_host := false  # lint-gd: public-api
 
-func request(next: State) -> void:
+func request(next: State) -> void:  # lint-gd: public-api
 	if current_state == next:
 		return
 	var allowed: Array = _TRANSITIONS.get(current_state, [])
@@ -30,5 +30,5 @@ func request(next: State) -> void:
 	current_state = next
 	state_changed.emit(prev, next)
 
-func is_state(s: State) -> bool:
+func is_state(s: State) -> bool:  # lint-gd: public-api
 	return current_state == s

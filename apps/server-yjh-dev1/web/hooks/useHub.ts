@@ -6,12 +6,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
-import { MSG, HANDOFF } from "@/lib/hub/config";
+import { MSG, HANDOFF } from "@/lib/contract";
 import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
 import { clearMyRoom } from "@/lib/room-membership";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom } from "@/hooks/useGameRoom";
+import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
 
@@ -59,6 +60,9 @@ export function useHub(): UseHubResult {
   const [error, setError] = useState<string | null>(null);
   const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(null);
   const [resumeFailed, setResumeFailed] = useState(false);
+  const {
+    dropReason, lastRoomId, rememberRoomId, onRoomDropped, onKicked, clearDrop, takeReconnectId,
+  } = useDropSession();
 
   // 게임 방에 들어가 있는 동안엔 리스트 연결을 내려 자원을 아낀다.
   const { rooms, lobbyErr, lobbyConnecting } = useRoomList(connected && !joinRequest, getClient);
@@ -72,7 +76,10 @@ export function useHub(): UseHubResult {
     joinRequest,
     () => nameRef.current,
     getClient,
-    useCallback(() => {setJoinRequest(null);}, []),
+    useCallback(() => {
+      setJoinRequest(null);
+      onRoomDropped();
+    }, [onRoomDropped]),
     handleResumeFailed,
   );
 
@@ -82,6 +89,7 @@ export function useHub(): UseHubResult {
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
     setError(msg.msg ?? null);
   });
+  useRoomMessage(room, MSG.KICKED, onKicked);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 허브(외부 시스템) 오류 → React 반영
@@ -90,6 +98,10 @@ export function useHub(): UseHubResult {
 
   // 파생 사실은 도메인(Roster)이 계산한다.
   const derived = useMemo(() => deriveHubFacts(room, snap), [room, snap]);
+  useEffect(() => {
+    if (!derived?.roomId) {return;}
+    rememberRoomId(derived.roomId);
+  }, [derived?.roomId, rememberRoomId]);
 
   // 접속 상태: 리스트 룸 실왕복이 성공해야 "접속됨"이다.
   const status: HubStatus = deriveStatus(derived, connected, lobbyErr, lobbyConnecting, matchInfo);
@@ -116,11 +128,19 @@ export function useHub(): UseHubResult {
   }, []);
 
   const leaveRoom = useCallback(() => {
+    clearDrop();
     localStorage.removeItem(HANDOFF.RESUME); // 의도적 퇴장 — 세션 종료
     clearMyRoom((k) => localStorage.removeItem(k)); // 멤버십도 폐기 — 더 이상 내 방 아님
     setMatchInfo(null);
     setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
-  }, [setMatchInfo]);
+  }, [setMatchInfo, clearDrop]);
+
+  const reconnectAfterDrop = useCallback(() => {
+    const id = takeReconnectId();
+    setError(null);
+    setConnected(true);
+    if (id) {setJoinRequest({ kind: "join", id });}
+  }, [takeReconnectId]);
 
   const disconnect = useCallback(() => {
     leaveRoom();
@@ -178,6 +198,9 @@ export function useHub(): UseHubResult {
     tryResume,
     resuming: joinRequest?.kind === "resume",
     resumeFailed,
+    dropReason,
+    lastRoomId,
+    reconnectAfterDrop,
     myRoom,
   };
 }

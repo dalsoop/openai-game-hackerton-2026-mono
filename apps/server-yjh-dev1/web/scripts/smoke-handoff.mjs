@@ -1,8 +1,8 @@
 // 핸드오프 스모크 — 새 아키텍처(공식 Godot SDK reconnect)의 페이지 측 계약 검증.
-// 시나리오: 호스트+게스트 2인 입장 → START 수신 → 양쪽 의도적 leave(false)
+// 시나리오: 호스트+게스트 2인 입장 → START 수신 → 양쪽 비동의 퇴장(leave(false))
 // → 각자 reconnect(token) 으로 같은 세션·좌석 승계 → snap 릴레이 지속.
 // Godot 가 하는 일을 SDK 로 동일하게 재현한다(브라우저 E2E 의 서버측 등가).
-import { Client } from "@colyseus/sdk";
+import { Client, CloseCode } from "@colyseus/sdk";
 
 const URL = process.env.HUB_URL || process.env.SMOKE_URL || "http://127.0.0.1:3000";
 const results = [];
@@ -44,7 +44,7 @@ const seats = hostStart?.seats ?? [];
 ok("2. START 수신 · seats 2명 동봉", seats.length === 2);
 ok("   seats 에 slot·connected 표기", seats.every((s) => typeof s.slot === "number" && typeof s.connected === "boolean"));
 
-// 3. 핸드오프 — 양쪽 의도적 leave(false) (consent 없이)
+// 3. 핸드오프 — Godot 양도와 같이 leave(false). 동의(4000)면 유예가 안 열린다.
 const hostToken = hostRoom.reconnectionToken;
 const guestToken = guestRoom.reconnectionToken;
 const [hostLeft] = await Promise.all([
@@ -53,7 +53,7 @@ const [hostLeft] = await Promise.all([
   hostRoom.leave(false),
   guestRoom.leave(false),
 ]);
-ok("3. leave(false) → close 코드 1000 아님(유예 대상)", hostLeft !== 1000);
+ok("3. leave(false) → 동의 코드가 아니다", hostLeft !== CloseCode.CONSENTED);
 
 // 4. 재승계 — Godot 역할: reconnect(token) 로 같은 세션·좌석
 await sleep(700); // 유예 안에서 재접속

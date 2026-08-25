@@ -38,6 +38,7 @@ export function InRoomPhase({
         isHost={isHost}
         onStart={onStartGame}
         onLeave={onLeaveRoom}
+        canStart={loader.state === "ready"}
       />
       {isHost && (
         <button className="ghost btn-sm" onClick={onToggleRoom}>

@@ -1,31 +1,13 @@
 import { Room, type Client } from "colyseus";
-import { Schema, ArraySchema, type } from "@colyseus/schema";
-import { HUB_CONFIG, MSG, KO, MODES, CLOSE_CODE } from "./config.js";
+import { HUB_CONFIG, KO } from "./config.js";
+import { MSG, CLOSE_CODE } from "../contract/wire.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
-import { asGameId } from "../games/catalog.js";
-import type { SeatStart, StartPayload } from "./start-payload.js";
+import { defaultModeOf } from "../games/catalog.js";
+import { LobbyState, PlayerSchema } from "./lobby-state.js";
+import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
+import { matchJustEnded, startBodies } from "./lobby-relay.js";
 
-// 다굴 로비/대기실/릴레이 — Colyseus 상태 동기화로 표현한다.
-// 방 상태(멤버·phase·호스트)는 state 가 전부이고,
-// 커스텀 메시지는 start / input / host_snap / chat 뿐이다.
-
-export class PlayerSchema extends Schema {
-  @type("number") slot = -1;        // 고정 좌석 — 이탈해도 다른 좌석은 밀리지 않는다
-  @type("string") sessionId = "";
-  @type("string") name = "";
-  @type("boolean") connected = true; // allowReconnection 유예 중 false
-}
-
-export class LobbyState extends Schema {
-  @type("string") gameId = asGameId(undefined); // 유즈맵 — 이 방에서 플레이할 게임
-  @type("boolean") open = true; // 방장의 문 — 닫으면 입장 불가
-  @type("string") phase: "lobby" | "playing" = "lobby";
-  @type("string") hostSessionId = "";
-  @type("string") title = "";
-  @type("string") mode = HUB_CONFIG.defaultMode;
-  @type("number") seed = 0;
-  @type([PlayerSchema]) players = new ArraySchema<PlayerSchema>();
-}
+export { PlayerSchema, LobbyState } from "./lobby-state.js";
 
 export class LobbyRoom extends Room {
   state = new LobbyState();
@@ -37,14 +19,20 @@ export class LobbyRoom extends Room {
     this.maxClients = HUB_CONFIG.maxPlayers;
     const settings = parseRoomSettings(
       options,
-      hubLimits(`${MODES[HUB_CONFIG.defaultMode].title} #${this.roomId}`),
+      hubLimits(KO.roomTitleFallback(this.roomId)),
     );
     this.state.gameId = settings.game;
     this.state.title = settings.title;
-    void this.setMetadata({ gameId: this.state.gameId, title: this.state.title, mode: this.state.mode, phase: this.state.phase });
+    this.state.mode = defaultModeOf(settings.game);
+    void this.setMetadata({
+      gameId: this.state.gameId,
+      title: this.state.title,
+      mode: this.state.mode,
+      phase: this.state.phase,
+      open: this.state.open,
+    });
   }
 
-  // 공식 0.17 선언적 메시지 핸들러 — onCreate 의 this.onMessage 등록을 대체한다.
   messages = {
     [MSG.START]: (client: Client): void => this.handleStart(client),
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => this.relayInput(client, data),
@@ -52,7 +40,6 @@ export class LobbyRoom extends Room {
     [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
   };
 
-  // 입장 인증(공식 onAuth) — 닫힌 방 거부.
   onAuth(_client: Client, _options: Record<string, unknown>): boolean {
     if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
     return true;
@@ -60,55 +47,64 @@ export class LobbyRoom extends Room {
 
   onJoin(client: Client, options: { name?: string }): void {
     const p = new PlayerSchema();
-    p.slot = this.freeSlot();
+    p.slot = firstFreeSlot(this.state.players.map((s) => s.slot));
     p.sessionId = client.sessionId;
     p.name = parsePlayerName(options.name, HUB_CONFIG.maxNameLength, HUB_CONFIG.defaultName);
     this.state.players.push(p);
     this.syncHost();
   }
 
-  // 공식 0.17 라이프사이클 — 재접속 대상 단절은 onDrop, 동의 퇴장은 onLeave.
-  // 유예 길이는 페이즈별: 플레이 중 180초, 대기실 60초 (HUB_CONFIG).
   async onDrop(client: Client, _code?: number): Promise<void> {
-    const player = this.playerOf(client.sessionId);
-    const graceMs = this.state.phase === "playing" ? HUB_CONFIG.gracePlayMs : HUB_CONFIG.graceLobbyMs;
-    if (player) {player.connected = false;}
-    try {
-      await this.allowReconnection(client, graceMs / 1000);
-      return; // 복귀 성공 — onReconnect 가 connected 를 되돌린다
-    } catch { /* 유예 만료 — 좌석 정리로 */ }
-    this.removeSeat(client.sessionId);
+    await this.holdSeat(client);
   }
 
-  // allowReconnection 성공 직후 호출(공식) — 같은 좌석 복귀 확정.
   onReconnect(client: Client): void {
     const player = this.playerOf(client.sessionId);
     if (player) {player.connected = true;}
   }
 
-  // 동의 퇴장(leave) — 유예 없이 즉시 좌석 반납.
   onLeave(client: Client, _code?: number): void {
     this.removeSeat(client.sessionId);
   }
 
+  private async holdSeat(client: Client): Promise<void> {
+    const player = this.playerOf(client.sessionId);
+    if (player) {player.connected = false;}
+    try {
+      await this.allowReconnection(client, graceSeconds(this.state.phase));
+      return;
+    } catch { /* 유예 만료 — 좌석 정리로 */ }
+    this.removeSeat(client.sessionId);
+  }
+
   private removeSeat(sessionId: string): void {
+    const wasHost = sessionId === this.state.hostSessionId;
+    const playing = this.state.phase === "playing";
     const idx = this.state.players.findIndex((p) => p.sessionId === sessionId);
     if (idx >= 0) {this.state.players.splice(idx, 1);}
-
-    if (this.state.phase === "playing" && sessionId === this.state.hostSessionId) {
-      this.resetToLobby(); // 호스트(권위 시뮬) 이탈 = 매치 종료
+    if (playing && wasHost) {
+      this.transferHostOrEnd();
+    } else {
+      this.syncHost();
     }
-    this.syncHost();
     if (this.state.players.length === 0) {void this.disconnect();}
   }
 
-  onDispose(): void {
-    // gameTimer 는 this.clock 소속 — 방 폐기 시 자동 정리된다 (공식 문서).
+  private transferHostOrEnd(): void {
+    this.syncHost();
+    if (this.state.hostSessionId === "") {
+      this.resetToLobby();
+      return;
+    }
+    if (!this.lastSnap) {return;}
+    this.clients.find((c) => c.sessionId === this.state.hostSessionId)
+      ?.send(MSG.SNAP, this.lastSnap);
   }
 
-  // --- 메시지 ---
+  onDispose(): void {
+    // gameTimer 는 this.clock 소속 — 방 폐기 시 자동 정리된다.
+  }
 
-  // 방장의 방 열기/닫기 — 닫는 순간 재실자(방장 제외)를 강퇴한다(유즈맵 관습).
   private handleRoomToggle(client: Client): void {
     if (client.sessionId !== this.state.hostSessionId) {
       client.send(MSG.ERROR, { msg: KO.HOST_ONLY_TOGGLE });
@@ -120,7 +116,7 @@ export class LobbyRoom extends Room {
     for (const c of this.clients) {
       if (c.sessionId === this.state.hostSessionId) {continue;}
       c.send(MSG.KICKED, { msg: KO.KICKED_MSG });
-      c.leave(CLOSE_CODE.KICKED); // 동의 코드 — onLeave 즉시 좌석 정리
+      c.leave(CLOSE_CODE.KICKED);
     }
   }
 
@@ -133,22 +129,13 @@ export class LobbyRoom extends Room {
     this.state.phase = "playing";
     this.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
     void this.setMetadata({ ...this.metadata, phase: this.state.phase });
-
-    const seats = this.seatsPayload();
-    // afterNextPatch: phase=playing 패치가 먼저 도착한 뒤 START 가 가게 한다
-    // (공식 문서 — 상태 변경 적용 후 메시지 도착 순서 보장).
-    for (const p of this.state.players) {
-      const payload: StartPayload = {
-        you: p.slot,
-        host: p.sessionId === this.state.hostSessionId,
-        seed: this.state.seed,
-        mode: this.state.mode,
-        seats,
-      };
-      this.clients.find((c) => c.sessionId === p.sessionId)
-        ?.send(MSG.START, payload, { afterNextPatch: true });
+    const seats = seatsPayloadOf(this.state.players);
+    for (const body of startBodies(
+      [...this.state.players], this.state.hostSessionId, this.state.seed, this.state.mode, seats,
+    )) {
+      this.clients.find((c) => c.sessionId === body.sessionId)
+        ?.send(body.type, body.payload, { afterNextPatch: true });
     }
-
     this.gameTimer = this.clock.setTimeout(() => {
       if (this.state.phase === "playing" && !this.lastSnap) {
         this.broadcast(MSG.ERROR, { msg: KO.HOST_BOOT_FAIL });
@@ -160,7 +147,7 @@ export class LobbyRoom extends Room {
   private relayInput(client: Client, data: Record<string, unknown>): void {
     if (this.state.phase !== "playing") {return;}
     if (client.sessionId === this.state.hostSessionId) {return;}
-    const slot = this.slotOf(client.sessionId);
+    const slot = this.playerOf(client.sessionId)?.slot ?? -1;
     if (slot < 0) {return;}
     this.clients.find((c) => c.sessionId === this.state.hostSessionId)
       ?.send(MSG.PEER_INPUT, { ...data, slot });
@@ -173,17 +160,11 @@ export class LobbyRoom extends Room {
     for (const c of this.clients) {
       if (c.sessionId !== client.sessionId) {c.send(MSG.SNAP, data);}
     }
-    const ended = Boolean(data.result && data.result !== "playing");
-    if (ended && (!this.prevSnap || this.prevSnap["result"] === "playing")) {
+    if (matchJustEnded(data, this.prevSnap)) {
       if (this.gameTimer) {this.gameTimer.clear();}
-      // 종료 확정 즉시 대기실 전환 — 지연 없는 것이 공식 예제의 표준 패턴이며,
-      // 마지막 스냅은 이미 위에서 전원에게 broadcast 됐다(동일 소켓 순서 보장).
-      // 타이머로 미루면 재입장 클라가 5초 창 동안 phase=playing 방에 갇힌다.
       this.resetToLobby();
     }
   }
-
-  // --- 내부 ---
 
   private resetToLobby(): void {
     if (this.gameTimer) { this.gameTimer.clear(); this.gameTimer = null; }
@@ -195,32 +176,11 @@ export class LobbyRoom extends Room {
   }
 
   private syncHost(): void {
-    const host = [...this.state.players]
-      .filter((p) => p.connected)
-      .sort((a, b) => a.slot - b.slot).at(0);
-    this.state.hostSessionId = host?.sessionId ?? "";
+    this.state.hostSessionId = pickHostSessionId(this.state.players);
     void this.setMetadata({ ...this.metadata });
   }
 
   private playerOf(sessionId: string): PlayerSchema | undefined {
     return this.state.players.find((p) => p.sessionId === sessionId);
   }
-
-  private slotOf(sessionId: string): number {
-    return this.playerOf(sessionId)?.slot ?? -1;
-  }
-
-  private freeSlot(): number {
-    const used = new Set(this.state.players.map((p) => p.slot));
-    for (let s = 0; s < HUB_CONFIG.maxPlayers; s++) {if (!used.has(s)) {return s;}}
-    return this.state.players.length;
-  }
-
-  private seatsPayload(): SeatStart[] {
-    return [...this.state.players]
-      .sort((a, b) => a.slot - b.slot)
-      .map((p) => ({ slot: p.slot, name: p.name, connected: p.connected }));
-  }
-
-
 }

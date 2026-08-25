@@ -1,1 +1,10 @@
-../../../../project/web/manifest.json
+{
+  "version": "260825235836",
+  "filesHash": "024d2cc51aaa",
+  "files": [
+    "index.js",
+    "index.wasm",
+    "index.pck",
+    "index.side.wasm"
+  ]
+}

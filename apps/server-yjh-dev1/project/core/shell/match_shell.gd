@@ -5,6 +5,8 @@ extends Node
 ## 게임 지식(월드·입력·카메라·HUD 내용)은 전부 games/<id>/game.gd 소유.
 
 const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
+# Autoload 전역명은 --script 단독 파스에서 안 잡힌다. 스크립트는 preload, 인스턴스는 싱글톤.
+const GameStateScript := preload("res://core/autoload/game_state.gd")
 
 @onready var world_view: Node2D = $WorldView
 @onready var camera: Camera2D = $WorldView/Camera2D
@@ -34,9 +36,14 @@ func _ready() -> void:
 		hub.match_started.connect(_on_match_started)
 		hub.match_resumed.connect(_on_match_resumed)
 		hub.snapshot_received.connect(_on_snapshot_received)
+		hub.host_changed.connect(_on_host_changed)
 		hub.left_room.connect(_return_to_hub)
 		hub.hub_error.connect(func(_msg: String): _return_to_hub())
 		hub.joined_room.connect(func(_r, _p, _y): _return_to_hub())
+		if hub.has_method("start_handoff"):
+			hub.start_handoff()
+		if hub.has_method("consume_pending_match"):
+			hub.consume_pending_match()
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.glog && window.glog('godot','shell_ready')")
 
@@ -49,15 +56,30 @@ func _on_snapshot_received(snap: Dictionary) -> void:
 	if module != null:
 		module.push_snap(snap)
 
+func _game_state() -> Node:
+	return Engine.get_singleton("GameState") as Node
+
+func _on_host_changed(now_host: bool) -> void:
+	_game_state().set("net_host", now_host)
+	if module == null:
+		return
+	if now_host:
+		module.become_host(_ctx)
+	else:
+		module.become_guest(_ctx)
+
 func _game_id() -> String:
 	if not OS.has_feature("web"):
-		return "dagul"
-	var raw := str(JavaScriptBridge.eval("try{localStorage.getItem('%s')||'dagul'}catch(e){'dagul'}" % WebContract.KEY_GAME, true)).strip_edges()
-	return raw if raw != "" and raw != "null" else "dagul"
+		return WebContract.DEFAULT_GAME
+	var raw := str(JavaScriptBridge.eval(
+		"try{localStorage.getItem('%s')||''}catch(e){''}" % WebContract.KEY_GAME, true)).strip_edges()
+	if raw == "" or raw == "null" or raw == "undefined":
+		return WebContract.DEFAULT_GAME
+	return raw
 
 func _on_match_started(you: int, room: Dictionary) -> void:
-	GameState.net_active = true
-	GameState.net_host = hub.is_host
+	_game_state().set("net_active", true)
+	_game_state().set("net_host", hub.is_host)
 	if module == null:
 		module = GameRegistry.load_game(_game_id())
 		if module == null:
@@ -72,17 +94,17 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 		"mode": str(room.get("mode", WebContract.DEFAULT_MODE)),
 		"seats": hub.players,
 	}, _ctx)
-	GameState.request(GameState.State.PLAYING)
+	_game_state().request(GameStateScript.State.PLAYING)
 	_apply_playing_visuals(true)
 
 func _physics_process(delta: float) -> void:
-	if not GameState.is_state(GameState.State.PLAYING) or module == null:
+	if not _game_state().is_state(GameStateScript.State.PLAYING) or module == null:
 		return
 	module.tick(delta, _ctx)
 
 func _leave_match() -> void:
-	GameState.net_active = false
-	GameState.net_host = false
+	_game_state().set("net_active", false)
+	_game_state().set("net_host", false)
 	if hub != null and hub.in_room:
 		hub.leave_room()
 	_return_to_hub()
@@ -91,7 +113,7 @@ func _leave_match() -> void:
 func _return_to_hub() -> void:
 	if module != null:
 		module.stop()
-	GameState.request(GameState.State.BOOT)
+	_game_state().request(GameStateScript.State.BOOT)
 	_apply_playing_visuals(false)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('%s', {detail: {}}))" % WebContract.EVT_MATCH_END)

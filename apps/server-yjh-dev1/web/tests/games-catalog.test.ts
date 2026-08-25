@@ -1,6 +1,6 @@
 // 게임 카탈로그 도메인 — 유즈맵 모델의 정본 계약.
 import { describe, expect, it } from "vitest";
-import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame } from "@/lib/games/catalog";
+import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame, defaultModeOf } from "@/lib/games/catalog";
 
 describe("GAME_CATALOG", () => {
   it("기본 게임은 다굴이며 카탈로그에 등재돼 있다", () => {
@@ -14,6 +14,7 @@ describe("GAME_CATALOG", () => {
     for (const g of GAME_CATALOG) {
       expect(g.id.length).toBeGreaterThan(0);
       expect(g.titleKey.length).toBeGreaterThan(0);
+      expect(g.defaultMode.length).toBeGreaterThan(0);
     }
   });
 });
@@ -36,5 +37,12 @@ describe("findGame", () => {
   it("등재 조회는 디스크립터를, 미등재는 undefined 를 돌려준다", () => {
     expect(findGame("dagul")?.titleKey).toBe("games.dagul.title");
     expect(findGame("nope")).toBeUndefined();
+  });
+});
+
+describe("defaultModeOf", () => {
+  it("등재 게임의 defaultMode 를 돌려준다", () => {
+    expect(defaultModeOf(asGameId("dagul"))).toBe("full");
+    expect(defaultModeOf(asGameId("sparring"))).toBe("default");
   });
 });

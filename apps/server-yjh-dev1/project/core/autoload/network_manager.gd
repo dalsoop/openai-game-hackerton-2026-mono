@@ -16,6 +16,7 @@ signal peer_input_received(slot: int, input_data: Dictionary)  # lint-gd: public
 # 좌석 이탈/복귀 통지 — 서버 state 의 connected 토글로 파생한다.
 signal peer_parked_received(slot: int)  # lint-gd: public-api
 signal peer_reclaimed_received(slot: int, player_name: String)  # lint-gd: public-api
+signal host_changed(now_host: bool)  # lint-gd: public-api
 
 # 좌석 정본 — preload 로 확정 참조(글로벌 클래스 캐시 갱신 시점과 무관).
 const SeatCodec := preload("res://core/contract/seat_codec.gd")  # lint-gd: public-api
@@ -44,7 +45,15 @@ func _ready() -> void:
     var hub_name := get_hub_name()
     if hub_name != "":
         player_name = hub_name
-    call_deferred("_connect")
+    # 재접속은 부트 씬이 아니라 매치 셸이 start_handoff 로 연다.
+    # 부트 중 소켓을 열면 씬 전환과 겹쳐 remove_child 가 거절되고,
+    # MATCH 소비가 리스너보다 앞선다.
+
+## 셸이 match_started 를 붙인 뒤에만 호출한다.
+func start_handoff() -> void:  # lint-gd: public-api
+    if _client != null:
+        return
+    _connect()
 
 func _connect() -> void:
     if not OS.has_feature("web"):
@@ -63,7 +72,8 @@ func _connect() -> void:
         return
     _wire_room(_colyseus_room)
     _set_status(STATUS_LOBBY)
-    _consume_pending_match()
+    # MATCH 소비는 셸이 match_started 를 붙인 뒤(consume_pending_match) 또는
+    # 재접속 합류(_on_joined)에서 한다. 부트 씬에서 여기서 지우면 신호가 공중분해된다.
 
 func _wire_room(colyseus_room) -> void:
     colyseus_room.joined.connect(_on_joined)
@@ -76,6 +86,7 @@ func _wire_room(colyseus_room) -> void:
 func _on_joined() -> void:
     in_room = true
     _sync_state(_colyseus_room.get_state())
+    consume_pending_match()
 
 func _on_state_changed() -> void:
     _sync_state(_colyseus_room.get_state())
@@ -102,7 +113,10 @@ func _on_message(type: Variant, data: Variant) -> void:
             hub_error.emit(str(msg.get("msg", "")))
 
 ## Godot 는 START 이후에 부팅하므로, 페이지가 남겨둔 시작 정보를 가져온다.
-func _consume_pending_match() -> void:
+## 셸이 신호를 붙인 뒤에만 호출한다 — 부트 씬 _connect 에서 부르면 안 된다.
+func consume_pending_match() -> void:  # lint-gd: public-api
+    if match_started.get_connections().is_empty():
+        return
     var raw := _read_ls(WebContract.KEY_MATCH)
     if raw == "":
         return
@@ -132,7 +146,14 @@ func _sync_state(state: Variant) -> void:
     if not state is Dictionary:
         return
     var phase := str(state.get("phase", ""))
-    is_host = str(state.get("hostSessionId", "")) == _colyseus_room.get_session_id()
+    var host_sid := str(state.get("hostSessionId", ""))
+    var my_sid := str(_colyseus_room.get_session_id())
+    var next_host: bool = host_sid == my_sid
+    if match_running and is_host != next_host:
+        is_host = next_host
+        host_changed.emit(is_host)
+    else:
+        is_host = next_host
     var raw_players: Array = state.get("players") if state.get("players") is Array else []
     var next_players: Array = SeatCodec.from_state(raw_players)
     # 이탈/복귀 파생 — connected 토글을 좌석별 통지로 바꾼다.
@@ -150,10 +171,7 @@ func _sync_state(state: Variant) -> void:
 
 # --- 송신 (인게임 메시지만 — 로비 동사는 React 소유) ---
 
-func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, seq: int = 0) -> void:  # lint-gd: public-api
-    var msg := {"mx": move.x, "my": move.y, "fire": fire, "dash": dash, "use": use, "aimX": aim.x, "aimY": aim.y}
-    if seq > 0:
-        msg["seq"] = seq
+func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
     _send(WebContract.MSG_INPUT, msg)
 
 func send_snap(snap: Dictionary) -> void:  # lint-gd: public-api

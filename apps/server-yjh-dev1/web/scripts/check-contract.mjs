@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 // React↔Godot 핸드오프 계약 대조 게이트.
-// 정본: web/lib/hub/config.ts (HANDOFF / DOM_EVT / wsPath / defaultMode)
-// 거울: apps/server-yjh-dev1/project/scripts/net/web_contract.gd
-// 값이 하나라도 어긋나면 exit 1.
+// 정본: web/lib/contract/wire.ts · web/lib/games/catalog.ts
+// 거울: project/core/contract/web_contract.gd
 import { readFileSync, existsSync } from "fs";
 import { createHash } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const tsPath = path.join(here, "..", "lib", "hub", "config.ts");
+const tsPath = path.join(here, "..", "lib", "contract", "wire.ts");
+const catalogPath = path.join(here, "..", "lib", "games", "catalog.ts");
 const gdPath = path.join(here, "..", "..", "project", "core", "contract", "web_contract.gd");
 
 const ts = readFileSync(tsPath, "utf8");
+const catalog = readFileSync(catalogPath, "utf8");
 const gd = readFileSync(gdPath, "utf8");
 
-function tsBlock(name) {
-  const m = ts.match(new RegExp(`export const ${name} = \\{([\\s\\S]*?)\\} as const;`));
+function tsBlock(src, name) {
+  const m = src.match(new RegExp(`export const ${name} = \\{([\\s\\S]*?)\\} as const;`));
   if (!m) fail(`정본에서 ${name} 블록을 찾지 못했습니다`);
   const values = {};
   for (const [, key, val] of m[1].matchAll(/(\w+):\s*"([^"]+)"/g)) values[key] = val;
@@ -34,9 +35,8 @@ function fail(msg) {
   errors++;
 }
 
-// TS 정본 키 ↔ GD 거울 상수 매핑
-const HANDOFF = tsBlock("HANDOFF");
-const DOM_EVT = tsBlock("DOM_EVT");
+const HANDOFF = tsBlock(ts, "HANDOFF");
+const DOM_EVT = tsBlock(ts, "DOM_EVT");
 const pairs = [
   ["HANDOFF.FROM_HUB", HANDOFF.FROM_HUB, "KEY_FROM_HUB"],
   ["HANDOFF.GAME", HANDOFF.GAME, "KEY_GAME"],
@@ -56,7 +56,6 @@ for (const [label, tsVal, gdName] of pairs) {
   else if (tsVal !== gdVal) fail(`${label}: 정본 "${tsVal}" ≠ 거울 "${gdVal}"`);
 }
 
-// 커스텀 메시지 타입 거울 — TS MSG 와 web_contract.gd MSG_* 가 1:1 이어야 한다.
 const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "ERROR"];
 const msgBlock = ts.match(/export const MSG = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
 for (const key of MSG_KEYS) {
@@ -65,16 +64,13 @@ for (const key of MSG_KEYS) {
   if (!tsVal || tsVal !== gdVal) {fail(`MSG.${key}: 정본 "${tsVal}" ≠ 거울 MSG_${key} "${gdVal}"`);}
 }
 
-// 기본 모드
-const tsMode = ts.match(/defaultMode:\s*"([^"]+)"/)?.[1];
+const catalogId = catalog.match(/GAME_CATALOG[\s\S]*?id:\s*"([^"]+)"/)?.[1];
+const catalogMode = catalog.match(/GAME_CATALOG[\s\S]*?defaultMode:\s*"([^"]+)"/)?.[1];
+const gdGame = gdConst("DEFAULT_GAME");
 const gdMode = gdConst("DEFAULT_MODE");
-if (!tsMode || tsMode !== gdMode) fail(`defaultMode: 정본 "${tsMode}" ≠ 거울 DEFAULT_MODE "${gdMode}"`);
+if (!catalogId || catalogId !== gdGame) fail(`DEFAULT_GAME: 카탈로그 "${catalogId}" ≠ 거울 "${gdGame}"`);
+if (!catalogMode || catalogMode !== gdMode) fail(`DEFAULT_MODE: 카탈로그 "${catalogMode}" ≠ 거울 "${gdMode}"`);
 
-// Godot 산출물 무결성: manifest.filesHash 가 실제 파일 해시와 일치해야 한다.
-// (version 은 yymmddhhmmss 타임스탬프 — 내용 불변이면 계승된다.)
-// (export 후 매니페스트 재생성을 빼먹으면 여기서 빌드가 죽는다 — npm run godot:build 사용)
-// 산출물 자체가 없는 체크아웃(CI 등)에서는 건너뛴다 — 로컬에서 빌드 산출물이
-// 있는데 manifest 만 빠진 경우는 여전히 실패시킨다.
 const godotDir = path.join(here, "..", "..", "project", "web");
 const manifestPath = path.join(godotDir, "manifest.json");
 const hasArtifacts = existsSync(path.join(godotDir, "index.pck"));
@@ -93,7 +89,7 @@ if (!existsSync(godotDir) || (!existsSync(manifestPath) && !hasArtifacts)) {
 }
 
 if (errors > 0) {
-  console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(config.ts)을 먼저 고치고 거울을 맞추세요`);
+  console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(lib/contract, catalog)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
 }
-console.log("check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + defaultMode) · Godot 산출물 버전 무결");
+console.log("check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + DEFAULT_GAME/MODE) · Godot 산출물 버전 무결");

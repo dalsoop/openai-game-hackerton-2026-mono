@@ -1,5 +1,6 @@
 import type { MatchInfo } from "./game";
 import type { MyRoomIdentity } from "@/lib/room-membership";
+import type { DropReason } from "@/lib/game-flow-state";
 /**
  * 허브/방 관련 타입 정의
  * Colyseus WebSocket 통합 타입
@@ -39,6 +40,8 @@ export interface HubRoom {
   players: number;
   mode: string;
   playing: boolean;
+  /** 방장의 문 — 닫히면 목록에서 입장 불가 */
+  open: boolean;
 }
 
 /**
@@ -88,25 +91,17 @@ export interface UseHubResult {
   resuming: boolean;
   resumeFailed: boolean;
 
+  /** 강퇴·강제 퇴장 — 회색 화면 대신 재접속 모달. */
+  dropReason: DropReason | null;
+  lastRoomId: string;
+  reconnectAfterDrop: () => void;
+
   // 내 방 멤버십 — 로비 목록 상단 고정·배지 판정 원천 (room-membership 모듈)
   myRoom: MyRoomIdentity | null;
 }
 
 /**
- * Godot 브릿지 인터페이스 (window.__dagulBridge)
- */
-export interface GodotBridge {
-  send: (type: string, json: string) => void;
-  on: (type: string, cb: (json: string) => void) => void;
-  getMatch: () => string | null;
-  clearMatch: () => void;
-  leave: () => void;
-  sessionId: string;
-}
-
-/**
- * 브릿지 게시 가능 룸 타입 — Colyseus Room 에서 브릿지가 쓰는 최소 구조만 요구한다.
- * (제네릭 공변 문제를 피하기 위해 Room 을 직접 확장하지 않는다.)
+ * 핸드오프용 룸 최소 구조 — Colyseus Room 전체를 요구하지 않는다.
  */
 export interface BridgeableRoom {
   /** SDK 0.17 공식 필드 — 핸드오프 전 자동 재접속을 끌 때 쓴다. */

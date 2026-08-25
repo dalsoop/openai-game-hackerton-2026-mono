@@ -28,6 +28,12 @@ func tick(delta: float, ctx: Dictionary) -> void:
 	var hub: Node = ctx["hub"]
 	hub.send_snap({"t": snappedf(_elapsed, 2), "result": "playing"})
 
+func become_host(_ctx: Dictionary) -> void:
+	_is_host = true
+
+func become_guest(_ctx: Dictionary) -> void:
+	_is_host = false
+
 func push_snap(snap: Dictionary) -> void:
 	# 게스트 미러 — 데모는 수신 로그만.
 	print("sparring snap t=%s" % str(snap.get("t")))

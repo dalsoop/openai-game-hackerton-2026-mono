@@ -41,10 +41,10 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 
 	_ensure_overlays(ctx)
 	var hud_layer: CanvasLayer = ctx["hud_layer"]
-	# Audio 는 autoload(project.godot) — 전역 이름으로 직접 접근한다.
-	# get_node_or_null 우회는 웹 파서에서 "base self" 파스 에러로 스크립트 로드가 깨진다.
-	if Audio.has_method("register_catalog"):
-		Audio.register_catalog(SfxCatalogScript)
+	# Autoload 전역명은 --script 단독 파스에서 안 잡힌다.
+	var audio := Engine.get_singleton("Audio")
+	if audio != null and audio.has_method("register_catalog"):
+		audio.register_catalog(SfxCatalogScript)
 
 	if _is_host:
 		_start_as_host(you, mode, payload.get("seats", []), ctx)
@@ -81,6 +81,37 @@ func push_snap(snap: Dictionary) -> void:
 	if world != null and bool(world.get("is_net")):
 		world.push_snap(snap)
 
+func become_host(ctx: Dictionary) -> void:
+	if _is_host:
+		return
+	var you := 0
+	var mode := MODE
+	var prior = world
+	if prior != null:
+		you = int(prior.get("local_slot", 0))
+		mode = str(prior.get("mode", MODE))
+	_is_host = true
+	var hub: Node = ctx.get("hub")
+	var seats: Array = hub.players if hub != null else []
+	_start_as_host(you, mode, seats, ctx)
+	_adopt_live_world(prior)
+	_bind_view(ctx)
+
+func become_guest(ctx: Dictionary) -> void:
+	if not _is_host:
+		return
+	var you := 0
+	var mode := MODE
+	if world != null:
+		you = int(world.get("local_slot", 0))
+		mode = str(world.get("mode", MODE))
+	_is_host = false
+	if _host_ctrl != null:
+		_host_ctrl.disconnect_signals()
+		_host_ctrl = null
+	_start_as_guest(you, mode)
+	_bind_view(ctx)
+
 func start_dedicated(root: Node) -> void:
 	var server_node := GameServerScript.new()
 	server_node.name = "GameServer"
@@ -107,6 +138,21 @@ func _start_as_host(you: int, mode: String, seats: Array, ctx: Dictionary) -> vo
 	world = host_world
 	_host_ctrl = NetworkHost.new(ctx["hub"], world)
 	_host_ctrl.connect_signals()
+
+func _bind_view(ctx: Dictionary) -> void:
+	if world == null or not ctx.has("world_view"):
+		return
+	ctx["world_view"].world = world
+	if ctx.has("hud"):
+		ctx["hud"].world = world
+
+func _adopt_live_world(prior) -> void:
+	if world == null or prior == null:
+		return
+	for key in ["tick", "match_time", "result", "winner_slot", "heroes", "projectiles", "cores", "zones", "deployables", "covers", "knockouts", "crates", "crate_orbs", "mid_tower", "health_pickups", "safe_zone_center", "safe_zone_radius", "safe_zone_shrinking", "safe_zone_phase", "start_countdown", "wanted_slot"]:
+		if prior.get(key) == null:
+			continue
+		world.set(key, prior.get(key))
 
 func _start_as_guest(you: int, mode: String) -> void:
 	var net_world = NetWorldScript.new()
@@ -206,7 +252,7 @@ func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_hel
 	if _game_client != null and _game_client.is_connected_to_server():
 		_game_client.send_input({"mx": move.x, "my": move.y, "fire": primary, "dash": dash_held, "use": use_held, "aimX": aim_world.x, "aimY": aim_world.y, "seq": seq})
 	else:
-		hub.send_input(move, primary, dash_held, use_held, aim_world, seq)
+		hub.send_input({"mx": move.x, "my": move.y, "fire": primary, "dash": dash_held, "use": use_held, "aimX": aim_world.x, "aimY": aim_world.y, "seq": seq})
 	previous_right_mouse = equipment_held
 
 func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool, touch: CanvasLayer) -> Dictionary:

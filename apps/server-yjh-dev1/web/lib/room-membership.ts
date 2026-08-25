@@ -1,6 +1,7 @@
 // 방 멤버십 순수 모듈 — 로비 목록에서 "내 방"을 식별·정렬한다.
 // 저장소는 좁은 인터페이스로 주입(localStorage 대체 가능 → 테스트 용이).
 import type { HubRoom } from "@/types";
+import { WEB_STORE } from "@/lib/contract";
 
 export type RoomMembership = "host" | "member" | "none";
 
@@ -16,14 +17,15 @@ export interface RoomMembershipView {
   pinned: boolean;
 }
 
-const MY_ROOM_KEY = "dagul_my_room";
+const MY_ROOM_KEY = WEB_STORE.MY_ROOM;
+const LEGACY_MY_ROOM_KEY = "dagul_my_room";
 
 type GetItem = (key: string) => string | null;
 type SetItem = (key: string, value: string) => void;
 
 export function readMyRoom(get: GetItem): MyRoomIdentity | null {
   try {
-    const raw = get(MY_ROOM_KEY);
+    const raw = get(MY_ROOM_KEY) ?? get(LEGACY_MY_ROOM_KEY);
     if (!raw) {return null;}
     const parsed = JSON.parse(raw) as Partial<MyRoomIdentity>;
     if (typeof parsed.roomId !== "string" || parsed.roomId === "") {return null;}
@@ -42,6 +44,7 @@ export function saveMyRoom(set: SetItem, identity: MyRoomIdentity): void {
 export function clearMyRoom(remove: (key: string) => void): void {
   try {
     remove(MY_ROOM_KEY);
+    remove(LEGACY_MY_ROOM_KEY);
   } catch { /* 동일 */ }
 }
 

@@ -1,8 +1,9 @@
 "use client";
 // Godot 웹 런타임의 수명주기 소유자 — 상태머신(idle→downloading→…→running)과
 // 엔진 부팅 시퀀스만 담당한다. URL 체계·다운로드 공유는 AssetStore 가,
-// 핸드오프 키 계약은 lib/hub/config 가 소유한다 (여기선 조립만).
-import { HANDOFF, DOM_EVT } from "@/lib/hub/config";
+// 핸드오프 키 계약은 lib/contract 가 소유한다 (여기선 조립만).
+import { HANDOFF, DOM_EVT } from "@/lib/contract";
+import { HUB_CONFIG } from "@/lib/hub/config";
 import { DEFAULT_GAME_ID, type GameId } from "@/lib/games/catalog";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
 import type { StartPayload } from "@/lib/hub/start-payload";
@@ -32,7 +33,6 @@ interface Manifest {
   files: string[];
 }
 
-const MATCH_WATCHDOG_MS = 30_000;
 
 export class GodotRuntime {
   // 유즈맵 — 게임별 런타임. 엔진 산출물 URL 도 게임별로 갈라진다.
@@ -55,6 +55,7 @@ export class GodotRuntime {
   private wasmModule: WebAssembly.Module | null = null;
   private preloadPromise: Promise<void> | null = null;
   private engine: { requestQuit?: () => void } | null = null;
+  private boundCanvas: HTMLCanvasElement | null = null;
   private scriptPromise: Promise<void> | null = null;
   private bootPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -126,7 +127,9 @@ export class GodotRuntime {
   // startGame() 대신 수동 시퀀스(init→copyToFS→start)를 쓴다:
   // 프리로드한 버퍼를 FS 에 직접 넣어 엔진의 재다운로드를 원천 차단한다.
   boot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
-    if (this.engine) {return Promise.resolve();}
+    // 같은 캔버스면 이미 떠 있음. 재입장으로 캔버스가 바뀌면 내린 뒤 다시 부팅한다.
+    if (this.engine && this.boundCanvas === canvas) {return Promise.resolve();}
+    if (this.engine) {this.quit();}
     if (this.bootPromise) {return this.bootPromise;}
     // StrictMode 리마운트 등 동시 boot — 한쪽만 진행한다.
     this.bootPromise = this.doBoot(canvas, handoff)
@@ -186,6 +189,7 @@ export class GodotRuntime {
     engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
     await engine.start(config);
     this.engine = engine;
+    this.boundCanvas = canvas;
     this.update({ state: "running" });
     this.armWatchdog();
   }
@@ -226,7 +230,7 @@ export class GodotRuntime {
       if (this.matchSeen) {return;}
       this.quit();
       this.update({ state: "error", error: "match-signal-missing" });
-    }, MATCH_WATCHDOG_MS);
+    }, HUB_CONFIG.matchWatchdogMs);
   }
 
   quit(): void {
@@ -236,6 +240,7 @@ export class GodotRuntime {
       try { this.engine.requestQuit(); } catch { /* 이미 종료됨 */ }
     }
     this.engine = null;
+    this.boundCanvas = null;
     if (this.snap.state === "running") {this.update({ state: "ready" });}
   }
 

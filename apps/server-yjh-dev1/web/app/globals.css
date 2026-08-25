@@ -12,6 +12,9 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: var(--bg-0); color: var(--tx-0); font-family: 'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',ui-sans-serif,system-ui,sans-serif; font-size: 14px; line-height: 1.5; }
+/* 폼 컨트롤은 color-scheme 를 상속하지 않는다. 비워 두면 크롬이 style="" 을
+   붙이고 React 19 가 인트로 input 하이드레이션을 실패로 본다. */
+input, textarea, select, button { color-scheme: dark; }
 
 /* --- background pattern --- */
 body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('/assets/lobby-bg.png') center/cover no-repeat, var(--bg-0); }
@@ -77,6 +80,8 @@ body.wait #wait { display: block; }
 .rooms { display:flex; flex-direction:column; gap:8px; }
 .room-card { background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:.15s; }
 .room-card:hover { border-color:var(--cyan); transform:translateY(-1px); box-shadow:var(--shadow); }
+.room-card.locked { cursor:default; opacity:.72; }
+.room-card.locked:hover { border-color:var(--line); transform:none; box-shadow:none; }
 .room-info { flex:1; min-width:0; }
 .room-info b { font-size:15px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .room-mode-badge { font-size:11px; color:var(--acc); background:rgba(255,210,62,.1); padding:2px 8px; border-radius:6px; white-space:nowrap; }
@@ -89,6 +94,7 @@ body.wait #wait { display: block; }
 /* --- CTA button --- */
 .cta { background:var(--acc); color:var(--bg-0); font-weight:800; font-size:15px; border:0; border-radius:var(--radius); padding:12px 24px; cursor:pointer; transition:.15s; margin-top:20px; text-decoration:none; display:inline-block; text-align:center; }
 .cta:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 6px 20px rgba(255,210,62,.35); }
+.cta:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; filter:none; }
 .cta small { font-weight:500; opacity:.7; margin-left:6px; }
 
 /* --- ghost/danger buttons --- */

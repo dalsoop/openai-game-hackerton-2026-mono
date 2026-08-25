@@ -3,19 +3,18 @@ extends Node
 ## games/<id>/main.tscn 을 띄운다. 이 파일이 유일하게 games/ 경로를
 #   언급하는 core 파일이다(동적 디스패치 — lint 게이트 예외 사실).
 
-const DEFAULT_GAME := "dagul"
-
 func _ready() -> void:
 	var path := "res://games/%s/main.tscn" % _game_id()
 	if not ResourceLoader.exists(path):
-		path = "res://games/%s/main.tscn" % DEFAULT_GAME
-	get_tree().change_scene_to_file(path)
+		path = "res://games/%s/main.tscn" % WebContract.DEFAULT_GAME
+	# _ready 안에서 즉시 바꾸면 트리가 자식 추가 중이라 remove_child 가 거절된다.
+	get_tree().call_deferred("change_scene_to_file", path)
 
 func _game_id() -> String:
 	if not OS.has_feature("web"):
-		return DEFAULT_GAME
+		return WebContract.DEFAULT_GAME
 	var raw := str(JavaScriptBridge.eval(
 		"try{localStorage.getItem('%s')||''}catch(e){''}" % WebContract.KEY_GAME, true)).strip_edges()
 	if raw == "" or raw == "null" or raw == "undefined":
-		return DEFAULT_GAME
+		return WebContract.DEFAULT_GAME
 	return raw

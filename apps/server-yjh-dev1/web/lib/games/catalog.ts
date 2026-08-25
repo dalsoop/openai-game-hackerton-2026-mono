@@ -10,11 +10,13 @@ export interface GameDescriptor {
   readonly id: GameId;
   /** 표시명 i18n 키 — 문구는 messages/*.json 이 정본 (하드코딩 금지) */
   readonly titleKey: string;
+  /** 게임 소유 모드 문자열 — 허브는 해석하지 않고 방에 그대로 넣는다. */
+  readonly defaultMode: string;
 }
 
 export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
-  { id: "dagul" as GameId, titleKey: "games.dagul.title" },
-  { id: "sparring" as GameId, titleKey: "games.sparring.title" },
+  { id: "dagul" as GameId, titleKey: "games.dagul.title", defaultMode: "full" },
+  { id: "sparring" as GameId, titleKey: "games.sparring.title", defaultMode: "default" },
 ];
 
 export const DEFAULT_GAME_ID: GameId = GAME_CATALOG[0]?.id ?? ("dagul" as GameId);
@@ -31,4 +33,9 @@ export function asGameId(raw: unknown): GameId {
 /** 카탈로그 등재 여부 — 서버 검증용 (정규화 없이 판정만). */
 export function isKnownGame(id: string): boolean {
   return findGame(id) !== undefined;
+}
+
+/** 방 state.mode 초기값 — 허브는 모드 사전을 갖지 않는다. */
+export function defaultModeOf(id: GameId): string {
+  return findGame(id)?.defaultMode ?? findGame(DEFAULT_GAME_ID)?.defaultMode ?? "";
 }

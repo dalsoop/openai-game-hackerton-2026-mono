@@ -40,8 +40,8 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <html lang={locale}>
-        <body>
+      <html lang={locale} suppressHydrationWarning>
+        <body suppressHydrationWarning>
           <GameFlowProvider>{children}</GameFlowProvider>
         </body>
       </html>

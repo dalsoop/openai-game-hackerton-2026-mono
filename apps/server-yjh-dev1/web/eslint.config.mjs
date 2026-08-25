@@ -8,11 +8,11 @@ import i18nextPlugin from "eslint-plugin-i18next";
 const CONTRACT_SYNTAX = [
   {
     selector: "Literal[value=/^gangup_/]",
-    message: "핸드오프 키 리터럴 금지 — lib/hub/config.ts HANDOFF 상수로.",
+    message: "핸드오프 키 리터럴 금지 — lib/contract HANDOFF 상수로.",
   },
   {
     selector: "CallExpression[callee.property.name=/^(send|onMessage|broadcast)$/] > Literal[value=/^(welcome|hello|rooms|create|join|leave|start|kick|input|host_snap|snap|peer_input|peer_parked|peer_reclaimed|joined|peers|left|kicked|room_toggle|lobby|error|ping|pong|dropped|resume|mode)$/]",
-    message: "메시지 타입 리터럴 금지 — lib/hub/config.ts MSG 상수로.",
+    message: "메시지 타입 리터럴 금지 — lib/contract MSG 또는 LIST_MSG 상수로.",
   },
   {
     selector: "CallExpression[callee.property.name='onMessage'] > Literal[value=/^[+-]$/]",
@@ -146,7 +146,7 @@ const config = [
   // 한글 리터럴 예외 — 테스트 설명문은 제품 문구가 아니다.
   // lib/hub/config.ts KO 는 서버→클라 안내문의 지정 SSOT다.
   {
-    files: ["tests/**/*.{ts,tsx}", "lib/hub/config.ts"],
+    files: ["tests/**/*.{ts,tsx}", "lib/hub/config.ts", "lib/contract/**/*.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
 

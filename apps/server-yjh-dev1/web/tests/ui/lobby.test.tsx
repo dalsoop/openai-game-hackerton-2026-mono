@@ -4,7 +4,7 @@
  */
 import type { JSX, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import Lobby from "@/components/Lobby";
 import ko from "../../messages/ko.json";
@@ -40,5 +40,27 @@ describe("로비 목록", () => {
       </NextIntlClientProvider>,
     );
     expect(screen.getByText(ko.lobby.emptyRooms)).toBeTruthy();
+  });
+
+  it("닫힌 방·진행 중 방은 입장하지 않는다", () => {
+    const onJoin = vi.fn();
+    render(
+      <NextIntlClientProvider locale="ko" messages={messages}>
+        <Lobby
+          rooms={[
+            { id: "c1", gameId: "dagul", title: "닫힌방", players: 1, mode: "full", playing: false, open: false },
+            { id: "p1", gameId: "dagul", title: "진행방", players: 2, mode: "full", playing: true, open: true },
+          ]}
+          myRoom={null}
+          onJoin={onJoin}
+          onRefresh={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByText("닫힌방"));
+    fireEvent.click(screen.getByText("진행방"));
+    expect(onJoin).not.toHaveBeenCalled();
+    expect(screen.getByText(ko.lobby.closed)).toBeTruthy();
+    expect(screen.getByText(ko.lobby.inProgress)).toBeTruthy();
   });
 });

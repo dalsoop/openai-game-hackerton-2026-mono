@@ -8,7 +8,7 @@ import {
 } from "@/lib/room-membership";
 import type { HubRoom } from "@/types";
 
-const room = (id: string): HubRoom => ({ id, gameId: "", title: id, players: 1, mode: "", playing: false });
+const room = (id: string): HubRoom => ({ id, gameId: "", title: id, players: 1, mode: "", playing: false, open: true });
 
 describe("readMyRoom / saveMyRoom / clearMyRoom — 저장소 주입", () => {
   it("저장·독자·폐기 왕복", () => {
@@ -23,6 +23,11 @@ describe("readMyRoom / saveMyRoom / clearMyRoom — 저장소 주입", () => {
     expect(readMyRoom(() => "")).toBeNull();
     expect(readMyRoom(() => "{broken")).toBeNull();
     expect(readMyRoom(() => '{"roomId":"","host":false}')).toBeNull();
+  });
+
+  it("옛 dagul_my_room 키도 읽는다", () => {
+    const store = new Map<string, string>([["dagul_my_room", JSON.stringify({ roomId: "legacy", host: false })]]);
+    expect(readMyRoom((k) => store.get(k) ?? null)).toEqual({ roomId: "legacy", host: false });
   });
 });
 

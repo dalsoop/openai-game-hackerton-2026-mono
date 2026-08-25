@@ -4,7 +4,7 @@ import type { JSX } from "react";
 import { useTranslations } from "next-intl";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
-import { shouldShowConnectionLost, downloadStartsInRoom } from "@/lib/game-flow-state";
+import { shouldShowReconnect } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
   ConnectingPhase,
@@ -14,7 +14,6 @@ import {
 } from "@/components/phases";
 import { asGameId } from "@/lib/games/catalog";
 import { CONNECTION_CLASS, type HubStatus } from "@/types";
-import { PrefetchStatus } from "@/components/PrefetchStatus";
 
 type Translate = (key: string) => string;
 
@@ -45,33 +44,36 @@ export default function Home(): JSX.Element {
     errorToIntro,
   } = useGameFlowContext();
 
-  // 끊김 판정은 페이즈보다 먼저 — 게임 중에도 진행을 막는다.
-  const lost = shouldShowConnectionLost(hub.status, phase);
-  const lostModal = lost ? (
-    <ConnectionLostModal onReconnect={findRoom} onExit={backToIntro} />
-  ) : null;
-
-  if (phase === "playing") {
+  // 튕김·강퇴는 회색 캔버스 대신 재접속 모달만 보여 준다.
+  const bounced = shouldShowReconnect(hub.status, phase, hub.dropReason);
+  if (bounced) {
     return (
-      <>
-        {/* inert — 서버가 죽었으면 게임도 조작 불가. 모달로 재접속/복귀만 허용 */}
-        <div inert={lost}>
-          <PlayingPhase
-            game={asGameId(matchInfo.gameId ?? hub.gameId)}
-            matchInfo={matchInfo}
-            onMatchEnd={matchEnd}
-            onError={errorToIntro}
-          />
-        </div>
-        {lostModal}
-      </>
+      <div className="page-shell">
+        <header className="hero">
+          <div className="logo-word">{t("logo.word")}</div>
+        </header>
+        <ConnectionLostModal
+          reason={hub.dropReason ?? "offline"}
+          onReconnect={hub.reconnectAfterDrop}
+          onExit={backToIntro}
+        />
+      </div>
     );
   }
 
-  const loadPct = Math.round(loader.progress * 100);
+  if (phase === "playing") {
+    return (
+      <PlayingPhase
+        game={asGameId(matchInfo.gameId ?? hub.gameId)}
+        matchInfo={matchInfo}
+        onMatchEnd={matchEnd}
+        onError={errorToIntro}
+      />
+    );
+  }
 
   return (
-    <div className="page-shell" inert={lost}>
+    <div className="page-shell">
       <header className="hero">
         <div className="logo-word">{t("logo.word")}</div>
         {phase !== "intro" && (
@@ -81,12 +83,6 @@ export default function Home(): JSX.Element {
           </div>
         )}
       </header>
-
-      {lostModal}
-
-      {downloadStartsInRoom(phase) && !lost && loader.state !== "ready" && (
-        <PrefetchStatus state={loader.state} pct={loadPct} />
-      )}
 
       {phase === "intro" && (
         <OfflinePhase
@@ -127,7 +123,7 @@ export default function Home(): JSX.Element {
         </div>
       )}
 
-      {phase === "room" && (
+      {phase === "room" && hub.status === "in-room" && (
         <InRoomPhase
           roomOpen={hub.roomOpen}
           onToggleRoom={hub.toggleRoom}

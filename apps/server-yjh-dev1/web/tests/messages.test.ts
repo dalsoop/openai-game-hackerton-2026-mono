@@ -1,6 +1,6 @@
-// KO 사용자 문구 · MODES 정합 — 안내문 계약의 회귀 방지.
+// KO 사용자 문구 정합 — 안내문 계약의 회귀 방지.
 import { describe, expect, it } from "vitest";
-import { KO, MODES, HUB_CONFIG } from "@/lib/hub/config";
+import { KO, HUB_CONFIG } from "@/lib/hub/config";
 import ko from "../messages/ko.json";
 import en from "../messages/en.json";
 
@@ -35,16 +35,8 @@ describe("create 문구 — ko/en 키 대칭", () => {
   });
 });
 
-describe("MODES 모드 사전", () => {
-  it("기본 모드(defaultMode)는 MODES 에 실재한다", () => {
-    expect(MODES[HUB_CONFIG.defaultMode]).toBeDefined();
-  });
-
-  it("각 모드는 id·제목·설명을 갖춘다", () => {
-    for (const mode of Object.values(MODES)) {
-      expect(mode.id.length).toBeGreaterThan(0);
-      expect(mode.title.length).toBeGreaterThan(0);
-      expect(mode.blurb.length).toBeGreaterThan(0);
-    }
+describe("방 제목 폴백", () => {
+  it("게임 무관 문구를 쓴다", () => {
+    expect(KO.roomTitleFallback("abc")).toBe("방 #abc");
   });
 });

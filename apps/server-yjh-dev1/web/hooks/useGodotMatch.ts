@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GodotRuntime, type RuntimeSnapshot } from "@/lib/godot/runtime";
 import { asGameId } from "@/lib/games/catalog";
-import { DOM_EVT } from "@/lib/hub/config";
+import { DOM_EVT } from "@/lib/contract";
 import type { MatchInfo } from "@/types";
 
 interface UseGodotMatchOptions {

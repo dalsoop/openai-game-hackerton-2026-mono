@@ -4,6 +4,8 @@
 import type { JSX } from "react";
 import type { HubRoom } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
+import { findGame } from "@/lib/games/catalog";
+import { roomJoinable } from "@/lib/hub/room-mapper";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -38,15 +40,17 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh }: Props): JSX.
         ) : (
           sorted.map((room) => {
             const { membership } = membershipOf(room, myRoom);
+            const joinable = roomJoinable(room);
+            const game = findGame(room.gameId);
             return (
               <div
                 key={room.id}
                 role="button"
-                tabIndex={0}
-                className={`room-card${membership !== "none" ? " mine" : ""}`}
-                onClick={() => !room.playing && onJoin(room.id)}
+                tabIndex={joinable ? 0 : -1}
+                className={`room-card${membership !== "none" ? " mine" : ""}${joinable ? "" : " locked"}`}
+                onClick={() => {if (joinable) {onJoin(room.id);}}}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !room.playing) {onJoin(room.id);}
+                  if (e.key === "Enter" && joinable) {onJoin(room.id);}
                 }}
               >
                 <div className="room-info">
@@ -63,16 +67,18 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh }: Props): JSX.
                 {membership === "member" && (
                   <span className="room-mine-badge">{t("mine")}</span>
                 )}
-                <span className="room-mode-badge">
-                  {room.mode === "full" ? t("modeFull") : room.mode}
-                </span>
+                {game && (
+                  <span className="room-mode-badge">{t(game.titleKey)}</span>
+                )}
                 <span className="room-count">
                   {room.players}/{HUB_CONFIG.maxPlayers}
                 </span>
                 {room.playing ? (
                   <span className="room-playing">{t("inProgress")}</span>
-                ) : (
+                ) : room.open ? (
                   <span className="room-enter">{t("join")} →</span>
+                ) : (
+                  <span className="room-playing">{t("closed")}</span>
                 )}
               </div>
             );

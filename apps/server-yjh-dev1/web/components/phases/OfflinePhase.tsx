@@ -42,11 +42,14 @@ export function OfflinePhase({
       <div className="intro-form">
         <input
           className="name-input"
+          name="player-name"
+          autoComplete="nickname"
           value={nickname}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder={t("intro.namePlaceholder")}
           maxLength={12}
           onKeyDown={(e) => e.key === "Enter" && onConnect()}
+          suppressHydrationWarning
         />
         <Button className="cta block" onClick={onConnect}>
           {t("intro.startButton")}

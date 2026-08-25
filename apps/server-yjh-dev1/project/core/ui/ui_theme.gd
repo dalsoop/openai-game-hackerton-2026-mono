@@ -17,15 +17,9 @@ const INTRO_BG := Color("0b0e14")
 const INTRO_TITLE := Color("ffd23e")
 const INTRO_SUB := Color("67728a")
 const SLOT_COUNT := 8
-const ANIMALS := ["토끼", "쥐", "호랑이", "황소", "용", "말", "닭", "돼지"]
-const LOBBY_ANIMAL_FRAME := [3, 0, 2, 1, 5, 6, 9, 11]
-const NICKS := ["토토", "찍찍", "호랑", "황소", "용용", "말말", "꼬끼오", "꿀꿀"]
 const SLOT_COLORS := [
 	Color("5bc0eb"), Color("9bc53d"), Color("e55934"), Color("fa7921"),
 	Color("b084cc"), Color("70e7ff"), Color("ffd166"), Color("ff8dac")
-]
-const MODES := [
-	{"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
 ]
 
 static func full(node: Control) -> Control:
@@ -121,10 +115,3 @@ static func card_box() -> StyleBoxFlat:
 	sb.corner_radius_bottom_left = 18
 	sb.corner_radius_bottom_right = 18
 	return sb
-
-
-static func mode_title(mode_id: String) -> String:
-	for mode in MODES:
-		if str(mode["id"]) == mode_id:
-			return str(mode["title"])
-	return mode_id

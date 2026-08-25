@@ -28,7 +28,7 @@ async function waitFor(room, pred, label) {
 }
 
 function forceDrop(room) {
-  // 비의도 단절: consent 없이 소켓을 닫는다(브라우저 새로고침과 동일 취급, code≠1000).
+  // 비의도 단절: 1001 Going Away. 4000(CONSENTED)은 onLeave → 대기실 좌석 즉시 반납.
   const conn = room.connection ?? room["_connection"];
   const ws = conn?.websocket ?? conn?.ws ?? conn?.transport?.socket ?? conn?.socket;
   if (ws) { ws.close(1001, "simulate refresh"); } else { conn.close(); }

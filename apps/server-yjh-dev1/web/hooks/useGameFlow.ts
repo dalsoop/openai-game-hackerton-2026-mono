@@ -71,8 +71,14 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   }, [hub.status]);
 
   useEffect(() => {
-    if (downloadStartsInRoom(phase)) {loader.start();} // 유즈맵 — 다운로드는 방에 들어와서 시작
-  }, [phase, loader]); // gameId 가 확정되면 런타임이 바뀌므로 start 가 다시 불린다
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 튕김은 대기실·캔버스를 붙잡지 않고 로비로
+    if (hub.dropReason) {setPhase("lobby");}
+  }, [hub.dropReason]);
+
+  const startDownload = loader.start;
+  useEffect(() => {
+    if (downloadStartsInRoom(phase)) {startDownload();} // 유즈맵 — 다운로드는 방에 들어와서 시작
+  }, [phase, startDownload]); // gameId 가 확정되면 런타임이 바뀌므로 start 가 다시 불린다
 
   const findRoom = useCallback(() => {
     saveNickname(displayName);

@@ -12,10 +12,16 @@ export function toHubRoom(r: RoomAvailable): HubRoom {
     players: r.clients,
     mode: String(meta.mode ?? ""),
     playing: meta.phase === "playing",
+    open: meta.open !== false,
   };
 }
 
-/** 전체 목록 수신(MSG.ROOMS). */
+/** 대기 중이고 문이 열린 방만 입장 가능 (유즈맵 목록). */
+export function roomJoinable(room: Pick<HubRoom, "playing" | "open">): boolean {
+  return !room.playing && room.open;
+}
+
+/** 전체 목록 수신(LIST_MSG.ROOMS). */
 export function replaceList(prev: RoomAvailable[], next: RoomAvailable[]): RoomAvailable[] {
   return next;
 }

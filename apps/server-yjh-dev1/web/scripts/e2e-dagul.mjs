@@ -25,21 +25,32 @@ await page.addInitScript(() => {
   window.addEventListener("godot-match-start", () => { window.__e2eMatchStarted = true; }, { once: true });
 });
 
-// 1. 인트로
+// 1. 인트로 — 개발 서버 첫 컴파일·HMR 리로드가 있어도 로비까지 다시 누른다.
 await page.goto(URL, { waitUntil: "domcontentloaded" });
-await page.waitForSelector("input", { timeout: 45_000 });
-await page.fill("input", "E2E호스트");
+await page.waitForSelector("input[name=player-name]", { timeout: 45_000 });
+await page.locator("input[name=player-name]").fill("E2E호스트");
 await page.screenshot({ path: `${SHOT}-1-intro.png` });
 await page.click("text=시작하기");
+const createLink = page.locator("a.lobby-create-link");
+for (let i = 0; i < 3 && !(await createLink.isVisible().catch(() => false)); i++) {
+  if (await page.locator("text=시작하기").isVisible().catch(() => false)) {
+    await page.locator("input[name=player-name]").fill("E2E호스트");
+    await page.click("text=시작하기");
+  }
+  await createLink.waitFor({ state: "visible", timeout: 20_000 }).catch(() => {});
+}
 ok("1. 인트로 → 이름 입력 → 시작", true);
 
 // 2. 로비 (방 목록)
-await page.waitForSelector("text=방 만들기", { timeout: 45_000 });
+await createLink.waitFor({ state: "visible", timeout: 45_000 });
 await page.screenshot({ path: `${SHOT}-2-lobby.png` });
 ok("2. 로비 도착", true);
 
-// 3. 방 만들기
-await page.click("text=방 만들기");
+// 3. 방 만들기 (/create) → 대기실
+await createLink.click();
+await page.waitForSelector("form.create-form", { timeout: 45_000 });
+await page.click("form.create-form button.cta");
+await page.waitForURL((u) => !u.pathname.includes("/create"), { timeout: 15_000 });
 await page.waitForSelector("text=게임 시작", { timeout: 45_000 });
 await page.screenshot({ path: `${SHOT}-3-room.png` });
 ok("3. 대기실 도착", true);

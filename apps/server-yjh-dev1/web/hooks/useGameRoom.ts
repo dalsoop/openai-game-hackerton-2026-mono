@@ -5,12 +5,16 @@
 import { useEffect, useState } from "react";
 import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
-import { MSG, HANDOFF, ROOM_NAME } from "@/lib/hub/config";
+import { MSG, HANDOFF } from "@/lib/contract";
+import { ROOM_NAME } from "@/lib/hub/config";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import { parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
 import { leaveOnceForHandoff } from "@/lib/hub/handoff-leave";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
+
+/** Godot 양도는 튕김이 아니다. 그 외 onLeave 는 강제 퇴장. */
+export type RoomEndKind = "handoff" | "drop";
 
 // 인게임 핸드오프 — 브릿지는 없다. 매치 시작(START) 정보와 재접속 토큰을
 // localStorage 에 남기고 방을 떠난다. Godot 가 공식 SDK reconnect(token) 으로
@@ -27,7 +31,7 @@ function handOffToGodot(
       localStorage.setItem(HANDOFF.RESUME, room.reconnectionToken);
       localStorage.setItem(HANDOFF.FROM_HUB, "1");
     } catch { /* localStorage 불가 — 엔진이 토큰 없이 시도한다 */ }
-    // 소켓을 먼저 넘긴 뒤 화면을 바꾼다 — 반대면 닫힌 소켓에 send 가 남는다.
+    // 동의 퇴장으로 소켓을 넘긴 뒤 화면을 바꾼다. 강제 close 로 쫓지 않는다.
     leaveOnceForHandoff(room);
     onStarted(payload);
   });
@@ -37,7 +41,7 @@ export function useGameRoom(
   joinRequest: JoinRequest | null,
   playerName: () => string,
   getClient: () => Client,
-  onRoomEnded: () => void,
+  onRoomEnded: (kind: RoomEndKind) => void,
   onResumeFailed: (message: string) => void,
 ): {
   room: Room<RosterSnapshot> | undefined;
@@ -60,7 +64,9 @@ export function useGameRoom(
             : joinRequest.kind === "resume"
               ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
               : await getClient().joinById(joinRequest.id, { name: settings.name });
+          let handedOff = false;
           handOffToGodot(r as unknown as BridgeableRoom, (payload): void => {
+            handedOff = true;
             setMatchInfo({
               roomId: r.roomId,
               name: playerName(),
@@ -71,7 +77,9 @@ export function useGameRoom(
             });
           });
           r.onLeave(() => {
-            onRoomEnded(); // Godot 양도/강제 단절 모두 — 캔버스가 있는 동안 UI 영향 없음
+            const kind: RoomEndKind = handedOff ? "handoff" : "drop";
+            if (kind === "drop") {setMatchInfo(null);}
+            onRoomEnded(kind);
           });
           return r;
         }

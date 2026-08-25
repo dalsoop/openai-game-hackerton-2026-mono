@@ -1,7 +1,8 @@
 // 허브 계약 정본(config.ts) 단위 테스트 — 키 추가·삭제 시 이곳에서 걸린다.
 // GD 거울(web_contract.gd)과의 정합은 check-contract.mjs 가 담당한다.
 import { describe, expect, it } from "vitest";
-import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO } from "@/lib/hub/config";
+import { CloseCode } from "@colyseus/sdk";
+import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE } from "@/lib/hub/config";
 
 describe("MSG 메시지 계약", () => {
   it("메시지 타입은 중복 없고 비어 있지 않다", () => {
@@ -48,5 +49,13 @@ describe("HUB_CONFIG", () => {
 
   it("ROOM_FULL 안내문에 최대 인원이 반영된다", () => {
     expect(KO.ROOM_FULL).toContain(String(HUB_CONFIG.maxPlayers));
+  });
+
+  it("워치독·종료 코드는 공식 SDK 값과 같다", () => {
+    expect(HUB_CONFIG.matchWatchdogMs).toBeGreaterThan(0);
+    expect(CLOSE_CODE.CONSENTED).toBe(CloseCode.CONSENTED);
+    expect(CLOSE_CODE.KICKED).toBe(CloseCode.CONSENTED);
+    expect(ROOM_LEAVE.HANDOFF).toBe(false);
+    expect(ROOM_LEAVE.CONSENTED).toBe(true);
   });
 });

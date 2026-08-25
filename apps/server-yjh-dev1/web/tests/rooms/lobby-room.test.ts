@@ -26,7 +26,7 @@ afterAll(async (): Promise<void> => {
 describe("LobbyRoom 규칙", () => {
   it("방 생성 — 기본 타이틀·로비 페이즈", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "첫호스트" });
-    expect(room.state.title).toContain("합본 #");
+    expect(room.state.title).toContain("방 #");
     expect(String(room.state.phase)).toBe("lobby");
     expect(room.state.players.length).toBe(0);
   });
@@ -96,6 +96,55 @@ describe("LobbyRoom 규칙", () => {
     expect(payload?.seed).toBeGreaterThan(0);
     expect(payload?.seats).toHaveLength(2);
     expect(payload?.seats.map((s) => s.name)).toEqual(["호스트", "게스트"]);
+  });
+
+  it("대기실 방장 퇴장 — 다음 접속자가 방장을 이어받는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    await room.waitForNextPatch();
+    await host.leave();
+    await room.waitForNextPatch();
+    expect(room.state.hostSessionId).toBe(guest.sessionId);
+    expect(String(room.state.phase)).toBe("lobby");
+  });
+
+  it("플레이 중 방장 좌석 제거 — 다음 접속자가 방장을 이어받고 매치는 유지된다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    const hostId = host.sessionId;
+    (room as unknown as { removeSeat: (id: string) => void }).removeSeat(hostId);
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    expect(room.state.hostSessionId).toBe(guest.sessionId);
+    expect(room.state.players.length).toBe(1);
+  });
+
+  it("대기실 동의 퇴장 — 좌석을 즉시 반납한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    await room.waitForNextPatch();
+    await guest.leave();
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(1);
+  });
+
+  it("플레이 중 동의 퇴장 — 좌석을 즉시 반납하고 방장을 넘긴다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+
+    await host.leave();
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    expect(room.state.players.length).toBe(1);
+    expect(room.state.hostSessionId).toBe(guest.sessionId);
   });
 
   it("방 닫기 — 재실자 강퇴·좌석 정리", async () => {

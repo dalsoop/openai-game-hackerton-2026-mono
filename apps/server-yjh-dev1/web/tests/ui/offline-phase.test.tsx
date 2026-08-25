@@ -38,7 +38,8 @@ describe("인트로 로그인 칩", () => {
   it("첫 방문(hasSavedName=false) — 칩 없음, 입력폼 렌더", () => {
     setup({ hasSavedName: false });
     expect(screen.queryByText(/로그인됨/)).toBeNull();
-    expect(screen.getByPlaceholderText(ko.intro.namePlaceholder)).toBeTruthy();
+    const input = screen.getByPlaceholderText(ko.intro.namePlaceholder);
+    expect(input.getAttribute("name")).toBe("player-name");
     expect(screen.getByText(ko.intro.startButton)).toBeTruthy();
   });
 
