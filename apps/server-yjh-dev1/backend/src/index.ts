@@ -12,7 +12,7 @@ const server = new Server({ transport: new WebSocketTransport({ server: httpServ
 
 server.define("lobby", LobbyRoom);
 
-setupMetrics(server);
+setupMetrics();
 
 server.listen(CONFIG.port).then(() => {
   const ids = allGames().map(g => g.id).join(", ");
