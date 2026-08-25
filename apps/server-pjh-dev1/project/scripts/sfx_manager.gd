@@ -63,19 +63,19 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 		elif event_type == &"shot_blocked":
 			var block_pos: Vector2 = event["data"].get("pos", _hero_pos(world, actor))
 			Audio.play_sfx_at("stone_hit", block_pos, -3.0, 0.04)
-			Audio.play_sfx_at("gun_ricochet", block_pos, -6.0, 0.06)
+			Audio.play_sfx_at("gun_ricochet", block_pos, -3.0, 0.06)
 			if actor == local_slot:
 				print("[gangup] sfx stone_hit")
 		elif event_type == &"crate_hit":
 			var crate_pos: Vector2 = event["data"].get("pos", Vector2.ZERO)
-			Audio.play_sfx_at("stone_tick", crate_pos, -6.0, 0.05)
+			Audio.play_sfx_at("stone_tick", crate_pos, -3.0, 0.05)
 		if event_type == &"tower_fire":
 			Audio.play_sfx_at("gun_fire_launcher", event["data"].get("pos", _hero_pos(world, actor)), -4.0, 0.03)
 			print("[gangup] sfx tower_fire")
 		if event_type == &"hero_hit" and involves:
 			var source := StringName(event["data"].get("source", &"normal"))
 			if source == &"safe_zone":
-				Audio.play_sfx("zone_tick", -8.0, 0.02)
+				Audio.play_sfx("zone_tick", -2.0, 0.02)
 				print("[gangup] sfx zone_tick")
 			elif source == &"normal" or source == &"equipment":
 				Audio.play_sfx("gun_hit", -3.0, 0.04)
@@ -92,7 +92,7 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 				hit_pause = maxi(hit_pause, 1)
 				Input.start_joy_vibration(0, 0.18, 0.34, 0.10)
 			elif source != &"safe_zone":
-				Audio.play_sfx("gun_hit", -5.0, 0.04)
+				Audio.play_sfx("gun_hit", -3.0, 0.04)
 				hit_pause = maxi(hit_pause, 1)
 		elif event_type == &"mobility_used" and involves:
 			var pick := 1
@@ -130,7 +130,7 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 			if actor == local_slot:
 				Input.start_joy_vibration(0, 0.30, 0.58, 0.18)
 		elif event_type == &"attack_evaded" and involves:
-			Audio.play_sfx("gun_ricochet", -6.0, 0.05)
+			Audio.play_sfx("gun_ricochet", -3.0, 0.05)
 			print("[gangup] sfx evade")
 		elif event_type == &"wall_bounce":
 			var wpick := 1
@@ -165,7 +165,7 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 					Audio.play_sfx_at("down_kill", _hero_pos(world, target), -4.0, 0.0)
 				print("[gangup] sfx down_kill actor=%s target=%s" % [actor, target])
 			else:
-				Audio.play_sfx("down_kill", -6.0, 0.0) if involves else Audio.play_sfx_at("down_kill", _hero_pos(world, target), -8.0, 0.0)
+				Audio.play_sfx("down_kill", -3.0, 0.0) if involves else Audio.play_sfx_at("down_kill", _hero_pos(world, target), -5.0, 0.0)
 				print("[gangup] sfx down")
 			if involves:
 				hit_pause = maxi(hit_pause, 5)
@@ -213,7 +213,7 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 			Audio.play_sfx("roulette", 2.0, 0.0)
 			print("[gangup] sfx roulette")
 		elif event_type == &"safe_zone_shrink":
-			Audio.play_sfx("zone_shrink", -14.0, 0.0)
+			Audio.play_sfx("zone_shrink", -2.0, 0.0)
 			print("[gangup] sfx zone_shrink phase=%s" % event["data"].get("phase", -1))
 		elif event_type == &"fight_countdown":
 			Audio.play_sfx("countdown", -3.0, 0.0)
