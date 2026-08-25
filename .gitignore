@@ -45,3 +45,7 @@ apps/*/project/web/manifest.json
 apps/*/web/.next/
 apps/*/web/node_modules/
 apps/*/web/next-env.d.ts
+
+# Colyseus GDExtension 플랫폼 바이너리 — 웹 wasm(서빙용)만 커밋한다 (2026-08-25 GH001 정리)
+apps/*/project/addons/colyseus/bin/*
+!apps/*/project/addons/colyseus/bin/libcolyseus_godot.web.wasm32.release.wasm
