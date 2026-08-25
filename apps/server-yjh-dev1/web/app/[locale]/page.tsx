@@ -3,6 +3,8 @@
 import type { JSX } from "react";
 import { useTranslations } from "next-intl";
 import { useGameFlow } from "@/hooks/useGameFlow";
+import { ConnectionLostModal } from "@/components/ConnectionLostModal";
+import { shouldShowConnectionLost } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
   LobbyPhase,
@@ -36,6 +38,7 @@ export default function Home(): JSX.Element {
     phase,
     name,
     setName,
+    resetName,
     hub,
     loader,
     matchInfo,
@@ -59,6 +62,7 @@ export default function Home(): JSX.Element {
   }
 
   const loadPct = Math.round(loader.progress * 100);
+  const lost = shouldShowConnectionLost(hub.status, phase);
 
   return (
     <div className="page-shell">
@@ -72,7 +76,9 @@ export default function Home(): JSX.Element {
         )}
       </header>
 
-      {(phase === "lobby" || phase === "room") &&
+      {lost && <ConnectionLostModal onReconnect={findRoom} onExit={backToIntro} />}
+
+      {(phase === "lobby" || phase === "room") && !lost &&
         (loader.state === "ready" ? (
           // 완료 상태는 배지로 — 전체 폭 바가 한 줄을 차지하는 위화감 제거
           <div className="ready-badge">
@@ -100,6 +106,7 @@ export default function Home(): JSX.Element {
           nickname={name}
           onNameChange={setName}
           onConnect={findRoom}
+          onResetName={resetName}
         />
       )}
 
@@ -111,7 +118,6 @@ export default function Home(): JSX.Element {
           onJoinRoom={hub.joinRoom}
           onRefresh={hub.refreshRooms}
           onBackToIntro={backToIntro}
-          onReconnect={findRoom}
         />
       )}
 

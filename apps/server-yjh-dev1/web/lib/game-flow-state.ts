@@ -19,3 +19,8 @@ export function phaseAfterMatchEnd(status: HubStatus): GamePhase {
 export function displayNameOf(name: string, defaultPlayer: string): string {
   return name.trim() || defaultPlayer;
 }
+
+/** 연결 끊김 모달 표시 여부 — 인트로(접속 전)는 모달 대상이 아니다. */
+export function shouldShowConnectionLost(status: HubStatus, phase: GamePhase): boolean {
+  return status === "offline" && phase !== "intro";
+}

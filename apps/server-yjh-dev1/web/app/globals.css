@@ -284,3 +284,16 @@ body.wait #wait { display: block; }
 /* --- ready badge (prefetch 완료 상태) --- */
 .ready-badge { display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; padding:4px 12px; font-size:11px; color:var(--green); background:rgba(93,217,124,.08); border:1px solid rgba(93,217,124,.35); border-radius:999px; }
 .ready-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
+/* --- modal (연결 끊김 등 복구 요청 대화상자) --- */
+.modal-overlay { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(6,8,12,.72); backdrop-filter:blur(3px); }
+.modal-card { width:min(360px, calc(100vw - 48px)); padding:24px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 18px 48px rgba(0,0,0,.5); }
+.modal-overlay.error .modal-card { border-color:rgba(255,93,93,.45); }
+.modal-title { margin:0 0 8px; font-size:16px; font-weight:700; color:var(--red); }
+.modal-body { margin:0 0 18px; font-size:13px; color:var(--tx-2); }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+
+/* --- 재방문 환영 뷰 --- */
+.welcome-box { display:flex; flex-direction:column; gap:10px; align-items:center; }
+.welcome-name { color:var(--tx-0); font-size:18px; font-weight:700; text-align:center; }
+.btn-text { background:none; border:none; color:var(--tx-2); font-size:12px; cursor:pointer; text-decoration:underline; padding:2px 6px; }
+.btn-text:hover { color:var(--tx-1); }

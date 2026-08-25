@@ -4,7 +4,7 @@ import { persistableNickname } from "@/lib/session-codec";
 
 const NAME_KEY = "dagul_nickname";
 
-export function useSession(): { nickname: string; saveNickname: (name: string) => void } {
+export function useSession(): { nickname: string; saveNickname: (name: string) => void; clearNickname: () => void } {
   const [nickname, setNickname] = useState("");
 
   useEffect(() => {
@@ -21,5 +21,10 @@ export function useSession(): { nickname: string; saveNickname: (name: string) =
     }
   }
 
-  return { nickname, saveNickname };
+  function clearNickname(): void {
+    localStorage.removeItem(NAME_KEY);
+    setNickname("");
+  }
+
+  return { nickname, saveNickname, clearNickname };
 }

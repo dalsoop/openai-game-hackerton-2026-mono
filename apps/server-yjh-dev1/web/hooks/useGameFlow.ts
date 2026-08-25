@@ -13,6 +13,7 @@ export interface UseGameFlowResult {
   name: string;
   displayName: string;
   setName: (name: string) => void;
+  resetName: () => void;
   hub: ReturnType<typeof useHub>;
   loader: ReturnType<typeof useGodotLoader>;
   matchInfo: MatchInfo;
@@ -25,7 +26,7 @@ export interface UseGameFlowResult {
 }
 
 export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowResult {
-  const { nickname, saveNickname } = useSession();
+  const { nickname, saveNickname, clearNickname } = useSession();
   const hub = useHub(game);
   const loader = useGodotLoader(game);
   const [phase, setPhase] = useState<GamePhase>("intro");
@@ -84,11 +85,17 @@ export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowRes
 
   const errorToIntro = useCallback(() => setPhase("intro"), []);
 
+  const resetName = useCallback(() => {
+    clearNickname();
+    setName("");
+  }, [clearNickname]);
+
   return {
     phase,
     name,
     displayName,
     setName,
+    resetName,
     hub,
     loader,
     matchInfo,

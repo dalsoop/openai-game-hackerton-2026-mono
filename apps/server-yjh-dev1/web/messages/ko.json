@@ -24,7 +24,10 @@
   "intro": {
     "namePlaceholder": "내 이름",
     "startButton": "시작하기",
-    "defaultPlayer": "플레이어"
+    "defaultPlayer": "플레이어",
+    "welcomeBack": "{name}님, 다시 오셨네요",
+    "continue": "계속하기",
+    "changeName": "이름 변경"
   },
   "logo": {
     "word": "다굴즈"

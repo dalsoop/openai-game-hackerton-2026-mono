@@ -24,7 +24,10 @@
   "intro": {
     "namePlaceholder": "Your Name",
     "startButton": "Start",
-    "defaultPlayer": "Player"
+    "defaultPlayer": "Player",
+    "welcomeBack": "Welcome back, {name}",
+    "continue": "Continue",
+    "changeName": "Change name"
   },
   "logo": {
     "word": "Dagulz"

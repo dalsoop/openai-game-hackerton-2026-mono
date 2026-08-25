@@ -109,7 +109,7 @@ void app.prepare().then(async () => {
   // dev 에서 핫리로드가 죽는다. 그 외 업그레이드는 Colyseus 가 가져간다.
   const nextUpgrade = app.getUpgradeHandler();
   httpServer.on("upgrade", (req, socket, head) => {
-    if ((req.url || "").startsWith("/_next")) {nextUpgrade(req, socket, head);}
+    if ((req.url || "").startsWith("/_next")) {void nextUpgrade(req, socket, head);}
   });
 
   const transport = new WebSocketTransport({ noServer: true, maxPayload: HUB_CONFIG.maxPayload });

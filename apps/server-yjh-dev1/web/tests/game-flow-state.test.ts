@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, phaseAfterMatchEnd, phaseFromHubStatus } from "@/lib/game-flow-state";
+import { displayNameOf, phaseAfterMatchEnd, phaseFromHubStatus, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -31,5 +31,19 @@ describe("displayNameOf", () => {
   it("빈 값은 기본 플레이어", () => {
     expect(displayNameOf("", "기본")).toBe("기본");
     expect(displayNameOf("   ", "기본")).toBe("기본");
+  });
+});
+
+describe("shouldShowConnectionLost — 모달 표시 조건", () => {
+  it("인트로(접속 전) 오프라인은 모달 아님", () => {
+    expect(shouldShowConnectionLost("offline", "intro")).toBe(false);
+  });
+
+  it.each(["lobby", "room", "playing"] as GamePhase[])("진행 중(%s) 오프라인은 모달", (phase) => {
+    expect(shouldShowConnectionLost("offline", phase)).toBe(true);
+  });
+
+  it.each(["connecting", "lobby", "in-room", "playing"] as HubStatus[])("오프라인이 아니면(%s) 모달 아님", (status) => {
+    expect(shouldShowConnectionLost(status, "lobby")).toBe(false);
   });
 });
