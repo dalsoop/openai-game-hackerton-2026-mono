@@ -47,7 +47,10 @@ const SOUNDS := {
 	"dash_1": "res://assets/sfx/dash_1.wav",
 	"dash_2": "res://assets/sfx/dash_2.wav",
 	"ultimate": "res://assets/sfx/ultimate.wav",
-	"wall_bounce": "res://assets/sfx/wall_bounce.wav",
+	"wall_bounce": "res://assets/sfx/wall_bounce_1.wav",
+	"wall_bounce_1": "res://assets/sfx/wall_bounce_1.wav",
+	"wall_bounce_2": "res://assets/sfx/wall_bounce_2.wav",
+	"wall_bounce_3": "res://assets/sfx/wall_bounce_3.wav",
 	"core_hit": "res://assets/sfx/core_hit.wav",
 	"gun_upgrade": "res://assets/sfx/gun_upgrade.wav",
 	"medkit": "res://assets/sfx/medkit.wav",
@@ -62,6 +65,8 @@ const SOUNDS := {
 	"countdown": "res://assets/sfx/countdown.wav",
 	"ready_to_fight": "res://assets/sfx/ready_to_fight.wav",
 	"roulette": "res://assets/sfx/roulette.wav",
+	"power_up": "res://assets/sfx/power_up.wav",
+	"down_kill": "res://assets/sfx/down_kill.wav",
 }
 
 const MUSIC := {

@@ -53,22 +53,28 @@ func _build_music_players() -> void:
 	_music_b.bus = &"World"
 	add_child(_music_b)
 
+func _bus_for(sound_id: String) -> StringName:
+	if sound_id.begins_with("gun_fire"):
+		return &"Arena"
+	return &"World"
+
 func play_sfx(sound_id: String, volume_db: float = -5.0, pitch_variance: float = 0.04) -> void:
 	var stream = Catalog.stream_for(sound_id)
 	if stream == null:
 		return
-	_play_stream(stream, volume_db, pitch_variance)
+	_play_stream(stream, volume_db, pitch_variance, _bus_for(sound_id))
 
 func play_stream(stream: AudioStream, volume_db: float = -5.0, pitch_variance: float = 0.04) -> void:
 	if stream == null:
 		return
-	_play_stream(stream, volume_db, pitch_variance)
+	_play_stream(stream, volume_db, pitch_variance, &"World")
 
-func _play_stream(stream: AudioStream, volume_db: float, pitch_variance: float) -> void:
+func _play_stream(stream: AudioStream, volume_db: float, pitch_variance: float, bus: StringName = &"World") -> void:
 	if _sfx_players.is_empty():
 		return
 	var player := _sfx_players[_sfx_cursor]
 	_sfx_cursor = (_sfx_cursor + 1) % _sfx_players.size()
+	player.bus = bus
 	player.stream = stream
 	player.volume_db = volume_db + linear_to_db(sfx_volume * master_volume)
 	if pitch_variance > 0.0:
@@ -85,6 +91,7 @@ func play_music(track: String, crossfade: float = CROSSFADE_DEFAULT) -> void:
 		print("[gangup] music null %s" % track)
 		return
 	_current_track = track
+	_set_music_pitch(1.0)
 	print("[gangup] music play %s" % track)
 	_start_music(stream, crossfade)
 
@@ -103,6 +110,7 @@ func _start_music(stream: AudioStream, crossfade: float) -> void:
 
 func stop_music(fade_out: float = 0.5) -> void:
 	_current_track = ""
+	_set_music_pitch(1.0)
 	print("[gangup] music stop")
 	if fade_out <= 0.0:
 		_music_a.stop()
@@ -131,6 +139,18 @@ func _process(delta: float) -> void:
 		_music_a = _music_b
 		_music_b = tmp
 
+
+func hurry_music(scale: float = 1.3) -> void:
+	_set_music_pitch(scale)
+	print("[gangup] music hurry %s" % scale)
+
+func _set_music_pitch(scale: float) -> void:
+	var p := clampf(scale, 0.5, 2.0)
+	if _music_a != null:
+		_music_a.pitch_scale = p
+	if _music_b != null:
+		_music_b.pitch_scale = p
+
 func set_master_volume(vol: float) -> void:
 	master_volume = clampf(vol, 0.0, 1.0)
 
@@ -144,13 +164,18 @@ func set_music_volume(vol: float) -> void:
 
 
 
-func _setup_world_bus() -> void:
-	if AudioServer.get_bus_index("World") == -1:
+func _ensure_bus(name: String, send: String) -> int:
+	var idx := AudioServer.get_bus_index(name)
+	if idx == -1:
 		AudioServer.add_bus()
-		var idx := AudioServer.bus_count - 1
-		AudioServer.set_bus_name(idx, "World")
-		AudioServer.set_bus_send(idx, "Master")
-	var widx := AudioServer.get_bus_index("World")
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, name)
+	AudioServer.set_bus_send(idx, send)
+	return idx
+
+func _setup_world_bus() -> void:
+	var widx := _ensure_bus("World", "Master")
+	var aidx := _ensure_bus("Arena", "World")
 	var has_lp := false
 	for i in AudioServer.get_bus_effect_count(widx):
 		if AudioServer.get_bus_effect(widx, i) is AudioEffectLowPassFilter:
@@ -162,24 +187,47 @@ func _setup_world_bus() -> void:
 		_lp.cutoff_hz = 20500.0
 		_lp.resonance = 0.35
 		AudioServer.add_bus_effect(widx, _lp)
+	var has_rv := false
+	for i in AudioServer.get_bus_effect_count(aidx):
+		if AudioServer.get_bus_effect(aidx, i) is AudioEffectReverb:
+			has_rv = true
+			break
+	if not has_rv:
+		var rv := AudioEffectReverb.new()
+		rv.room_size = 0.42
+		rv.damping = 0.78
+		rv.spread = 0.85
+		rv.hipass = 0.22
+		rv.dry = 1.0
+		rv.wet = 0.14
+		rv.predelay_msec = 16.0
+		rv.predelay_feedback = 0.04
+		AudioServer.add_bus_effect(aidx, rv)
 	if _impact == null:
 		_impact = AudioStreamPlayer.new()
 		_impact.name = "ImpactSfx"
 		_impact.bus = &"Master"
 		add_child(_impact)
-	print("[gangup] audio world bus")
+	print("[gangup] audio world+arena bus")
 
 func play_impact(sound_id: String, volume_db: float = -2.0) -> void:
 	var stream = Catalog.stream_for(sound_id)
 	if stream == null:
+		stream = Catalog._load_wav_raw(Catalog.SOUNDS.get(sound_id, ""))
+		print("[gangup] sfx impact raw %s" % sound_id)
+	if stream == null:
+		print("[gangup] sfx impact miss %s" % sound_id)
 		return
 	if _impact == null:
-		_play_stream(stream, volume_db, 0.0)
+		_play_stream(stream, volume_db, 0.0, &"Master")
+		print("[gangup] sfx impact pool %s db=%s" % [sound_id, volume_db])
 		return
+	_impact.bus = &"Master"
 	_impact.stream = stream
 	_impact.volume_db = volume_db + linear_to_db(sfx_volume * master_volume)
 	_impact.pitch_scale = 1.0
 	_impact.play()
+	print("[gangup] sfx impact %s db=%s" % [sound_id, volume_db])
 
 func muffle(seconds: float = 0.9) -> void:
 	_muffle_t = 0.0
@@ -237,6 +285,7 @@ func play_sfx_at(sound_id: String, pos: Vector2, volume_db: float = -5.0, pitch_
 		return
 	var player := _world_players[_world_cursor]
 	_world_cursor = (_world_cursor + 1) % _world_players.size()
+	player.bus = _bus_for(sound_id)
 	player.stream = stream
 	player.global_position = pos
 	player.volume_db = volume_db + linear_to_db(sfx_volume * master_volume)
@@ -308,5 +357,20 @@ func _hook_button(n: Node) -> void:
 		n.pressed.connect(_on_ui_button)
 
 func _on_ui_button() -> void:
-	play_sfx("ui_click", -8.0, 0.02)
+	play_ui("ui_click", -8.0, 0.02)
 	print("[gangup] sfx ui_click")
+
+func play_ui(sound_id: String, volume_db: float = -8.0, pitch_variance: float = 0.02) -> void:
+	var stream = Catalog.stream_for(sound_id)
+	if stream == null:
+		return
+	if _impact == null:
+		_play_stream(stream, volume_db, pitch_variance)
+		return
+	_impact.stream = stream
+	_impact.volume_db = volume_db + linear_to_db(sfx_volume * master_volume)
+	if pitch_variance > 0.0:
+		_impact.pitch_scale = 1.0 - pitch_variance + randf() * pitch_variance * 2.0
+	else:
+		_impact.pitch_scale = 1.0
+	_impact.play()

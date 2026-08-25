@@ -104,6 +104,8 @@ func tick_finish_cine(command: Dictionary, dt: float) -> void:
             w.finish_cine["hit"] = true
             w.finish_cine["hit_age"] = maxf(0.0, float(w.finish_cine.get("t", 0.0)) - FINISH_PREP - FINISH_RUSH)
             w.finish_cine["fly"] = 0.0
+            w.event_log.emit(w.tick, &"finish_hit", atk, vic, {})
+            print("[gangup] finish hit atk=%s vic=%s" % [atk, vic])
 
 func wool_shield_pos(h: Dictionary) -> Vector2:
     return Vector2(h["pos"])

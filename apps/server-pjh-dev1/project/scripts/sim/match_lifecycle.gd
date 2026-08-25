@@ -263,7 +263,7 @@ func apply_lethal_or_down(owner: int, target: int, extra: float) -> void:
 		h["down_taken"] = float(h.get("down_taken", 0.0)) + maxf(0.0, extra)
 		w.heroes[target] = h
 		if float(h["down_taken"]) >= w.DOWN_FINISH_HP:
-			down_hero(owner, target)
+			down_hero(owner, target, true)
 		return
 	if float(h.get("hp", 0.0)) <= 0.0:
 		enter_down(owner, target)
@@ -333,7 +333,7 @@ func tick_downs(dt: float) -> void:
 			else:
 				stand_up(slot)
 
-func down_hero(owner: int, target: int) -> void:
+func down_hero(owner: int, target: int, executed: bool = false) -> void:
 	var h: Dictionary = w.heroes[target]
 	var defeated_streak = int(h.get("kill_streak", 0))
 	var death_velocity: Vector2 = h["launch_vel"]
@@ -410,7 +410,7 @@ func down_hero(owner: int, target: int) -> void:
 	var streak_after = int(reward["streak_after"])
 	var shutdown_bonus = float(reward["shutdown_bonus"])
 	w.impact_pos = Vector2(h["pos"])
-	w.event_log.emit(w.tick, &"hero_downed", owner, target, {"streak":streak_after, "ended_streak":defeated_streak, "shutdown_bonus":shutdown_bonus, "revives_used":int(h.get("revives_used", 0)), "eliminated":bool(h["eliminated"])})
+	w.event_log.emit(w.tick, &"hero_downed", owner, target, {"streak":streak_after, "ended_streak":defeated_streak, "shutdown_bonus":shutdown_bonus, "revives_used":int(h.get("revives_used", 0)), "eliminated":bool(h["eliminated"]), "executed":executed})
 	if bool(h["eliminated"]):
 		w.event_log.emit(w.tick, &"player_eliminated", owner, target, {"source":&"death"})
 		if owner >= 0:
