@@ -1,6 +1,8 @@
 class_name RenderEnvironment
 extends RefCounted
 
+const CRATE_ORB_ATLAS: Texture2D = preload("res://assets/fx/pickups/Tex_FX_CrateEnergyOrb_4x2.png")
+
 var r: Node2D
 var world
 
@@ -234,11 +236,21 @@ func draw_crate_orbs() -> void:
 		if not bool(orb.get("active", true)):
 			continue
 		var pos: Vector2 = orb["pos"]
-		var pulse := 1.0 + sin(float(world.tick) * 0.18) * 0.12
-		var tint := Color("#ff4f4f") if bool(orb.get("red", true)) else Color("#4f8cff")
-		r.draw_circle(pos, 18.0 * pulse, Color(tint, 0.18))
-		r.draw_circle(pos, 11.0 * pulse, Color(tint, 0.92))
-		r.draw_arc(pos, 16.0 * pulse, 0.0, TAU, 22, Color.WHITE, 2.0)
+		var frame := posmod(int(world.tick / 5), 4)
+		var row := 0 if bool(orb.get("red", true)) else 1
+		var cell_size := Vector2(
+			float(CRATE_ORB_ATLAS.get_width()) / 4.0,
+			float(CRATE_ORB_ATLAS.get_height()) / 2.0
+		)
+		# The generated cells are portrait-shaped; crop their centered square so the orb is not squashed.
+		var crop_size := minf(cell_size.x, cell_size.y)
+		var src_pos := Vector2(
+			float(frame) * cell_size.x + (cell_size.x - crop_size) * 0.5,
+			float(row) * cell_size.y + (cell_size.y - crop_size) * 0.5
+		)
+		var pulse := 1.0 + sin(float(world.tick) * 0.12) * 0.04
+		var draw_size := Vector2.ONE * 58.0 * pulse
+		r.draw_texture_rect_region(CRATE_ORB_ATLAS, Rect2(pos - draw_size * 0.5, draw_size), Rect2(src_pos, Vector2.ONE * crop_size))
 
 func draw_mid_tower() -> void:
 	if world == null or not bool(world.mid_tower.get("alive", false)):
