@@ -25,8 +25,8 @@ export const CONNECTION_CLASS: Record<HubStatus, string> = {
  * 방 입장 요청 타입
  */
 export type JoinRequest =
-  | { kind: "create"; game?: string; pin?: string }
-  | { kind: "join"; id: string; game?: string; pin?: string }
+  | { kind: "create"; game?: string }
+  | { kind: "join"; id: string; game?: string }
   | { kind: "resume" };
 
 /**
@@ -39,7 +39,6 @@ export interface HubRoom {
   players: number;
   mode: string;
   playing: boolean;
-  locked: boolean;
 }
 
 /**

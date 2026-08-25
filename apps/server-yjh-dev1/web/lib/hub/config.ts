@@ -40,6 +40,11 @@ export const HANDOFF = {
   MATCH: "gangup_match",
 } as const;
 
+// 내장 리스트 룸(LobbyRoom)의 공식 프로토콜 메시지 — Colyseus 문서 값 그대로.
+export const LIST_MSG = { ADD: "+", REMOVE: "-" } as const;
+// WebSocket close 코드 — 4000 대역이 "앱 정의 동의 종료" 관례다.
+export const CLOSE_CODE = { KICKED: 4000 } as const;
+
 export const DOM_EVT = {
   MATCH_START: "godot-match-start",
   MATCH_END: "godot-match-end",
@@ -57,9 +62,6 @@ export const KO = {
   MODE_FULL: "합본",
   MODE_FULL_BLURB: "단발 권총 시작. 총과 아이템을 같이 줍는다.",
   ROOM_NOT_FOUND: "방을 찾을 수 없습니다",
-  WRONG_PIN: "방 비밀번호가 틀렸습니다",
-  PIN_CREATE_PROMPT: "방 비밀번호 (숫자 4~8자리) — 없이 만들려면 취소",
-  PIN_JOIN_PROMPT: "🔒 잠긴 방입니다 — 비밀번호를 입력하세요",
   ROOM_FULL: `방이 가득 찼습니다 (${HUB_CONFIG.maxPlayers})`,
   CANNOT_CHANGE_MODE: "지금은 게임을 바꿀 수 없습니다",
   HOST_ONLY_MODE: "호스트만 게임을 바꿀 수 있습니다",

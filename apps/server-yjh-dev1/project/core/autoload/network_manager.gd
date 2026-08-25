@@ -91,14 +91,14 @@ func _on_left(_code: int, _reason: String) -> void:
 func _on_message(type: Variant, data: Variant) -> void:
     var msg: Dictionary = data if data is Dictionary else {}
     match str(type):
-        "start":
+        WebContract.MSG_START:
             _apply_start(msg)
-        "snap":
+        WebContract.MSG_SNAP:
             if not msg.is_empty():
                 snapshot_received.emit(msg)
-        "peer_input":
+        WebContract.MSG_PEER_INPUT:
             peer_input_received.emit(int(msg.get("slot", -1)), msg)
-        "error":
+        WebContract.MSG_ERROR:
             hub_error.emit(str(msg.get("msg", "")))
 
 ## Godot 는 START 이후에 부팅하므로, 페이지가 남겨둔 시작 정보를 가져온다.
@@ -154,10 +154,10 @@ func send_input(move: Vector2, fire: bool, dash: bool, use: bool, aim: Vector2, 
     var msg := {"mx": move.x, "my": move.y, "fire": fire, "dash": dash, "use": use, "aimX": aim.x, "aimY": aim.y}
     if seq > 0:
         msg["seq"] = seq
-    _send("input", msg)
+    _send(WebContract.MSG_INPUT, msg)
 
 func send_snap(snap: Dictionary) -> void:  # lint-gd: public-api
-    _send("host_snap", snap)
+    _send(WebContract.MSG_HOST_SNAP, snap)
 
 func leave_room() -> void:  # lint-gd: public-api
     _deliberate_leave = true

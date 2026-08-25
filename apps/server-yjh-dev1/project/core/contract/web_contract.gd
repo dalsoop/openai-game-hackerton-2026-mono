@@ -15,6 +15,14 @@ const KEY_RESUME := "gangup_resume"
 # 매치 시작 정보(START payload) — React 가 남기고 Godot 가 읽고 지운다
 const KEY_MATCH := "gangup_match"
 
+# 커스텀 메시지 타입 (web/lib/hub/config.ts MSG 와 1:1 거울 — check-contract 대조)
+const MSG_START := "start"
+const MSG_INPUT := "input"
+const MSG_HOST_SNAP := "host_snap"
+const MSG_SNAP := "snap"
+const MSG_PEER_INPUT := "peer_input"
+const MSG_ERROR := "error"
+
 # DOM CustomEvent (Godot가 쏘고 React가 받는다)
 const EVT_MATCH_START := "godot-match-start"
 const EVT_MATCH_END := "godot-match-end"

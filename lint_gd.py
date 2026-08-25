@@ -11,6 +11,8 @@ Rules:
   ws-client-dup     : GD 자체 WebSocket 금지 — 네트워크는 페이지 브릿지 경유
   core-games        : core/ 가 games/ 를 참조 금지 — 셸은 게임을 모른다
   dead-autoload-api : autoload 공개 멤버(전 프로젝트 사용 0회) — # lint-gd: public-api 로 예외
+  contract-msg      : 커스텀 메시지 타입 리터럴 금지 — web_contract.gd MSG_* 만
+  contract-handoff  : gangup_ 키 리터럴 금지 — web_contract.gd KEY_* 만
 
 Baseline (래칫):
   --baseline PATH          규칙별 위반 수가 baseline 초과면 exit 1 (이하면 통과)
@@ -43,6 +45,11 @@ BANNED_FILES = {
 RE_LOBBY_VERB = re.compile(r'"t"\s*:\s*"(create|join|rooms|kick|mode|chat)"')
 RE_WS_NEW = re.compile(r'WebSocketPeer\.new\(\)')
 RE_GAMES_REF = re.compile(r'res://games/')
+RE_CONTRACT_MSG = re.compile(
+    r'(?:_send|send_message)\(\s*"(start|input|host_snap|snap|peer_input|error|room_toggle|kicked)"'
+    r'|^\s+"(start|host_snap|snap|peer_input)"\s*:'
+)
+RE_CONTRACT_HANDOFF = re.compile(r'"gangup_[a-z0-9_]+"')
 
 
 def indent_level(line: str) -> int:
@@ -94,6 +101,14 @@ def lint_file(path: pathlib.Path):
 
         if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name not in ('game_registry.gd', 'boot.gd'):
             findings.append((i, 'core-games', 'core/ 는 games/ 를 참조할 수 없다 — 계약(GameModule)으로 우회'))
+
+        if path.name != 'web_contract.gd':
+            if RE_CONTRACT_MSG.search(line):
+                findings.append((i, 'contract-msg',
+                                 '메시지 타입 리터럴 금지 — WebContract.MSG_* 상수로'))
+            if RE_CONTRACT_HANDOFF.search(line):
+                findings.append((i, 'contract-handoff',
+                                 '핸드오프 키 리터럴 금지 — WebContract.KEY_* 상수로'))
 
     check_func_end(len(lines) + 1)
     return findings

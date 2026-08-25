@@ -4,6 +4,36 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 import i18nextPlugin from "eslint-plugin-i18next";
 
+// 허브 계약 리터럴 — 값은 lib/hub/config.ts 정본만 쓴다 (한글 규칙과 같이 묶음).
+const CONTRACT_SYNTAX = [
+  {
+    selector: "Literal[value=/^gangup_/]",
+    message: "핸드오프 키 리터럴 금지 — lib/hub/config.ts HANDOFF 상수로.",
+  },
+  {
+    selector: "CallExpression[callee.property.name=/^(send|onMessage|broadcast)$/] > Literal[value=/^(welcome|hello|rooms|create|join|leave|start|kick|input|host_snap|snap|peer_input|peer_parked|peer_reclaimed|joined|peers|left|kicked|room_toggle|lobby|error|ping|pong|dropped|resume|mode)$/]",
+    message: "메시지 타입 리터럴 금지 — lib/hub/config.ts MSG 상수로.",
+  },
+  {
+    selector: "CallExpression[callee.property.name='onMessage'] > Literal[value=/^[+-]$/]",
+    message: "리스트 룸 프로토콜 리터럴 금지 — lib/hub/config.ts LIST_MSG 상수로.",
+  },
+  {
+    selector: "CallExpression[callee.property.name='leave'] > Literal[value=4000]",
+    message: "종료 코드 리터럴 금지 — lib/hub/config.ts CLOSE_CODE 상수로.",
+  },
+];
+
+const KOREAN_SYNTAX = {
+  selector: "Literal[value=/[가-힣]/]",
+  message: "하드코딩 한글 금지 — messages/*.json(i18n) 또는 lib/hub/config.ts KO 상수로. 예외는 eslint-disable + 사유.",
+};
+
+const PAGE_HOOK_SYNTAX = {
+  selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
+  message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
+};
+
 const config = [
   // public/godot 는 Godot 빌드 산출물(wasm glue) — 생성물은 lint 하지 않는다.
   { ignores: ["dist/", ".next/", "node_modules/", "styles/", "public/"] },
@@ -57,14 +87,8 @@ const config = [
       "no-else-return": "error",
       // || 폴스티 삼킴 방지 — 널 병합은 ?? 로만 (문자열 ""·숫자 0·false 오용 차단)
       "@typescript-eslint/prefer-nullish-coalescing": "error",
-      // 하드코딩 한글 문구 금지 — 문구 SSOT는 messages/*.json, 서버 안내문은 lib/hub/config KO
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "Literal[value=/[가-힣]/]",
-          message: "하드코딩 한글 금지 — messages/*.json(i18n) 또는 lib/hub/config.ts KO 상수로. 예외는 eslint-disable + 사유.",
-        },
-      ],
+      // 하드코딩 한글·계약 리터럴 금지 — 문구는 i18n/KO, 프로토콜은 config 상수
+      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX],
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -132,13 +156,7 @@ const config = [
   {
     files: ["app/**/page.tsx", "components/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
-          message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
-        },
-      ],
+      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX],
     },
   },
 

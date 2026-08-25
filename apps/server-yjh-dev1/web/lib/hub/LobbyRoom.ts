@@ -1,8 +1,8 @@
 import { Room, type Client } from "colyseus";
 import { Schema, ArraySchema, type } from "@colyseus/schema";
-import { HUB_CONFIG, MSG, KO, MODES } from "./config.js";
+import { HUB_CONFIG, MSG, KO, MODES, CLOSE_CODE } from "./config.js";
+import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
 import { asGameId } from "../games/catalog.js";
-import { parsePin, parsePlayerName, parseRoomTitle, type Pin } from "./room-options.js";
 
 // 다굴 로비/대기실/릴레이 — Colyseus 상태 동기화로 표현한다.
 // 방 상태(멤버·phase·호스트)는 state 가 전부이고,
@@ -31,17 +31,16 @@ export class LobbyRoom extends Room {
   private gameTimer: { clear(): void } | null = null;
   private lastSnap: Record<string, unknown> | null = null;
   private prevSnap: Record<string, unknown> | null = null;
-  private pin = "";
 
-  onCreate(options: { game?: unknown; title?: unknown; name?: unknown; pin?: unknown }): void {
+  onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
     this.maxClients = HUB_CONFIG.maxPlayers;
-    this.state.gameId = asGameId(options.game); // 카탈로그 등재 게임만 확정
-    this.state.title = parseRoomTitle(
-      options.title, HUB_CONFIG.maxTitleLength,
-      `${MODES[HUB_CONFIG.defaultMode].title} #${this.roomId}`,
+    const settings = parseRoomSettings(
+      options,
+      hubLimits(`${MODES[HUB_CONFIG.defaultMode].title} #${this.roomId}`),
     );
-    this.pin = parsePin(options.pin) ?? "";
-    void this.setMetadata({ gameId: this.state.gameId, title: this.state.title, mode: this.state.mode, phase: this.state.phase, locked: this.pin !== "" });
+    this.state.gameId = settings.game;
+    this.state.title = settings.title;
+    void this.setMetadata({ gameId: this.state.gameId, title: this.state.title, mode: this.state.mode, phase: this.state.phase });
   }
 
   // 공식 0.17 선언적 메시지 핸들러 — onCreate 의 this.onMessage 등록을 대체한다.
@@ -52,20 +51,17 @@ export class LobbyRoom extends Room {
     [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
   };
 
-  // 입장 인증(공식 onAuth) — 닫힌 방·PIN 불일치 거부.
-  // create 첫 입장은 options.pin 으로 방을 만들었으므로 자동으로 일치한다.
-  onAuth(_client: Client, options: { pin?: unknown }): boolean {
+  // 입장 인증(공식 onAuth) — 닫힌 방 거부.
+  onAuth(_client: Client, _options: Record<string, unknown>): boolean {
     if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
-    if (this.pin === "") {return true;}
-    if (parsePin(options.pin) === (this.pin as Pin)) {return true;}
-    throw new Error(KO.WRONG_PIN);
+    return true;
   }
 
   onJoin(client: Client, options: { name?: string }): void {
     const p = new PlayerSchema();
     p.slot = this.freeSlot();
     p.sessionId = client.sessionId;
-    p.name = parsePlayerName(options.name, HUB_CONFIG.maxNameLength, KO.DEFAULT_NAME);
+    p.name = parsePlayerName(options.name, HUB_CONFIG.maxNameLength, HUB_CONFIG.defaultName);
     this.state.players.push(p);
     this.syncHost();
   }
@@ -123,7 +119,7 @@ export class LobbyRoom extends Room {
     for (const c of this.clients) {
       if (c.sessionId === this.state.hostSessionId) {continue;}
       c.send(MSG.KICKED, { msg: KO.KICKED_MSG });
-      c.leave(4000); // 동의 코드 — onLeave 즉시 좌석 정리
+      c.leave(CLOSE_CODE.KICKED); // 동의 코드 — onLeave 즉시 좌석 정리
     }
   }
 

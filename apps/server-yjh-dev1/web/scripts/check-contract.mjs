@@ -56,6 +56,15 @@ for (const [label, tsVal, gdName] of pairs) {
   else if (tsVal !== gdVal) fail(`${label}: 정본 "${tsVal}" ≠ 거울 "${gdVal}"`);
 }
 
+// 커스텀 메시지 타입 거울 — TS MSG 와 web_contract.gd MSG_* 가 1:1 이어야 한다.
+const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "ERROR"];
+const msgBlock = ts.match(/export const MSG = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
+for (const key of MSG_KEYS) {
+  const tsVal = msgBlock.match(new RegExp(`(?:^|[\\s,{])${key}: "([^"]+)"`))?.[1];
+  const gdVal = gdConst(`MSG_${key}`);
+  if (!tsVal || tsVal !== gdVal) {fail(`MSG.${key}: 정본 "${tsVal}" ≠ 거울 MSG_${key} "${gdVal}"`);}
+}
+
 // 기본 모드
 const tsMode = ts.match(/defaultMode:\s*"([^"]+)"/)?.[1];
 const gdMode = gdConst("DEFAULT_MODE");
@@ -87,4 +96,4 @@ if (errors > 0) {
   console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(config.ts)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
 }
-console.log("check-contract: 정본-거울 일치 (키 7종 + defaultMode) · Godot 산출물 버전 무결");
+console.log("check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + defaultMode) · Godot 산출물 버전 무결");

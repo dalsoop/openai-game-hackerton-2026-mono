@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import type { Room, RoomAvailable } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
-import { MSG, LIST_ROOM_NAME } from "@/lib/hub/config";
+import { LIST_MSG, MSG, LIST_ROOM_NAME } from "@/lib/hub/config";
 import { toHubRoom, replaceList, upsertRoom, removeRoom } from "@/lib/hub/room-mapper";
 import type { HubRoom } from "@/types";
 import type { Client } from "@colyseus/sdk";
@@ -22,10 +22,10 @@ export function useRoomList(active: boolean, getClient: () => Client): {
       ? async (): Promise<Room> => {
           const list = await getClient().joinOrCreate(LIST_ROOM_NAME);
           list.onMessage(MSG.ROOMS, (r: RoomAvailable[]) => {setRoomList((prev) => replaceList(prev, r));});
-          list.onMessage("+", ([roomId, room]: [string, RoomAvailable]) => {
+          list.onMessage(LIST_MSG.ADD, ([roomId, room]: [string, RoomAvailable]) => {
             setRoomList((prev) => upsertRoom(prev, roomId, room));
           });
-          list.onMessage("-", (roomId: string) => {
+          list.onMessage(LIST_MSG.REMOVE, (roomId: string) => {
             setRoomList((prev) => removeRoom(prev, roomId));
           });
           return list;

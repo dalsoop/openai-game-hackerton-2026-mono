@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { RoomAvailable } from "@colyseus/sdk";
 import { removeRoom, toHubRoom, upsertRoom } from "@/lib/hub/room-mapper";
 
-const avail = (id: string, clients = 1, phase = "lobby", locked = false): RoomAvailable =>
-  ({ roomId: id, clients, metadata: { title: `방${id}`, mode: "solo", phase, locked } }) as unknown as RoomAvailable;
+const avail = (id: string, clients = 1, phase = "lobby"): RoomAvailable =>
+  ({ roomId: id, clients, metadata: { title: `방${id}`, mode: "solo", phase } }) as unknown as RoomAvailable;
 
 describe("toHubRoom — 뷰 모델 매핑", () => {
   it("메타데이터 → HubRoom", () => {
-    expect(toHubRoom(avail("r1", 3, "playing", true))).toEqual({
-      id: "r1", gameId: "", title: "방r1", players: 3, mode: "solo", playing: true, locked: true,
+    expect(toHubRoom(avail("r1", 3, "playing"))).toEqual({
+      id: "r1", gameId: "", title: "방r1", players: 3, mode: "solo", playing: true,
     });
   });
   it("메타 없으면 기본값", () => {
     const bare = { roomId: "r2", clients: 0 } as RoomAvailable;
-    expect(toHubRoom(bare)).toEqual({ id: "r2", gameId: "", title: "r2", players: 0, mode: "", playing: false, locked: false });
+    expect(toHubRoom(bare)).toEqual({ id: "r2", gameId: "", title: "r2", players: 0, mode: "", playing: false });
   });
 });
 

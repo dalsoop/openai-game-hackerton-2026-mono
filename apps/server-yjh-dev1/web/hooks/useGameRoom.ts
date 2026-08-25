@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF, ROOM_NAME } from "@/lib/hub/config";
+import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
@@ -47,11 +48,12 @@ export function useGameRoom(
   const { room, error: roomError } = useRoom<RosterSnapshot>(
     joinRequest
       ? async (): Promise<Room<RosterSnapshot>> => {
+          const settings = parseRoomSettings({ name: playerName(), game: joinRequest.kind === "create" ? joinRequest.game : undefined }, hubLimits(""));
           const r = joinRequest.kind === "create"
-            ? await getClient().create(ROOM_NAME, { name: playerName(), game: joinRequest.game, pin: joinRequest.pin })
+            ? await getClient().create(ROOM_NAME, { name: settings.name, game: settings.game })
             : joinRequest.kind === "resume"
               ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
-              : await getClient().joinById(joinRequest.id, { name: playerName(), pin: joinRequest.pin });
+              : await getClient().joinById(joinRequest.id, { name: settings.name });
           handOffToGodot(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({
               roomId: r.roomId,

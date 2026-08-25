@@ -47,7 +47,7 @@ export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Pr
                 }}
               >
                 <div className="room-info">
-                  <b>{room.title || `${t("room")} ${room.id}`}{room.locked ? " 🔒" : ""}</b>
+                  <b>{room.title || `${t("room")} ${room.id}`}</b>
                   <div className="room-pips">
                     {Array.from({ length: HUB_CONFIG.maxPlayers }, (_, i) => (
                       <i key={i} className={i < room.players ? "on" : ""} />

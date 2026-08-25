@@ -12,7 +12,6 @@ export function toHubRoom(r: RoomAvailable): HubRoom {
     players: r.clients,
     mode: String(meta.mode ?? ""),
     playing: meta.phase === "playing",
-    locked: meta.locked === true,
   };
 }
 
