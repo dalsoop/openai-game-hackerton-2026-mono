@@ -27,12 +27,12 @@ hubs:
     id: prod
     pathPrefix: /
     image: harbor.50.internal.xz/library/server-prod
-    tag: 7e1fc78c714f
+    tag: d8d1f7604ab1
   - folder: server-yjh-dev1
     id: yjh-dev1
     pathPrefix: /
     image: harbor.50.internal.xz/library/server-yjh-dev1
-    tag: f2733b15bffe
+    tag: fc7db5e5eaf6
   - folder: server-yjh-hexclash
     id: yjh-hexclash
     pathPrefix: /hexclash
