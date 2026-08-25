@@ -33,4 +33,5 @@ export interface Room {
   lastSnap: Record<string, unknown> | null;
   prevSnap: Record<string, unknown> | null;
   snapCount: number;
+  seed: number;
 }

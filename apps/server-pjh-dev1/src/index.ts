@@ -121,7 +121,11 @@ wss.on("connection", (ws: WebSocket, req) => {
 
   ws.on("message", (raw: Buffer) => {
     const session = clientByWs(ws);
-    if (!session || !rateOk(session)) return;
+    if (!session) return;
+    if (!rateOk(session)) {
+      console.log(`[gang-up] rate drop id=${session.id}`);
+      return;
+    }
     let msg: Record<string, unknown>;
     try { msg = JSON.parse(String(raw)); } catch { return; }
     handleMessage(session, msg);

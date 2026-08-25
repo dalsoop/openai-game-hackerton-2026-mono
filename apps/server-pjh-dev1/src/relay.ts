@@ -65,6 +65,7 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
       lastSnap: null,
       prevSnap: null,
       snapCount: 0,
+      seed: 0,
     };
     rooms.set(id, room);
     client.roomId = id;
@@ -109,7 +110,8 @@ export function handleMessage(client: Client, msg: Record<string, unknown>): voi
   }
 
   if (t === MSG.LEAVE) {
-    leaveRoom(client);
+    console.log(`[gang-up] leave request id=${client.id} room=${client.roomId}`);
+    leaveRoom(client, { explicit: true });
     send(client.ws, { t: MSG.LEFT });
     return;
   }
