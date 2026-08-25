@@ -127,6 +127,7 @@ func _build_intro() -> Control:
 	var title := Label.new()
 	title.text = "다굴"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", GameFont.get_bold_font())
 	title.add_theme_font_size_override("font_size", 96)
 	title.add_theme_color_override("font_color", UiTheme.INTRO_TITLE)
 	title.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)

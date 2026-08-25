@@ -14,7 +14,7 @@ Audio="*res://scripts/audio/game_audio.gd"
 
 [gui]
 
-theme/custom_font="res://assets/fonts/GmarketSansMedium.otf"
+theme/custom_font="res://assets/fonts/Galmuri11.ttf"
 
 [internationalization]
 
