@@ -177,6 +177,8 @@
   </style>
 </head>
 <body>
+  <audio id="uiClick" preload="auto" src="/gang-up/assets/ui_click.wav"></audio>
+  <audio id="lobbyBgm" loop preload="auto" src="/gang-up/assets/lobby.ogg"></audio>
   <!-- === LOBBY === -->
   <section id="hub">
     <header class="hero">
@@ -490,6 +492,8 @@ function updatePrefetchUI(pct) {
 }
 
 function goToGame() {
+  const bgm = document.getElementById("lobbyBgm");
+  if (bgm) { bgm.pause(); }
   localStorage.setItem("gangup_resume", resumeToken);
   localStorage.setItem("gangup_from_hub", "1");
   localStorage.setItem("gangup_name", nameIn.value || "웹");
@@ -794,6 +798,31 @@ setInterval(() => { send({ t: "ping", ts: Date.now() }); }, NET.PING_INTERVAL_MS
 /* ===================== INIT ===================== */
 document.getElementById("avatarPreview").innerHTML = avatarSVG(0, 44);
 connect();
+</script>
+
+<script>
+(function startLobbyBgm() {
+  const bgm = document.getElementById("lobbyBgm");
+  if (!bgm) return;
+  bgm.volume = 0.55;
+  const tryPlay = () => bgm.play().catch(() => {});
+  tryPlay();
+  const unlock = () => { tryPlay(); window.removeEventListener("pointerdown", unlock); };
+  window.addEventListener("pointerdown", unlock);
+})();
+</script>
+
+<script>
+(function uiClickSfx() {
+  const sfx = document.getElementById("uiClick");
+  if (!sfx) return;
+  const play = () => { try { sfx.currentTime = 0; sfx.volume = 0.55; sfx.play().catch(() => {}); } catch (e) {} };
+  document.addEventListener("click", (ev) => {
+    const t = ev.target;
+    if (!t || !t.closest) return;
+    if (t.closest("button, .btn, [role=button], a.btn, input[type=button], input[type=submit]")) play();
+  }, true);
+})();
 </script>
 </body>
 </html>
