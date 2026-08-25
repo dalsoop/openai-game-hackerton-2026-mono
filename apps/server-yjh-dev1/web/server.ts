@@ -10,6 +10,7 @@ import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
 import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
+import { redisConn } from "./lib/hub/redis-conn.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -143,7 +144,7 @@ void app.prepare().then(async () => {
   const gameServer = new ColyseusServer({
     transport,
     greet: false,
-    ...(redisUrl ? { presence: new RedisPresence(redisUrl), driver: new RedisDriver(redisUrl) } : {}),
+    ...(redisUrl ? { presence: new RedisPresence(redisConn(redisUrl)), driver: new RedisDriver(redisConn(redisUrl)) } : {}),
     ...(publicAddress ? { publicAddress } : {}),
     // Colyseus 라우터(매치메이킹 /matchmake/*)가 못 받는 요청은 여기로 폴백된다.
     express: (expressApp): void => {

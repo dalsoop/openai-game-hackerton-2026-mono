@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { bindPlayKeyGuard, PLAY_KEY_CODES, shouldBlockIme } from "@/lib/godot/play-keys";
 
 describe("shouldBlockIme", () => {
@@ -30,23 +30,36 @@ describe("shouldBlockIme", () => {
     expect(shouldBlockIme({ code: "KeyW", key: "w", target: input })).toBe(false);
   });
 
-  it("게임 자리 목록은 WASD·QERF·Shift·Space 다", () => {
-    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "KeyR", "KeyF", "ShiftLeft", "Space"]) {
+  it("게임 자리 목록은 WASD·QERF·Shift·Space·Tab 이다", () => {
+    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "KeyR", "KeyF", "ShiftLeft", "Space", "Tab"]) {
       expect(PLAY_KEY_CODES.has(code)).toBe(true);
     }
   });
 });
 
 describe("bindPlayKeyGuard", () => {
-  it("캔버스에 포커스가 있을 때 KeyW 의 keydown 을 preventDefault 한다", () => {
+  it("window 캡처에서 KeyW 의 keydown 을 preventDefault 한다", () => {
     const canvas = document.createElement("canvas");
     document.body.appendChild(canvas);
     canvas.tabIndex = 0;
     canvas.focus();
     const stop = bindPlayKeyGuard(canvas);
     const ev = new KeyboardEvent("keydown", { code: "KeyW", key: "ㅈ", bubbles: true, cancelable: true });
-    canvas.dispatchEvent(ev);
+    window.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
+    stop();
+    canvas.remove();
+  });
+
+  it("Tab 은 막고 캔버스로 포커스를 되돌린다", () => {
+    const canvas = document.createElement("canvas");
+    canvas.focus = vi.fn();
+    document.body.appendChild(canvas);
+    const stop = bindPlayKeyGuard(canvas);
+    const ev = new KeyboardEvent("keydown", { code: "Tab", key: "Tab", bubbles: true, cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(canvas.focus).toHaveBeenCalledWith({ preventScroll: true });
     stop();
     canvas.remove();
   });
@@ -54,11 +67,9 @@ describe("bindPlayKeyGuard", () => {
   it("다른 자리 글자는 막지 않는다", () => {
     const canvas = document.createElement("canvas");
     document.body.appendChild(canvas);
-    canvas.tabIndex = 0;
-    canvas.focus();
     const stop = bindPlayKeyGuard(canvas);
     const ev = new KeyboardEvent("keydown", { code: "KeyK", key: "k", bubbles: true, cancelable: true });
-    canvas.dispatchEvent(ev);
+    window.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
     stop();
     canvas.remove();
