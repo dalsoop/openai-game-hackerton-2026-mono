@@ -193,7 +193,7 @@ function connectHub() {
 		hubConnected = true;
 		$connStatus.textContent = '로비';
 		$connStatus.className = 'conn-status online';
-		sendMsg({t:'hello', name: getName(), mode:'full'});
+		sendMsg({t:'hello', name: getName(), mode:'classic'});
 		sendMsg({t:'rooms'});
 	};
 	ws.onclose = function() {
@@ -281,7 +281,7 @@ function renderRooms(rooms) {
 			+ '<div class="room-join">' + (r.playing ? '관전' : '참가') + '</div>';
 		card.onclick = function() {
 			try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
-			sendMsg({t:'hello', name: getName(), mode:'full'});
+			sendMsg({t:'hello', name: getName(), mode:'classic'});
 			sendMsg({t:'join', roomId: r.id});
 		};
 		$roomList.appendChild(card);
@@ -344,7 +344,7 @@ document.getElementById('btn-quick').onclick = function() {
 	launchGodot();
 };
 document.getElementById('btn-create').onclick = function() {
-	sendMsg({t:'hello', name: getName(), mode:'full'});
+	sendMsg({t:'hello', name: getName(), mode:'classic'});
 	sendMsg({t:'create'});
 };
 document.getElementById('btn-refresh').onclick = function() { sendMsg({t:'rooms'}); };
