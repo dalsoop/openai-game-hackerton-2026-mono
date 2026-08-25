@@ -69,6 +69,8 @@ func _ready() -> void:
 	screens.control_mode_changed.connect(_apply_control_mode)
 	_apply_control_mode(screens.control_mode)
 	Engine.max_fps = 60
+	if not GameState.hub_launched and hub != null:
+		GameState.hub_launched = hub.consume_hub_launch()
 	if GameState.hub_launched:
 		screens.visible = false
 		world_view.visible = false

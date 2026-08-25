@@ -379,7 +379,11 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 
 /* ── 버튼 이벤트 ── */
 document.getElementById('btn-quick').onclick = function() {
-	try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
+	try {
+		localStorage.setItem('gangup_name', getName());
+		localStorage.setItem('gangup_from_hub', '1');
+		window.GANGUP_FROM_HUB = true;
+	} catch(e) {}
 	pendingQuickStart = true;
 	sendMsg({t:'hello', name: getName(), mode:'classic'});
 	sendMsg({t:'create'});
