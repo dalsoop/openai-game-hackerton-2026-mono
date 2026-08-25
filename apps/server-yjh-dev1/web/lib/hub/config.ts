@@ -51,7 +51,7 @@ export const DOM_EVT = {
 } as const;
 
 // 게임 정체성의 정본은 lib/games/catalog — 여기선 하위 모듈 재수출만.
-export { DEFAULT_GAME_ID, GAME_CATALOG, asGameId } from "@/lib/games/catalog";
+export { DEFAULT_GAME_ID, GAME_CATALOG, asGameId } from "../games/catalog.js";
 // Colyseus 방 타입 이름 (매치메이킹 식별자)
 export const ROOM_NAME = "lobby";
 // 방 목록 전용 내장 LobbyRoom (공식 실시간 리스팅 — useLobbyRoom 이 구독)
