@@ -61,7 +61,8 @@ const tsMode = ts.match(/defaultMode:\s*"([^"]+)"/)?.[1];
 const gdMode = gdConst("DEFAULT_MODE");
 if (!tsMode || tsMode !== gdMode) fail(`defaultMode: 정본 "${tsMode}" ≠ 거울 DEFAULT_MODE "${gdMode}"`);
 
-// Godot 산출물 버전 무결성: manifest.version 이 실제 파일 해시와 일치해야 한다.
+// Godot 산출물 무결성: manifest.filesHash 가 실제 파일 해시와 일치해야 한다.
+// (version 은 yymmddhhmmss 타임스탬프 — 내용 불변이면 계승된다.)
 // (export 후 매니페스트 재생성을 빼먹으면 여기서 빌드가 죽는다 — npm run godot:build 사용)
 // 산출물 자체가 없는 체크아웃(CI 등)에서는 건너뛴다 — 로컬에서 빌드 산출물이
 // 있는데 manifest 만 빠진 경우는 여전히 실패시킨다.
@@ -77,8 +78,8 @@ if (!existsSync(godotDir) || (!existsSync(manifestPath) && !hasArtifacts)) {
   const hash = createHash("sha1");
   for (const f of manifest.files) hash.update(readFileSync(path.join(godotDir, f)));
   const actual = hash.digest("hex").slice(0, 12);
-  if (actual !== manifest.version) {
-    fail(`Godot 산출물 버전 불일치: manifest=${manifest.version} 실제=${actual} — npm run godot:build 로 재생성하세요`);
+  if (actual !== manifest.filesHash) {
+    fail(`Godot 산출물 해시 불일치: manifest=${manifest.filesHash} 실제=${actual} — npm run godot:build 로 재생성하세요`);
   }
 }
 

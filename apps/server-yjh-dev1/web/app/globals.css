@@ -281,3 +281,6 @@ body.wait #wait { display: block; }
 .slots .slot-name.c6 { color:var(--p6); }
 .slots .slot-name.c7 { color:var(--p7); }
 .slots .slot-name.c8 { color:var(--p8); }
+/* --- ready badge (prefetch 완료 상태) --- */
+.ready-badge { display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; padding:4px 12px; font-size:11px; color:var(--green); background:rgba(93,217,124,.08); border:1px solid rgba(93,217,124,.35); border-radius:999px; }
+.ready-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }

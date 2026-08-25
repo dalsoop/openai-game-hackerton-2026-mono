@@ -12,9 +12,10 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
-    "verify": "tsc --noEmit && eslint . && vitest run && node scripts/check-contract.mjs",
+    "verify": "tsc --noEmit && eslint . && vitest run && node scripts/check-contract.mjs && npm run test:gd",
     "smoke:handoff": "node scripts/smoke-handoff.mjs",
-    "e2e": "node scripts/e2e-dagul.mjs"
+    "e2e": "node scripts/e2e-dagul.mjs",
+    "test:gd": "python3 ../../../scripts/gd_test.py"
   },
   "dependencies": {
     "@colyseus/react": "^0.1.19",

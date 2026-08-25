@@ -72,21 +72,28 @@ export default function Home(): JSX.Element {
         )}
       </header>
 
-      {(phase === "lobby" || phase === "room") && (
-        <div className="prefetch-strip">
-          <span className="prefetch-txt">
-            {loadLabel(loader.state, loadPct, t)}
-          </span>
-          <div className="bar-track">
-            {/* 진행률은 동적 값 — width만 인라인 불가피 */}
-            <div
-              className={`bar-fill${loader.state === "ready" ? " done" : ""}`}
-              // eslint-disable-next-line react/forbid-dom-props -- 진행률 동적 값
-              style={{ width: `${loadPct}%` }}
-            />
+      {(phase === "lobby" || phase === "room") &&
+        (loader.state === "ready" ? (
+          // 완료 상태는 배지로 — 전체 폭 바가 한 줄을 차지하는 위화감 제거
+          <div className="ready-badge">
+            <span className="ready-dot" />
+            {t("game.loading.ready")}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="prefetch-strip">
+            <span className="prefetch-txt">
+              {loadLabel(loader.state, loadPct, t)}
+            </span>
+            <div className="bar-track">
+              {/* 진행률은 동적 값 — width만 인라인 불가피 */}
+              <div
+                className="bar-fill"
+                // eslint-disable-next-line react/forbid-dom-props -- 진행률 동적 값
+                style={{ width: `${loadPct}%` }}
+              />
+            </div>
+          </div>
+        ))}
 
       {phase === "intro" && (
         <OfflinePhase

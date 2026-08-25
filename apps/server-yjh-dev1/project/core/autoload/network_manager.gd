@@ -17,6 +17,9 @@ signal peer_input_received(slot: int, input_data: Dictionary)  # lint-gd: public
 signal peer_parked_received(slot: int)  # lint-gd: public-api
 signal peer_reclaimed_received(slot: int, player_name: String)  # lint-gd: public-api
 
+# 좌석 정본 — preload 로 확정 참조(글로벌 클래스 캐시 갱신 시점과 무관).
+const SeatCodec := preload("res://core/contract/seat_codec.gd")
+
 const STATUS_LOBBY := "로비"  # lint-gd: public-api
 const STATUS_OFFLINE := "오프라인 로컬"  # lint-gd: public-api
 
@@ -117,13 +120,7 @@ func _apply_start(msg: Dictionary) -> void:
     # 서버가 시작 순간 박제한 좌석 확정본 — 호스트 월드의 사람 좌석 배정에 쓴다.
     var seats: Array = msg.get("seats", [])
     if not seats.is_empty():
-        players = []
-        for seat in seats:
-            players.append({
-                "slot": int(seat.get("slot", -1)),
-                "name": str(seat.get("name", "")),
-                "dropped": not bool(seat.get("connected", true)),
-            })
+        players = SeatCodec.from_start(seats)
     if msg.has("room"):
         room = msg.get("room", room)
     if msg.has("seed"):
@@ -136,29 +133,14 @@ func _sync_state(state: Variant) -> void:
         return
     var phase := str(state.get("phase", ""))
     is_host = str(state.get("hostSessionId", "")) == _colyseus_room.get_session_id()
-    var next_players: Array = []
     var raw_players: Array = state.get("players") if state.get("players") is Array else []
-    for p in raw_players:
-        next_players.append({
-            "slot": int(p.get("slot", -1)),
-            "name": str(p.get("name", "")),
-            "dropped": not bool(p.get("connected", true)),
-            "session_id": str(p.get("sessionId", "")),
-        })
+    var next_players: Array = SeatCodec.from_state(raw_players)
     # 이탈/복귀 파생 — connected 토글을 좌석별 통지로 바꾼다.
-    if not players.is_empty() and next_players.size() == players.size():
-        var by_slot := {}
-        for old in players:
-            by_slot[int(old.get("slot", -1))] = old
-        for p in next_players:
-            var slot := int(p.get("slot", -1))
-            var old: Variant = by_slot.get(slot)
-            if old == null:
-                continue
-            if bool(old.get("dropped", false)) and not bool(p.get("dropped", false)):
-                peer_reclaimed_received.emit(slot, str(p.get("name", "")))
-            elif not bool(old.get("dropped", false)) and bool(p.get("dropped", false)):
-                peer_parked_received.emit(slot)
+    for ev in SeatCodec.diff_dropped(players, next_players):
+        if ev.get("kind") == "parked":
+            peer_parked_received.emit(int(ev.get("slot", -1)))
+        else:
+            peer_reclaimed_received.emit(int(ev.get("slot", -1)), str(ev.get("name", "")))
     players = next_players
     # 매치 종료 감지: playing → 다른 페이즈.
     if _last_phase == "playing" and phase != "playing":
