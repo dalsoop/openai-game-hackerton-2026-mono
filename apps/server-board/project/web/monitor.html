@@ -93,6 +93,7 @@
 </div>
 
 <script>
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const SERVERS = [
   { name: 'server-yjh-dev1', label: 'YJH Dev1', url: 'https://server-yjh-dev1.external.kr' },
   { name: 'server-pjh-dev1', label: 'PJH Dev1', url: 'https://server-pjh-dev1.external.kr' },
@@ -172,7 +173,7 @@ function renderCard(srv, data) {
   if (data.players.length > 0) {
     html += '<div class="player-list">';
     for (const p of data.players) {
-      html += '<div class="player-row"><span class="player-name">' + p.name + '</span><span class="ping-val ' + pingClass(p.rtt) + '">' + p.rtt + 'ms</span></div>';
+      html += '<div class="player-row"><span class="player-name">' + esc(p.name) + '</span><span class="ping-val ' + pingClass(p.rtt) + '">' + p.rtt + 'ms</span></div>';
     }
     html += '</div>';
   }
@@ -180,7 +181,7 @@ function renderCard(srv, data) {
   if (data.rooms.length > 0) {
     html += '<div class="rooms-section">';
     for (const r of data.rooms) {
-      html += '<span class="room-chip ' + r.phase + '">' + r.title + ' (' + r.playerCount + 'P)</span>';
+      html += '<span class="room-chip ' + esc(r.phase) + '">' + esc(r.title) + ' (' + r.playerCount + 'P)</span>';
     }
     html += '</div>';
   }

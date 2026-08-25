@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>다굴 같이하기</title>
+		<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+	color: #e8e6e1;
+	background: #0b0e14;
+	overflow: hidden;
+	touch-action: none;
+	font-family: 'Noto Sans KR', 'Pretendard', 'Noto Sans', Arial, sans-serif;
+}
+#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; z-index: 5; }
+#canvas.ready { opacity: 1; }
+#canvas:focus { outline: none; }
+
+/* ── 로비 (즉시 보이는 HTML) ── */
+#lobby-root {
+	position: absolute; inset: 0; z-index: 20;
+	background: radial-gradient(ellipse 120% 80% at 50% 40%, #141a26, #0b0e14);
+	display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+	padding: 40px 16px 16px;
+	transition: opacity 0.5s;
+}
+#lobby-root.hidden { opacity: 0; pointer-events: none; }
+.lobby-title { font-size: clamp(40px,8vw,72px); font-weight: 900; letter-spacing: -0.04em;
+	background: linear-gradient(180deg,#ffd23e 20%,#e89820 100%);
+	-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+	filter: drop-shadow(0 4px 16px rgba(255,210,62,0.25)); }
+.lobby-sub { color: #67728a; font-size: 14px; letter-spacing: 0.15em; text-transform: uppercase; margin: 4px 0 24px; }
+
+/* 이름 입력 */
+.name-row { display: flex; gap: 8px; margin-bottom: 20px; width: min(420px, 90vw); }
+.name-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #2a3040; background: #141820; color: #e8e6e1; font-size: 15px; outline: none; }
+.name-input:focus { border-color: #ffd23e; }
+
+/* 액션 버튼 */
+.actions { display: flex; gap: 8px; margin-bottom: 20px; width: min(420px, 90vw); }
+.btn { flex: 1; padding: 12px 0; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.12s; }
+.btn-primary { background: #2f6bff; color: #fff; }
+.btn-primary:hover { background: #1a5ae0; }
+.btn-green { background: #1f9d55; color: #fff; }
+.btn-green:hover { background: #178a48; }
+.btn-muted { background: #1e2736; color: #7a8194; }
+.btn-muted:hover { background: #252e40; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* 방 목록 */
+.room-list-wrap { width: min(420px, 90vw); flex: 1; overflow-y: auto; }
+.room-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.room-list-header h2 { font-size: 16px; font-weight: 700; color: #9ba3b5; }
+.room-list-header button { background: none; border: 1px solid #2a3040; color: #7a8194; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.room-empty { text-align: center; color: #4a566e; font-size: 14px; padding: 32px 0; }
+.room-card { display: flex; justify-content: space-between; align-items: center; background: #141820; border: 1px solid #1e2736; border-radius: 10px; padding: 12px 16px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.12s; }
+.room-card:hover { border-color: #2f6bff; }
+.room-card .room-title { font-weight: 700; font-size: 14px; }
+.room-card .room-info { font-size: 12px; color: #67728a; }
+.room-card .room-join { font-size: 12px; color: #2f6bff; font-weight: 700; }
+
+/* 대기실 */
+#waitroom { display: none; width: min(420px, 90vw); }
+.wait-header { font-size: 18px; font-weight: 900; margin-bottom: 12px; text-align: center; }
+.wait-players { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.wait-slot { background: #141820; border: 1px solid #1e2736; border-radius: 8px; padding: 10px 6px; text-align: center; font-size: 12px; min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
+.wait-slot.filled { border-color: #2f6bff; color: #e8e6e1; }
+.wait-slot.empty { color: #3a4460; }
+.wait-chat { background: #0e1119; border: 1px solid #1e2736; border-radius: 8px; padding: 8px; height: 100px; overflow-y: auto; font-size: 12px; color: #7a8194; margin-bottom: 8px; }
+.wait-chat-input { display: flex; gap: 6px; margin-bottom: 12px; }
+.wait-chat-input input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #2a3040; background: #141820; color: #e8e6e1; font-size: 13px; outline: none; }
+.wait-chat-input button { padding: 8px 14px; border-radius: 6px; border: none; background: #2a3040; color: #e8e6e1; cursor: pointer; font-size: 13px; }
+
+/* 연결 상태 + 에셋 진행 */
+.status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #0e1119; border-top: 1px solid #1e2736; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 25; font-size: 12px; }
+.conn-status { color: #67728a; }
+.conn-status.online { color: #1f9d55; }
+.conn-status.error { color: #c0392b; }
+.asset-progress { color: #67728a; }
+.asset-bar { width: 100px; height: 4px; background: #1e2736; border-radius: 2px; display: inline-block; vertical-align: middle; margin-left: 6px; overflow: hidden; }
+.asset-bar-fill { height: 100%; background: linear-gradient(90deg, #ffd23e, #3ee6d2); border-radius: 2px; transition: width 0.3s; }
+
+/* Godot 에러 오버레이 */
+#status-notice { display: none; position: absolute; z-index: 30; bottom: 60px; left: 50%; transform: translateX(-50%); background: #2a1520; border: 1px solid #5b2030; border-radius: 8px; color: #e0e0e0; padding: 16px 24px; text-align: center; max-width: min(400px, 80vw); font-size: 13px; }
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+		<noscript>JavaScript가 필요합니다.</noscript>
+
+		<div id="lobby-root">
+			<div class="lobby-title">다굴</div>
+			<div class="lobby-sub">8인 배틀로얄</div>
+
+			<div class="name-row">
+				<input class="name-input" id="inp-name" type="text" placeholder="닉네임을 입력하세요" maxlength="12" autocomplete="off">
+			</div>
+
+			<div class="actions" id="lobby-actions">
+				<button class="btn btn-primary" id="btn-quick">바로 시작</button>
+				<button class="btn btn-green" id="btn-create">방 만들기</button>
+			</div>
+
+			<div class="room-list-wrap" id="room-section">
+				<div class="room-list-header">
+					<h2>방 목록</h2>
+					<button id="btn-refresh">새로고침</button>
+				</div>
+				<div id="room-list"><div class="room-empty">허브 연결 중…</div></div>
+			</div>
+
+			<div id="waitroom">
+				<div class="wait-header" id="wait-title">대기실</div>
+				<div class="wait-players" id="wait-players"></div>
+				<div class="wait-chat" id="wait-chat"></div>
+				<div class="wait-chat-input">
+					<input id="chat-input" type="text" placeholder="채팅" maxlength="100" autocomplete="off">
+					<button id="btn-chat-send">전송</button>
+				</div>
+				<div class="actions">
+					<button class="btn btn-primary" id="btn-start" style="display:none">게임 시작</button>
+					<button class="btn btn-muted" id="btn-leave">나가기</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="status-bar">
+			<span class="conn-status" id="conn-status">연결 중…</span>
+			<span class="asset-progress" id="asset-progress">
+				에셋 준비 중
+				<span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>
+			</span>
+		</div>
+
+		<div id="status-notice"></div>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+/* ── 설정 ── */
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+
+/* ── 상태 ── */
+let ws = null;
+let hubConnected = false;
+let inRoom = false;
+let mySlot = -1;
+let myName = '';
+let players = [];
+let room = {};
+let isHost = false;
+let resumeToken = '';
+let godotReady = false;
+let godotStarting = false;
+let matchStartMsg = null;
+let assetLoaded = 0;
+let assetTotal = 0;
+
+/* ── DOM ── */
+const $name = document.getElementById('inp-name');
+const $roomList = document.getElementById('room-list');
+const $roomSection = document.getElementById('room-section');
+const $waitroom = document.getElementById('waitroom');
+const $waitTitle = document.getElementById('wait-title');
+const $waitPlayers = document.getElementById('wait-players');
+const $waitChat = document.getElementById('wait-chat');
+const $chatInput = document.getElementById('chat-input');
+const $connStatus = document.getElementById('conn-status');
+const $assetFill = document.getElementById('asset-fill');
+const $assetProgress = document.getElementById('asset-progress');
+const $btnStart = document.getElementById('btn-start');
+const $lobbyActions = document.getElementById('lobby-actions');
+const canvas = document.getElementById('canvas');
+const lobbyRoot = document.getElementById('lobby-root');
+
+/* ── 이름 초기화 ── */
+try { $name.value = localStorage.getItem('gangup_name') || ''; } catch(e) {}
+if (!$name.value) $name.value = '플레이어' + String(Math.floor(Math.random()*90+10));
+
+/* ── 허브 WebSocket ── */
+function hubUrl() {
+	var origin = window.location.origin;
+	var proto = origin.startsWith('https') ? 'wss' : 'ws';
+	return proto + '://' + window.location.host + '/gang-up';
+}
+
+function connectHub() {
+	if (ws && ws.readyState <= 1) return;
+	ws = new WebSocket(hubUrl());
+	ws.onopen = function() {
+		hubConnected = true;
+		$connStatus.textContent = '로비';
+		$connStatus.className = 'conn-status online';
+		sendMsg({t:'hello', name: getName(), mode:'classic'});
+		sendMsg({t:'rooms'});
+	};
+	ws.onclose = function() {
+		hubConnected = false;
+		$connStatus.textContent = '연결 끊김';
+		$connStatus.className = 'conn-status error';
+		setTimeout(connectHub, 2000);
+	};
+	ws.onerror = function() {};
+	ws.onmessage = function(ev) {
+		try { handleMsg(JSON.parse(ev.data)); } catch(e) { console.error(e); }
+	};
+}
+
+function sendMsg(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function getName() { return ($name.value || '').trim() || '플레이어'; }
+
+/* ── 메시지 핸들러 ── */
+function handleMsg(msg) {
+	switch (msg.t) {
+		case 'welcome':
+			if (msg.resume && msg.resume.length === 32) {
+				resumeToken = msg.resume;
+				try { localStorage.setItem('gangup_resume', resumeToken); } catch(e) {}
+			}
+			break;
+		case 'rooms':
+			renderRooms(msg.rooms || []);
+			break;
+		case 'joined':
+			inRoom = true;
+			mySlot = msg.you || 0;
+			room = msg.room || {};
+			players = msg.players || [];
+			isHost = (mySlot === 0);
+			showWaitroom();
+			break;
+		case 'peers':
+			players = msg.players || [];
+			if (msg.room) room = msg.room;
+			renderWaitroom();
+			break;
+		case 'start':
+			matchStartMsg = msg;
+			try {
+				localStorage.setItem('gangup_from_hub', '1');
+				localStorage.setItem('gangup_name', getName());
+			} catch(e) {}
+			launchGodot();
+			break;
+		case 'chat':
+			appendChat(msg.from || '?', msg.text || '');
+			break;
+		case 'left':
+			leaveRoom();
+			break;
+		case 'kicked':
+			leaveRoom();
+			break;
+		case 'lobby':
+			inRoom = false;
+			showLobby();
+			break;
+		case 'error':
+			appendChat('[시스템]', msg.msg || '오류');
+			break;
+		case 'pong':
+			break;
+	}
+}
+
+/* ── 방 목록 ── */
+function renderRooms(rooms) {
+	if (!rooms.length) {
+		$roomList.innerHTML = '<div class="room-empty">열린 방이 없습니다. 방을 만들어 시작하세요!</div>';
+		return;
+	}
+	$roomList.innerHTML = '';
+	rooms.forEach(function(r) {
+		var card = document.createElement('div');
+		card.className = 'room-card';
+		var pCount = (r.players || []).length;
+		card.innerHTML = '<div><div class="room-title">' + esc(r.title || '방 ' + (r.id||'').slice(0,4)) + '</div>'
+			+ '<div class="room-info">' + pCount + '/8명' + (r.playing ? ' · 게임 중' : '') + '</div></div>'
+			+ '<div class="room-join">' + (r.playing ? '관전' : '참가') + '</div>';
+		card.onclick = function() {
+			try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
+			sendMsg({t:'hello', name: getName(), mode:'classic'});
+			sendMsg({t:'join', roomId: r.id});
+		};
+		$roomList.appendChild(card);
+	});
+}
+
+/* ── 대기실 ── */
+function showWaitroom() {
+	$roomSection.style.display = 'none';
+	$lobbyActions.style.display = 'none';
+	$waitroom.style.display = 'block';
+	renderWaitroom();
+}
+
+function renderWaitroom() {
+	var title = (room.title || '대기실') + ' · ' + players.length + '/8';
+	$waitTitle.textContent = title;
+	$waitPlayers.innerHTML = '';
+	for (var i = 0; i < 8; i++) {
+		var slot = document.createElement('div');
+		if (i < players.length) {
+			var p = players[i];
+			slot.className = 'wait-slot filled';
+			slot.textContent = (p.name || '?') + (i === mySlot ? ' (나)' : '') + (p.host ? ' ★' : '');
+		} else {
+			slot.className = 'wait-slot empty';
+			slot.textContent = 'CPU';
+		}
+		$waitPlayers.appendChild(slot);
+	}
+	$btnStart.style.display = isHost ? 'block' : 'none';
+}
+
+function showLobby() {
+	inRoom = false;
+	$roomSection.style.display = '';
+	$lobbyActions.style.display = '';
+	$waitroom.style.display = 'none';
+	$waitChat.innerHTML = '';
+	sendMsg({t:'rooms'});
+}
+
+function leaveRoom() {
+	if (inRoom) sendMsg({t:'leave'});
+	showLobby();
+}
+
+function appendChat(from, text) {
+	var line = document.createElement('div');
+	line.textContent = from + ': ' + text;
+	$waitChat.appendChild(line);
+	$waitChat.scrollTop = $waitChat.scrollHeight;
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ── 버튼 이벤트 ── */
+document.getElementById('btn-quick').onclick = function() {
+	try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
+	launchGodot();
+};
+document.getElementById('btn-create').onclick = function() {
+	sendMsg({t:'hello', name: getName(), mode:'classic'});
+	sendMsg({t:'create'});
+};
+document.getElementById('btn-refresh').onclick = function() { sendMsg({t:'rooms'}); };
+document.getElementById('btn-leave').onclick = function() { leaveRoom(); };
+$btnStart.onclick = function() { sendMsg({t:'start'}); };
+document.getElementById('btn-chat-send').onclick = function() {
+	var t = $chatInput.value.trim();
+	if (t) { sendMsg({t:'chat', text: t}); $chatInput.value = ''; }
+};
+$chatInput.onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('btn-chat-send').click(); };
+$name.onchange = function() { try { localStorage.setItem('gangup_name', getName()); } catch(e) {} };
+
+/* ── Godot 엔진 ── */
+const engine = new Engine(GODOT_CONFIG);
+
+function launchGodot() {
+	if (godotReady || godotStarting) {
+		switchToGame();
+		return;
+	}
+	godotStarting = true;
+	$assetProgress.innerHTML = '게임 로딩 중… <span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>';
+
+	var missing = Engine.getMissingFeatures({threads: GODOT_THREADS_ENABLED});
+	if (missing.length) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			var swp;
+			try { swp = navigator.serviceWorker.getRegistration(); }
+			catch(e) { swp = Promise.reject(new Error('SW failed')); }
+			Promise.race([
+				swp.then(function(r){ if(r) return Promise.reject(new Error('exists')); return r; }).then(function(){ return engine.installServiceWorker(); }),
+				new Promise(function(res){ setTimeout(res, 2000); })
+			]).then(function(){ window.location.reload(); }).catch(function(){});
+		} else {
+			document.getElementById('status-notice').style.display = 'block';
+			document.getElementById('status-notice').textContent = '이 브라우저에서는 지원되지 않습니다: ' + missing.join(', ');
+		}
+		return;
+	}
+
+	engine.startGame({
+		onProgress: function(cur, tot) {
+			if (cur > 0 && tot > 0) {
+				var pct = Math.round(cur/tot*100);
+				var fill = document.getElementById('asset-fill');
+				if (fill) fill.style.width = pct + '%';
+				$assetProgress.querySelector('.asset-bar') || null;
+				var mb = (cur/1048576).toFixed(1);
+				var tmb = (tot/1048576).toFixed(1);
+				if (cur >= tot) {
+					$assetProgress.childNodes[0].textContent = '게임 준비 완료 ';
+				} else {
+					$assetProgress.childNodes[0].textContent = mb + '/' + tmb + 'MB ';
+				}
+			}
+		}
+	}).then(function() {
+		godotReady = true;
+		godotStarting = false;
+		$assetProgress.childNodes[0].textContent = '준비 완료 ';
+		var fill = document.getElementById('asset-fill');
+		if (fill) fill.style.width = '100%';
+		switchToGame();
+	}, function(err) {
+		console.error(err);
+		document.getElementById('status-notice').style.display = 'block';
+		document.getElementById('status-notice').textContent = '게임 로드 실패: ' + (err.message || err);
+	});
+}
+
+function switchToGame() {
+	lobbyRoot.classList.add('hidden');
+	canvas.classList.add('ready');
+	document.querySelector('.status-bar').style.display = 'none';
+	if (ws) { ws.close(); ws = null; }
+}
+
+/* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */
+var _compiledWasm = null;
+
+function prefetchAssets() {
+	var totalBytes = 0;
+	var loadedBytes = 0;
+
+	function trackFetch(url) {
+		return fetch(url).then(function(r) {
+			var size = parseInt(r.headers.get('content-length') || '0', 10);
+			totalBytes += size || 1;
+			var reader = r.body.getReader();
+			var chunks = [];
+			function pump() {
+				return reader.read().then(function(result) {
+					if (result.done) return new Blob(chunks);
+					chunks.push(result.value);
+					loadedBytes += result.value.byteLength;
+					updateProgress();
+					return pump();
+				});
+			}
+			return pump();
+		});
+	}
+
+	function updateProgress() {
+		if (totalBytes <= 0) return;
+		var pct = Math.min(100, Math.round(loadedBytes / totalBytes * 100));
+		var mb = (loadedBytes / 1048576).toFixed(1);
+		$assetProgress.childNodes[0].textContent = '에셋 다운로드 ' + mb + 'MB (' + pct + '%) ';
+		var fill = document.getElementById('asset-fill');
+		if (fill) fill.style.width = pct + '%';
+	}
+
+	// WASM 프리컴파일 (백그라운드 — 메인 스레드 블로킹 최소화)
+	if (typeof WebAssembly !== 'undefined' && WebAssembly.compileStreaming) {
+		WebAssembly.compileStreaming(fetch('index.wasm'))
+			.then(function(mod) {
+				_compiledWasm = mod;
+				$assetProgress.childNodes[0].textContent = '엔진 준비 완료 ';
+				var fill = document.getElementById('asset-fill');
+				if (fill) fill.style.width = '100%';
+			})
+			.catch(function(e) { console.warn('WASM 프리컴파일 실패:', e); });
+	}
+
+	// PCK도 캐시에 넣기
+	trackFetch('index.pck').catch(function() {});
+}
+
+/* ── 시작 ── */
+connectHub();
+prefetchAssets();
+setInterval(function() { if (hubConnected) sendMsg({t:'ping'}); }, 3000);
+		</script>
+	</body>
+</html>

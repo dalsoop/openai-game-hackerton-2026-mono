@@ -51,6 +51,9 @@ var rtt_ms: int = -1
 
 func _ready() -> void:
     resume_token = _load_resume()
+    var hub_name := get_hub_name()
+    if hub_name != "":
+        player_name = hub_name
     ensure_connected()
 
 func _js_text(code: String) -> String:
@@ -70,12 +73,12 @@ func _resolve_url() -> String:
     if OS.has_feature("web"):
         var origin := _js_text("String(window.location.origin)")
         if origin.begins_with("https://"):
-            return "wss://%s/gang-up/ws" % origin.substr(8)
+            return "wss://%s/gang-up" % origin.substr(8)
         if origin.begins_with("http://"):
-            return "ws://%s/gang-up/ws" % origin.substr(7)
+            return "ws://%s/gang-up" % origin.substr(7)
         var host := _js_text("String(window.location.host)")
         if host != "":
-            return "wss://%s/gang-up/ws" % host
+            return "wss://%s/gang-up" % host
     return "ws://127.0.0.1:9120"
 
 func is_open() -> bool:
@@ -244,90 +247,112 @@ func send_snap(snap: Dictionary) -> void:
 
 func _on_msg(msg: Dictionary) -> void:
     match str(msg.get("t", "")):
-        "welcome":
-            if not holding_seat:
-                client_id = str(msg.get("id", ""))
-            var token := str(msg.get("resume", ""))
-            if token.length() == 32 and not holding_seat:
-                resume_token = token
-                _save_resume(token)
-        "rooms":
-            rooms = msg.get("rooms", [])
-            rooms_updated.emit(rooms)
-        "joined":
-            in_room = true
-            holding_seat = true
-            match_running = false
-            you = int(msg.get("you", 0))
-            room = msg.get("room", {})
-            players = msg.get("players", [])
-            _set_status(STATUS_LOBBY)
-            joined_room.emit(room, players, you)
-        "resume":
-            in_room = true
-            holding_seat = true
-            if str(msg.get("id", "")) != "":
-                client_id = str(msg.get("id", ""))
-            you = int(msg.get("you", 0))
-            room = msg.get("room", {})
-            players = msg.get("players", [])
-            _set_status(STATUS_LOBBY)
-            if bool(msg.get("playing", false)):
-                match_running = true
-                var snap: Variant = msg.get("snap", {})
-                if typeof(snap) != TYPE_DICTIONARY:
-                    snap = {}
-                match_resumed.emit(you, room, snap)
-            else:
-                match_running = false
-                joined_room.emit(room, players, you)
-            var notice := str(msg.get("notice", ""))
-            if notice != "":
-                hub_notice.emit(notice)
-        "peers":
-            players = msg.get("players", [])
-            if msg.has("room"):
-                room = msg.get("room", room)
-            peers_updated.emit(players, room)
-            var peer_notice := str(msg.get("notice", ""))
-            if peer_notice != "":
-                hub_notice.emit(peer_notice)
-        "start":
-            match_running = true
-            holding_seat = true
-            you = int(msg.get("you", you))
-            is_host = bool(msg.get("host", false))
-            if msg.has("room"):
-                room = msg.get("room", room)
-            match_started.emit(you, room)
-        "snap":
-            snapshot_received.emit(msg)
-        "peer_input":
-            peer_input_received.emit(int(msg.get("slot", -1)), msg)
-        "peer_parked":
-            peer_parked_received.emit(int(msg.get("slot", -1)))
-        "peer_reclaimed":
-            peer_reclaimed_received.emit(int(msg.get("slot", -1)), str(msg.get("name", "")))
-        "chat":
-            chat_received.emit(str(msg.get("from", "?")), int(msg.get("slot", -1)), str(msg.get("text", "")))
-        "pong":
-            if _ping_sent_ms > 0:
-                rtt_ms = Time.get_ticks_msec() - _ping_sent_ms
-        "left":
-            _give_up_seat()
-        "kicked":
-            hub_error.emit(str(msg.get("msg", "방에서 내보내졌습니다.")))
-            _give_up_seat()
-        "dropped":
-            var drop_msg := str(msg.get("msg", "연결이 만료되었습니다"))
-            hub_error.emit(drop_msg)
-            _give_up_seat()
-            var fresh := str(msg.get("resume", ""))
-            if fresh.length() == 32:
-                resume_token = fresh
-                _save_resume(fresh)
-        "error":
-            hub_error.emit(str(msg.get("msg", "")))
+        "welcome": _handle_welcome(msg)
+        "rooms": _handle_rooms(msg)
+        "joined": _handle_joined(msg)
+        "resume": _handle_resume(msg)
+        "peers": _handle_peers(msg)
+        "start": _handle_start(msg)
+        "snap": snapshot_received.emit(msg)
+        "peer_input": peer_input_received.emit(int(msg.get("slot", -1)), msg)
+        "peer_parked": peer_parked_received.emit(int(msg.get("slot", -1)))
+        "peer_reclaimed": peer_reclaimed_received.emit(int(msg.get("slot", -1)), str(msg.get("name", "")))
+        "chat": chat_received.emit(str(msg.get("from", "?")), int(msg.get("slot", -1)), str(msg.get("text", "")))
+        "pong": _handle_pong()
+        "lobby": _handle_lobby(msg)
+        "left": _give_up_seat()
+        "kicked": _handle_kicked(msg)
+        "dropped": _handle_dropped(msg)
+        "error": hub_error.emit(str(msg.get("msg", "")))
+
+func _handle_welcome(msg: Dictionary) -> void:
+    if not holding_seat:
+        client_id = str(msg.get("id", ""))
+    var token := str(msg.get("resume", ""))
+    if token.length() == 32 and not holding_seat:
+        resume_token = token
+        _save_resume(token)
+
+func _handle_rooms(msg: Dictionary) -> void:
+    rooms = msg.get("rooms", [])
+    rooms_updated.emit(rooms)
+
+func _handle_joined(msg: Dictionary) -> void:
+    in_room = true
+    holding_seat = true
+    match_running = false
+    you = int(msg.get("you", 0))
+    room = msg.get("room", {})
+    players = msg.get("players", [])
+    _set_status(STATUS_LOBBY)
+    joined_room.emit(room, players, you)
+
+func _handle_resume(msg: Dictionary) -> void:
+    in_room = true
+    holding_seat = true
+    if str(msg.get("id", "")) != "":
+        client_id = str(msg.get("id", ""))
+    you = int(msg.get("you", 0))
+    is_host = bool(msg.get("host", false))
+    room = msg.get("room", {})
+    players = msg.get("players", [])
+    _set_status(STATUS_LOBBY)
+    if bool(msg.get("playing", false)):
+        match_running = true
+        var snap: Variant = msg.get("snap", {})
+        if typeof(snap) != TYPE_DICTIONARY:
+            snap = {}
+        match_resumed.emit(you, room, snap)
+    else:
+        match_running = false
+        joined_room.emit(room, players, you)
+    var notice := str(msg.get("notice", ""))
+    if notice != "":
+        hub_notice.emit(notice)
+
+func _handle_peers(msg: Dictionary) -> void:
+    players = msg.get("players", [])
+    if msg.has("room"):
+        room = msg.get("room", room)
+    peers_updated.emit(players, room)
+    var peer_notice := str(msg.get("notice", ""))
+    if peer_notice != "":
+        hub_notice.emit(peer_notice)
+
+func _handle_start(msg: Dictionary) -> void:
+    match_running = true
+    holding_seat = true
+    you = int(msg.get("you", you))
+    is_host = bool(msg.get("host", false))
+    if msg.has("room"):
+        room = msg.get("room", room)
+    match_started.emit(you, room)
+
+func _handle_pong() -> void:
+    if _ping_sent_ms > 0:
+        rtt_ms = Time.get_ticks_msec() - _ping_sent_ms
+
+func _handle_lobby(msg: Dictionary) -> void:
+    match_running = false
+    if msg.has("room"):
+        room = msg.get("room", room)
+    joined_room.emit(room, players, you)
+    var lobby_notice := str(msg.get("notice", ""))
+    if lobby_notice != "":
+        hub_notice.emit(lobby_notice)
+
+func _handle_kicked(msg: Dictionary) -> void:
+    hub_error.emit(str(msg.get("msg", "방에서 내보내졌습니다.")))
+    _give_up_seat()
+
+func _handle_dropped(msg: Dictionary) -> void:
+    var drop_msg := str(msg.get("msg", "연결이 만료되었습니다"))
+    hub_error.emit(drop_msg)
+    _give_up_seat()
+    var fresh := str(msg.get("resume", ""))
+    if fresh.length() == 32:
+        resume_token = fresh
+        _save_resume(fresh)
 
 func _save_resume(token: String) -> void:
     if OS.has_feature("web"):
@@ -336,6 +361,17 @@ func _save_resume(token: String) -> void:
     var f := FileAccess.open("user://gangup_resume.txt", FileAccess.WRITE)
     if f != null:
         f.store_string(token)
+
+func consume_hub_launch() -> bool:
+    if not OS.has_feature("web"):
+        return false
+    var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
+    return v == "1"
+
+func get_hub_name() -> String:
+    if not OS.has_feature("web"):
+        return ""
+    return _js_text("try{localStorage.getItem('gangup_name')||''}catch(e){''}")
 
 func _load_resume() -> String:
     if OS.has_feature("web"):

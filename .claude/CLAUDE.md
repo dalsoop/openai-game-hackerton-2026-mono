@@ -8,7 +8,7 @@
 |---|---|---|
 | `server-yjh-dev1` | 정한 본 슬롯. 클라 + 클러스터 허브 | `godot --path apps/server-yjh-dev1/project` · `npm start` |
 | `server-pjh-dev1` | 크리엘 본 슬롯 | `godot --path apps/server-pjh-dev1/project` |
-| `server-pig-dev1` | Figix 본 슬롯 | `godot --path apps/server-pig-dev1/project` |
+| `server-fig-dev1` | Figix 본 슬롯 | `godot --path apps/server-fig-dev1/project` |
 | `server-board` | 배포 보드 | `https://server-board.external.kr/` |
 | `*-dev2` · `*-dev3` | 그 사람의 개발환경 2·3 | `https://<폴더>.external.kr/` |
 | `server-prod` | 제출·운영 | `https://server-prod.external.kr/` |

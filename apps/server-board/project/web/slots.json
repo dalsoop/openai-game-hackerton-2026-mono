@@ -1,18 +1,12 @@
 {
   "repo": "dalsoop/openai-game-hackerton-2026-mono",
   "env": "dev1",
-  "hubFolder": "server-pig-dev1",
+  "hubFolder": "server-fig-dev1",
   "hubFolders": [
-    "server-pig-dev1",
-    "server-pig-dev2",
-    "server-pig-dev3",
+    "server-fig-dev1",
     "server-pjh-dev1",
-    "server-pjh-dev2",
-    "server-pjh-dev3",
     "server-prod",
-    "server-yjh-dev1",
-    "server-yjh-dev2",
-    "server-yjh-dev3"
+    "server-yjh-dev1"
   ],
   "board": "https://server-board.external.kr/",
   "slots": [
@@ -27,104 +21,64 @@
       "url": "https://server-board.external.kr/"
     },
     {
-      "folder": "server-pig-dev1",
-      "id": "pig-dev1",
-      "title": "다굴 (pig-dev1)",
-      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "folder": "server-fig-dev1",
+      "id": "fig-dev1",
+      "title": "다굴 (fig-dev1)",
+      "blurb": "8인 로비 · 풀 모드 · 서버 권위 시뮬",
       "web": true,
       "hub": true,
       "hasExport": true,
-      "url": "https://server-pig-dev1.external.kr/"
-    },
-    {
-      "folder": "server-pig-dev2",
-      "id": "pig-dev2",
-      "title": "다굴 (pig-dev2)",
-      "blurb": "Figix 개발환경 2. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
-      "web": true,
-      "hub": true,
-      "hasExport": false,
-      "url": "https://server-pig-dev2.external.kr/"
-    },
-    {
-      "folder": "server-pig-dev3",
-      "id": "pig-dev3",
-      "title": "다굴 (pig-dev3)",
-      "blurb": "Figix 개발환경 3. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
-      "web": true,
-      "hub": true,
-      "hasExport": false,
-      "url": "https://server-pig-dev3.external.kr/"
+      "url": "https://server-fig-dev1.external.kr/"
     },
     {
       "folder": "server-pjh-dev1",
       "id": "pjh-dev1",
       "title": "다굴 (pjh-dev1)",
-      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "blurb": "8인 로비 · 풀 모드 · 서버 권위 시뮬",
       "web": true,
       "hub": true,
       "hasExport": true,
       "url": "https://server-pjh-dev1.external.kr/"
     },
     {
-      "folder": "server-pjh-dev2",
-      "id": "pjh-dev2",
-      "title": "다굴 (pjh-dev2)",
-      "blurb": "크리엘 개발환경 2. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
-      "web": true,
-      "hub": true,
-      "hasExport": false,
-      "url": "https://server-pjh-dev2.external.kr/"
-    },
-    {
-      "folder": "server-pjh-dev3",
-      "id": "pjh-dev3",
-      "title": "다굴 (pjh-dev3)",
-      "blurb": "크리엘 개발환경 3. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
-      "web": true,
-      "hub": true,
-      "hasExport": false,
-      "url": "https://server-pjh-dev3.external.kr/"
-    },
-    {
       "folder": "server-prod",
       "id": "prod",
-      "title": "다굴 (prod)",
-      "blurb": "제출·운영. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "title": "다굴",
+      "blurb": "8인 로비 · 풀 모드 · 서버 권위 시뮬",
       "web": true,
       "hub": true,
-      "hasExport": false,
+      "hasExport": true,
       "url": "https://server-prod.external.kr/"
     },
     {
       "folder": "server-yjh-dev1",
       "id": "yjh-dev1",
       "title": "다굴 (yjh-dev1)",
-      "blurb": "8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "blurb": "8인 로비 · 풀 모드 · 서버 권위 시뮬",
       "web": true,
       "hub": true,
       "hasExport": true,
       "url": "https://server-yjh-dev1.external.kr/"
     },
     {
-      "folder": "server-yjh-dev2",
-      "id": "yjh-dev2",
-      "title": "다굴 (yjh-dev2)",
-      "blurb": "정한 개발환경 2. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "folder": "server-yjh-hexclash",
+      "id": "yjh-hexclash",
+      "title": "Hex Clash",
+      "blurb": "6인 실시간 영토 전쟁",
       "web": true,
-      "hub": true,
+      "hub": false,
       "hasExport": false,
-      "url": "https://server-yjh-dev2.external.kr/"
+      "url": "https://server-yjh-hexclash.external.kr/"
     },
     {
-      "folder": "server-yjh-dev3",
-      "id": "yjh-dev3",
-      "title": "다굴 (yjh-dev3)",
-      "blurb": "정한 개발환경 3. 8인 로비 · 모드 5종 · 서버 권위 시뮬",
+      "folder": "server-yjh-snake",
+      "id": "yjh-snake",
+      "title": "Snake Arena",
+      "blurb": "50인 멀티 뱀 게임",
       "web": true,
-      "hub": true,
+      "hub": false,
       "hasExport": false,
-      "url": "https://server-yjh-dev3.external.kr/"
+      "url": "https://server-yjh-snake.external.kr/"
     }
   ]
 }

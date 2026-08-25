@@ -144,6 +144,11 @@ describe("5. 게임 종료", () => {
     await guest.waitFor("start");
     guest.inbox.length = 0;
 
+    // Send a playing snap first to clear H1 startup timeout
+    host.send({ t: "host_snap", tick: 1, time: 0.05, result: "playing", winner: -1, heroes: [{ slot: 0, hp: 100 }] });
+    await guest.waitFor("snap");
+    guest.inbox.length = 0;
+
     host.send({ t: "host_snap", tick: 999, time: 60, result: "won", winner: 0, heroes: [] });
     const snap = await guest.waitFor("snap");
     assert.equal(snap.result, "won");
@@ -172,5 +177,126 @@ describe("6. 보안", () => {
     const leaked = host.inbox.some((m) => m.t === "snap");
     assert.equal(leaked, false, "비호스트의 host_snap은 무시됩니다");
     host.close(); guest.close();
+  });
+});
+
+describe("7. peer_input 확장 필드 중계", () => {
+  it("게스트의 eq/eqp/ult/rld 필드가 호스트에게 전달됩니다", async () => {
+    const { host, guest } = await setupPair("H7", "G7");
+    host.send({ t: "start" });
+    await host.waitFor("start");
+    await guest.waitFor("start");
+    host.inbox.length = 0;
+
+    guest.send({
+      t: "input", mx: 1, my: 0, fire: true, dash: false, use: false,
+      aimX: 500, aimY: 300, eq: 2, eqp: true, ult: true, rld: true,
+    });
+    const pi = await host.waitFor("peer_input");
+    assert.equal(pi.eq, 2, "eq 필드가 중계되어야 합니다");
+    assert.equal(pi.eqp, true, "eqp 필드가 중계되어야 합니다");
+    assert.equal(pi.ult, true, "ult 필드가 중계되어야 합니다");
+    assert.equal(pi.rld, true, "rld 필드가 중계되어야 합니다");
+    host.close(); guest.close();
+  });
+});
+
+describe("8. host_snap 스키마 검증", () => {
+  it("heroes가 배열이 아닌 host_snap은 게스트에게 중계되지 않아야 합니다", async () => {
+    const { host, guest } = await setupPair("H8a", "G8a");
+    host.send({ t: "start" });
+    await host.waitFor("start");
+    await guest.waitFor("start");
+    guest.inbox.length = 0;
+
+    host.send({ t: "host_snap", tick: 1, time: 0.1, result: "playing", winner: -1, heroes: "not-an-array" });
+    await wait(1500);
+    const found = guest.inbox.some((m) => m.t === "snap");
+    assert.equal(found, false, "heroes가 배열이 아닌 snap은 무시되어야 합니다");
+    host.close(); guest.close();
+  });
+
+  it("t 필드가 없는 host_snap은 무시되어야 합니다", async () => {
+    const { host, guest } = await setupPair("H8b", "G8b");
+    host.send({ t: "start" });
+    await host.waitFor("start");
+    await guest.waitFor("start");
+    guest.inbox.length = 0;
+
+    host.ws.send(JSON.stringify({ tick: 1, time: 0.1, result: "playing", winner: -1, heroes: [] }));
+    await wait(1500);
+    const found = guest.inbox.some((m) => m.t === "snap");
+    assert.equal(found, false, "t 필드가 없는 메시지는 무시되어야 합니다");
+    host.close(); guest.close();
+  });
+});
+
+describe("9. 방 모드 변경", () => {
+  it("호스트가 모드를 변경하면 peers에 반영됩니다", async () => {
+    const { host, guest } = await setupPair("H9a", "G9a");
+    guest.inbox.length = 0;
+
+    host.send({ t: "mode", mode: "gun-semi" });
+    const peers = await guest.waitFor("peers");
+    const room = peers.room as Msg;
+    assert.equal(room.mode, "gun-semi", "모드가 gun-semi로 변경되어야 합니다");
+    host.close(); guest.close();
+  });
+
+  it("비호스트의 모드 변경 시도는 error를 받습니다", async () => {
+    const { host, guest } = await setupPair("H9b", "G9b");
+    guest.inbox.length = 0;
+
+    guest.send({ t: "mode", mode: "gun-semi" });
+    const err = await guest.waitFor("error");
+    assert.ok(err.msg, "에러 메시지가 있어야 합니다");
+    host.close(); guest.close();
+  });
+});
+
+describe("10. 호스트 나감 → 게임 종료", () => {
+  it("매치 중 호스트가 나가면 게스트에게 lobby 메시지가 옵니다", async () => {
+    const { host, guest } = await setupPair("H10", "G10");
+    host.send({ t: "start" });
+    await host.waitFor("start");
+    await guest.waitFor("start");
+    guest.inbox.length = 0;
+
+    host.send({ t: "host_snap", tick: 1, time: 0.05, result: "playing", winner: -1, heroes: [{ slot: 0, hp: 100 }] });
+    await guest.waitFor("snap");
+    guest.inbox.length = 0;
+
+    host.ws.close();
+    const msg = await Promise.race([
+      guest.waitFor("lobby", 8000),
+      guest.waitFor("peers", 8000),
+    ]).catch(() => null);
+    assert.ok(msg, "호스트 퇴장 후 로비 복귀 메시지를 받아야 합니다");
+    guest.close();
+  });
+});
+
+describe("11. 채팅 중계", () => {
+  it("호스트의 chat이 게스트에게 전달됩니다", async () => {
+    const { host, guest } = await setupPair("H11", "G11");
+    guest.inbox.length = 0;
+
+    host.send({ t: "chat", text: "hello" });
+    const chat = await guest.waitFor("chat");
+    assert.equal(chat.text, "hello", "채팅 텍스트가 전달되어야 합니다");
+    assert.equal(chat.from, "H11", "from 필드가 호스트 이름이어야 합니다");
+    host.close(); guest.close();
+  });
+});
+
+describe("12. resume 토큰", () => {
+  it("welcome 메시지에 32자 resume 토큰이 포함됩니다", async () => {
+    const client = new TestClient();
+    await client.connect();
+    const welcome = await client.waitFor("welcome");
+    assert.ok(typeof welcome.resume === "string", "resume 필드가 문자열이어야 합니다");
+    assert.equal((welcome.resume as string).length, 32, "resume 토큰은 32자여야 합니다");
+    assert.ok(/^[a-f0-9]{32}$/.test(welcome.resume as string), "resume 토큰은 hex 형식이어야 합니다");
+    client.close();
   });
 });

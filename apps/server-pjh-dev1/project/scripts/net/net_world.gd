@@ -32,6 +32,7 @@ var covers: Array[Dictionary] = []
 var health_pickups: Array[Dictionary] = []
 var crates: Array[Dictionary] = []
 var crate_orbs: Array[Dictionary] = []
+var mid_tower: Dictionary = {}
 var result: StringName = &"playing"
 var winner_slot: int = -1
 var result_reason: StringName = &""
@@ -291,19 +292,7 @@ func _overlay_prediction() -> void:
     heroes[local_slot] = me
 
 func _make_equipment(weapon_name: String, player_name: String) -> Dictionary:
-    return {
-        "id":"net",
-        "name":weapon_name if weapon_name != "" else "권총",
-        "character_name":player_name,
-        "role":"",
-        "special_name":"",
-        "ultimate_name":"",
-        "badge":"",
-        "normal_name":"",
-        "skill_name":"",
-        "skill_desc":"",
-        "ultimate_desc":""
-    }
+    return NetSnapParser.make_equipment(weapon_name, player_name)
 
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
@@ -311,6 +300,19 @@ func apply_snap(snap: Dictionary) -> void:
     var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
     match_time = _f(snap, "time", match_time)
     var prev_result := result
+    _apply_result(snap)
+    _apply_safe_zone(snap)
+    _apply_world_extras(snap)
+    _apply_players(snap.get("players", []))
+    _apply_bullets(snap.get("bullets", []))
+    _apply_loot(snap.get("loot", []))
+    _decay_effects(snap_dt)
+    if last_down_ticks > 0:
+        last_down_ticks = maxi(0, last_down_ticks - maxi(1, tick - prev_tick))
+    if prev_result == &"playing" and result != &"playing":
+        _on_match_ended()
+
+func _apply_result(snap: Dictionary) -> void:
     var snap_result := str(snap.get("result", "playing"))
     winner_slot = int(snap.get("winner", -1))
     if snap_result == "playing":
@@ -323,25 +325,43 @@ func apply_snap(snap: Dictionary) -> void:
     else:
         result = &"won" if winner_slot == local_slot else &"lost"
         result_reason = &"last_survivor"
+
+func _apply_safe_zone(snap: Dictionary) -> void:
     safe_zone_radius = _f(snap, "zoneR", safe_zone_radius)
     safe_zone_shrinking = bool(snap.get("shrinking", false))
     if safe_zone_shrinking:
         safe_zone_target_radius = maxf(SAFE_ZONE_MIN_RADIUS, safe_zone_radius * 0.62)
     else:
         safe_zone_target_radius = safe_zone_radius
-    safe_zone_center = ARENA_CENTER
-    _apply_players(snap.get("players", []))
-    _apply_bullets(snap.get("bullets", []))
-    _apply_loot(snap.get("loot", []))
-    _decay_effects(snap_dt)
-    if last_down_ticks > 0:
-        last_down_ticks = maxi(0, last_down_ticks - maxi(1, tick - prev_tick))
-    if prev_result == &"playing" and result != &"playing":
-        if winner_slot >= 0 and winner_slot < heroes.size():
-            decision_hp_ratio = clampf(float(heroes[winner_slot]["hp"]) / 100.0, 0.0, 1.0)
-            impact_pos = heroes[winner_slot]["pos"]
-        impact_ticks = 26
-        event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
+    if snap.has("zoneCX") and snap.has("zoneCY"):
+        safe_zone_center = Vector2(_f(snap, "zoneCX", ARENA_CENTER.x), _f(snap, "zoneCY", ARENA_CENTER.y))
+    else:
+        safe_zone_center = ARENA_CENTER
+    if snap.has("zonePhase"):
+        safe_zone_phase = int(snap["zonePhase"])
+    if snap.has("startCountdown"):
+        start_countdown = _f(snap, "startCountdown", 0.0)
+    if snap.has("wantedSlot"):
+        wanted_slot = int(snap["wantedSlot"])
+
+func _on_match_ended() -> void:
+    if winner_slot >= 0 and winner_slot < heroes.size():
+        decision_hp_ratio = clampf(float(heroes[winner_slot]["hp"]) / 100.0, 0.0, 1.0)
+        impact_pos = heroes[winner_slot]["pos"]
+    impact_ticks = 26
+    event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
+
+func _apply_world_extras(snap: Dictionary) -> void:
+    zones = NetSnapParser.parse_zones(snap)
+    deployables = NetSnapParser.parse_deployables(snap)
+    cores = NetSnapParser.parse_cores(snap)
+    covers = NetSnapParser.parse_covers(snap)
+    knockouts = NetSnapParser.parse_knockouts(snap)
+    crates = NetSnapParser.parse_crates(snap)
+    crate_orbs = NetSnapParser.parse_crate_orbs(snap)
+    var tower := NetSnapParser.parse_mid_tower(snap)
+    if not tower.is_empty():
+        mid_tower = tower
 
 func _apply_players(list: Array) -> void:
     var prev := {}
@@ -351,113 +371,67 @@ func _apply_players(list: Array) -> void:
     for raw in list:
         var p: Dictionary = raw
         var slot := int(p.get("slot", next.size()))
-        var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
         var old: Dictionary = prev.get(slot, {})
-        var old_pos: Vector2 = old.get("pos", pos)
-        var vel := (pos - old_pos) * SNAP_HZ
-        var aim_point := Vector2(_f(p, "aimX", pos.x + 1.0), _f(p, "aimY", pos.y))
-        var aim := Vector2(old.get("aim", Vector2.RIGHT))
-        if pos.distance_squared_to(aim_point) > 1.0:
-            aim = pos.direction_to(aim_point)
-        var alive := bool(p.get("alive", true))
-        var was_alive := bool(old.get("alive", true))
-        var deaths := int(_deaths.get(slot, 0))
-        if was_alive and not alive:
-            deaths += 1
-            _deaths[slot] = deaths
-            last_down_slot = slot
-            last_down_ticks = 18
-            impact_pos = pos
-            impact_ticks = maxi(impact_ticks, 10)
-            event_log.emit(tick, &"hero_downed", slot, -1, {})
-            _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
-        var player_name := str(p.get("name", "P%d" % (slot + 1)))
-        var item_name := str(p.get("item", ""))
-        var kills := int(p.get("kills", 0))
-        next.append({
-            "slot":slot,
-            "alive":alive,
-            "eliminated":not alive,
-            "pos":pos,
-            "vel":vel,
-            "aim":aim,
-            "hp":_f(p, "hp", 0.0),
-            "max_hp":100.0,
-            "kills":kills,
-            "deaths":deaths,
-            "score":float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0),
-            "eliminations":kills,
-            "damage_dealt":0.0,
-            "core_damage":0.0,
-            "ultimates":0,
-            "equipment_hits":0,
-            "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
-            "display_name":player_name,
-            "cpu":bool(p.get("cpu", false)),
-            "parked":bool(p.get("parked", false)),
-            "ultimate_charge":0.0,
-            "mobility_cd":0.0,
-            "medkits":1 if item_name != "" else 0,
-            "cc_time":0.0,
-            "stun_time":0.0,
-            "root_time":0.0,
-            "guard_time":0.0,
-            "super_armor_time":0.0,
-            "charging_skill":false,
-            "charge_time":0.0,
-            "kill_streak":0,
-            "best_kill_streak":0,
-            "launch_trail":[],
-            "launch_trail_fade":0.0,
-            "launch_time":0.0,
-            "launch_vel":Vector2.ZERO,
-            "action":&"READY"
-        })
+        _check_death(p, old, slot)
+        next.append(_build_hero(p, old, slot))
     heroes = next
 
+func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
+    var alive := bool(p.get("alive", true))
+    var was_alive := bool(old.get("alive", true))
+    if not was_alive or alive:
+        return
+    var deaths := int(_deaths.get(slot, 0)) + 1
+    _deaths[slot] = deaths
+    last_down_slot = slot
+    last_down_ticks = 18
+    var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
+    impact_pos = pos
+    impact_ticks = maxi(impact_ticks, 10)
+    event_log.emit(tick, &"hero_downed", slot, -1, {})
+    _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
+
+func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
+    var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
+    var old_pos: Vector2 = old.get("pos", pos)
+    var vel := (pos - old_pos) * SNAP_HZ
+    var aim_point := Vector2(_f(p, "aimX", pos.x + 1.0), _f(p, "aimY", pos.y))
+    var aim := Vector2(old.get("aim", Vector2.RIGHT))
+    if pos.distance_squared_to(aim_point) > 1.0:
+        aim = pos.direction_to(aim_point)
+    var alive := bool(p.get("alive", true))
+    var deaths := int(_deaths.get(slot, 0))
+    var player_name := str(p.get("name", "P%d" % (slot + 1)))
+    var kills := int(p.get("kills", 0))
+    return {
+        "slot":slot, "alive":alive, "eliminated":not alive,
+        "pos":pos, "vel":vel, "aim":aim,
+        "hp":_f(p, "hp", 0.0), "max_hp":100.0,
+        "kills":kills, "deaths":deaths,
+        "score":float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0),
+        "eliminations":kills, "damage_dealt":0.0, "core_damage":0.0,
+        "ultimates":0, "equipment_hits":0,
+        "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
+        "display_name":player_name,
+        "cpu":bool(p.get("cpu", false)), "parked":bool(p.get("parked", false)),
+        "ultimate_charge":0.0, "mobility_cd":0.0,
+        "medkits":1 if str(p.get("item", "")) != "" else 0,
+        "cc_time":0.0, "stun_time":0.0, "root_time":0.0,
+        "guard_time":0.0, "super_armor_time":0.0,
+        "charging_skill":false, "charge_time":0.0,
+        "kill_streak":0, "best_kill_streak":0,
+        "launch_trail":[], "launch_trail_fade":0.0,
+        "launch_time":0.0, "launch_vel":Vector2.ZERO,
+        "action":&"READY"
+    }
+
 func _apply_bullets(list: Array) -> void:
-    var next: Array[Dictionary] = []
-    for raw in list:
-        var b: Dictionary = raw
-        var pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
-        var vel := Vector2.ZERO
-        var best := 3600.0
-        for prev_b in _prev_bullets:
-            var d := pos.distance_squared_to(prev_b["pos"])
-            if d < best:
-                best = d
-                vel = (pos - prev_b["pos"]) * SNAP_HZ
-        next.append({
-            "pos":pos,
-            "vel":vel,
-            "owner":int(b.get("owner", 0)),
-            "kind":"bolt",
-            "source":&"normal",
-            "arc":false,
-            "radius":5.0
-        })
+    var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)
     _prev_bullets = next.duplicate()
     projectiles = next
 
 func _apply_loot(list: Array) -> void:
-    var next: Array[Dictionary] = []
-    for raw in list:
-        var drop: Dictionary = raw
-        var entry := {
-            "active":true,
-            "pos":Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
-            "id":abs(hash(str(drop.get("id", "")))) % 1000,
-            "magnet_slot":-1
-        }
-        if str(drop.get("kind", "")) == "gun":
-            var compact_name := str(drop.get("n", ""))
-            if compact_name != "":
-                entry["gun_name"] = compact_name
-            else:
-                var weapon: Dictionary = drop.get("weapon", {})
-                entry["gun_name"] = str(weapon.get("name", "총"))
-        next.append(entry)
-    health_pickups = next
+    health_pickups = NetSnapParser.parse_loot(list)
 
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color) -> void:
     effects.append({

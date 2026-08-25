@@ -11,15 +11,10 @@ data:
       admin off
     }
     :8080 {
-      encode {
-        gzip
-        match {
-          header Content-Type text/*
-          header Content-Type application/javascript*
-          header Content-Type application/json*
-        }
-      }
+      encode zstd gzip
       header X-Content-Type-Options nosniff
+      header Cross-Origin-Opener-Policy same-origin
+      header Cross-Origin-Embedder-Policy require-corp
 
       handle /healthz {
         header Access-Control-Allow-Origin *
@@ -69,7 +64,10 @@ data:
           }
         }
         root * /srv/g/{{ .folder }}
-        header Cache-Control "no-store, no-cache, must-revalidate"
+        @html_files path *.html
+        header @html_files Cache-Control "no-store, no-cache, must-revalidate"
+        @cacheable not path *.html
+        header @cacheable Cache-Control "no-cache"
         file_server
       }
       {{- end }}
@@ -87,7 +85,10 @@ data:
           respond "missing" 404
         }
         root * /srv/g/{http.regexp.folder.1}
-        header Cache-Control "no-store, no-cache, must-revalidate"
+        @html_files path *.html
+        header @html_files Cache-Control "no-store, no-cache, must-revalidate"
+        @cacheable not path *.html
+        header @cacheable Cache-Control "no-cache"
         file_server
       }
 
@@ -194,9 +195,9 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
+              memory: 64Mi
             limits:
-              memory: 128Mi
+              memory: 2Gi
       volumes:
         - name: caddyfile
           configMap:

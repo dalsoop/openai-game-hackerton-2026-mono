@@ -21,17 +21,13 @@
     html, body { height: 100%; background: var(--bg-0); color: var(--tx-0); font-family: 'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',ui-sans-serif,system-ui,sans-serif; font-size: 14px; line-height: 1.5; }
 
     /* --- background pattern --- */
-    body::before { content:""; position:fixed; inset:0; z-index:-2; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,210,62,.06), transparent), var(--bg-0); }
+    body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('assets/lobby-bg.png') center/cover no-repeat, var(--bg-0); }
+    body.wait::before { background: linear-gradient(rgba(11,14,20,0.82), rgba(11,14,20,0.90)), url('assets/waiting-bg.png') center/cover no-repeat, var(--bg-0); }
     body::after { content:""; position:fixed; inset:0; z-index:-1; opacity:.4; background-image:radial-gradient(circle, var(--line) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg,transparent,black 30%,black 70%,transparent); pointer-events:none; }
-
-    /* --- canvas --- */
-    canvas { display: none; width: 100vw; height: 100vh; background: var(--bg-0); }
-    body.play canvas { display: block; }
-    body.play #hub, body.play #wait, body.play #result { display: none !important; }
 
     /* --- sections --- */
     #hub, #wait { display:none; min-height: 100%; padding: 32px; max-width: 960px; margin: 0 auto; animation: fadeUp .35s ease both; }
-    body:not(.play):not(.wait) #hub { display: block; }
+    body:not(.wait) #hub { display: block; }
     body.wait #hub { display: none; }
     body.wait #wait { display: block; }
 
@@ -47,9 +43,12 @@
 
     /* --- hero --- */
     .hero { display:flex; align-items:center; gap:16px; margin-bottom:28px; flex-wrap:wrap; }
+    .logo-mark { width:56px; height:56px; object-fit:contain; border-radius:12px; background:rgba(0,0,0,.35); box-shadow:var(--shadow); }
     .logo-word { font-weight:900; font-size:clamp(28px,4vw,44px); letter-spacing:-.03em; color:var(--tx-0); }
     .logo-word span { color:var(--acc); margin-left:.3em; }
     .tagline { color:var(--tx-2); font-size:12px; letter-spacing:.15em; margin-top:2px; }
+    .weapons-strip { display:block; width:100%; height:72px; object-fit:cover; object-position:center 40%; border-radius:var(--radius); margin:4px 0 8px; border:1px solid var(--line); }
+    .mode-art { display:block; width:calc(100% + 28px); height:78px; object-fit:cover; border-radius:12px 12px 0 0; margin:-14px -14px 10px; }
 
     /* --- connection status --- */
     .conn { display:flex; align-items:center; gap:8px; margin-left:auto; font-size:13px; color:var(--tx-1); }
@@ -57,6 +56,9 @@
     .conn.ok .conn-dot { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
     .conn.bad .conn-dot { background:var(--red); }
     .conn-ping { font-family:ui-monospace,monospace; font-size:12px; color:var(--cyan); }
+
+    /* --- prefetch strip --- */
+    .prefetch-strip { display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 12px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius-s); }
 
     /* --- identity bar --- */
     .identity { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
@@ -141,8 +143,10 @@
     .host-bar select { background:var(--bg-1); color:var(--tx-0); border:1.5px solid var(--line); border-radius:var(--radius-s); padding:8px 12px; font-size:13px; }
 
     /* --- result overlay --- */
-    #result { display:none; position:fixed; inset:0; place-items:center; background:rgba(11,14,20,.88); backdrop-filter:blur(6px); z-index:40; }
-    #result.show { display:grid; }
+    #result { display:none; position:fixed; inset:0; place-items:center; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.88)), url('assets/victory-bg.png') center/cover no-repeat; backdrop-filter:blur(6px); z-index:40; }
+    #result.show { display:grid; background:
+      linear-gradient(rgba(11,14,20,.62), rgba(11,14,20,.78)),
+      url("assets/victory-bg.png") center/cover no-repeat; }
     .result-card { width:min(540px,92vw); background:var(--bg-1); border:1px solid var(--line); border-radius:20px; padding:28px; animation:riseIn .4s cubic-bezier(.2,1.2,.3,1); text-align:center; }
     .result-banner { font-size:36px; font-weight:900; letter-spacing:.1em; color:var(--acc); text-shadow:0 0 30px rgba(255,210,62,.3); margin-bottom:16px; }
     .result-banner.draw { color:var(--cyan); text-shadow:0 0 30px rgba(62,230,210,.3); }
@@ -173,18 +177,10 @@
   </style>
 </head>
 <body>
-  <canvas id="c" width="1600" height="900"></canvas>
-
   <!-- === LOBBY === -->
   <section id="hub">
     <header class="hero">
-      <svg viewBox="0 0 64 64" width="52" height="52" aria-hidden="true">
-        <path d="M32 4 L40 18 L32 14 L24 18 Z" fill="var(--p1)"/>
-        <path d="M60 32 L46 40 L50 32 L46 24 Z" fill="var(--p2)"/>
-        <path d="M32 60 L24 46 L32 50 L40 46 Z" fill="var(--p3)"/>
-        <path d="M4 32 L18 24 L14 32 L18 40 Z" fill="var(--p5)"/>
-        <circle cx="32" cy="32" r="7" fill="var(--acc)"><animate attributeName="r" values="7;8.5;7" dur="2s" repeatCount="indefinite"/></circle>
-      </svg>
+      <img class="logo-mark" src="assets/logo.png" width="56" height="56" alt="다굴 같이하기" />
       <div>
         <div class="logo-word">다굴<span>같이하기</span></div>
         <div class="tagline">8명 &middot; 한 판 &middot; 마지막 한 명</div>
@@ -196,12 +192,20 @@
       </div>
     </header>
 
+    <div class="prefetch-strip">
+      <span id="prefetch-text" style="font-size:11px;color:var(--tx-2)">게임 다운로드 준비 중</span>
+      <div style="flex:1;height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden;margin-left:8px">
+        <div id="prefetch-bar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--acc),var(--cyan));border-radius:2px;transition:width .3s"></div>
+      </div>
+    </div>
+
     <div class="identity">
       <div id="avatarPreview"></div>
       <input id="name" maxlength="12" placeholder="내 이름" />
     </div>
 
     <div class="sec-title">모드 선택</div>
+    <img class="weapons-strip" src="assets/weapons.png" alt="" />
     <div class="modes" id="modes"></div>
 
     <div class="sec-title">열린 방 <span class="count-badge" id="roomCount">0</span></div>
@@ -238,7 +242,7 @@
 
     <div class="host-bar" id="hostBar" style="display:none">
       <select id="modeChange"></select>
-      <button class="cta" id="start">같이 시작<small>빈자리 CPU</small></button>
+      <button class="cta" id="start">게임으로 이동</button>
     </div>
   </section>
 
@@ -264,7 +268,26 @@
   <div id="curtain"></div>
 
 <script>
-/* ===================== PRESERVED GAME LOGIC ===================== */
+/* ===================== CONSTANTS ===================== */
+const NET = {
+  PING_INTERVAL_MS: 5000,
+  RECONNECT_BASE_MS: 500,
+  RECONNECT_MAX_MS: 30000,
+  RECONNECT_JITTER_MS: 250,
+  PING_UPDATE_INTERVAL_MS: 2000,
+};
+
+const MODE_TITLES = {
+  classic: "클래식",
+  "gun-semi": "무기 · 단발",
+  "gun-auto": "무기 · 연발",
+  item: "아이템",
+  full: "합본",
+};
+
+const MAX_PLAYERS = 8;
+
+/* ===================== VISUAL ASSETS ===================== */
 const PLAYER_COLORS = ['var(--p1)','var(--p2)','var(--p3)','var(--p4)','var(--p5)','var(--p6)','var(--p7)','var(--p8)'];
 const AVATAR_SHAPES = [
   '<circle cx="16" cy="13" r="8"/>',
@@ -282,8 +305,6 @@ function avatarSVG(i, size=32) {
 }
 const CROWN_SVG = '<svg viewBox="0 0 16 12" width="14" height="10" style="vertical-align:middle;margin-right:2px"><path d="M1 11 h14 L14 3 L10.5 6.5 L8 1 L5.5 6.5 L2 3 Z" fill="var(--acc)"/></svg>';
 
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
 const proto = location.protocol === "https:" ? "wss" : "ws";
 const wsPath = location.pathname.replace(/\/[^/]*$/, "") || "";
 const params = new URLSearchParams(location.search);
@@ -295,11 +316,6 @@ let myId = "";
 let phase = "hub";
 let selectedMode = params.get("mode") || "classic";
 let roomInfo = null;
-let snap = null;
-const snapBuf = [];
-const INTERP_MS = 100;
-let keys = {};
-let mouse = { x: 800, y: 450, down: false };
 let myPing = 0;
 let resultShown = false;
 const nameIn = document.getElementById("name");
@@ -308,7 +324,7 @@ nameIn.value = params.get("name") || ("웹" + Math.floor(10 + Math.random() * 89
 let ws = null;
 let reconnectAttempt = 0;
 let intentionalClose = false;
-let resumeToken = sessionStorage.getItem("gangup.resume") || "";
+let resumeToken = localStorage.getItem("gangup_resume") || sessionStorage.getItem("gangup.resume") || "";
 let welcomed = false;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -319,15 +335,7 @@ function send(msg) {
 
 function setPhase(next) {
   phase = next;
-  document.body.className = next === "play" ? "play" : next === "wait" ? "wait" : "";
-  if (next === "play") {
-    resultShown = false;
-    document.getElementById("result").classList.remove("show");
-    const c = document.getElementById("curtain");
-    c.classList.remove("go");
-    void c.offsetWidth;
-    c.classList.add("go");
-  }
+  document.body.className = next === "wait" ? "wait" : "";
 }
 
 let wantResume = false;
@@ -403,7 +411,7 @@ function connect() {
   ws.onclose = () => {
     if (intentionalClose) return;
     showBanner(`연결이 끊겼습니다. 다시 연결하는 중… (${reconnectAttempt + 1}번째 시도)`);
-    const delay = Math.min(500 * Math.pow(2, reconnectAttempt) + Math.random() * 250, 30000);
+    const delay = Math.min(NET.RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt) + Math.random() * NET.RECONNECT_JITTER_MS, NET.RECONNECT_MAX_MS);
     reconnectAttempt++;
     setTimeout(connect, delay);
   };
@@ -412,18 +420,73 @@ function connect() {
 
 window.addEventListener("beforeunload", () => { intentionalClose = true; });
 
-function onMessage(ev) {
-  const msg = JSON.parse(ev.data);
-  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
-  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+function storeToken(token) {
+  if (token) {
+    resumeToken = token;
+    sessionStorage.setItem("gangup.resume", resumeToken);
+    localStorage.setItem("gangup_resume", resumeToken);
+  }
+}
 
-  if (msg.t === "welcome") {
+// --- Skeleton loading: prefetch Godot engine in background ---
+const GAME_FILES = ["/index.js", "/index.wasm", "/index.pck"];
+let prefetchDone = false;
+let prefetchPct = 0;
+
+async function prefetchGame() {
+  if (navigator.connection && navigator.connection.saveData) return;
+  let loaded = 0;
+  let totalEstimate = 40 * 1024 * 1024;
+  try {
+    for (const url of GAME_FILES) {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok || !res.body) continue;
+      const len = +(res.headers.get("Content-Length") || 0);
+      if (len > 0) totalEstimate = Math.max(totalEstimate, loaded + len);
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        loaded += value.length;
+        prefetchPct = Math.min(99, Math.round(loaded / totalEstimate * 100));
+        updatePrefetchUI(prefetchPct);
+      }
+    }
+  } catch { /* network error — silent fail, user will download on navigate */ }
+  prefetchDone = true;
+  prefetchPct = 100;
+  updatePrefetchUI(100);
+}
+
+function updatePrefetchUI(pct) {
+  const el = document.getElementById("prefetch-bar");
+  if (el) el.style.width = pct + "%";
+  const txt = document.getElementById("prefetch-text");
+  if (txt) txt.textContent = pct >= 100 ? "게임 준비 완료" : `게임 다운로드 ${pct}%`;
+}
+
+function goToGame() {
+  localStorage.setItem("gangup_resume", resumeToken);
+  localStorage.setItem("gangup_from_hub", "1");
+  localStorage.setItem("gangup_name", nameIn.value || "웹");
+  intentionalClose = true;
+  location.href = "/";
+}
+
+setTimeout(prefetchGame, 2000);
+
+function resetRoom() {
+  players = []; roomInfo = null;
+  resultShown = false;
+  document.getElementById("result").classList.remove("show");
+  history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
+}
+
+const msgHandlers = {
+  welcome(msg) {
     if (msg.id) myId = msg.id;
     const prevToken = resumeToken;
-    if (msg.resume) {
-      resumeToken = msg.resume;
-      sessionStorage.setItem("gangup.resume", resumeToken);
-    }
+    storeToken(msg.resume);
     modes = msg.modes || {};
     if (!welcomed) {
       welcomed = true;
@@ -431,7 +494,7 @@ function onMessage(ev) {
         if (myPing > 0 && !document.getElementById("reconnect-banner")?.style.display?.includes("block")) {
           updatePingDisplay();
         }
-      }, 2000);
+      }, NET.PING_UPDATE_INTERVAL_MS);
       const roomId = params.get("room");
       if (roomId) setTimeout(() => send({ t: "join", roomId }), 80);
     }
@@ -439,109 +502,81 @@ function onMessage(ev) {
     renderModes();
     send({ t: "hello", name: nameIn.value || "웹", mode: selectedMode, resume: prevToken, wantResume: !!prevToken && wantResume });
     send({ t: "rooms" });
-    return;
-  }
-
-  if (msg.t === "resume") {
+  },
+  resume(msg) {
     if (msg.id) myId = msg.id;
     you = msg.you;
     players = msg.players || [];
     roomInfo = msg.room;
-    snapBuf.length = 0;
-    if (msg.resume) { resumeToken = msg.resume; sessionStorage.setItem("gangup.resume", resumeToken); }
+    storeToken(msg.resume);
     if (msg.playing) {
-      if (msg.snap) {
-        snap = msg.snap;
-        snapBuf.push({ at: performance.now(), snap: msg.snap });
-      }
-      setPhase("play");
+      goToGame();
     } else {
-      setPhase("wait");
-      renderWait();
+      setPhase("wait"); renderWait();
     }
     hideBanner();
-    return;
-  }
-
-  if (msg.t === "dropped") {
-    if (msg.resume) {
-      resumeToken = msg.resume;
-      sessionStorage.setItem("gangup.resume", resumeToken);
-    }
-    setPhase("hub");
-    hello();
-    return;
-  }
-
-  if (msg.t === "kicked") {
-    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
-    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
-    setPhase("hub");
-    hello();
+  },
+  dropped(msg) {
+    storeToken(msg.resume);
+    setPhase("hub"); hello();
+  },
+  kicked(msg) {
+    resetRoom();
+    setPhase("hub"); hello();
     toast(msg.msg || "방에서 내보내졌습니다.", "leave");
-    return;
-  }
-
-  if (msg.t === "lobby") {
-    snap = null;
-    snapBuf.length = 0;
+  },
+  lobby() {
     resultShown = false;
     document.getElementById("result").classList.remove("show");
-    setPhase("wait");
-    renderWait();
-    return;
-  }
-
-  if (msg.t === "rooms") { rooms = msg.rooms || []; renderRooms(); }
-
-  if (msg.t === "joined") {
+    setPhase("wait"); renderWait();
+  },
+  rooms(msg) { rooms = msg.rooms || []; renderRooms(); },
+  joined(msg) {
     you = msg.you;
     players = msg.players || [];
     roomInfo = msg.room;
     selectedMode = msg.room.mode;
     history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}&room=${encodeURIComponent(msg.room.id)}`);
     document.getElementById("chatLog").innerHTML = "";
-    setPhase("wait");
-    renderWait();
-  }
-
-  if (msg.t === "peers") {
+    setPhase("wait"); renderWait();
+  },
+  peers(msg) {
     players = msg.players || [];
     if (msg.room) roomInfo = msg.room;
     const me = players.find(p => p.id === myId);
     if (me) you = me.slot;
     if (msg.notice) addChat("", msg.notice, 0, true);
     renderWait();
-  }
-
-  if (msg.t === "chat") {
-    addChat(msg.from, msg.text, msg.slot, false);
-  }
-
-  if (msg.t === "start") { you = msg.you; setPhase("play"); }
-
-  if (msg.t === "snap") {
-    snap = msg;
-    snapBuf.push({ at: performance.now(), snap: msg });
-    while (snapBuf.length > 16) snapBuf.shift();
-    if (msg.result !== "playing") document.body.className = "play";
-    if (phase !== "play") setPhase("play");
-    if (msg.result && msg.result !== "playing" && !resultShown) {
-      resultShown = true;
-      showResult(msg);
+  },
+  chat(msg) { addChat(msg.from, msg.text, msg.slot, false); },
+  start(msg) {
+    you = msg.you;
+    if (prefetchDone) {
+      goToGame();
+    } else {
+      // Show progress modal and navigate when done
+      showBanner(`게임 로딩 중… ${prefetchPct}%`);
+      const checkInterval = setInterval(() => {
+        if (prefetchDone) {
+          clearInterval(checkInterval);
+          hideBanner();
+          goToGame();
+        } else {
+          showBanner(`게임 로딩 중… ${prefetchPct}%`);
+        }
+      }, 300);
     }
-  }
+  },
+  left() { resetRoom(); setPhase("hub"); hello(); },
+  error(msg) { toast(msg.msg, "leave"); },
+};
 
-  if (msg.t === "left") {
-    players = []; roomInfo = null; snap = null; snapBuf.length = 0;
-    resultShown = false;
-    document.getElementById("result").classList.remove("show");
-    history.replaceState({}, "", `?mode=${encodeURIComponent(selectedMode)}`);
-    setPhase("hub");
-    hello();
-  }
-
-  if (msg.t === "error") toast(msg.msg, "leave");
+function onMessage(ev) {
+  const msg = JSON.parse(ev.data);
+  if (msg.t === "ping") { send({ t: "pong", ts: msg.ts }); return; }
+  if (msg.t === "pong") { if (typeof msg.ts === "number") myPing = Date.now() - msg.ts; return; }
+  const handler = msgHandlers[msg.t];
+  if (handler) handler(msg);
 }
 
 /* ===================== RENDER FUNCTIONS ===================== */
@@ -550,6 +585,7 @@ function renderModes() {
   const el = document.getElementById("modes");
   el.innerHTML = Object.values(modes).map(m =>
     `<button class="mode-card ${m.id === selectedMode ? "on" : ""}" data-id="${esc(m.id)}">
+      <img class="mode-art" src="assets/mode-classic.png" alt="" />
       <b>${esc(m.title)}</b><span>${esc(m.blurb)}</span>
       <div class="mode-check"><svg viewBox="0 0 20 20" width="14"><path d="M4 10 l4 4 l8-8" stroke="var(--bg-0)" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
     </button>`
@@ -571,7 +607,7 @@ function renderModeSelect() {
 }
 
 function renderRooms() {
-  const titles = { classic: "클래식", "gun-semi": "무기 \xb7 단발", "gun-auto": "무기 \xb7 연발", item: "아이템", full: "합본" };
+  const titles = MODE_TITLES;
   document.getElementById("roomCount").textContent = rooms.length;
   const el = document.getElementById("rooms");
   if (!rooms.length) {
@@ -580,11 +616,11 @@ function renderRooms() {
   }
   el.innerHTML = rooms.map(r => {
     let pips = '';
-    for (let i = 0; i < 8; i++) pips += `<i${i < r.count ? ` style="background:${PLAYER_COLORS[i]}"` : ''}></i>`;
+    for (let i = 0; i < MAX_PLAYERS; i++) pips += `<i${i < r.count ? ` style="background:${PLAYER_COLORS[i]}"` : ''}></i>`;
     return `<div class="room-card" data-id="${esc(r.id)}">
       <div class="room-info"><b>${esc(r.title)}</b><div class="room-pips">${pips}</div></div>
       <span class="room-mode-badge">${esc(titles[r.mode] || r.mode)}</span>
-      <span class="room-count">${r.count}/8</span>
+      <span class="room-count">${r.count}/${MAX_PLAYERS}</span>
       <span class="room-enter">입장 →</span>
     </div>`;
   }).join("");
@@ -592,7 +628,7 @@ function renderRooms() {
 }
 
 function renderWait() {
-  const titles = { classic: "클래식", "gun-semi": "무기 \xb7 단발", "gun-auto": "무기 \xb7 연발", item: "아이템", full: "합본" };
+  const titles = MODE_TITLES;
   const modeName = titles[roomInfo?.mode] || "";
   document.getElementById("waitTitle").textContent = roomInfo?.title || "대기실";
   document.getElementById("waitMode").textContent = modeName;
@@ -609,7 +645,7 @@ function renderWait() {
   }
 
   const cells = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < MAX_PLAYERS; i++) {
     const p = players.find(x => x.slot === i);
     if (p) {
       const isMe = p.id === myId;
@@ -685,7 +721,9 @@ document.getElementById("copy").onclick = async () => {
 };
 
 document.getElementById("leave").onclick = () => send({ t: "leave" });
-document.getElementById("start").onclick = () => send({ t: "start" });
+document.getElementById("start").onclick = () => {
+  send({ t: "start" });
+};
 
 document.getElementById("modeChange").onchange = (e) => {
   send({ t: "mode", mode: e.target.value });
@@ -704,111 +742,10 @@ document.getElementById("resultLobby").onclick = () => {
   send({ t: "leave" });
 };
 
-window.addEventListener("keydown", e => {
-  keys[e.code] = true;
-  if (e.code === "Escape" && phase === "play") send({ t: "leave" });
-});
-window.addEventListener("keyup", e => { keys[e.code] = false; });
-canvas.addEventListener("mousemove", e => {
-  const r = canvas.getBoundingClientRect();
-  mouse.x = (e.clientX - r.left) * canvas.width / r.width;
-  mouse.y = (e.clientY - r.top) * canvas.height / r.height;
-});
-canvas.addEventListener("mousedown", () => mouse.down = true);
-window.addEventListener("mouseup", () => mouse.down = false);
-
-setInterval(() => {
-  if (phase !== "play") return;
-  send({
-    t: "input",
-    mx: (keys.KeyD||keys.ArrowRight?1:0) - (keys.KeyA||keys.ArrowLeft?1:0),
-    my: (keys.KeyS||keys.ArrowDown?1:0) - (keys.KeyW||keys.ArrowUp?1:0),
-    fire: mouse.down,
-    dash: !!keys.Space,
-    use: !!keys.KeyE,
-    aimX: mouse.x,
-    aimY: mouse.y,
-  });
-}, 50);
-
-setInterval(() => { send({ t: "ping", ts: Date.now() }); }, 5000);
-
-/* ===================== CANVAS RENDERING (PRESERVED) ===================== */
-
-function viewSnap() {
-  if (snapBuf.length === 0) return snap;
-  if (snapBuf.length === 1) return snapBuf[0].snap;
-  const renderAt = performance.now() - INTERP_MS;
-  let a = snapBuf[0];
-  let b = snapBuf[snapBuf.length - 1];
-  for (let i = 0; i < snapBuf.length - 1; i++) {
-    if (snapBuf[i + 1].at >= renderAt) {
-      a = snapBuf[i];
-      b = snapBuf[i + 1];
-      break;
-    }
-  }
-  const span = Math.max(1, b.at - a.at);
-  const t = Math.max(0, Math.min(1, (renderAt - a.at) / span));
-  const as = a.snap;
-  const bs = b.snap;
-  const mix = (p, q, k) => p + (q - p) * k;
-  const aPlayers = as.players || [];
-  const bPlayers = bs.players || [];
-  const playersView = bPlayers.map((bp) => {
-    const ap = aPlayers.find((x) => x.slot === bp.slot) || bp;
-    return { ...bp, x: mix(ap.x, bp.x, t), y: mix(ap.y, bp.y, t), aimX: mix(ap.aimX, bp.aimX, t), aimY: mix(ap.aimY, bp.aimY, t) };
-  });
-  const aBullets = as.bullets || [];
-  const bBullets = bs.bullets || [];
-  const bullets = aBullets.length === bBullets.length
-    ? bBullets.map((bb, i) => ({ ...bb, x: mix(aBullets[i].x, bb.x, t), y: mix(aBullets[i].y, bb.y, t) }))
-    : bBullets;
-  return { ...bs, zoneR: mix(as.zoneR || 420, bs.zoneR || 420, t), players: playersView, bullets };
-}
-
-function draw() {
-  requestAnimationFrame(draw);
-  if (phase !== "play" || !snap) return;
-  const view = viewSnap() || snap;
-  ctx.fillStyle = "#0b0e13"; ctx.fillRect(0, 0, 1600, 900);
-  const zoneR = view.zoneR || 420;
-  ctx.beginPath(); ctx.arc(800, 450, 430, 0, Math.PI*2); ctx.fillStyle = "#123047"; ctx.fill();
-  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.fillStyle = "#c4a574"; ctx.fill();
-  ctx.beginPath(); ctx.arc(800, 450, zoneR, 0, Math.PI*2); ctx.strokeStyle = view.shrinking ? "#ff4f68" : "#70e7ff"; ctx.lineWidth = 4; ctx.stroke();
-  for (const drop of view.loot || []) {
-    ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
-    ctx.fillStyle = drop.kind === "gun" ? "#ffd166" : "#6ef3a5"; ctx.fill();
-  }
-  for (const b of view.bullets || []) {
-    ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fillStyle = "#ffe066"; ctx.fill();
-  }
-  let me = null, alive = 0;
-  for (const p of view.players || []) {
-    if (p.alive) alive++;
-    ctx.globalAlpha = p.alive ? 1 : 0.25;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fillStyle = p.color || "#fff"; ctx.fill();
-    if (p.slot === you) { me = p; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(p.name, p.x, p.y - 24);
-    ctx.fillStyle = "#000"; ctx.fillRect(p.x - 18, p.y + 20, 36, 5);
-    ctx.fillStyle = "#6ef3a5"; ctx.fillRect(p.x - 18, p.y + 20, 36 * Math.max(0, p.hp/100), 5);
-  }
-  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(16, 16, 460, 70);
-  ctx.fillStyle = "#fff"; ctx.font = "18px sans-serif"; ctx.textAlign = "left";
-  ctx.fillText(`생존 ${alive}/8   킬 ${me?.kills||0}   ${me?.weapon||""}`, 28, 44);
-  ctx.fillStyle = "#aebaca"; ctx.font = "14px sans-serif";
-  ctx.fillText(`아이템 ${me?.item || "-"}   WASD 클릭사격  SPACE대시  E아이템  ESC로비`, 28, 68);
-  const pingColor = myPing <= 50 ? "#3fb950" : myPing <= 150 ? "#d29922" : "#f85149";
-  ctx.fillStyle = "rgba(8,10,14,0.85)"; ctx.fillRect(1460, 16, 124, 32);
-  ctx.fillStyle = pingColor; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "right";
-  ctx.fillText(`${myPing}ms`, 1572, 38);
-}
+setInterval(() => { send({ t: "ping", ts: Date.now() }); }, NET.PING_INTERVAL_MS);
 
 /* ===================== INIT ===================== */
 document.getElementById("avatarPreview").innerHTML = avatarSVG(0, 44);
-draw();
 connect();
 </script>
 </body>
