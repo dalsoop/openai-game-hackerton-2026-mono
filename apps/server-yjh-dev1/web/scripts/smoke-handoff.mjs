@@ -35,7 +35,7 @@ await sleep(500);
 ok("1. 2인 입장 → players=2", hostRoom.state.players.length === 2);
 
 // 2. 시작 — 양쪽 START 수신 (seats 동봉 확인)
-const [hostStart, guestStart] = await Promise.all([
+const [hostStart] = await Promise.all([
   onceEvent(hostRoom, "message:start"),
   onceEvent(guestRoom, "message:start"),
   hostRoom.send("start", {}),

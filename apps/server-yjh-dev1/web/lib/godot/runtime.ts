@@ -106,8 +106,11 @@ export class GodotRuntime {
       const [wasmBuf, pckBuf] = await Promise.all([
         this.fetchWithProgress(this.assetUrl("index.wasm")),
         this.fetchWithProgress(this.assetUrl("index.pck")),
+        this.fetchWithProgress(this.assetUrl("index.side.wasm")),
       ]);
       this.pckBuffer = pckBuf;
+      // side.wasm 은 엔진이 init 시 자체 fetch 한다 — 여기서 받아두는 건
+      // 진행률 표시용이고, 실제 절약은 ?v= immutable 캐시로 얻는다.
 
       this.update({ state: "compiling" });
       this.wasmModule = await WebAssembly.compile(wasmBuf);
@@ -183,11 +186,23 @@ export class GodotRuntime {
       // dlink GDExtension — Godot 가 res:// 경로 그대로 dlopen 한다.
       gdextensionLibs: [EXT_LIB_FILE],
     };
-    // 참고: wasm 사전컴파일(instantiateWasm 오버라이드)은 dylink(GDExtension)
-    // 사전로드 경로를 우회해 dlopen 이 실패한다 — 오버라이드 없이 엔진에 맡긴다.
+    // 사전컴파일한 wasm 을 주입해 부팅 시 재다운로드를 막는다.
+    // (dlopen 실패의 원인은 오버라이드가 아니라 FS 경로 문제였다 — 별도 해결 완료.)
+    if (this.wasmModule) {
+      const wasmMod = this.wasmModule;
+      config.instantiateWasm = (
+        imports: WebAssembly.Imports,
+        onDone: (inst: WebAssembly.Instance, mod: WebAssembly.Module) => void,
+      ): Record<string, unknown> => {
+        void WebAssembly.instantiate(wasmMod, imports).then((inst) => onDone(inst, wasmMod));
+        return {};
+      };
+    }
 
     const engine = new EngineCtor(config);
     this.armWatchdog();
+    // loadPath 는 무버전으로 둔다 — 엔진이 `${loadPath}.side.wasm` 을 단순
+    // 이어붙이므로 쿼리가 파일명을 오염시킨다. 재전송은 서버측 ETag/304 로 막는다.
     await engine.init(`/godot/${this.game}/index`);
     engine.copyToFS("index.pck", this.pckBuffer);
     // GDExtension 웹 라이브러리 — dlopen 이 res:// 경로로 동기 읽기 하므로

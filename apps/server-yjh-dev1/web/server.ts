@@ -62,7 +62,7 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
   candidates.push([base, null]);
 
   for (const [file, encoding] of candidates) {
-    if (serveOne(file, encoding, res, mime, cacheControl)) {return true;}
+    if (serveOne(file, encoding, req, res, mime, cacheControl)) {return true;}
   }
   return false;
 }
@@ -71,6 +71,7 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
 function serveOne(
   file: string,
   encoding: string | null,
+  req: IncomingMessage,
   res: ServerResponse,
   mime: string,
   cacheControl: string,
@@ -82,9 +83,18 @@ function serveOne(
     return false;
   }
   if (!st.isFile()) {return false;}
+  // 무버전 요청도 ETag 검증으로 304 를 돌려준다 — 엔진이 스스로 fetch 하는
+  // index.side.wasm(8MB+)의 재전송을 본문 없이 갱신 검사로 끝낸다.
+  const etag = `"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
+  if (req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { etag, "cache-control": cacheControl });
+    res.end();
+    return true;
+  }
   res.writeHead(200, {
     "content-type": mime,
     "content-length": st.size,
+    etag,
     "cache-control": cacheControl,
     ...(encoding ? { "content-encoding": encoding, vary: "Accept-Encoding" } : {}),
   });

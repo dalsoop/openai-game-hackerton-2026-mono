@@ -49,4 +49,4 @@ echo "  다굴 플랫폼 개발 서버"
 echo "  http://localhost:3000"
 echo "==================================="
 cd "$WEB"
-exec npx tsx server.ts
+exec env PORT="${PORT:-3100}" npx tsx server.ts

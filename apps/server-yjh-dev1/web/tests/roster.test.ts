@@ -81,3 +81,31 @@ describe("Roster.fromSnapshot", () => {
     expect(roster.seats[1]?.connected).toBe(true);
   });
 });
+
+describe("Roster 엣지 케이스", () => {
+  it("호스트가 명단에 없으면 host 는 null 이다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({
+        hostSessionId: "ghost",
+        players: [{ slot: 0, sessionId: "a", name: "하나", connected: true }],
+      }),
+      "a",
+    );
+    expect(roster.host).toBeNull();
+    expect(roster.isHost).toBe(false);
+  });
+
+  it("내 세션이 명단에 없으면 you=-1, me=null 이다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({ players: [{ slot: 0, sessionId: "a", name: "하나", connected: true }] }),
+      "stranger",
+    );
+    expect(roster.me).toBeNull();
+    expect(roster.you).toBe(-1);
+  });
+
+  it("phase=lobby 면 playing 거짓 — 매치 밖 상태", () => {
+    const roster = Roster.fromSnapshot(snap({ phase: "lobby" }), "a");
+    expect(roster.playing).toBe(false);
+  });
+});
