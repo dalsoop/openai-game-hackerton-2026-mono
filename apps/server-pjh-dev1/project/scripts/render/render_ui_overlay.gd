@@ -221,15 +221,31 @@ func draw_finish_cine() -> void:
 	var vic_h: Dictionary = world.heroes[vic]
 	var atk_an := int(atk_h.get("animal", atk))
 	var vic_an := int(vic_h.get("animal", vic))
-	var atk_pos := mid + Vector2(-150.0 + float(cine.get("atk_x", 0.0)), 28.0)
-	var vic_pos := mid + Vector2(150.0, 36.0) + Vector2(float(cine.get("vic_x", 0.0)), float(cine.get("vic_y", 0.0)))
-	_draw_finish_actor(atk_pos, atk_an, true, 1.55, 0.0, 1.0, 0.0)
+	var cine_t := float(cine.get("t", 0.0))
+	var prep_t := clampf(cine_t / 0.35, 0.0, 1.0)
+	var hop_wave := absf(sin(TAU * prep_t)) if cine_t < 0.35 else 0.0
+	var hop_lift := hop_wave * 22.0
+	var atk_scale := 1.55
+	if cine_t < 0.35:
+		atk_scale *= 1.0 + 0.07 * hop_wave
+	var atk_pos := mid + Vector2(-150.0 + float(cine.get("atk_x", 0.0)), 28.0 - hop_lift)
+	var hit_age := float(cine.get("hit_age", 0.0))
+	var shake := Vector2.ZERO
+	if bool(cine.get("hit", false)) and hit_age <= 0.40:
+		shake = Vector2(sin(hit_age * 117.0), cos(hit_age * 153.0)) * 3.0
+	var vic_pos := mid + Vector2(150.0, 36.0) + Vector2(float(cine.get("vic_x", 0.0)), float(cine.get("vic_y", 0.0))) + shake
+	if bool(cine.get("hit", false)) and hit_age < 0.80:
+		var impact_t := clampf(hit_age / 0.80, 0.0, 1.0)
+		var impact_frame := clampi(int(impact_t * 4.0), 0, 3)
+		var impact_size := Vector2.ONE * lerpf(230.0, 340.0, impact_t)
+		r.draw_ultimate_frame(6, mid + Vector2(76.0, 34.0), impact_size, impact_frame, 1, 0.0, 1.0 - impact_t)
+	_draw_finish_actor(atk_pos, atk_an, true, atk_scale, 0.0, 1.0, 0.0)
 	var cine_spin := float(cine.get("vic_spin", 0.0))
 	if not bool(cine.get("hit", false)):
 		cine_spin = 0.85
 	var fade := 1.0
 	if bool(cine.get("hit", false)):
-		fade = clampf(1.0 - float(cine.get("fly", 0.0)) / 0.95, 0.15, 1.0)
+		fade = clampf(1.0 - float(cine.get("fly", 0.0)) / 0.591, 0.15, 1.0)
 	_draw_finish_actor(vic_pos, vic_an, false, 1.45, cine_spin, fade, 0.4 if bool(cine.get("hit", false)) else 0.0)
 	if not bool(cine.get("hit", false)):
 		r.draw_string(GameFont.get_font(), mid + Vector2(-110.0, -176.0), "F / ESC", HORIZONTAL_ALIGNMENT_CENTER, 220.0, 14, Color("#fff4d2"))
