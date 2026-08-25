@@ -187,6 +187,9 @@ def export_web(folder: str) -> None:
     export_dir.mkdir(parents=True, exist_ok=True)
     html = export_dir / "index.html"
     rel = os.path.relpath(html, project)
+    if html.is_file():
+        html.unlink()
+        print(f"deleted stale {html}")
     print(f"export {folder} with {godot}")
     subprocess.run([godot, "--headless", "--path", str(project), "--import", "--quit"], check=True)
     subprocess.run(
@@ -195,6 +198,16 @@ def export_web(folder: str) -> None:
     )
     if not html.is_file():
         raise SystemExit(f"{folder}: 웹 익스포트가 index.html 을 만들지 않음")
+    exported = html.read_text(errors="ignore")
+    missing = [m for m in ("wantGame", "gangupShowGame", "glog", "gangup-handoff") if m not in exported]
+    if missing:
+        raise SystemExit(f"{folder}: export HTML is stale (missing {missing}). not pushing old shell.")
+    if "localStorage.getItem('gangup_from_hub')" in exported and "function bootFromHub" in exported:
+        boot = exported[exported.find("function bootFromHub"):exported.find("function bootFromHub")+500]
+        if "leftover" not in boot and "wantGame" in exported:
+            pass
+        if "localStorage.getItem('gangup_from_hub') === '1'" in boot and "launchGodot()" in boot:
+            raise SystemExit(f"{folder}: export HTML still auto-launches on leftover from_hub. not pushing.")
     game_html = export_dir / "game.html"
     if game_html.exists() or (APPS / folder / "public" / "index.html").is_file():
         game_html.write_bytes(html.read_bytes())
