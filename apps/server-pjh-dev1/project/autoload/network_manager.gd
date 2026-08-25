@@ -359,6 +359,9 @@ func consume_hub_launch() -> bool:
     var q := _js_text("String(window.location.search||'')")
     if q.find("from_hub=1") >= 0:
         return true
+    var flag := _js_text("String(window.GANGUP_FROM_HUB||'')")
+    if flag == "1" or flag == "true":
+        return true
     var v := _js_text("try{var x=localStorage.getItem('gangup_from_hub')||'';localStorage.removeItem('gangup_from_hub');x}catch(e){''}")
     return v == "1"
 

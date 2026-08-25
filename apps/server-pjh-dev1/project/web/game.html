@@ -148,7 +148,7 @@ body {
 		<script src="index.js"></script>
 		<script>
 /* ── 설정 ── */
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":25627260,"index.wasm":38817643},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":25627548,"index.wasm":38817643},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = true;
 
 /* ── 상태 ── */
@@ -248,6 +248,7 @@ function handleMsg(msg) {
 		case 'start':
 			matchStartMsg = msg;
 			try {
+				window.GANGUP_FROM_HUB = true;
 				localStorage.setItem('gangup_from_hub', '1');
 				localStorage.setItem('gangup_name', getName());
 			} catch(e) {}
@@ -370,6 +371,9 @@ $name.onchange = function() { try { localStorage.setItem('gangup_name', getName(
 const engine = new Engine(GODOT_CONFIG);
 
 function launchGodot() {
+	if (matchStartMsg) {
+		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
+	}
 	if (godotReady || godotStarting) {
 		switchToGame();
 		return;
