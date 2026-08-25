@@ -1,0 +1,10 @@
+{
+  "version": "260826011754",
+  "filesHash": "911201de4438",
+  "files": [
+    "index.js",
+    "index.wasm",
+    "index.pck",
+    "index.side.wasm"
+  ]
+}
