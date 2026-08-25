@@ -92,6 +92,8 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
     _text(Vector2(28.0, 42.0), "KILLS  %d" % int(me["kills"]), 28, Color("#7dff8a"))
     _text(Vector2(28.0, 70.0), "ALIVE  %d / %d" % [int(summary["alive"]), world.heroes.size()], 22, Color("#d4ff6a"))
     _text(Vector2(170.0, 42.0), "%d" % roundi(float(me["score"])), 22, Color("#fff36a"))
+    if net_rtt_ms > 0:
+        _text(Vector2(170.0, 70.0), "%dms" % net_rtt_ms, 14, Color("#70e7ff"))
     var row_y := 100.0
     for slot in range(world.heroes.size()):
         var hero: Dictionary = world.heroes[slot]
