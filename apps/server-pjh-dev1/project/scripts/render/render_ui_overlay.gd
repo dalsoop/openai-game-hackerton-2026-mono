@@ -234,11 +234,31 @@ func draw_finish_cine() -> void:
 	if bool(cine.get("hit", false)) and hit_age <= 0.40:
 		shake = Vector2(sin(hit_age * 117.0), cos(hit_age * 153.0)) * 3.0
 	var vic_pos := mid + Vector2(150.0, 36.0) + Vector2(float(cine.get("vic_x", 0.0)), float(cine.get("vic_y", 0.0))) + shake
+	var impact_pos := mid + Vector2(76.0, 34.0)
 	if bool(cine.get("hit", false)) and hit_age < 0.80:
 		var impact_t := clampf(hit_age / 0.80, 0.0, 1.0)
 		var impact_frame := clampi(int(impact_t * 4.0), 0, 3)
 		var impact_size := Vector2.ONE * lerpf(230.0, 340.0, impact_t)
-		r.draw_ultimate_frame(6, mid + Vector2(76.0, 34.0), impact_size, impact_frame, 1, 0.0, 1.0 - impact_t)
+		r.draw_ultimate_frame(6, impact_pos, impact_size, impact_frame, 1, 0.0, (1.0 - impact_t) * 0.58)
+		var ring_radius := lerpf(34.0, 174.0, impact_t)
+		r.draw_arc(impact_pos, ring_radius, 0.0, TAU, 40, Color(1.0, 0.84, 0.34, (1.0 - impact_t) * 0.82), lerpf(12.0, 3.0, impact_t))
+	if bool(cine.get("hit", false)) and hit_age < 0.30 and r.explosion_fx_atlas != null:
+		var burst_t := clampf(hit_age / 0.30, 0.0, 1.0)
+		var burst_frame := clampi(int(burst_t * 6.0), 0, 5)
+		var burst_size := Vector2.ONE * lerpf(184.0, 310.0, burst_t)
+		r.draw_texture_rect_region(r.explosion_fx_atlas, Rect2(impact_pos - burst_size * 0.5, burst_size), r._horizontal_fx_src_rect(r.explosion_fx_atlas, 6, burst_frame), Color(1.0, 1.0, 1.0, 1.0 - burst_t * 0.42))
+	if bool(cine.get("hit", false)) and hit_age < 0.22 and r.hit_spark_fx_atlas != null:
+		var spark_t := clampf(hit_age / 0.22, 0.0, 1.0)
+		var spark_frame := clampi(int(spark_t * 4.0), 0, 3)
+		var spark_size := Vector2(260.0, 176.0) * lerpf(0.72, 1.18, spark_t)
+		for spark_angle in [-0.18, PI + 0.18]:
+			r.draw_set_transform(impact_pos, spark_angle, Vector2.ONE)
+			r.draw_texture_rect_region(r.hit_spark_fx_atlas, Rect2(-spark_size * 0.5, spark_size), r._horizontal_fx_src_rect(r.hit_spark_fx_atlas, 4, spark_frame), Color(1.0, 0.94, 0.72, 1.0 - spark_t * 0.55))
+		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if bool(cine.get("hit", false)) and hit_age < 0.12 and r.impact_atlas != null:
+		var core_t := clampf(hit_age / 0.12, 0.0, 1.0)
+		var core_size := Vector2.ONE * lerpf(116.0, 196.0, core_t)
+		r.draw_texture_rect_region(r.impact_atlas, Rect2(impact_pos - core_size * 0.5, core_size), r._impact_src_rect(1, clampi(int(core_t * 4.0), 0, 3)), Color(1.0, 1.0, 1.0, 1.0 - core_t))
 	_draw_finish_actor(atk_pos, atk_an, true, atk_scale, 0.0, 1.0, 0.0)
 	var cine_spin := float(cine.get("vic_spin", 0.0))
 	if not bool(cine.get("hit", false)):
