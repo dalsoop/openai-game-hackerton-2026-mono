@@ -17,6 +17,7 @@ var hub: Node = null
 var module: GameModule = null
 var touch: CanvasLayer = null
 var _ctx: Dictionary = {}
+var _play_probe_acc := 0.0
 
 func _ready() -> void:
 	hub = get_node_or_null("/root/NetworkManager")
@@ -101,6 +102,34 @@ func _physics_process(delta: float) -> void:
 	if not _game_state().is_state(GameStateScript.State.PLAYING) or module == null:
 		return
 	module.tick(delta, _ctx)
+	_emit_play_probe(delta)
+
+func _emit_play_probe(delta: float) -> void:
+	if not OS.has_feature("web"):
+		return
+	_play_probe_acc += delta
+	if _play_probe_acc < 0.2:
+		return
+	_play_probe_acc = 0.0
+	var world = module.get("world")
+	if world == null:
+		return
+	var slot := int(world.get("local_slot"))
+	var heroes = world.get("heroes")
+	var x := 0.0
+	var y := 0.0
+	if heroes is Array and slot >= 0 and slot < heroes.size():
+		var pos := Vector2(heroes[slot]["pos"])
+		x = pos.x
+		y = pos.y
+	var js := "window.__dagulPlay={t:%d,c:%f,time:%f,h:%d,x:%f,y:%f}" % [
+		int(world.get("tick")),
+		float(world.get("start_countdown")),
+		float(world.get("match_time")),
+		1 if hub != null and bool(hub.is_host) else 0,
+		x, y,
+	]
+	JavaScriptBridge.eval(js)
 
 func _leave_match() -> void:
 	_game_state().set("net_active", false)

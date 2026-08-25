@@ -3,14 +3,18 @@
 import { useCallback, useEffect } from "react";
 import { useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
+import { useGameListings } from "@/hooks/useGameListings";
+import type { GameListing } from "@/lib/games/listing";
 
 export function useCreateRoomPage(): {
   ready: boolean;
+  listings: GameListing[];
   onSubmit: (game: string, title: string) => void;
   onBack: () => void;
 } {
   const flow = useGameFlowContext();
   const router = useRouter();
+  const listings = useGameListings();
   const ready = flow.phase === "lobby" && flow.hub.status !== "connecting" && !flow.hub.resuming;
 
   useEffect(() => {
@@ -32,5 +36,5 @@ export function useCreateRoomPage(): {
     router.push("/");
   }, [router]);
 
-  return { ready, onSubmit, onBack };
+  return { ready, listings, onSubmit, onBack };
 }

@@ -7,24 +7,16 @@ APP="$APP_DIR"
 WEB="$APP/web"
 SRC="$APP/project/web"
 
-# Godot export 산출물 심링크 확인/생성 (web/public/godot/dagul → project/web)
+# Godot export → 카탈로그 pack 폴더 심링크 (정본: web/scripts/publish-godot-assets.mjs)
 setup_godot_symlinks() {
-  local dest="$WEB/public/godot/dagul"
   if [ ! -f "$SRC/index.wasm" ]; then
     echo "[dev] ⚠ Godot export 없음: $SRC — cd $WEB && npm run godot:build"
     return 1
   fi
-  mkdir -p "$dest"
-  for f in index.wasm index.pck index.js index.side.wasm manifest.json \
-           index.audio.worklet.js index.audio.position.worklet.js \
-           index.wasm.br index.pck.br index.js.br index.side.wasm.br \
-           index.wasm.gz index.pck.gz index.js.gz index.side.wasm.gz; do
-    [ -f "$SRC/$f" ] && ln -sf "../../../../project/web/$f" "$dest/$f"
-  done
+  (cd "$WEB" && node scripts/publish-godot-assets.mjs --link)
   if [ ! -f "$SRC/manifest.json" ]; then
     echo "[dev] ⚠ manifest.json 없음 — cd $WEB && npm run godot:build 를 먼저 실행하세요"
   fi
-  echo "[dev] Godot assets symlinked: $dest -> $SRC"
 }
 
 ensure_deps() {

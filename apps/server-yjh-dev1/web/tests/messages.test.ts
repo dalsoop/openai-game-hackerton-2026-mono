@@ -25,6 +25,14 @@ describe("KO 안내문 함수", () => {
   });
 });
 
+describe("game.errors 문구 — ko/en 키 대칭", () => {
+  it("엔진 오류 키가 양쪽 로케일에 같다", () => {
+    expect(Object.keys(ko.game.errors).sort()).toEqual(Object.keys(en.game.errors).sort());
+    expect(ko.game.errors.webgl2Missing.length).toBeGreaterThan(0);
+    expect(en.game.errors.webgl2Missing.length).toBeGreaterThan(0);
+  });
+});
+
 describe("create 문구 — ko/en 키 대칭", () => {
   it("방 만들기 페이지 키가 양쪽 로케일에 같다", () => {
     expect(Object.keys(ko.create).sort()).toEqual(Object.keys(en.create).sort());

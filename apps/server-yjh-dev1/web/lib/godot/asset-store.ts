@@ -13,15 +13,20 @@ export interface AssetPlan {
 
 export type AssetKey = "engineJs" | "wasm" | "pck" | "sideWasm";
 
-export function assetPlanOf(game: string): AssetPlan {
-  const base = `/godot/${game}`;
+/** 팩 폴더의 공개 URL. GameId 를 넣지 않는다. */
+export function godotAssetUrl(pack: string, file?: string): string {
+  if (file === undefined || file === "") {return `/godot/${pack}`;}
+  return `/godot/${pack}/${file}`;
+}
+
+export function assetPlanOf(pack: string): AssetPlan {
   return {
-    engineBase: `${base}/index`,
+    engineBase: godotAssetUrl(pack, "index"),
     files: {
-      engineJs: `${base}/index.js`,
-      wasm: `${base}/index.wasm`,
-      pck: `${base}/index.pck`,
-      sideWasm: `${base}/index.side.wasm`,
+      engineJs: godotAssetUrl(pack, "index.js"),
+      wasm: godotAssetUrl(pack, "index.wasm"),
+      pck: godotAssetUrl(pack, "index.pck"),
+      sideWasm: godotAssetUrl(pack, "index.side.wasm"),
     },
     // 확장 라이브러리는 addons 경로에서 페이지 루트로 서빙된다(서버 라우트와 계약).
     extLibUrl: "/libcolyseus_godot.web.wasm32.release.wasm",
@@ -61,8 +66,8 @@ export class AssetStore {
   get extLib(): Promise<ArrayBuffer> {return this.get(this.plan.extLibUrl);}
 
   /** 매니페스트(버전 무결성의 정본) — 캐시 대상 아님: 항상 재검증. */
-  async loadManifest(game: string): Promise<{ version: string; filesHash?: string; files: string[] }> {
-    const resp = await fetch(`/godot/${game}/manifest.json`, { cache: "no-cache" });
+  async loadManifest(pack: string): Promise<{ version: string; filesHash?: string; files: string[] }> {
+    const resp = await fetch(godotAssetUrl(pack, "manifest.json"), { cache: "no-cache" });
     if (!resp.ok) {throw new Error(`manifest.json: ${resp.status}`);}
     return resp.json();
   }

@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 // Godot 백그라운드 프리로드 경로 스모크 — GodotRuntime.preload 와 동일 물질을 노드에서 실측.
 // 매니페스트 → 버전드 URL(브로틀리 협상) 다운로드 → WASM 컴파일까지 실패 시 exit 1.
+import { godotPublicUrl, readCatalogPacks } from "./catalog-packs.mjs";
+
 const BASE = process.env.HUB_URL || "http://127.0.0.1:3000";
+const PACK = readCatalogPacks()[0];
+if (!PACK) {console.error("  ✗ FAIL: 카탈로그 pack 없음"); process.exit(1);}
 
 const fail = (m) => { console.error(`  ✗ FAIL: ${m}`); process.exit(1); };
 const step = (m) => console.log(`  ✓ ${m}`);
 
 const t0 = Date.now();
-const mResp = await fetch(`${BASE}/godot/dagul/manifest.json`, { cache: "no-store" });
+const mResp = await fetch(`${BASE}${godotPublicUrl(PACK, "manifest.json")}`, { cache: "no-store" });
 if (!mResp.ok) fail(`manifest ${mResp.status}`);
 const manifest = await mResp.json();
 if (!/^[0-9a-f]{12}$/.test(manifest.version)) fail(`manifest.version 형식: ${manifest.version}`);
 step(`manifest v=${manifest.version}`);
 
 async function pull(file) {
-  const url = `${BASE}/godot/dagul/${file}?v=${manifest.version}`;
+  const url = `${BASE}${godotPublicUrl(PACK, file)}?v=${manifest.version}`;
   const resp = await fetch(url);
   if (!resp.ok) fail(`${file} ${resp.status}`);
   const cc = resp.headers.get("cache-control") || "";

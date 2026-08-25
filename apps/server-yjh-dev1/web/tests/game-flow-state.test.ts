@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, downloadStartsInRoom, phaseAfterMatchEnd, phaseFromHubStatus, reconnectJoinId, shouldShowConnectionLost, shouldShowReconnect } from "@/lib/game-flow-state";
+import { displayNameOf, downloadStartsInRoom, phaseAfterMatchEnd, phaseFromHubStatus, reconnectJoinId, shouldMarkRoomDropped, shouldShowConnectionLost, shouldShowReconnect } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -55,6 +55,16 @@ describe("shouldShowConnectionLost — 모달 표시 조건", () => {
   });
 });
 
+describe("shouldMarkRoomDropped — Godot 양도는 튕김이 아님", () => {
+  it("handoff 는 dropReason 을 남기지 않는다", () => {
+    expect(shouldMarkRoomDropped("handoff")).toBe(false);
+  });
+
+  it("그 외 onLeave 는 강제 퇴장이다", () => {
+    expect(shouldMarkRoomDropped("drop")).toBe(true);
+  });
+});
+
 describe("shouldShowReconnect — 회색 화면 대신 모달", () => {
   it("강퇴·강제 퇴장은 허브 상태와 무관하게 모달", () => {
     expect(shouldShowReconnect("lobby", "lobby", "kicked")).toBe(true);
@@ -65,6 +75,10 @@ describe("shouldShowReconnect — 회색 화면 대신 모달", () => {
     expect(shouldShowReconnect("offline", "intro", null)).toBe(false);
     expect(shouldShowReconnect("offline", "lobby", null)).toBe(true);
     expect(shouldShowReconnect("lobby", "lobby", null)).toBe(false);
+  });
+
+  it("핸드오프 직후(playing·이유 없음)는 캔버스를 가리지 않는다", () => {
+    expect(shouldShowReconnect("playing", "playing", null)).toBe(false);
   });
 });
 

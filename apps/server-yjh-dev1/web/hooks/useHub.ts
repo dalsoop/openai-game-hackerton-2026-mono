@@ -11,7 +11,8 @@ import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
 import { clearMyRoom } from "@/lib/room-membership";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
-import { useGameRoom } from "@/hooks/useGameRoom";
+import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
+import { shouldMarkRoomDropped } from "@/lib/game-flow-state";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
@@ -76,9 +77,9 @@ export function useHub(): UseHubResult {
     joinRequest,
     () => nameRef.current,
     getClient,
-    useCallback(() => {
+    useCallback((kind: RoomEndKind) => {
       setJoinRequest(null);
-      onRoomDropped();
+      if (shouldMarkRoomDropped(kind)) {onRoomDropped();}
     }, [onRoomDropped]),
     handleResumeFailed,
   );

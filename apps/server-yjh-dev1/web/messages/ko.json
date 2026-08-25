@@ -29,7 +29,8 @@
     "errors": {
       "engineMissing": "게임 엔진 스크립트를 찾지 못했습니다",
       "engineLoadFailed": "게임 엔진 로드에 실패했습니다",
-      "matchSignalMissing": "게임이 서버 매치에 합류하지 못했습니다 (매치 신호 없음)"
+      "matchSignalMissing": "게임이 서버 매치에 합류하지 못했습니다 (매치 신호 없음)",
+      "webgl2Missing": "이 브라우저는 WebGL2를 지원하지 않습니다. Chrome 또는 Safari에서 하드웨어 가속을 켠 뒤 다시 열어 주세요."
     }
   },
   "intro": {
@@ -66,6 +67,12 @@
     "roomTitle": "방 이름",
     "roomTitlePlaceholder": "비워 두면 기본 이름이 들어갑니다",
     "gameSelect": "게임",
+    "meta": "{version} · {size}",
+    "versionUnknown": "버전 없음",
+    "sizeUnknown": "용량 없음",
+    "sizeB": "{amount}B",
+    "sizeKb": "{amount}KB",
+    "sizeMb": "{amount}MB",
     "submit": "방 만들기",
     "cancel": "로비로"
   },
@@ -100,10 +107,12 @@
   },
   "games": {
     "dagul": {
-      "title": "다굴"
+      "title": "다굴",
+      "blurb": "여덟 명이 한 맵에서 총과 아이템을 주워 싸운다."
     },
     "sparring": {
-      "title": "스파링(데모)"
+      "title": "스파링(데모)",
+      "blurb": "짧은 데모. 스냅만 주고받으며 호스트를 연습한다."
     }
   }
 }

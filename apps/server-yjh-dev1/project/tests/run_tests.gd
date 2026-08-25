@@ -11,6 +11,8 @@ const SUITES := [
 	"res://tests/test_rooster_egg.gd",
 	"res://tests/test_seat_codec.gd",
 	"res://tests/test_gun_signature.gd",
+	"res://tests/test_hub_state_sync.gd",
+	"res://tests/test_touch_policy.gd",
 ]
 
 var pass_count := 0

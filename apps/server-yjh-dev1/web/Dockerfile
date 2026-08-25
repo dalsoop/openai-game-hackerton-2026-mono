@@ -1,6 +1,6 @@
 # 다굴 플랫폼 이미지 — custom server(dist/server.js)가 Next.js + WS 허브를 함께 서빙한다.
 # 주의: Next 기본 standalone/server.js 는 WS 허브가 없다. 반드시 dist/server.js 를 실행할 것.
-# 빌드 전제: scripts/prepare-godot-assets.sh 로 public/godot/dagul 이 실파일로 채워져 있어야 한다.
+# 빌드 전제: npm run godot:publish 로 public/godot/<pack> 이 실파일로 채워져 있어야 한다.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

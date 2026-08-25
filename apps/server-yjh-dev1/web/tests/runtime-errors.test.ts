@@ -6,6 +6,7 @@ describe("runtimeErrorKey", () => {
     expect(runtimeErrorKey("engine-missing")).toBe("game.errors.engineMissing");
     expect(runtimeErrorKey("engine-load-failed")).toBe("game.errors.engineLoadFailed");
     expect(runtimeErrorKey("match-signal-missing")).toBe("game.errors.matchSignalMissing");
+    expect(runtimeErrorKey("webgl2-missing")).toBe("game.errors.webgl2Missing");
   });
 
   it("모르는 코드는 번역 키로 쓰지 않는다", () => {

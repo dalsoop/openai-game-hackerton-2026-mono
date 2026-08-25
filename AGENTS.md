@@ -100,7 +100,9 @@ PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가�
 | Godot 네트워크 | `project/core/autoload/network_manager.gd` (페이지 브릿지 소비) | GD 자체 WebSocket 금지 (ws-client-dup) |
 | Godot 셸 | `project/core/shell/match_shell.gd` | 셸에 게임 지식 금지 — core→games 참조 금지 (core-games) |
 | 게임 모듈 | `project/games/<id>/game.gd` (GameModule 계약 구현) | 게임이 방·릴레이·브릿지 세부를 알 필요 없음 |
-| Godot 웹 로딩 | `web/lib/godot/runtime.ts` (GodotRuntime 싱글톤) | 훅·컴포넌트에서 fetch/Engine 직접 조작 금지 |
+| Godot 웹 로딩 | `web/lib/godot/runtime.ts` (팩당 싱글톤) | 훅·컴포넌트에서 fetch/Engine 직접 조작 금지 |
+| GameId→팩 | `web/lib/games/catalog.ts` `packOf` | `/godot/${gameId}` 금지 — 폴더는 `pack` 필드 |
+| Godot 산출물 배치 | `web/scripts/publish-godot-assets.mjs` (`catalog-packs.mjs`) | 팩 폴더 하드코딩 금지 — 카탈로그 pack 집합 |
 | Godot 산출물 버전 | `project/web/manifest.json` (통합 해시) | 버전 쿼리 없는 immutable 캐시 금지 |
 | Godot 빌드 | `npm run godot:build` (export→압축→매니페스트) | export만 하고 매니페스트 생략 금지 |
 

@@ -4,8 +4,9 @@
 // 핸드오프 키 계약은 lib/contract 가 소유한다 (여기선 조립만).
 import { HANDOFF, DOM_EVT } from "@/lib/contract";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { DEFAULT_GAME_ID, type GameId } from "@/lib/games/catalog";
+import { DEFAULT_GAME_ID, packOf, type GameId } from "@/lib/games/catalog";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
+import { isWebGL2Available, type GodotEngineApi } from "@/lib/godot/webgl";
 import type { StartPayload } from "@/lib/hub/start-payload";
 
 export type RuntimeState =
@@ -25,6 +26,8 @@ export interface HandoffInfo {
   slot: number;
   resumeToken: string;
   match?: StartPayload;
+  /** KEY_GAME — 팩 id 가 아니라 모듈 id */
+  game?: string;
 }
 
 interface Manifest {
@@ -35,20 +38,19 @@ interface Manifest {
 
 
 export class GodotRuntime {
-  // 유즈맵 — 게임별 런타임. 엔진 산출물 URL 도 게임별로 갈라진다.
+  // 팩당 싱글톤 — GameId 는 packOf 로만 폴더에 닿는다.
   private static _instances = new Map<string, GodotRuntime>();
   static for(game: GameId): GodotRuntime {
-    let rt = this._instances.get(game);
-    if (!rt) {rt = new GodotRuntime(game); this._instances.set(game, rt);}
+    const pack = packOf(game);
+    let rt = this._instances.get(pack);
+    if (!rt) {rt = new GodotRuntime(pack); this._instances.set(pack, rt);}
     return rt;
   }
-  /** 호환 진입점 — 기본 게임(다굴) */
+  /** 호환 진입점 — 기본 게임의 팩 */
   static get instance(): GodotRuntime {return this.for(DEFAULT_GAME_ID);}
 
-  private readonly game: string;
+  private readonly pack: string;
   private readonly plan;
-
-  // 게임별 plan 은 생성자에서 확정한다 (필드 초기화 순서 문제 회피).
 
   private readonly store: AssetStore;
   private manifest: Manifest | null = null;
@@ -65,9 +67,9 @@ export class GodotRuntime {
     state: "idle", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null,
   };
 
-  private constructor(game: string) {
-    this.game = game;
-    this.plan = assetPlanOf(game);
+  private constructor(pack: string) {
+    this.pack = pack;
+    this.plan = assetPlanOf(pack);
     this.store = new AssetStore(this.plan, (progress, loaded, total): void => {
       this.update({ progress, bytesLoaded: loaded, bytesTotal: total });
     });
@@ -102,7 +104,7 @@ export class GodotRuntime {
     if (this.snap.state === "running") {return;}
     this.update({ state: "downloading", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null });
 
-    const fresh = await this.store.loadManifest(this.game);
+    const fresh = await this.store.loadManifest(this.pack);
     if (this.manifest?.version === fresh.version && this.wasmModule) {
       this.update({ state: "ready", progress: 1 });
       return;
@@ -141,7 +143,7 @@ export class GodotRuntime {
   }
 
   private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
-    this.manifest ??= await this.store.loadManifest(this.game);
+    this.manifest ??= await this.store.loadManifest(this.pack);
     // 프리로드가 아직 진행 중이어도 AssetStore 공유로 중복 다운로드 없이 합류한다.
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
 
@@ -149,14 +151,19 @@ export class GodotRuntime {
     await this.loadEngineScript();
 
     const EngineCtor = (window as unknown as {
-      Engine?: new (cfg: unknown) => {
+      Engine?: GodotEngineApi & (new (cfg: unknown) => {
         init: (basePath: string) => Promise<unknown>;
         copyToFS: (path: string, buffer: ArrayBuffer) => void;
         start: (override: Record<string, unknown>) => Promise<void>;
         requestQuit?: () => void;
-      };
+      });
     }).Engine;
     if (!EngineCtor) {throw new Error("engine-missing");}
+    // Godot 공식 사전 검사 — 게임 캔버스가 아니라 엔진/더미 캔버스만 본다.
+    if (!isWebGL2Available({
+      Engine: EngineCtor,
+      createCanvas: () => document.createElement("canvas"),
+    })) {throw new Error("webgl2-missing");}
 
     const config: Record<string, unknown> = {
       canvas,
@@ -190,12 +197,15 @@ export class GodotRuntime {
     await engine.start(config);
     this.engine = engine;
     this.boundCanvas = canvas;
+    canvas.tabIndex = 0;
+    canvas.focus({ preventScroll: true });
+    canvas.addEventListener("pointerdown", () => { canvas.focus({ preventScroll: true }); });
     this.update({ state: "running" });
     this.armWatchdog();
   }
 
   private writeHandoff(info: HandoffInfo): void {
-    try { persistEngineHandoff(this.game, info); }
+    try { persistEngineHandoff(info.game ?? DEFAULT_GAME_ID, info); }
     catch { /* localStorage 불가 환경 — 엔진이 resume 없이 시도한다 */ }
   }
 

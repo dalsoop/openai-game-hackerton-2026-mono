@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from "fs";
 import { createHash } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import { readCatalogPacks } from "./catalog-packs.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tsPath = path.join(here, "..", "lib", "contract", "wire.ts");
@@ -71,6 +72,14 @@ const gdMode = gdConst("DEFAULT_MODE");
 if (!catalogId || catalogId !== gdGame) fail(`DEFAULT_GAME: 카탈로그 "${catalogId}" ≠ 거울 "${gdGame}"`);
 if (!catalogMode || catalogMode !== gdMode) fail(`DEFAULT_MODE: 카탈로그 "${catalogMode}" ≠ 거울 "${gdMode}"`);
 
+const catalogIds = [...catalog.matchAll(/^\s*id:\s*"([^"]+)"/gm)].map((m) => m[1]);
+const catalogPackFields = [...catalog.matchAll(/^\s*pack:\s*"([^"]+)"/gm)].map((m) => m[1]);
+if (catalogIds.length === 0 || catalogIds.length !== catalogPackFields.length) {
+  fail(`카탈로그 항목마다 pack 필요 — id ${catalogIds.length} / pack ${catalogPackFields.length}`);
+}
+const packs = readCatalogPacks();
+if (packs.length === 0) {fail("catalog pack 집합이 비어 있습니다");}
+
 const godotDir = path.join(here, "..", "..", "project", "web");
 const manifestPath = path.join(godotDir, "manifest.json");
 const hasArtifacts = existsSync(path.join(godotDir, "index.pck"));
@@ -92,4 +101,4 @@ if (errors > 0) {
   console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(lib/contract, catalog)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
 }
-console.log("check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + DEFAULT_GAME/MODE) · Godot 산출물 버전 무결");
+console.log(`check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + DEFAULT_GAME/MODE + pack ${packs.length}) · Godot 산출물 버전 무결`);

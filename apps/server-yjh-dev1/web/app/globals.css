@@ -196,6 +196,20 @@ body.wait #wait { display: block; }
 .create-fieldset { border:0; }
 .create-field { display:flex; flex-direction:column; gap:8px; }
 .create-field .sec-title { margin:0; }
+.game-list { display:flex; flex-direction:column; gap:8px; }
+.game-row { position:relative; background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); padding:14px 16px; cursor:pointer; transition:.15s; }
+.game-row:hover { border-color:var(--tx-2); transform:translateY(-1px); box-shadow:var(--shadow); }
+.game-row:has(input:checked) { border-color:var(--acc); background:linear-gradient(160deg,rgba(255,210,62,.08),var(--bg-1)); }
+.game-row input { position:absolute; opacity:0; pointer-events:none; }
+.game-row-head { display:flex; align-items:baseline; gap:10px; padding-right:28px; }
+.game-row-head b { font-size:15px; color:var(--tx-0); }
+.game-meta { font-size:12px; color:var(--tx-2); }
+.game-row .mode-check { top:12px; right:12px; }
+.game-row:has(input:checked) .mode-check { opacity:1; transform:scale(1); }
+.game-preview { display:none; margin-top:12px; }
+.game-row:has(input:checked) .game-preview { display:block; }
+.game-preview img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:var(--bg-3); }
+.game-preview p { margin:10px 0 0; color:var(--tx-1); font-size:13px; line-height:1.5; }
 
 /* --- 로비 상태 패널 --- */
 .back-row { margin-bottom:12px; }

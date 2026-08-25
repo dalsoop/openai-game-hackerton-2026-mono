@@ -44,11 +44,25 @@ var ult_held: bool:
     get:
         return _ult != null and _ult.held
 
+const TouchPolicy := preload("res://core/contract/touch_policy.gd")
+
 func _ready() -> void:
     layer = 2
-    _platform_ok = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available() or OS.has_feature("web")
+    _platform_ok = TouchPolicy.wants_overlay(
+        OS.has_feature("mobile"),
+        OS.has_feature("web"),
+        _pointer_is_coarse(),
+    )
     _build()
     _apply_visibility()
+
+func _pointer_is_coarse() -> bool:
+    if OS.has_feature("web"):
+        var raw := str(JavaScriptBridge.eval(
+            "window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? '1' : '0'",
+            true))
+        return raw == "1"
+    return DisplayServer.is_touchscreen_available()
 
 func set_playing(playing: bool) -> void:
     _playing = playing

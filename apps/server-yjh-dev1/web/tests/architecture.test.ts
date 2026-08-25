@@ -113,3 +113,41 @@ describe("계약: 방 만들기는 별도 페이지", () => {
     expect(lobbySrc).not.toMatch(/\bonCreate\b/);
   });
 });
+
+describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
+  it("e2e-dagul 은 Engine.isWebGLAvailable(2) 를 쓰고 게임 캔버스에 getContext 하지 않는다", () => {
+    const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
+    expect(e2e).toContain("isWebGLAvailable(2)");
+    expect(e2e).not.toMatch(/getElementById\(['"]godot-canvas['"]\)[\s\S]{0,80}getContext\(['"]webgl2['"]\)/);
+  });
+});
+
+describe("계약: GameId 는 웹 산출물 경로가 아니다", () => {
+  const banned = /\/godot\/\$\{(?:game|gameId|game\.id)/;
+
+  it("lib·hooks·scripts 는 GameId 로 /godot/ 경로를 만들지 않는다", () => {
+    const listing = sourceOf(join(ROOT, "lib/games/listing.ts"));
+    const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));
+    expect(listing).toContain("packOf");
+    expect(runtime).toContain("packOf");
+    expect(runtime).not.toMatch(/assetPlanOf\(game\)/);
+    const roots = ["lib/", "hooks/", "scripts/"];
+    const offenders = tsSources
+      .concat(walk(ROOT, (n) => /\.(mjs|sh)$/.test(n)))
+      .filter((p) => roots.some((r) => rel(p).startsWith(r)))
+      .filter((p) => banned.test(sourceOf(p)));
+    expect(offenders.map(rel)).toEqual([]);
+  });
+
+  it("배치 스크립트는 카탈로그 pack 리더를 쓴다", () => {
+    const publish = sourceOf(join(ROOT, "scripts/publish-godot-assets.mjs"));
+    const prepare = sourceOf(join(ROOT, "scripts/prepare-godot-assets.sh"));
+    expect(publish).toContain("readCatalogPacks");
+    expect(publish).not.toMatch(/public\/godot\/dagul/);
+    expect(prepare).toContain("publish-godot-assets.mjs");
+    expect(prepare).not.toMatch(/godot\/dagul/);
+    const devSh = sourceOf(join(ROOT, "..", "dev.sh"));
+    expect(devSh).toContain("publish-godot-assets.mjs");
+    expect(devSh).not.toMatch(/godot\/dagul/);
+  });
+});

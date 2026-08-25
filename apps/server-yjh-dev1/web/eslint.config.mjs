@@ -29,6 +29,21 @@ const KOREAN_SYNTAX = {
   message: "하드코딩 한글 금지 — messages/*.json(i18n) 또는 lib/hub/config.ts KO 상수로. 예외는 eslint-disable + 사유.",
 };
 
+const GODOT_PACK_SYNTAX = [
+  {
+    selector: "TemplateLiteral[quasis.0.value.raw='/godot/'][expressions.0.name=/^(game|gameId)$/]",
+    message: "/godot/${game} 금지 — packOf 결과만 경로에 넣는다.",
+  },
+  {
+    selector: "TemplateLiteral[quasis.0.value.raw='/godot/'][expressions.0.property.name='id']",
+    message: "/godot/${*.id} 금지 — packOf 결과만 경로에 넣는다.",
+  },
+  {
+    selector: "Literal[value=/^\\/godot\\/[a-z0-9-]+/]",
+    message: "팩 경로 리터럴 금지 — godotAssetUrl 또는 catalog pack 필드.",
+  },
+];
+
 const PAGE_HOOK_SYNTAX = {
   selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
   message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
@@ -88,7 +103,7 @@ const config = [
       // || 폴스티 삼킴 방지 — 널 병합은 ?? 로만 (문자열 ""·숫자 0·false 오용 차단)
       "@typescript-eslint/prefer-nullish-coalescing": "error",
       // 하드코딩 한글·계약 리터럴 금지 — 문구는 i18n/KO, 프로토콜은 config 상수
-      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX],
+      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX],
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -134,7 +149,10 @@ const config = [
   // 서버·스크립트 — console 은 정상 도구
   {
     files: ["server.ts", "scripts/**/*.{mjs,ts,js}"],
-    rules: { "no-console": "off" },
+    rules: {
+      "no-console": "off",
+      "no-restricted-syntax": ["error", ...GODOT_PACK_SYNTAX],
+    },
   },
 
   // next.config.ts — Next API 계약상 headers/rewrites 는 async 시그니처를 요구한다
@@ -156,7 +174,7 @@ const config = [
   {
     files: ["app/**/page.tsx", "components/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX],
+      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX],
     },
   },
 

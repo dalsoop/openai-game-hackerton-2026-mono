@@ -20,6 +20,7 @@ signal host_changed(now_host: bool)  # lint-gd: public-api
 
 # 좌석 정본 — preload 로 확정 참조(글로벌 클래스 캐시 갱신 시점과 무관).
 const SeatCodec := preload("res://core/contract/seat_codec.gd")  # lint-gd: public-api
+const HubStateSync := preload("res://core/contract/hub_state_sync.gd")
 
 const STATUS_LOBBY := "로비"  # lint-gd: public-api
 const STATUS_OFFLINE := "오프라인 로컬"  # lint-gd: public-api
@@ -148,12 +149,14 @@ func _sync_state(state: Variant) -> void:
     var phase := str(state.get("phase", ""))
     var host_sid := str(state.get("hostSessionId", ""))
     var my_sid := str(_colyseus_room.get_session_id())
-    var next_host: bool = host_sid == my_sid
-    if match_running and is_host != next_host:
-        is_host = next_host
-        host_changed.emit(is_host)
-    else:
-        is_host = next_host
+    var host_dec: Dictionary = HubStateSync.host_decision(host_sid, my_sid, is_host)
+    if host_dec["apply"]:
+        var next_host: bool = bool(host_dec["is_host"])
+        if match_running and is_host != next_host:
+            is_host = next_host
+            host_changed.emit(is_host)
+        else:
+            is_host = next_host
     var raw_players: Array = state.get("players") if state.get("players") is Array else []
     var next_players: Array = SeatCodec.from_state(raw_players)
     # 이탈/복귀 파생 — connected 토글을 좌석별 통지로 바꾼다.
@@ -163,11 +166,11 @@ func _sync_state(state: Variant) -> void:
         else:
             peer_reclaimed_received.emit(int(ev.get("slot", -1)), str(ev.get("name", "")))
     players = next_players
-    # 매치 종료 감지: playing → 다른 페이즈.
-    if _last_phase == "playing" and phase != "playing":
+    # 매치 종료 감지: playing → 알려진 다른 페이즈. 빈 phase 는 재접속 공백이다.
+    if HubStateSync.match_ended(_last_phase, phase):
         match_running = false
         joined_room.emit(room, players, you)
-    _last_phase = phase
+    _last_phase = HubStateSync.next_phase(_last_phase, phase)
 
 # --- 송신 (인게임 메시지만 — 로비 동사는 React 소유) ---
 

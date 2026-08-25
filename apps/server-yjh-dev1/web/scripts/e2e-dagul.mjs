@@ -3,7 +3,7 @@
 import { chromium } from "playwright-core";
 
 const CHROME = `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
-const URL = process.env.E2E_URL || "http://127.0.0.1:3000";
+const URL = process.env.E2E_URL || "http://127.0.0.1:3100/ko";
 const SHOT = "/tmp/e2e-dagul";
 
 const results = [];
@@ -13,7 +13,13 @@ function ok(name, cond, extra = "") {
   if (!cond) process.exitCode = 1;
 }
 
-const browser = await chromium.launch({ executablePath: CHROME, headless: true });
+// Playwright: channel "chromium" 은 신규 헤드리스(GPU 포함). playwright-core 만
+// 쓰는 이 레포는 번들 Chrome for Testing 경로를 넘긴다 (공식 executablePath 주의).
+const browser = await chromium.launch({
+  executablePath: process.env.CHROME_PATH || CHROME,
+  headless: true,
+  args: ["--enable-webgl", "--ignore-gpu-blocklist", "--use-angle=metal"],
+});
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const page = await ctx.newPage();
 
@@ -39,15 +45,17 @@ for (let i = 0; i < 3 && !(await createLink.isVisible().catch(() => false)); i++
   }
   await createLink.waitFor({ state: "visible", timeout: 20_000 }).catch(() => {});
 }
-ok("1. 인트로 → 이름 입력 → 시작", true);
+ok("1. 인트로 → 이름 입력 → 시작", await createLink.isVisible().catch(() => false));
 
-// 2. 로비 (방 목록)
+// 2. 로비 (방 목록) — /create 게이트는 오프라인이면 홈으로 보낸다.
 await createLink.waitFor({ state: "visible", timeout: 45_000 });
+await page.getByText("접속됨").waitFor({ timeout: 45_000 });
 await page.screenshot({ path: `${SHOT}-2-lobby.png` });
-ok("2. 로비 도착", true);
+ok("2. 로비 도착", await createLink.isVisible());
 
 // 3. 방 만들기 (/create) → 대기실
 await createLink.click();
+await page.waitForURL((u) => u.pathname.includes("/create"), { timeout: 15_000 });
 await page.waitForSelector("form.create-form", { timeout: 45_000 });
 await page.click("form.create-form button.cta");
 await page.waitForURL((u) => !u.pathname.includes("/create"), { timeout: 15_000 });
@@ -55,15 +63,22 @@ await page.waitForSelector("text=게임 시작", { timeout: 45_000 });
 await page.screenshot({ path: `${SHOT}-3-room.png` });
 ok("3. 대기실 도착", true);
 
-// 4. 게임 시작 — Godot 부팅 대기 (사이드카 다운로드 포함, 넉넉히)
+// 4. 게임 시작 — Godot 공식은 캔버스가 아니라 WebGL2 (Engine.isWebGLAvailable(2)).
+// https://docs.godotengine.org/en/4.7/tutorials/platform/web/customizing_html5_shell.html
 await page.click("text=게임 시작");
 console.log("  … Godot 부팅 대기 중 (최대 120초)");
-const bootOk = await page
-  .waitForFunction(() => document.querySelector("canvas") !== null, null, { timeout: 120_000 })
+const canvasOk = await page
+  .waitForFunction(() => document.getElementById("godot-canvas") !== null, null, { timeout: 120_000 })
   .then(() => true)
   .catch(() => false);
+const engineOk = canvasOk && await page
+  .waitForFunction(() => typeof window.Engine?.isWebGLAvailable === "function", null, { timeout: 120_000 })
+  .then(() => true)
+  .catch(() => false);
+const webgl2Ok = engineOk && await page.evaluate(() => window.Engine.isWebGLAvailable(2));
 await page.screenshot({ path: `${SHOT}-4-playing.png` });
-ok("4. 시작 → 캔버스 부팅", bootOk);
+ok("4. 시작 → 캔버스 부팅", canvasOk);
+ok("4b. Godot Engine.isWebGLAvailable(2)", webgl2Ok);
 
 // 5. 매치 시작 이벤트 (워치독이 기다리는 DOM 이벤트)
 const matchStarted = await page.evaluate(
@@ -75,6 +90,31 @@ const matchStarted = await page.evaluate(
 );
 await page.screenshot({ path: `${SHOT}-5-match.png` });
 ok("5. Godot 매치 합류 (godot-match-start)", matchStarted);
+
+// 6. 시뮬이 돌고 카운트다운이 끝난 뒤 WASD 로 좌표가 바뀐다.
+const simOk = await page
+  .waitForFunction(
+    () => window.__dagulPlay && window.__dagulPlay.t > 20 && window.__dagulPlay.h === 1,
+    null,
+    { timeout: 20_000 },
+  )
+  .then(() => true)
+  .catch(() => false);
+ok("6. 호스트 시뮬 틱", simOk);
+const combatOk = await page
+  .waitForFunction(() => window.__dagulPlay && window.__dagulPlay.c <= 0, null, { timeout: 15_000 })
+  .then(() => true)
+  .catch(() => false);
+ok("7. 카운트다운 종료", combatOk);
+await page.locator("#godot-canvas").click({ position: { x: 640, y: 360 } });
+const before = await page.evaluate(() => window.__dagulPlay);
+await page.keyboard.down("KeyW");
+await page.waitForTimeout(900);
+await page.keyboard.up("KeyW");
+const after = await page.evaluate(() => window.__dagulPlay);
+const moved = before && after && Math.hypot(after.x - before.x, after.y - before.y) > 8;
+await page.screenshot({ path: `${SHOT}-6-moved.png` });
+ok("8. WASD 이동", moved, before && after ? `${before.x.toFixed(0)},${before.y.toFixed(0)} → ${after.x.toFixed(0)},${after.y.toFixed(0)}` : "probe 없음");
 
 console.log("\n— 콘솔 에러 —");
 console.log(consoleErrors.length ? consoleErrors.slice(0, 10).join("\n") : "(없음)");

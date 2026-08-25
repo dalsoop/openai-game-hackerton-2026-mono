@@ -3,7 +3,7 @@
  * 체인 6층: 실서버 스모크가 느리게 잡던 룸 규칙을 인메모리로 빠르게 검증한다.
  * 커버: 기본 타이틀·호스트 지정·호스트 전용 시작·매치 시작 상태 전파.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Server } from "colyseus";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
@@ -21,6 +21,11 @@ beforeAll(async (): Promise<void> => {
 
 afterAll(async (): Promise<void> => {
   await colyseus.shutdown();
+});
+
+// docs.colyseus.io/tools/unit-testing — 케이스마다 cleanup, 룸 인스턴스 재사용 금지.
+beforeEach(async (): Promise<void> => {
+  await colyseus.cleanup();
 });
 
 describe("LobbyRoom 규칙", () => {
@@ -54,6 +59,9 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.players.length).toBe(2);
     expect(room.state.hostSessionId).toBe(host.sessionId);
     expect(room.state.hostSessionId).not.toBe(guest.sessionId);
+    // docs.colyseus.io/tools/unit-testing — 패치 이후 클라 상태는 서버와 같다.
+    expect(host.state.toJSON()).toEqual(room.state.toJSON());
+    expect(guest.state.toJSON()).toEqual(room.state.toJSON());
   });
 
   it("비호스트 시작 시도 — ERROR 거부, 페이즈 유지", async () => {

@@ -31,7 +31,7 @@ function handOffToGodot(
       localStorage.setItem(HANDOFF.RESUME, room.reconnectionToken);
       localStorage.setItem(HANDOFF.FROM_HUB, "1");
     } catch { /* localStorage 불가 — 엔진이 토큰 없이 시도한다 */ }
-    // 동의 퇴장으로 소켓을 넘긴 뒤 화면을 바꾼다. 강제 close 로 쫓지 않는다.
+    // 비동의 leave — 좌석을 유지한 채 소켓만 넘긴다. 동의 퇴장은 자리를 지운다.
     leaveOnceForHandoff(room);
     onStarted(payload);
   });

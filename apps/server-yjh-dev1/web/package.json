@@ -9,6 +9,8 @@
     "check:contract": "node scripts/check-contract.mjs",
     "smoke": "node scripts/smoke-hub.mjs",
     "godot:build": "bash scripts/build-godot.sh",
+    "godot:publish": "node scripts/publish-godot-assets.mjs",
+    "godot:link": "node scripts/publish-godot-assets.mjs --link",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",

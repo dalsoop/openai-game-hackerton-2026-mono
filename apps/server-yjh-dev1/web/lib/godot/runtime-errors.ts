@@ -3,12 +3,14 @@
 export type RuntimeErrorCode =
   | "engine-missing"
   | "engine-load-failed"
-  | "match-signal-missing";
+  | "match-signal-missing"
+  | "webgl2-missing";
 
 const KEYS: Record<RuntimeErrorCode, string> = {
   "engine-missing": "game.errors.engineMissing",
   "engine-load-failed": "game.errors.engineLoadFailed",
   "match-signal-missing": "game.errors.matchSignalMissing",
+  "webgl2-missing": "game.errors.webgl2Missing",
 };
 
 /** 알려진 코드면 i18n 키, 아니면 원문 그대로(외부 예외 메시지 등). */

@@ -29,7 +29,8 @@
     "errors": {
       "engineMissing": "Game engine script not found",
       "engineLoadFailed": "Failed to load game engine",
-      "matchSignalMissing": "Game failed to join the server match (no match signal)"
+      "matchSignalMissing": "Game failed to join the server match (no match signal)",
+      "webgl2Missing": "This browser does not support WebGL2. Open Chrome or Safari with hardware acceleration enabled."
     }
   },
   "intro": {
@@ -66,6 +67,12 @@
     "roomTitle": "Room name",
     "roomTitlePlaceholder": "Leave empty for a default name",
     "gameSelect": "Game",
+    "meta": "{version} · {size}",
+    "versionUnknown": "Version unknown",
+    "sizeUnknown": "Size unknown",
+    "sizeB": "{amount}B",
+    "sizeKb": "{amount}KB",
+    "sizeMb": "{amount}MB",
     "submit": "Create Room",
     "cancel": "Back to lobby"
   },
@@ -97,10 +104,12 @@
   },
   "games": {
     "dagul": {
-      "title": "Dagul"
+      "title": "Dagul",
+      "blurb": "Eight players loot guns and items on one map and fight."
     },
     "sparring": {
-      "title": "Sparring (demo)"
+      "title": "Sparring (demo)",
+      "blurb": "Short demo. Exchange snaps only and practice hosting."
     }
   }
 }

@@ -10,13 +10,32 @@ export interface GameDescriptor {
   readonly id: GameId;
   /** 표시명 i18n 키 — 문구는 messages/*.json 이 정본 (하드코딩 금지) */
   readonly titleKey: string;
+  readonly blurbKey: string;
+  /** 방 만들기 목록 썸네일 — public 아래 정적 경로 */
+  readonly thumbSrc: string;
   /** 게임 소유 모드 문자열 — 허브는 해석하지 않고 방에 그대로 넣는다. */
   readonly defaultMode: string;
+  /** 웹 산출물 폴더명 — `/godot/${pack}/`. GameId 가 아니다. 지금은 통합 export 하나. */
+  readonly pack: string;
 }
 
 export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
-  { id: "dagul" as GameId, titleKey: "games.dagul.title", defaultMode: "full" },
-  { id: "sparring" as GameId, titleKey: "games.sparring.title", defaultMode: "default" },
+  {
+    id: "dagul" as GameId,
+    titleKey: "games.dagul.title",
+    blurbKey: "games.dagul.blurb",
+    thumbSrc: "/games/dagul.svg",
+    defaultMode: "full",
+    pack: "dagul",
+  },
+  {
+    id: "sparring" as GameId,
+    titleKey: "games.sparring.title",
+    blurbKey: "games.sparring.blurb",
+    thumbSrc: "/games/sparring.svg",
+    defaultMode: "default",
+    pack: "dagul",
+  },
 ];
 
 export const DEFAULT_GAME_ID: GameId = GAME_CATALOG[0]?.id ?? ("dagul" as GameId);
@@ -38,4 +57,14 @@ export function isKnownGame(id: string): boolean {
 /** 방 state.mode 초기값 — 허브는 모드 사전을 갖지 않는다. */
 export function defaultModeOf(id: GameId): string {
   return findGame(id)?.defaultMode ?? findGame(DEFAULT_GAME_ID)?.defaultMode ?? "";
+}
+
+/** GameId → 웹 산출물 폴더. URL·런타임 키는 여기만 거친다. */
+export function packOf(id: GameId): string {
+  return findGame(id)?.pack ?? findGame(DEFAULT_GAME_ID)?.pack ?? "dagul";
+}
+
+/** 카탈로그에 등장하는 팩 폴더 — 배포·심링크는 이 집합만 채운다. */
+export function catalogPacks(): readonly string[] {
+  return [...new Set(GAME_CATALOG.map((g) => g.pack))];
 }

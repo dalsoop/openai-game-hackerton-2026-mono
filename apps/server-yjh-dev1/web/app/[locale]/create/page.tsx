@@ -10,7 +10,7 @@ import CreateRoom from "@/components/CreateRoom";
 export default function CreatePage(): JSX.Element {
   const t = useTranslations();
   const { hub } = useGameFlowContext();
-  const { ready, onSubmit, onBack } = useCreateRoomPage();
+  const { ready, listings, onSubmit, onBack } = useCreateRoomPage();
 
   return (
     <div className="page-shell">
@@ -23,7 +23,7 @@ export default function CreatePage(): JSX.Element {
           </span>
         </div>
       </header>
-      {ready ? <CreateRoom onSubmit={onSubmit} onBack={onBack} /> : null}
+      {ready ? <CreateRoom listings={listings} onSubmit={onSubmit} onBack={onBack} /> : null}
     </div>
   );
 }

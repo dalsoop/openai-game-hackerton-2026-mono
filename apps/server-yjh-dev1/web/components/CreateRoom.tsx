@@ -1,19 +1,21 @@
 "use client";
-// 방 만들기 화면 — 유즈맵 고르기 + 방 이름. 값은 비제어 폼으로만 읽는다.
+// 방 만들기 — 목록에서 게임을 고르면 썸네일·설명이 열린다. 값은 비제어 폼.
 import type { JSX } from "react";
 import { useTranslations } from "next-intl";
-import { GAME_CATALOG, DEFAULT_GAME_ID } from "@/lib/games/catalog";
+import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
+import { sizeParts, type GameListing } from "@/lib/games/listing";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { Button } from "@/components/ui";
 
 interface Props {
+  listings: ReadonlyArray<GameListing>;
   onSubmit: (game: string, title: string) => void;
   onBack: () => void;
 }
 
-export default function CreateRoom({ onSubmit, onBack }: Props): JSX.Element {
+export default function CreateRoom({ listings, onSubmit, onBack }: Props): JSX.Element {
   const t = useTranslations("create");
-  const lobby = useTranslations("lobby");
+  const games = useTranslations();
 
   return (
     <div className="fade-in">
@@ -36,17 +38,30 @@ export default function CreateRoom({ onSubmit, onBack }: Props): JSX.Element {
       >
         <fieldset className="create-fieldset">
           <legend className="sec-title">{t("gameSelect")}</legend>
-          <div className="modes">
-            {GAME_CATALOG.map((g) => (
-              <label key={g.id} className="mode-card">
+          <div className="game-list">
+            {listings.map((g) => (
+              <label key={g.id} className="game-row">
                 <input
                   type="radio"
                   name="game"
                   value={g.id}
                   defaultChecked={g.id === DEFAULT_GAME_ID}
                 />
-                <b>{lobby(g.titleKey)}</b>
-                <span className="mode-check" aria-hidden="true" />
+                <div className="game-row-head">
+                  <b>{games(g.titleKey)}</b>
+                  <span className="game-meta">
+                    {t("meta", {
+                      version: g.version ?? t("versionUnknown"),
+                      size: sizeLabel(t, g.bytes),
+                    })}
+                  </span>
+                  <span className="mode-check" aria-hidden="true" />
+                </div>
+                <div className="game-preview">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 카탈로그 정적 썸네일 */}
+                  <img src={g.thumbSrc} alt={games(g.titleKey)} />
+                  <p>{games(g.blurbKey)}</p>
+                </div>
               </label>
             ))}
           </div>
@@ -70,4 +85,12 @@ export default function CreateRoom({ onSubmit, onBack }: Props): JSX.Element {
       </form>
     </div>
   );
+}
+
+function sizeLabel(t: (key: "sizeUnknown" | "sizeB" | "sizeKb" | "sizeMb", values?: { amount: string }) => string, bytes: number | null): string {
+  if (bytes === null) {return t("sizeUnknown");}
+  const { amount, unit } = sizeParts(bytes);
+  if (unit === "b") {return t("sizeB", { amount });}
+  if (unit === "kb") {return t("sizeKb", { amount });}
+  return t("sizeMb", { amount });
 }

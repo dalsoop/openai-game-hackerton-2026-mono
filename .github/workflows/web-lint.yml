@@ -57,3 +57,4 @@ jobs:
           echo "서버 기동 실패"; exit 1
       - run: npm run smoke
       - run: npm run smoke:resume
+      - run: node scripts/catalog-packs.mjs

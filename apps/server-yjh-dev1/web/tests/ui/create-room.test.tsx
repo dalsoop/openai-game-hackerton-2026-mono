@@ -4,22 +4,40 @@
  *   1. 게임(유즈맵)과 방 이름을 제출한다
  *   2. 기본 게임은 카탈로그 정본
  *   3. 뒤로가기는 onBack
+ *   4. 선택한 줄에 버전·용량·썸네일·설명이 있다
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import CreateRoom from "@/components/CreateRoom";
-import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
+import { DEFAULT_GAME_ID, GAME_CATALOG, type GameId } from "@/lib/games/catalog";
+import type { GameListing } from "@/lib/games/listing";
 import ko from "../../messages/ko.json";
 
-const messages = { create: ko.create, lobby: ko.lobby } as typeof ko;
+function listingOf(id: string, extra: Pick<GameListing, "version" | "bytes">): GameListing {
+  const game = GAME_CATALOG.find((g) => g.id === id);
+  if (!game) {throw new Error(`catalog missing ${id}`);}
+  return {
+    id: game.id,
+    titleKey: game.titleKey,
+    blurbKey: game.blurbKey,
+    thumbSrc: game.thumbSrc,
+    version: extra.version,
+    bytes: extra.bytes,
+  };
+}
+
+const listings: GameListing[] = [
+  listingOf(DEFAULT_GAME_ID, { version: "1.0.0", bytes: 2048 }),
+  listingOf("sparring" as GameId, { version: null, bytes: null }),
+];
 
 function setup(): { onSubmit: ReturnType<typeof vi.fn>; onBack: ReturnType<typeof vi.fn> } {
   const onSubmit = vi.fn();
   const onBack = vi.fn();
   render(
-    <NextIntlClientProvider locale="ko" messages={messages}>
-      <CreateRoom onSubmit={onSubmit} onBack={onBack} />
+    <NextIntlClientProvider locale="ko" messages={ko}>
+      <CreateRoom listings={listings} onSubmit={onSubmit} onBack={onBack} />
     </NextIntlClientProvider>,
   );
   return { onSubmit, onBack };
@@ -35,6 +53,21 @@ describe("방 만들기 폼", () => {
     expect(screen.getByPlaceholderText(ko.create.roomTitlePlaceholder)).toBeTruthy();
     expect(screen.getByDisplayValue(DEFAULT_GAME_ID)).toBeTruthy();
     expect(screen.getByRole("button", { name: ko.create.submit })).toBeTruthy();
+  });
+
+  it("기본 게임에 버전·용량·설명·썸네일이 있다", () => {
+    setup();
+    expect(screen.getByText(ko.create.meta.replace("{version}", "1.0.0").replace("{size}", "2.0KB"))).toBeTruthy();
+    expect(screen.getByText(ko.games.dagul.blurb)).toBeTruthy();
+    expect(screen.getByRole("img", { name: ko.games.dagul.title })).toBeTruthy();
+  });
+
+  it("내보내기가 없으면 버전·용량 없음을 쓴다", () => {
+    setup();
+    expect(screen.getByText(
+      ko.create.meta.replace("{version}", ko.create.versionUnknown).replace("{size}", ko.create.sizeUnknown),
+    )).toBeTruthy();
+    expect(screen.getByText(ko.games.sparring.blurb)).toBeTruthy();
   });
 
   it("기본 게임만 고르고 제출하면 빈 제목으로 onSubmit", () => {

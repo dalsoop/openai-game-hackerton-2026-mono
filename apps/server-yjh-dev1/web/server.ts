@@ -100,6 +100,10 @@ function serveOne(
     "cache-control": cacheControl,
     ...(encoding ? { "content-encoding": encoding, vary: "Accept-Encoding" } : {}),
   });
+  if (req.method === "HEAD") {
+    res.end();
+    return true;
+  }
   createReadStream(file).pipe(res);
   return true;
 }

@@ -41,6 +41,11 @@ export function shouldShowReconnect(
   return shouldShowConnectionLost(status, phase);
 }
 
+/** Godot 양도(onLeave handoff)는 튕김이 아니다. 강제 퇴장만 dropReason 을 남긴다. */
+export function shouldMarkRoomDropped(kind: "handoff" | "drop"): boolean {
+  return kind === "drop";
+}
+
 /** 재접속 대상 방 — 강퇴·빈 id 는 로비만. */
 export function reconnectJoinId(reason: DropReason | null, lastRoomId: string): string | null {
   if (reason === "kicked" || lastRoomId === "") {return null;}

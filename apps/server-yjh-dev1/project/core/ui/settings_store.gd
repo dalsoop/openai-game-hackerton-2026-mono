@@ -44,4 +44,4 @@ static func mode_desc(mode: String) -> String:
         MODE_TOUCH:
             return "화면 스틱/버튼 항상 표시 · 키보드도 함께 사용 가능"
         _:
-            return "기기에 맞춰 결정 (모바일·웹·터치스크린이면 모바일형)"
+            return "기기에 맞춰 결정 (모바일·거친 포인터면 모바일형)"

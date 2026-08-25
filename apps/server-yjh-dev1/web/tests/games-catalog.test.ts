@@ -1,6 +1,7 @@
 // 게임 카탈로그 도메인 — 유즈맵 모델의 정본 계약.
 import { describe, expect, it } from "vitest";
-import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame, defaultModeOf } from "@/lib/games/catalog";
+import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame, defaultModeOf, packOf, catalogPacks } from "@/lib/games/catalog";
+import { readCatalogPacks } from "../scripts/catalog-packs.mjs";
 
 describe("GAME_CATALOG", () => {
   it("기본 게임은 다굴이며 카탈로그에 등재돼 있다", () => {
@@ -14,8 +15,28 @@ describe("GAME_CATALOG", () => {
     for (const g of GAME_CATALOG) {
       expect(g.id.length).toBeGreaterThan(0);
       expect(g.titleKey.length).toBeGreaterThan(0);
+      expect(g.blurbKey.length).toBeGreaterThan(0);
+      expect(g.thumbSrc.startsWith("/")).toBe(true);
       expect(g.defaultMode.length).toBeGreaterThan(0);
+      expect(g.pack.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("packOf — GameId 와 웹 산출물 폴더", () => {
+  it("유즈맵은 같은 팩을 가리킨다", () => {
+    expect(packOf(asGameId("dagul"))).toBe("dagul");
+    expect(packOf(asGameId("sparring"))).toBe(packOf(asGameId("dagul")));
+  });
+
+  it("catalogPacks 는 중복 없는 pack 집합이다", () => {
+    const packs = catalogPacks();
+    expect(packs.length).toBeGreaterThan(0);
+    expect(new Set(packs).size).toBe(packs.length);
+    for (const g of GAME_CATALOG) {
+      expect(packs).toContain(g.pack);
+    }
+    expect(readCatalogPacks()).toEqual([...packs]);
   });
 });
 

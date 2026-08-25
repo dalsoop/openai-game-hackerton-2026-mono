@@ -28,7 +28,7 @@ export function useGodotMatch({ game, matchInfo, visible, onMatchEnd }: UseGodot
   useEffect(() => {
     if (!visible || !canvasRef.current) {return;}
     const token = ++hold.current;
-    void runtime.boot(canvasRef.current, matchInfo).catch(() => {
+    void runtime.boot(canvasRef.current, { ...matchInfo, game }).catch(() => {
       // 부팅 실패는 runtime 상태(error)로 전파된다.
     });
     // StrictMode 동기 리마운트에서는 바로 quit 하지 않는다 — 매치 키·워치독이 한 번만 살아 있게.
