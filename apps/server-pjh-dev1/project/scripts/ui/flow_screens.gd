@@ -14,7 +14,7 @@ const _STATUS_COLORS := {
 }
 
 var page := &"lobby"
-var selected_mode := "full"
+var selected_mode := "classic"
 var sound_on := true
 var control_mode := SettingsStore.MODE_AUTO
 var hub = null

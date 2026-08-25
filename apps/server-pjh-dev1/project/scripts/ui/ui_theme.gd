@@ -25,6 +25,7 @@ const SLOT_COLORS := [
 	Color("b084cc"), Color("70e7ff"), Color("ffd166"), Color("ff8dac")
 ]
 const MODES := [
+	{"id":"classic", "title":"클래식", "desc":"시작부터 각자 다른 총. 루팅 없음.", "art":"mode_classic.png"},
 	{"id":"full", "title":"풀", "desc":"랜덤 총 + 메드킷 루팅 + 처치 시 총 업그레이드.", "art":"mode_full.png"},
 ]
 

@@ -26,7 +26,7 @@ const RETRY_MAX := 6.0
 const PING_EVERY := 2.0
 
 var player_name := "플레이어"
-var mode := "full"
+var mode := "classic"
 var status := STATUS_OFFLINE
 var client_id := ""
 var resume_token := ""
