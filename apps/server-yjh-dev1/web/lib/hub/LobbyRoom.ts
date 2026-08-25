@@ -24,7 +24,7 @@ export class LobbyState extends Schema {
 
 export class LobbyRoom extends Room {
   state = new LobbyState();
-  private gameTimer: ReturnType<typeof setTimeout> | null = null;
+  private gameTimer: { clear(): void } | null = null;
   private lastSnap: Record<string, unknown> | null = null;
   private prevSnap: Record<string, unknown> | null = null;
 
@@ -76,7 +76,7 @@ export class LobbyRoom extends Room {
   }
 
   onDispose(): void {
-    if (this.gameTimer) {clearTimeout(this.gameTimer);}
+    // gameTimer 는 this.clock 소속 — 방 폐기 시 자동 정리된다 (공식 문서).
   }
 
   // --- 메시지 ---
@@ -92,6 +92,8 @@ export class LobbyRoom extends Room {
     void this.setMetadata({ ...this.metadata, phase: this.state.phase });
 
     const seats = this.seatsPayload();
+    // afterNextPatch: phase=playing 패치가 먼저 도착한 뒤 START 가 가게 한다
+    // (공식 문서 — 상태 변경 적용 후 메시지 도착 순서 보장).
     for (const p of this.state.players) {
       this.clients.find((c) => c.sessionId === p.sessionId)
         ?.send(MSG.START, {
@@ -100,10 +102,10 @@ export class LobbyRoom extends Room {
           seed: this.state.seed,
           mode: this.state.mode,
           seats,
-        });
+        }, { afterNextPatch: true });
     }
 
-    this.gameTimer = setTimeout(() => {
+    this.gameTimer = this.clock.setTimeout(() => {
       if (this.state.phase === "playing" && !this.lastSnap) {
         this.broadcast(MSG.ERROR, { msg: KO.HOST_BOOT_FAIL });
         this.resetToLobby();
@@ -129,15 +131,15 @@ export class LobbyRoom extends Room {
     }
     const ended = Boolean(data.result && data.result !== "playing");
     if (ended && (!this.prevSnap || this.prevSnap["result"] === "playing")) {
-      if (this.gameTimer) {clearTimeout(this.gameTimer);}
-      this.gameTimer = setTimeout(() => this.resetToLobby(), HUB_CONFIG.resetToLobbyDelayMs);
+      if (this.gameTimer) {this.gameTimer.clear();}
+      this.gameTimer = this.clock.setTimeout(() => this.resetToLobby(), HUB_CONFIG.resetToLobbyDelayMs);
     }
   }
 
   // --- 내부 ---
 
   private resetToLobby(): void {
-    if (this.gameTimer) { clearTimeout(this.gameTimer); this.gameTimer = null; }
+    if (this.gameTimer) { this.gameTimer.clear(); this.gameTimer = null; }
     this.lastSnap = null;
     this.prevSnap = null;
     this.state.phase = "lobby";
