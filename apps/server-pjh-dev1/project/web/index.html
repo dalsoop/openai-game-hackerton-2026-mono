@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-47 -->
+		<!-- gangup-handoff-49 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -238,6 +238,21 @@ function hubUrl() {
 	return proto + '://' + window.location.host + '/gang-up';
 }
 
+function helloPayload() {
+	var o = {t:'hello', name: getName(), mode:'classic'};
+	var r = resumeToken;
+	try { r = r || localStorage.getItem('gangup_resume') || ''; } catch(e) {}
+	r = String(r || '');
+	if (r.length === 32) {
+		o.resume = r;
+		resumeToken = r;
+		glog('hello.payload', 'resume=32');
+	} else {
+		glog('hello.payload', 'resume=none len=' + r.length);
+	}
+	return o;
+}
+
 function connectHub() {
 	glog('connectHub.enter');
 	if (ws && ws.readyState <= 1) { glog('connectHub.skip', 'already-open'); return; }
@@ -249,7 +264,7 @@ function connectHub() {
 		$connStatus.textContent = '로비';
 		$connStatus.className = 'conn-status online';
 		glog('hello.send', getName());
-		sendMsg({t:'hello', name: getName(), mode:'classic'});
+		sendMsg(helloPayload());
 		glog('rooms.send');
 		sendMsg({t:'rooms'});
 	};
@@ -274,11 +289,41 @@ function handleMsg(msg) {
 	glog('hub.msg', msg && msg.t);
 	switch (msg.t) {
 		case 'welcome':
-			glog('welcome');
+			glog('welcome', 'hadResume=' + (resumeToken || '').length);
 			if (msg.resume && msg.resume.length === 32) {
 				resumeToken = msg.resume;
 				glog('welcome.resume', 'len=32');
 				try { localStorage.setItem('gangup_resume', resumeToken); } catch(e) {}
+			}
+			break;
+		case 'resume':
+			glog('resume.recv', 'playing=' + !!msg.playing + ' you=' + msg.you + ' url=' + (msg.gameServerUrl || ''));
+			inRoom = true;
+			mySlot = msg.you || 0;
+			room = msg.room || {};
+			players = msg.players || [];
+			isHost = !!msg.host;
+			if (msg.resume && msg.resume.length === 32) {
+				resumeToken = msg.resume;
+				try { localStorage.setItem('gangup_resume', resumeToken); } catch(e) {}
+				glog('resume.token', 'len=32');
+			}
+			if (msg.playing) {
+				wantGame = true;
+				matchStartMsg = msg;
+				showGameWhenReady = true;
+				try {
+					window.GANGUP_FROM_HUB = true;
+					localStorage.setItem('gangup_from_hub', '1');
+					localStorage.setItem('gangup_name', getName());
+					if (resumeToken) localStorage.setItem('gangup_resume', resumeToken);
+				} catch(e) {}
+				try { $assetProgress.childNodes[0].textContent = '게임 로딩 중… '; } catch (e) {}
+				glog('resume.launchGodot');
+				launchGodot();
+			} else {
+				showWaitroom();
+				gok('자리회복대기실');
 			}
 			break;
 		case 'rooms':
@@ -305,8 +350,9 @@ function handleMsg(msg) {
 			renderWaitroom();
 			break;
 		case 'start':
-			glog('start.recv', 'want=' + wantGame);
-			if (!wantGame) { gfail('start무시', 'wantGame=0'); break; }
+			glog('start.recv', 'want=' + wantGame + ' inRoom=' + inRoom + ' url=' + (msg.gameServerUrl || ''));
+			if (!wantGame && !inRoom) { gfail('start무시', 'wantGame=0 inRoom=0'); break; }
+			wantGame = true;
 			matchStartMsg = msg;
 			showGameWhenReady = true;
 			glog('start.accept');
@@ -645,9 +691,8 @@ function bootFromHub() {
 	try { resume = localStorage.getItem('gangup_resume') || ''; } catch (e) {}
 	glog('bootFromHub.resume', 'len=' + resume.length);
 	if (resume.length === 32) {
-		$assetProgress.childNodes[0].textContent = '게임 로딩 중… ';
-		glog('bootFromHub.launchGodot');
-		if (typeof launchGodot === 'function') launchGodot();
+		resumeToken = resume;
+		gok('자리표대기', 'start/resume 기다림');
 	} else {
 		gfail('from_hub인데 resume없음', 'len=' + resume.length);
 	}
