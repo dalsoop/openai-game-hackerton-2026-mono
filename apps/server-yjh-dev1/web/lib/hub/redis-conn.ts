@@ -1,25 +1,7 @@
-export type RedisConn = string | {
-  host: string;
-  port: number;
-  username?: string;
-  password?: string;
-  db: number;
-  keyPrefix?: string;
-};
-
-/** 슬롯마다 키를 갈라 공용 Redis 에서 방 목록이 섞이지 않게 한다. */
-export function redisConn(url: string, slot = process.env.SLOT_FOLDER ?? ""): RedisConn {
-  const prefix = slot.trim();
-  if (!prefix) {return url;}
-  const parsed = new URL(url);
-  const user = decodeURIComponent(parsed.username);
-  const pass = decodeURIComponent(parsed.password);
-  return {
-    host: parsed.hostname,
-    port: Number(parsed.port || 6379),
-    ...(user ? { username: user } : {}),
-    ...(pass ? { password: pass } : {}),
-    db: Number(parsed.pathname.replace(/^\//, "") || 0),
-    keyPrefix: `${prefix}:`,
-  };
+/** Colyseus 공식 Redis 연결 — URL 문자열만 넘긴다.
+ * ioredis keyPrefix 는 pub/sub·예약 키를 갈라 조인이 4002 로 죽는다.
+ * 슬롯 격리는 룸 이름과 processId 가 담당한다 (docs.colyseus.io/scalability).
+ */
+export function redisConn(url: string, _slot = process.env.SLOT_FOLDER ?? ""): string {
+  return url;
 }
