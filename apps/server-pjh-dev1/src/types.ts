@@ -19,6 +19,7 @@ export interface Client {
   lastChatAt?: number;
   msgBudget: number;
   msgRefillAt: number;
+  publicHost: string;
 }
 
 export interface Room {

@@ -66,6 +66,15 @@ func _js_text(code: String) -> String:
         return ""
     return text
 
+func _public_game_url(raw: String) -> String:
+    var url := raw.strip_edges()
+    if url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0:
+        push_warning("NetworkManager: ignore loopback game-ws %s" % url)
+        url = ""
+    if url != "":
+        return url
+    return GameClient.resolve_game_url(_resolve_url())
+
 func _resolve_url() -> String:
     var env := OS.get_environment("GANG_UP_WS")
     if env.strip_edges() != "":
@@ -276,8 +285,7 @@ func _on_msg(msg: Dictionary) -> void:
             room = msg.get("room", {})
             if typeof(room) != TYPE_DICTIONARY:
                 room = {}
-            if str(msg.get("gameServerUrl", "")) != "":
-                room["game_url"] = str(msg.get("gameServerUrl", ""))
+            room["game_url"] = _public_game_url(str(msg.get("gameServerUrl", "")))
             players = msg.get("players", [])
             _set_status(STATUS_LOBBY)
             if bool(msg.get("playing", false)):
@@ -308,7 +316,7 @@ func _on_msg(msg: Dictionary) -> void:
             if msg.has("room"):
                 room = msg.get("room", room)
             if msg.has("gameServerUrl"):
-                room["game_url"] = str(msg["gameServerUrl"])
+                room["game_url"] = _public_game_url(str(msg["gameServerUrl"]))
             if msg.has("seed"):
                 room["seed"] = int(msg["seed"])
             match_started.emit(you, room)
