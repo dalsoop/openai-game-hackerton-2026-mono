@@ -22,6 +22,8 @@ describe("MSG 메시지 계약", () => {
     expect(MSG.LEAVE).toBe("leave");
     expect(MSG.PING).toBe("ping");
     expect(MSG.PONG).toBe("pong");
+    expect(MSG.SET_GAME).toBe("set_game");
+    expect(HUB_CONFIG.idleStartMs).toBe(5 * 60 * 1000);
   });
 });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RoomAvailable } from "@colyseus/sdk";
 import { roomsHttpBody } from "@/lib/hub/rooms-http";
 
-const room = (id: string, extra: Partial<RoomAvailable> = {}): RoomAvailable =>
+const room = (id: string, extra: Record<string, unknown> = {}): RoomAvailable =>
   ({ roomId: id, clients: 1, metadata: { phase: "lobby", open: true }, ...extra }) as RoomAvailable;
 
 describe("roomsHttpBody", () => {

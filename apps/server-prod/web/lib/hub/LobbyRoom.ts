@@ -2,7 +2,7 @@ import { Room, type Client } from "colyseus";
 import { HUB_CONFIG, KO } from "./config.js";
 import { MSG, CLOSE_CODE } from "../contract/wire.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
-import { defaultModeOf } from "../games/catalog.js";
+import { asGameId, defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
 import { matchJustEnded, startBodies } from "./lobby-relay.js";
@@ -13,6 +13,7 @@ export { PlayerSchema, LobbyState } from "./lobby-state.js";
 export class LobbyRoom extends Room {
   state = new LobbyState();
   private gameTimer: { clear(): void } | null = null;
+  private idleTimer: { clear(): void } | null = null;
   private lastSnap: Record<string, unknown> | null = null;
   private prevSnap: Record<string, unknown> | null = null;
 
@@ -25,6 +26,7 @@ export class LobbyRoom extends Room {
     this.state.gameId = settings.game;
     this.state.title = settings.title;
     this.state.mode = defaultModeOf(settings.game);
+    this.state.createdAtMs = Date.now();
     void this.setMetadata({
       gameId: this.state.gameId,
       title: this.state.title,
@@ -32,6 +34,7 @@ export class LobbyRoom extends Room {
       phase: this.state.phase,
       open: this.state.open,
     });
+    this.idleTimer = this.clock.setTimeout(() => {this.burstIdle();}, HUB_CONFIG.idleStartMs);
   }
 
   messages = {
@@ -39,6 +42,7 @@ export class LobbyRoom extends Room {
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => this.relayInput(client, data),
     [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void => this.relaySnap(client, data),
     [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
+    [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void => this.handleSetGame(client, data),
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
   };
 
@@ -104,7 +108,7 @@ export class LobbyRoom extends Room {
   }
 
   onDispose(): void {
-    // gameTimer 는 this.clock 소속 — 방 폐기 시 자동 정리된다.
+    this.clearIdleTimer();
   }
 
   private handleRoomToggle(client: Client): void {
@@ -122,12 +126,35 @@ export class LobbyRoom extends Room {
     }
   }
 
+  private handleSetGame(client: Client, data: Record<string, unknown>): void {
+    if (this.state.phase !== "lobby") {return;}
+    if (client.sessionId !== this.state.hostSessionId) {
+      client.send(MSG.ERROR, { msg: KO.HOST_ONLY_GAME });
+      return;
+    }
+    const game = asGameId(data.game);
+    this.state.gameId = game;
+    this.state.mode = defaultModeOf(game);
+    void this.setMetadata({ ...this.metadata, gameId: game, mode: this.state.mode });
+  }
+
+  private burstIdle(): void {
+    if (this.state.phase !== "lobby") {return;}
+    this.broadcast(MSG.ERROR, { msg: KO.IDLE_START });
+    void this.disconnect();
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) {this.idleTimer.clear(); this.idleTimer = null;}
+  }
+
   private handleStart(client: Client): void {
     if (this.state.phase !== "lobby") {return;}
     if (client.sessionId !== this.state.hostSessionId) {
       client.send(MSG.ERROR, { msg: KO.HOST_ONLY_START });
       return;
     }
+    this.clearIdleTimer();
     this.state.phase = "playing";
     this.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
     void this.setMetadata({ ...this.metadata, phase: this.state.phase });
