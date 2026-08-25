@@ -20,8 +20,8 @@ body {
 	touch-action: none;
 	font-family: 'Noto Sans KR', 'Pretendard', 'Noto Sans', Arial, sans-serif;
 }
-#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; z-index: 5; }
-#canvas.ready { opacity: 1; }
+#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; z-index: 5; pointer-events: none; }
+#canvas.ready { opacity: 1; pointer-events: auto; }
 #canvas:focus { outline: none; }
 
 /* ── 로비 (즉시 보이는 HTML) ── */
@@ -185,6 +185,8 @@ let resumeToken = '';
 let godotReady = false;
 let godotStarting = false;
 let matchStartMsg = null;
+let pendingQuickStart = false;
+let showGameWhenReady = false;
 let assetLoaded = 0;
 let assetTotal = 0;
 
@@ -260,6 +262,10 @@ function handleMsg(msg) {
 			players = msg.players || [];
 			isHost = (mySlot === 0);
 			showWaitroom();
+			if (pendingQuickStart && isHost) {
+				pendingQuickStart = false;
+				sendMsg({t:'start'});
+			}
 			break;
 		case 'peers':
 			players = msg.players || [];
@@ -268,10 +274,12 @@ function handleMsg(msg) {
 			break;
 		case 'start':
 			matchStartMsg = msg;
+			showGameWhenReady = true;
 			try {
 				window.GANGUP_FROM_HUB = true;
 				localStorage.setItem('gangup_from_hub', '1');
 				localStorage.setItem('gangup_name', getName());
+				if (resumeToken) localStorage.setItem('gangup_resume', resumeToken);
 			} catch(e) {}
 			launchGodot();
 			break;
@@ -372,7 +380,9 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 /* ── 버튼 이벤트 ── */
 document.getElementById('btn-quick').onclick = function() {
 	try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
-	launchGodot();
+	pendingQuickStart = true;
+	sendMsg({t:'hello', name: getName(), mode:'classic'});
+	sendMsg({t:'create'});
 };
 document.getElementById('btn-create').onclick = function() {
 	sendMsg({t:'hello', name: getName(), mode:'classic'});
@@ -480,7 +490,7 @@ function launchGodot() {
 		$assetProgress.childNodes[0].textContent = '준비 완료 ';
 		var fill = document.getElementById('asset-fill');
 		if (fill) fill.style.width = '100%';
-		switchToGame();
+		if (showGameWhenReady || matchStartMsg) switchToGame();
 	}, function(err) {
 		if (settled) return;
 		settled = true;
@@ -540,15 +550,21 @@ function prefetchAssets() {
 
 function bootFromHub() {
 	var fromHub = false;
+	var resume = '';
 	try {
 		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0
 			|| localStorage.getItem('gangup_from_hub') === '1';
+		resume = localStorage.getItem('gangup_resume') || '';
 	} catch (e) {
 		fromHub = String(location.search||'').indexOf('from_hub=1') >= 0;
 	}
 	if (!fromHub) return;
 	try { window.GANGUP_FROM_HUB = true; } catch (e) {}
-	if (typeof launchGodot === 'function') launchGodot();
+	// Only enter the engine when a match already exists (resume token from HTML start).
+	if (resume.length === 32) {
+		showGameWhenReady = true;
+		if (typeof launchGodot === 'function') launchGodot();
+	}
 }
 
 /* ── 시작 ── */
