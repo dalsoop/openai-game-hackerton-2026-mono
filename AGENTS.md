@@ -67,6 +67,8 @@ cd deploy/usability && node cli.mjs smoke
 
 PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.
 
+새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 → `python3 deploy/scripts/plant-apps.py` → 푸시하면 CI가 자동 배포.
+
 ## GDScript 코드 규칙
 
 에이전트가 GDScript 코드를 작성하거나 수정할 때 따라야 할 규칙:
