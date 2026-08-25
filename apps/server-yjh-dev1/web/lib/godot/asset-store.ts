@@ -73,7 +73,8 @@ export class AssetStore {
     fetchLog.push(url + "@" + new Error().stack?.split("\n")[2]?.trim().slice(0, 60));
     const resp = await fetch(url);
     if (!resp.ok) {throw new Error(`${url}: ${resp.status}`);}
-    const total = Number(resp.headers.get("content-length") || expectBytes || 0);
+    const declared = resp.headers.get("content-length");
+    const total = declared === null || declared === "" ? expectBytes : Number(declared);
     this.total += total;
     const reader = resp.body?.getReader();
     if (!reader) {

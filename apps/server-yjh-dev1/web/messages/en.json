@@ -21,7 +21,12 @@
     "reconnect": "Reconnect",
     "back": "Back",
     "resuming": "Reconnecting to your previous session...",
-    "startFresh": "Start fresh"
+    "startFresh": "Start fresh",
+    "errors": {
+      "engineMissing": "Game engine script not found",
+      "engineLoadFailed": "Failed to load game engine",
+      "matchSignalMissing": "Game failed to join the server match (no match signal)"
+    }
   },
   "intro": {
     "namePlaceholder": "Your Name",
@@ -70,5 +75,13 @@
     "unknown": "An unexpected error occurred.",
     "retry": "Try again",
     "detail": "Error details"
+  },
+  "games": {
+    "dagul": {
+      "title": "Dagul"
+    },
+    "sparring": {
+      "title": "Sparring (demo)"
+    }
   }
 }

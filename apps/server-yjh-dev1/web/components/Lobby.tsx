@@ -81,7 +81,7 @@ export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Pr
 
       <select className="game-select" value={game} onChange={(e) => setGame(e.target.value)} aria-label={t("gameSelect")}>
           {GAME_CATALOG.map((g) => (
-            <option key={g.id} value={g.id}>{g.title}</option>
+            <option key={g.id} value={g.id}>{t(g.titleKey)}</option>
           ))}
         </select>
         <button className="cta block" onClick={() => onCreate(game)}>

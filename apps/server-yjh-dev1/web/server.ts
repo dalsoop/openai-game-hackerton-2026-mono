@@ -10,7 +10,7 @@ import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
 
 const dev = process.env.NODE_ENV !== "production";
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT ?? 3000);
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
@@ -53,11 +53,11 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
   const mime = GODOT_MIME[ext];
   if (!mime) {return false;}
 
-  const versioned = /\bv=[0-9a-f]+/.test((req.url || "").split("?")[1] || "");
+  const versioned = /\bv=[0-9a-f]+/.test((req.url ?? "").split("?")[1] ?? "");
   const cacheControl = versioned ? "public, max-age=31536000, immutable" : "no-cache";
 
   const base = path.join(GODOT_DIR, rel);
-  const accept = String(req.headers["accept-encoding"] || "");
+  const accept = String(req.headers["accept-encoding"] ?? "");
   const candidates: Array<[string, string | null]> = [];
   if (accept.includes("br")) {candidates.push([`${base}.br`, "br"]);}
   if (accept.includes("gzip")) {candidates.push([`${base}.gz`, "gzip"]);}
@@ -111,12 +111,12 @@ void app.prepare().then(async () => {
   // dev 에서 핫리로드가 죽는다. 그 외 업그레이드는 Colyseus 가 가져간다.
   const nextUpgrade = app.getUpgradeHandler();
   httpServer.on("upgrade", (req, socket, head) => {
-    if ((req.url || "").startsWith("/_next")) {void nextUpgrade(req, socket, head);}
+    if ((req.url ?? "").startsWith("/_next")) {void nextUpgrade(req, socket, head);}
   });
 
   const transport = new WebSocketTransport({ noServer: true, maxPayload: HUB_CONFIG.maxPayload });
   transport.attachToServer(httpServer, {
-    filter: (req) => !(req.url || "").startsWith("/_next"),
+    filter: (req) => !(req.url ?? "").startsWith("/_next"),
   });
 
   // 다중 인스턴스 확장(공식 docs.colyseus.io/scalability) — 조건부:
@@ -139,7 +139,7 @@ void app.prepare().then(async () => {
         res.setHeader("cross-origin-opener-policy", "same-origin");
         res.setHeader("cross-origin-embedder-policy", "require-corp");
         res.setHeader("cross-origin-resource-policy", "same-origin");
-        const pathname = (req.url || "/").split("?")[0];
+        const pathname = (req.url ?? "/").split("?")[0];
         // GDExtension 웹 라이브러리 — Godot dlopen 이 파일명만 요청한다(페이지 루트).
         if (pathname === "/libcolyseus_godot.web.wasm32.release.wasm" &&
             serveAddonsAsset(req, res, "/addons/colyseus/bin/" + pathname.slice(1))) {return;}

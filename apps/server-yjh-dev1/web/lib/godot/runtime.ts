@@ -87,12 +87,10 @@ export class GodotRuntime {
   // 로비 단계 백그라운드 프리로드 — wasm·pck·side 를 받아 wasm 을 컴파일해 둔다.
   // 호출이 겹쳐도 preloadPromise 로 1회만 수행된다 (재호출은 같은 결과를 기다린다).
   preload(): Promise<void> {
-    if (!this.preloadPromise) {
-      this.preloadPromise = this.doPreload().catch((e: unknown): void => {
-        this.preloadPromise = null; // 실패는 재시도 가능하게
-        this.update({ state: "error", error: e instanceof Error ? e.message : String(e) });
-      });
-    }
+    this.preloadPromise ??= this.doPreload().catch((e: unknown): void => {
+      this.preloadPromise = null; // 실패는 재시도 가능하게
+      this.update({ state: "error", error: e instanceof Error ? e.message : String(e) });
+    });
     return this.preloadPromise;
   }
 
@@ -137,7 +135,7 @@ export class GodotRuntime {
   }
 
   private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
-    if (!this.manifest) {this.manifest = await this.store.loadManifest(this.game);}
+    this.manifest ??= await this.store.loadManifest(this.game);
     // 프리로드가 아직 진행 중이어도 AssetStore 공유로 중복 다운로드 없이 합류한다.
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
 
@@ -152,7 +150,7 @@ export class GodotRuntime {
         requestQuit?: () => void;
       };
     }).Engine;
-    if (!EngineCtor) {throw new Error("Godot Engine 스크립트를 찾지 못했습니다");}
+    if (!EngineCtor) {throw new Error("engine-missing");}
 
     const config: Record<string, unknown> = {
       canvas,
@@ -207,7 +205,7 @@ export class GodotRuntime {
       el.onload = (): void => resolve();
       el.onerror = (): void => {
         this.scriptPromise = null; // 재시도 가능하게
-        reject(new Error("엔진 스크립트 로드 실패"));
+        reject(new Error("engine-load-failed"));
       };
       document.head.appendChild(el);
     });
@@ -221,7 +219,7 @@ export class GodotRuntime {
     this.watchdog = setTimeout((): void => {
       window.removeEventListener(DOM_EVT.MATCH_START, clear);
       this.quit();
-      this.update({ state: "error", error: "게임이 서버 매치에 합류하지 못했습니다 (매치 신호 없음)" });
+      this.update({ state: "error", error: "match-signal-missing" });
     }, MATCH_WATCHDOG_MS);
   }
 

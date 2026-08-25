@@ -66,6 +66,8 @@ export interface UseHubResult {
   you: number;
   roomId: string;
   isHost: boolean;
+  /** 방장의 문 — 닫힌 방은 입장 불가 (닫는 순간 재실자 강퇴) */
+  roomOpen: boolean;
   resumeToken: string;
   error: string | null;
   matchInfo: MatchInfo | null;
@@ -77,6 +79,7 @@ export interface UseHubResult {
   leaveRoom: () => void;
   returnToLobby: (name: string) => void;
   startMatch: () => void;
+  toggleRoom: () => void;
   refreshRooms: () => void;
 
   // 세션 재개 — 세션이 살아있는(유예 안) 동안 재접근하면 그 세션으로 복귀한다.

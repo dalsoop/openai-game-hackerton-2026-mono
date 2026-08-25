@@ -8,12 +8,13 @@ export type GameId = string & { readonly __brand: "GameId" };
 
 export interface GameDescriptor {
   readonly id: GameId;
-  readonly title: string;
+  /** 표시명 i18n 키 — 문구는 messages/*.json 이 정본 (하드코딩 금지) */
+  readonly titleKey: string;
 }
 
 export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
-  { id: "dagul" as GameId, title: "다굴" },
-  { id: "sparring" as GameId, title: "스파링(데모)" },
+  { id: "dagul" as GameId, titleKey: "games.dagul.title" },
+  { id: "sparring" as GameId, titleKey: "games.sparring.title" },
 ];
 
 export const DEFAULT_GAME_ID: GameId = GAME_CATALOG[0]?.id ?? ("dagul" as GameId);

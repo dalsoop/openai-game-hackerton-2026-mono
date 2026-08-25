@@ -10,6 +10,7 @@ export interface SeatSnapshot {
 
 export interface RosterSnapshot {
   readonly gameId?: string;
+  readonly open?: boolean; // 방장의 문 — 닫히면 입장 불가
   readonly phase: string;
   readonly hostSessionId: string;
   readonly players: readonly SeatSnapshot[];

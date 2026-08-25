@@ -49,7 +49,7 @@ describe("LobbyRoom 규칙", () => {
     guest.send(MSG.START, {});
     const payload = (await errorP) as { msg?: string };
 
-    expect(payload?.msg).toBe(KO.HOST_ONLY_START);
+    expect(payload.msg).toBe(KO.HOST_ONLY_START);
     expect(String(room.state.phase)).toBe("lobby");
   });
 

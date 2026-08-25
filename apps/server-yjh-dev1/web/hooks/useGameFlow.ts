@@ -71,8 +71,8 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   }, [hub.status]);
 
   useEffect(() => {
-    if (phase === "lobby" || phase === "room") {loader.start();}
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps -- loader는 싱글턴 런타임
+    if (phase === "room") {loader.start();} // 유즈맵 — 다운로드는 방에 들어와서 시작
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps -- loader는 게임별 런타임
 
   const findRoom = useCallback(() => {
     saveNickname(displayName);

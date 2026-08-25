@@ -55,6 +55,16 @@ const config = [
       // 불필요한 async·else-return 금지 — 평탄한 제어흐름 유지
       "require-await": "error",
       "no-else-return": "error",
+      // || 폴스티 삼킴 방지 — 널 병합은 ?? 로만 (문자열 ""·숫자 0·false 오용 차단)
+      "@typescript-eslint/prefer-nullish-coalescing": "error",
+      // 하드코딩 한글 문구 금지 — 문구 SSOT는 messages/*.json, 서버 안내문은 lib/hub/config KO
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/[가-힣]/]",
+          message: "하드코딩 한글 금지 — messages/*.json(i18n) 또는 lib/hub/config.ts KO 상수로. 예외는 eslint-disable + 사유.",
+        },
+      ],
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -107,6 +117,35 @@ const config = [
   {
     files: ["next.config.ts"],
     rules: { "require-await": "off" },
+  },
+
+  // 한글 리터럴 예외 — 테스트 설명문은 제품 문구가 아니다.
+  // lib/hub/config.ts KO 는 서버→클라 안내문의 지정 SSOT다.
+  {
+    files: ["tests/**/*.{ts,tsx}", "lib/hub/config.ts"],
+    rules: { "no-restricted-syntax": "off" },
+  },
+
+  // page.tsx 는 렌더 전용 — 상태·이펙트·페이즈 판단 로직이 새어들어오면
+  // 이 규칙이 막는다. 로직은 hooks/(useGameFlow 등)로 가야 한다.
+  {
+    files: ["app/**/page.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
+          message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
+        },
+      ],
+    },
+  },
+
+  // 조합 루트 훅(hooks/) — 분해 후에도 콜백 수만으로 분기가 몰린다: 상한 완화.
+  // 순수 로직 기준(15)은 lib/·components/ 에 그대로 적용된다.
+  {
+    files: ["hooks/**/*.ts"],
+    rules: { "complexity": ["error", 18] },
   },
 
   // 에러 경계 — 프로바이더/CSS 를 신뢰할 수 없는 최후 폴백이므로

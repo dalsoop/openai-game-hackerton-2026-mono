@@ -21,7 +21,12 @@
     "reconnect": "다시 연결",
     "back": "뒤로",
     "resuming": "이전 세션에 재접속 중입니다...",
-    "startFresh": "새로 시작하기"
+    "startFresh": "새로 시작하기",
+    "errors": {
+      "engineMissing": "게임 엔진 스크립트를 찾지 못했습니다",
+      "engineLoadFailed": "게임 엔진 로드에 실패했습니다",
+      "matchSignalMissing": "게임이 서버 매치에 합류하지 못했습니다 (매치 신호 없음)"
+    }
   },
   "intro": {
     "namePlaceholder": "내 이름",
@@ -57,7 +62,10 @@
     "cpuAtStart": "시작 시 CPU",
     "playerCount": "{count}/{max}명 · 빈 자리는 시작 시 CPU가 채웁니다",
     "startButton": "게임 시작",
-    "waitingForHost": "호스트가 시작할 때까지 기다리세요"
+    "waitingForHost": "호스트가 시작할 때까지 기다리세요",
+    "open": "방 열기",
+    "close": "방 닫기",
+    "downloading": "게임 받는 중"
   },
   "godot": {
     "starting": "게임을 시작하는 중...",
@@ -71,5 +79,13 @@
     "unknown": "예기치 않은 오류가 발생했습니다.",
     "retry": "다시 시도",
     "detail": "오류 내용"
+  },
+  "games": {
+    "dagul": {
+      "title": "다굴"
+    },
+    "sparring": {
+      "title": "스파링(데모)"
+    }
   }
 }

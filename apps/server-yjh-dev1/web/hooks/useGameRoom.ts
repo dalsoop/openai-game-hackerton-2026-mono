@@ -2,7 +2,7 @@
 // 게임 방 연결 훅 — 수명주기는 공식 useRoom 이 소유한다 (StrictMode 안전).
 // START/onLeave 등록은 join resolve 직후에 한다 — 이펙트보다 늦으면
 // 입장과 동시에 온 START 를 놓친다 (리스트 룸과 같은 경주).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF, ROOM_NAME } from "@/lib/hub/config";
@@ -35,6 +35,7 @@ export function useGameRoom(
   playerName: () => string,
   getClient: () => Client,
   onRoomEnded: () => void,
+  onResumeFailed: (message: string) => void,
 ): {
   room: Room<RosterSnapshot> | undefined;
   roomError: Error | undefined;
@@ -67,6 +68,14 @@ export function useGameRoom(
       : null,
     [joinRequest],
   );
+
+  // 재개(resume) 실패 — 세션 유예 만료. 토큰 폐기는 이 훅이, 화면 초기화는 콜백이 담당한다.
+  useEffect(() => {
+    if (!roomError) {return;}
+    if (joinRequest?.kind !== "resume") {return;}
+    localStorage.removeItem(HANDOFF.RESUME);
+    onResumeFailed(roomError.message);
+  }, [roomError, joinRequest, onResumeFailed]);
 
   return { room, roomError, matchInfo, setMatchInfo };
 }

@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { useEffect, useRef, useState } from "react";
 import { GodotRuntime, type HandoffInfo, type RuntimeSnapshot } from "@/lib/godot/runtime";
 import { DOM_EVT } from "@/lib/hub/config";
+import { runtimeErrorKey } from "@/lib/godot/runtime-errors";
 import { useTranslations } from "next-intl";
 
 export type MatchInfo = HandoffInfo;
@@ -34,7 +35,7 @@ export default function GodotCanvas({ matchInfo, visible, onMatchEnd, onError }:
     if (!onMatchEnd) {return;}
     const handler = (e: Event): void => {
       GodotRuntime.instance.quit();
-      onMatchEnd((e as CustomEvent).detail || {});
+      onMatchEnd((e as CustomEvent).detail ?? {});
     };
     window.addEventListener(DOM_EVT.MATCH_END, handler);
     return (): void => window.removeEventListener(DOM_EVT.MATCH_END, handler);
@@ -58,7 +59,7 @@ export default function GodotCanvas({ matchInfo, visible, onMatchEnd, onError }:
       {snap.state === "error" && (
         <div className="gc-error-box">
           <div className="gc-error-msg">
-            {t("startError")}: {snap.error}
+            {t("startError")}: {t(runtimeErrorKey(snap.error ?? ""))}
           </div>
           <button
             className="ghost"

@@ -16,6 +16,7 @@ export class PlayerSchema extends Schema {
 
 export class LobbyState extends Schema {
   @type("string") gameId = asGameId(undefined); // 유즈맵 — 이 방에서 플레이할 게임
+  @type("boolean") open = true; // 방장의 문 — 닫으면 입장 불가
   @type("string") phase: "lobby" | "playing" = "lobby";
   @type("string") hostSessionId = "";
   @type("string") title = "";
@@ -45,11 +46,13 @@ export class LobbyRoom extends Room {
     [MSG.START]: (client: Client): void => this.handleStart(client),
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => this.relayInput(client, data),
     [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void => this.relaySnap(client, data),
+    [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
   };
 
-  // 입장 인증(공식 onAuth) — 잠긴 방은 PIN 일치만 통과.
+  // 입장 인증(공식 onAuth) — 닫힌 방·PIN 불일치 거부.
   // create 첫 입장은 options.pin 으로 방을 만들었으므로 자동으로 일치한다.
   onAuth(_client: Client, options: { pin?: string }): boolean {
+    if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
     if (this.pin === "") {return true;}
     if (this.sanitizePin(options.pin) === this.pin) {return true;}
     throw new Error(KO.WRONG_PIN);
@@ -105,6 +108,22 @@ export class LobbyRoom extends Room {
 
   // --- 메시지 ---
 
+  // 방장의 방 열기/닫기 — 닫는 순간 재실자(방장 제외)를 강퇴한다(유즈맵 관습).
+  private handleRoomToggle(client: Client): void {
+    if (client.sessionId !== this.state.hostSessionId) {
+      client.send(MSG.ERROR, { msg: KO.HOST_ONLY_TOGGLE });
+      return;
+    }
+    this.state.open = !this.state.open;
+    void this.setMetadata({ ...this.metadata, open: this.state.open });
+    if (this.state.open) {return;}
+    for (const c of this.clients) {
+      if (c.sessionId === this.state.hostSessionId) {continue;}
+      c.send(MSG.KICKED, { msg: KO.KICKED_MSG });
+      c.leave(4000); // 동의 코드 — onLeave 즉시 좌석 정리
+    }
+  }
+
   private handleStart(client: Client): void {
     if (this.state.phase !== "lobby") {return;}
     if (client.sessionId !== this.state.hostSessionId) {
@@ -156,7 +175,10 @@ export class LobbyRoom extends Room {
     const ended = Boolean(data.result && data.result !== "playing");
     if (ended && (!this.prevSnap || this.prevSnap["result"] === "playing")) {
       if (this.gameTimer) {this.gameTimer.clear();}
-      this.gameTimer = this.clock.setTimeout(() => this.resetToLobby(), HUB_CONFIG.resetToLobbyDelayMs);
+      // 종료 확정 즉시 대기실 전환 — 지연 없는 것이 공식 예제의 표준 패턴이며,
+      // 마지막 스냅은 이미 위에서 전원에게 broadcast 됐다(동일 소켓 순서 보장).
+      // 타이머로 미루면 재입장 클라가 5초 창 동안 phase=playing 방에 갇힌다.
+      this.resetToLobby();
     }
   }
 

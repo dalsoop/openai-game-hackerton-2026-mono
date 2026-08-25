@@ -8,12 +8,12 @@ describe("GAME_CATALOG", () => {
     expect(isKnownGame(DEFAULT_GAME_ID)).toBe(true);
   });
 
-  it("카탈로그 항목은 id·제목을 갖추고 id 는 유일하다", () => {
+  it("카탈로그 항목은 id·표시명 키를 갖추고 id 는 유일하다", () => {
     const ids = GAME_CATALOG.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const g of GAME_CATALOG) {
       expect(g.id.length).toBeGreaterThan(0);
-      expect(g.title.length).toBeGreaterThan(0);
+      expect(g.titleKey.length).toBeGreaterThan(0);
     }
   });
 });
@@ -34,7 +34,7 @@ describe("asGameId — 신뢰 불가 입력 정규화", () => {
 
 describe("findGame", () => {
   it("등재 조회는 디스크립터를, 미등재는 undefined 를 돌려준다", () => {
-    expect(findGame("dagul")?.title).toBe("다굴");
+    expect(findGame("dagul")?.titleKey).toBe("games.dagul.title");
     expect(findGame("nope")).toBeUndefined();
   });
 });
