@@ -246,6 +246,7 @@ function handleMsg(msg) {
 		case 'start':
 			matchStartMsg = msg;
 			try {
+				window.GANGUP_FROM_HUB = true;
 				localStorage.setItem('gangup_from_hub', '1');
 				localStorage.setItem('gangup_name', getName());
 			} catch(e) {}
@@ -368,6 +369,9 @@ $name.onchange = function() { try { localStorage.setItem('gangup_name', getName(
 const engine = new Engine(GODOT_CONFIG);
 
 function launchGodot() {
+	if (matchStartMsg) {
+		try { window.GANGUP_FROM_HUB = true; localStorage.setItem('gangup_from_hub', '1'); } catch(e) {}
+	}
 	if (godotReady || godotStarting) {
 		switchToGame();
 		return;
