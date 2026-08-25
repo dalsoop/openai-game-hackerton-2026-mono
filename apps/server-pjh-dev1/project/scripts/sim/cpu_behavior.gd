@@ -16,19 +16,19 @@ func update_cpus(dt: float) -> void:
 		if not bool(h["alive"]):
 			continue
 		if bool(h.get("downed", false)):
-			h["vel"] = Vector2.ZERO
+			w.mov.lock_locomotion(h)
 			h["action"] = &"DOWN"
 			w.heroes[slot] = h
 			continue
 		if float(h["stun_time"]) > 0.0:
-			h["vel"] = Vector2.ZERO
+			w.mov.lock_locomotion(h)
 			h["charging_skill"] = false
 			h["charge_time"] = 0.0
 			h["action"] = &"STUNNED"
 			w.heroes[slot] = h
 			continue
 		if float(h["combo_capture_time"]) > 0.0:
-			h["vel"] = Vector2.ZERO
+			w.mov.lock_locomotion(h)
 			w.heroes[slot] = h
 			if float(h["hitstun_time"]) <= 0.0:
 				if float(h["mobility_cd"]) <= 0.0 and w.rng.chance(0.055):
@@ -395,14 +395,13 @@ func apply_cpu_move(slot: int, h: Dictionary, wish_dir: Vector2, speed_scale: fl
 	h["slide_wish"] = wish_dir
 	if float(h.get("slide_time", 0.0)) > 0.0:
 		return
-	var cruise: Vector2 = wish_dir * w.mov.hero_move_speed(slot) * speed_scale * w.dmg.streak_move_multiplier(slot)
-	h["vel"] = cruise
+	var max_spd: float = w.mov.hero_move_speed(slot) * speed_scale * w.dmg.streak_move_multiplier(slot)
+	w.mov.apply_locomotion(h, wish_dir, max_spd, w.FIXED_DT, &"run")
 	w.heroes[slot] = h
 	w.ult_animal.apply_flee_vel(slot)
 	h = w.heroes[slot]
 	if float(h.get("spring_time", 0.0)) > 0.0 and wish_dir.length_squared() > 0.1:
-		var boosted: Vector2 = Vector2(h["vel"]) + wish_dir.normalized() * w.SPRING_BOOST
-		h["vel"] = boosted
+		h["vel"] = Vector2(h["vel"]) + wish_dir.normalized() * w.SPRING_BOOST
 
 func highest_threat_except(excluded: int) -> int:
 	var best := -1
