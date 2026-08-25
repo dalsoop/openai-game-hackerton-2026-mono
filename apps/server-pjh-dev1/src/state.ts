@@ -298,6 +298,7 @@ export function attachResume(fresh: Client, token: string): Client {
         players: peersPayload(room),
         playing: Boolean(playing),
         snap: playing ? room.lastSnap : null,
+        gameServerUrl: playing ? deriveGameWsUrl() : "",
       });
       notifyRoom(room, { notice: KO.playerReconnected(old.name) });
     } else {
