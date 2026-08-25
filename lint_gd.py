@@ -92,7 +92,7 @@ def lint_file(path: pathlib.Path):
         if RE_WS_NEW.search(line):
             findings.append((i, 'ws-client-dup', 'GD 자체 WebSocket 금지 — 네트워크는 페이지 브릿지(network_manager) 경유'))
 
-        if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name != 'game_registry.gd':
+        if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name not in ('game_registry.gd', 'boot.gd'):
             findings.append((i, 'core-games', 'core/ 는 games/ 를 참조할 수 없다 — 계약(GameModule)으로 우회'))
 
     check_func_end(len(lines) + 1)

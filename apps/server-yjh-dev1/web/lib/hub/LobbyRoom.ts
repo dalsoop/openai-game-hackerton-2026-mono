@@ -35,7 +35,7 @@ export class LobbyRoom extends Room {
     this.maxClients = HUB_CONFIG.maxPlayers;
     this.state.gameId = asGameId(options.game); // 카탈로그 등재 게임만 확정
     this.state.title = this.sanitize(options.title, HUB_CONFIG.maxTitleLength)
-      || `${MODES[HUB_CONFIG.defaultMode]!.title} #${this.roomId}`;
+      || `${MODES[HUB_CONFIG.defaultMode].title} #${this.roomId}`;
     this.pin = this.sanitizePin(options.pin);
     void this.setMetadata({ gameId: this.state.gameId, title: this.state.title, mode: this.state.mode, phase: this.state.phase, locked: this.pin !== "" });
   }
@@ -84,7 +84,7 @@ export class LobbyRoom extends Room {
   }
 
   // 동의 퇴장(leave) — 유예 없이 즉시 좌석 반납.
-  async onLeave(client: Client, _code?: number): Promise<void> {
+  onLeave(client: Client, _code?: number): void {
     this.removeSeat(client.sessionId);
   }
 
@@ -174,7 +174,7 @@ export class LobbyRoom extends Room {
   private syncHost(): void {
     const host = [...this.state.players]
       .filter((p) => p.connected)
-      .sort((a, b) => a.slot - b.slot)[0];
+      .sort((a, b) => a.slot - b.slot).at(0);
     this.state.hostSessionId = host?.sessionId ?? "";
     void this.setMetadata({ ...this.metadata });
   }

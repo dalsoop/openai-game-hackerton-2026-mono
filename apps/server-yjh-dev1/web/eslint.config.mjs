@@ -46,6 +46,15 @@ const config = [
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/no-inferrable-types": "error",
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],
+      // enum switch 완전성 — GamePhase/HubStatus 분기 누락 방지
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      // non-null 단정(!) 금지 — 런타임 크래시 원천 봉쇄
+      "@typescript-eslint/no-non-null-assertion": "error",
+      // 항상 참/거짓 조건·불필요한 선택체인 제거 (타입 정보 기반)
+      "@typescript-eslint/no-unnecessary-condition": "error",
+      // 불필요한 async·else-return 금지 — 평탄한 제어흐름 유지
+      "require-await": "error",
+      "no-else-return": "error",
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -92,6 +101,12 @@ const config = [
   {
     files: ["server.ts", "scripts/**/*.{mjs,ts,js}"],
     rules: { "no-console": "off" },
+  },
+
+  // next.config.ts — Next API 계약상 headers/rewrites 는 async 시그니처를 요구한다
+  {
+    files: ["next.config.ts"],
+    rules: { "require-await": "off" },
   },
 
   // 에러 경계 — 프로바이더/CSS 를 신뢰할 수 없는 최후 폴백이므로

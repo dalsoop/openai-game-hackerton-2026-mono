@@ -3,7 +3,7 @@ config_version=5
 [application]
 
 config/name="다굴게임 Godot Graybox"
-run/main_scene="res://games/dagul/main.tscn"
+run/main_scene="res://core/shell/boot.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]

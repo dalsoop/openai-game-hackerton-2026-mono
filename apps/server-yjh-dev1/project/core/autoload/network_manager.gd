@@ -18,7 +18,7 @@ signal peer_parked_received(slot: int)  # lint-gd: public-api
 signal peer_reclaimed_received(slot: int, player_name: String)  # lint-gd: public-api
 
 # 좌석 정본 — preload 로 확정 참조(글로벌 클래스 캐시 갱신 시점과 무관).
-const SeatCodec := preload("res://core/contract/seat_codec.gd")
+const SeatCodec := preload("res://core/contract/seat_codec.gd")  # lint-gd: public-api
 
 const STATUS_LOBBY := "로비"  # lint-gd: public-api
 const STATUS_OFFLINE := "오프라인 로컬"  # lint-gd: public-api

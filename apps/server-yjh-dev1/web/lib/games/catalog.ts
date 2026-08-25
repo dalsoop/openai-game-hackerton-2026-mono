@@ -13,6 +13,7 @@ export interface GameDescriptor {
 
 export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
   { id: "dagul" as GameId, title: "다굴" },
+  { id: "sparring" as GameId, title: "스파링(데모)" },
 ];
 
 export const DEFAULT_GAME_ID: GameId = GAME_CATALOG[0]?.id ?? ("dagul" as GameId);

@@ -41,7 +41,7 @@ export function useHub(): UseHubResult {
   const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
 
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
-    setError(msg?.msg ?? null);
+    setError(msg.msg ?? null);
   });
 
   useEffect(() => {

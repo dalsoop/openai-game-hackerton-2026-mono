@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
 
-// fetch 스텁 — URL별 응답 몸통을 TextEncoder 청크로 돌려준다.
+// fetch 스텁 — URL별 응답 몸통을 Promise로 돌려준다 (async 키워드 불필요).
 function stubFetch(calls: string[], bodies: Record<string, string>, status = 200): void {
-  vi.stubGlobal("fetch", async (url: string) => {
+  vi.stubGlobal("fetch", (url: string): Promise<Response> => {
     calls.push(url);
     const body = bodies[url] ?? "";
-    return {
+    return Promise.resolve({
       ok: status < 400,
       status,
       headers: new Map([["content-length", String(body.length)]]),
       body: null,
-      arrayBuffer: async () => new TextEncoder().encode(body).buffer,
-      json: async () => ({ version: "abc123", files: Object.keys(bodies) }),
-    } as unknown as Response;
+      arrayBuffer: (): Promise<ArrayBuffer> => Promise.resolve(new TextEncoder().encode(body).buffer),
+      json: (): Promise<unknown> => Promise.resolve({ version: "abc123", files: Object.keys(bodies) }),
+    } as unknown as Response);
   });
 }
 
