@@ -19,6 +19,7 @@ var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var ammo_round_texture: Texture2D = null
 var ammo_casing_texture: Texture2D = null
+var zone_lightning_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
 var _controls_overlay_time: float = 4.0
 var _controls_dismissed: bool = false
@@ -45,6 +46,8 @@ func _ready() -> void:
         ammo_round_texture = load("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
     if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoCasing.png"):
         ammo_casing_texture = load("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
+    if ResourceLoader.exists("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png"):
+        zone_lightning_texture = load("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -65,6 +68,7 @@ func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -
 func _draw() -> void:
     if world == null or world.heroes.is_empty():
         return
+    _draw_zone_damage_overlay()
     var summary: Dictionary = world.summary()
     var me: Dictionary = world.heroes[clampi(world.local_slot, 0, world.heroes.size() - 1)]
     if hud_mode == 0:
@@ -202,6 +206,96 @@ func _draw_zone_timer() -> void:
     _text(Vector2(1376.0, 258.0), "%d:%02d" % [display_total / 60, display_total % 60], 26, clock_color, 220.0, HORIZONTAL_ALIGNMENT_CENTER)
     if urgent:
         draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(clock_color, 0.34 + sin(float(world.tick) * 0.22) * 0.08), false, 9.0)
+
+func _draw_zone_damage_overlay() -> void:
+    var slot := clampi(int(world.local_slot), 0, world.heroes.size() - 1)
+    var hero: Dictionary = world.heroes[slot]
+    if not bool(hero.get("alive", false)) or bool(hero.get("eliminated", false)):
+        return
+    var distance := Vector2(hero["pos"]).distance_to(Vector2(world.safe_zone_center))
+    var outside := distance - float(world.safe_zone_radius)
+    if outside <= 0.0:
+        return
+    var danger := clampf(0.34 + outside / 260.0, 0.34, 1.0)
+    var shock_pulse := 0.72 + 0.28 * sin(float(world.tick) * 0.38)
+    var edge_alpha := danger * shock_pulse
+    var edge_color := Color(0.66, 0.15, 0.96, 0.20 * edge_alpha)
+    # Dense outer bands fading inward imitate a purple post-process vignette.
+    draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.42, 0.03, 0.68, 0.07 * edge_alpha))
+    for inset_index in range(10):
+        var inset := float(inset_index) * 8.0
+        var gradient_t := 1.0 - float(inset_index) / 10.0
+        var gradient_alpha := edge_color.a * gradient_t * gradient_t
+        draw_rect(Rect2(inset, inset, 1600.0 - inset * 2.0, 900.0 - inset * 2.0), Color(edge_color, gradient_alpha), false, 9.0)
+    # Short edge shocks: rise inward, hold for a beat, then disappear in ~0.1 sec.
+    var burst_cycle := int(world.tick / 9)
+    var burst_tick := posmod(int(world.tick), 9)
+    if burst_tick >= 6:
+        return
+    var burst_progress := float(burst_tick) / 5.0
+    var rise := clampf(float(burst_tick) / 2.0, 0.0, 1.0)
+    var envelope := sin(burst_progress * PI) * edge_alpha
+    for bolt_index in range(6):
+        var seed := bolt_index * 137 + burst_cycle * 293 + int(world.local_slot) * 41
+        if posmod(seed, 5) == 0:
+            continue
+        var side := posmod(seed, 4)
+        var side_ratio := float(posmod(seed * 17, 941)) / 941.0
+        var start := Vector2.ZERO
+        var inward := Vector2.ZERO
+        var tangent := Vector2.ZERO
+        match side:
+            0:
+                start = Vector2(40.0 + side_ratio * 1520.0, 2.0)
+                inward = Vector2.DOWN
+                tangent = Vector2.RIGHT
+            1:
+                start = Vector2(1598.0, 40.0 + side_ratio * 820.0)
+                inward = Vector2.LEFT
+                tangent = Vector2.DOWN
+            2:
+                start = Vector2(40.0 + side_ratio * 1520.0, 898.0)
+                inward = Vector2.UP
+                tangent = Vector2.RIGHT
+            _:
+                start = Vector2(2.0, 40.0 + side_ratio * 820.0)
+                inward = Vector2.RIGHT
+                tangent = Vector2.DOWN
+        if zone_lightning_texture != null:
+            var frame := posmod(seed / 7, 8)
+            var cell := Vector2(float(zone_lightning_texture.get_width()) / 4.0, float(zone_lightning_texture.get_height()) / 2.0)
+            var src := Rect2(Vector2(float(frame % 4), float(frame / 4)) * cell, cell)
+            var scale_random := 1.0 + float(posmod(seed * 31, 501)) / 1000.0
+            var visible_ratio := 0.50 + float(posmod(seed * 19, 301)) / 1000.0
+            var bolt_size := Vector2(52.0, 90.0) * scale_random
+            var visible_length := bolt_size.y * visible_ratio * rise
+            # Keep part of the sprite outside the viewport so only 50-80% pierces inward.
+            var bolt_center := start + inward * (visible_length - bolt_size.y * 0.5)
+            var fixed_rotation := 0.0
+            match side:
+                0: fixed_rotation = 0.0
+                1: fixed_rotation = -PI * 0.5
+                2: fixed_rotation = PI
+                _: fixed_rotation = PI * 0.5
+            draw_set_transform(bolt_center, fixed_rotation, Vector2.ONE)
+            draw_texture_rect_region(zone_lightning_texture, Rect2(-bolt_size * 0.5, bolt_size), src, Color(1.0, 1.0, 1.0, envelope))
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            continue
+        var pattern := posmod(seed / 4, 5)
+        var shape := PackedVector2Array()
+        match pattern:
+            0: shape = PackedVector2Array([Vector2(0, 0), Vector2(-5, 9), Vector2(3, 17), Vector2(-3, 28), Vector2(8, 40)])
+            1: shape = PackedVector2Array([Vector2(0, 0), Vector2(7, 7), Vector2(2, 18), Vector2(10, 25), Vector2(-4, 42)])
+            2: shape = PackedVector2Array([Vector2(0, 0), Vector2(-8, 11), Vector2(8, 19), Vector2(-7, 29), Vector2(2, 44)])
+            3: shape = PackedVector2Array([Vector2(0, 0), Vector2(3, 10), Vector2(-10, 20), Vector2(-2, 31), Vector2(9, 39)])
+            _: shape = PackedVector2Array([Vector2(0, 0), Vector2(10, 8), Vector2(-2, 15), Vector2(5, 27), Vector2(-8, 43)])
+        var points := PackedVector2Array()
+        for shape_point in shape:
+            points.append(start + tangent * shape_point.x + inward * shape_point.y)
+        draw_polyline(points, Color(0.52, 0.08, 0.90, 0.58 * envelope), 7.0)
+        draw_polyline(points, Color(0.94, 0.76, 1.0, 0.96 * envelope), 2.0)
+        var spark := points[points.size() - 1]
+        draw_rect(Rect2(spark - Vector2.ONE * 3.0, Vector2.ONE * 6.0), Color(1.0, 0.90, 1.0, envelope))
 
 func _draw_status_blocks(rect: Rect2, ratio: float, segments: int, color: Color, pulse_endpoint: bool, pulse_all: bool, pulse_hz: float) -> void:
     var gap := 3.0

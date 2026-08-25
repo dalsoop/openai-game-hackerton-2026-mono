@@ -34,17 +34,64 @@ func draw_safe_zone() -> void:
 	var mid := (radius + outer) * 0.5
 	var width := maxf(12.0, outer - radius)
 	var seg := 32 if r.lite_draw else 96
-	r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.45, 0.10, 0.78, 0.30), width)
+	r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.42, 0.06, 0.68, 0.40), width)
 	if not r.lite_draw:
-		r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.30, 0.02, 0.50, 0.22), width * 0.55)
+		r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.28, 0.02, 0.48, 0.34), width * 0.55)
 	var shrinking := bool(world.safe_zone_shrinking)
 	var ring: Color = r.ZONE_RING_HOT if shrinking else r.ZONE_RING
-	var pulse := 7.0 + (3.0 if shrinking else 0.0) + sin(float(world.tick) * 0.12) * 1.4
-	r.draw_arc(center, radius, 0.0, TAU, 96, Color(ring, 0.28), pulse * 2.8)
-	r.draw_arc(center, radius, 0.0, TAU, 96, ring, pulse)
-	r.draw_arc(center, radius, 0.0, TAU, 96, Color("#f4e2ff"), 2.0)
+	var pulse := 6.0 + (2.0 if shrinking else 0.0) + sin(float(world.tick) * 0.12) * 1.0
+	# Layered broken bands read like a pixel-energy wall instead of a vector circle.
+	var band_count := 24 if r.lite_draw else 48
+	var phase_speed := 0.026 if shrinking else 0.007
+	var phase := float(world.tick) * phase_speed
+	for band_index in range(band_count):
+		if posmod(band_index + int(world.tick / 8), 5) == 0:
+			continue
+		var a0 := TAU * float(band_index) / float(band_count) + phase
+		var a1 := a0 + TAU / float(band_count) * 0.72
+		var band_radius := radius + (4.0 if band_index % 2 == 0 else -3.0)
+		var band_color := Color(ring, 0.82 if band_index % 3 else 0.52)
+		r.draw_arc(center, band_radius, a0, a1, 3, band_color, pulse)
+		if not r.lite_draw and band_index % 4 == 0:
+			var spark_pos := center + Vector2.RIGHT.rotated(a0) * (radius + 11.0)
+			var spark_size := 4.0 + float(posmod(band_index, 3)) * 2.0
+			r.draw_rect(Rect2(spark_pos - Vector2.ONE * spark_size * 0.5, Vector2.ONE * spark_size), Color("#e8c8ff", 0.64))
+	r.draw_arc(center, radius, 0.0, TAU, 64, Color(ring, 0.22), pulse * 2.5)
+	# Short angular bolts sell the boundary as electricity without hiding gameplay.
+	if not r.lite_draw:
+		var bolt_count := 12 if shrinking else 7
+		var bolt_step := int(world.tick / (2 if shrinking else 5))
+		for bolt_index in range(bolt_count):
+			var bolt_life := fmod(float(world.tick) * (0.052 if shrinking else 0.025) + float(bolt_index) * 0.173, 1.0)
+			if bolt_life > 0.64:
+				continue
+			var seed := bolt_index * 37 + bolt_step * 17
+			var bolt_angle := TAU * float(posmod(seed, 997)) / 997.0
+			var tangent := Vector2.RIGHT.rotated(bolt_angle + PI * 0.5)
+			var radial := Vector2.RIGHT.rotated(bolt_angle)
+			var bolt_center := center + radial * radius
+			var bolt_length := 34.0 + float(posmod(seed * 11, 32))
+			var life_envelope := sin(bolt_life / 0.64 * PI)
+			var bolt_alpha := (0.98 if shrinking else 0.82) * life_envelope
+			if r.zone_lightning_atlas != null:
+				var frame := posmod(seed + bolt_step, 8)
+				var bolt_size := Vector2(54.0, 92.0) * (1.10 if shrinking else 0.92)
+				var bolt_rotation := tangent.angle() + PI * 0.5
+				r.draw_set_transform(bolt_center, bolt_rotation, Vector2.ONE)
+				r.draw_texture_rect_region(r.zone_lightning_atlas, Rect2(-bolt_size * 0.5, bolt_size), r._zone_lightning_src_rect(frame), Color(1.0, 1.0, 1.0, bolt_alpha))
+				r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			else:
+				var bolt_color := Color("#f1d9ff", bolt_alpha)
+				var bolt_points := PackedVector2Array()
+				for point_index in range(5):
+					var along := (float(point_index) / 4.0 - 0.5) * bolt_length
+					var jitter_seed := posmod(seed + point_index * 23, 9) - 4
+					var jitter := float(jitter_seed) * (2.2 if shrinking else 1.5)
+					bolt_points.append(bolt_center + tangent * along + radial * jitter)
+				r.draw_polyline(bolt_points, Color(ring, bolt_alpha * 0.42), 6.0)
+				r.draw_polyline(bolt_points, bolt_color, 2.0)
 	if shrinking or absf(target_radius - radius) > 4.0:
-		r._draw_dashed_circle(center, target_radius, Color(1.0, 1.0, 1.0, 0.62), 3.0)
+		r._draw_dashed_circle(center, target_radius, Color(0.90, 0.76, 1.0, 0.55), 3.0, 0.075, 0.075)
 
 func draw_covers() -> void:
 	for cover_index in range(world.covers.size()):

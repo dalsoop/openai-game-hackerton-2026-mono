@@ -26,6 +26,9 @@ func draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> v
 
 func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0) -> void:
 	var hit_tint: Color = Color(3.4, 3.4, 3.4, opacity) if hit_flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
+	if hit_flash <= 0.0 and world != null and pos.distance_to(Vector2(world.safe_zone_center)) > float(world.safe_zone_radius):
+		var zone_flicker := 0.78 + 0.12 * sin(float(world.tick) * 0.34 + float(slot))
+		hit_tint = Color(1.08, zone_flicker, 1.28, opacity)
 	draw_blob_shadow(pos, hop_lift, opacity)
 	r.draw_arc(pos, 30.0, 0.0, TAU, 28, Color(r._slot_color(slot), 0.85 * opacity), 3.5)
 	var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)

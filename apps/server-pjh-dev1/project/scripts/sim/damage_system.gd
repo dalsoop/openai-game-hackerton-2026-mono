@@ -415,7 +415,7 @@ func heal_hero(slot: int, amount: float) -> void:
 	if gained > 0.4:
 		w.event_log.emit(w.tick, &"hero_heal", slot, -1, {"amount": gained})
 
-func damage_hero_environment(target: int, amount: float, show_tick: bool) -> void:
+func damage_hero_environment(target: int, amount: float, show_tick: bool, source: StringName = &"environment") -> void:
 	var h: Dictionary = w.heroes[target]
 	if not bool(h["alive"]) or amount <= 0.0:
 		return
@@ -425,6 +425,9 @@ func damage_hero_environment(target: int, amount: float, show_tick: bool) -> voi
 	h["hp"] = float(h["hp"]) - zone_amt
 	w.heroes[target] = h
 	if show_tick:
-		w.proj.add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "ZONE")
-		w.event_log.emit(w.tick, &"hero_hit", -1, target, {"damage":w.SAFE_ZONE_DAMAGE_PER_SEC * w.SAFE_ZONE_TICK_INTERVAL, "source":&"safe_zone"})
+		if source == &"safe_zone":
+			w.proj.add_effect(&"zone_impact", Vector2(h["pos"]), 68.0, 0.28, Color("#c65cff"), "ZONE", Vector2.RIGHT, target)
+		else:
+			w.proj.add_effect(&"hit_spark", Vector2(h["pos"]), 36.0, 0.18, Color("#ff4f68"), "")
+		w.event_log.emit(w.tick, &"hero_hit", -1, target, {"damage":w.SAFE_ZONE_DAMAGE_PER_SEC * w.SAFE_ZONE_TICK_INTERVAL, "source":source})
 	w.lifecycle.apply_lethal_or_down(-1, target, zone_amt)

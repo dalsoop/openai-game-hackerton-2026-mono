@@ -53,6 +53,8 @@ var rooster_beam_step_atlas: Texture2D = null
 var character_shadow_tex: Texture2D = null
 var knockout_trail_atlas: Texture2D = null
 var death_burst_atlas: Texture2D = null
+var zone_lightning_atlas: Texture2D = null
+var zone_impact_atlas: Texture2D = null
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -151,6 +153,8 @@ func _ready() -> void:
     character_shadow_tex = _load_tex("res://assets/fx/character/Tex_FX_CharacterShadow.png")
     knockout_trail_atlas = _load_tex("res://assets/fx/character/Tex_FX_KnockoutTrail_4x1.png")
     death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
+    zone_lightning_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
+    zone_impact_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneImpact_4x2.png")
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -463,6 +467,20 @@ func _bullet_src_rect(kind: String, tick: int) -> Rect2:
     var cell := Vector2(float(bullet_atlas.get_width()) / float(BULLET_COLS), float(bullet_atlas.get_height()) / float(BULLET_ROWS))
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
 
+func _zone_lightning_src_rect(frame: int) -> Rect2:
+    if zone_lightning_atlas == null:
+        return Rect2()
+    var cell := Vector2(float(zone_lightning_atlas.get_width()) / 4.0, float(zone_lightning_atlas.get_height()) / 2.0)
+    var safe_frame := posmod(frame, 8)
+    return Rect2(Vector2(float(safe_frame % 4), float(safe_frame / 4)) * cell, cell)
+
+func _zone_impact_src_rect(frame: int) -> Rect2:
+    if zone_impact_atlas == null:
+        return Rect2()
+    var cell := Vector2(float(zone_impact_atlas.get_width()) / 4.0, float(zone_impact_atlas.get_height()) / 2.0)
+    var safe_frame := clampi(frame, 0, 7)
+    return Rect2(Vector2(float(safe_frame % 4), float(safe_frame / 4)) * cell, cell)
+
 func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String, scale: float = 1.0) -> void:
     if bullet_atlas == null:
         return
@@ -753,6 +771,8 @@ func _draw_effects() -> void:
         var effect_pos: Vector2 = effect["pos"]
         var effect_radius := float(effect["radius"])
         var effect_kind := StringName(effect["kind"])
+        if effect_kind == &"zone_impact" and zone_impact_atlas != null:
+            continue
         var direction := Vector2(effect["direction"]).normalized()
         var progress := 1.0 - ratio
         var follow_slot := int(effect.get("follow_slot", -1))
@@ -917,6 +937,24 @@ func _draw_effects() -> void:
                     var ready_angle := TAU * float(ready_pixel) / 12.0
                     var ready_pos := effect_pos + Vector2.RIGHT.rotated(ready_angle) * ready_radius
                     draw_rect(Rect2(ready_pos - Vector2.ONE * 3.0, Vector2.ONE * 6.0), Color(effect_color, ratio))
+            &"zone_impact":
+                var impact_scale := lerpf(0.34, 1.16, progress)
+                var impact_alpha := clampf(1.0 - progress * 0.74, 0.26, 1.0)
+                for impact_arc in range(8):
+                    var arc_angle := TAU * float(impact_arc) / 8.0 + float(posmod(impact_arc * 7 + int(world.tick / 2), 5)) * 0.08
+                    var radial := Vector2.RIGHT.rotated(arc_angle)
+                    var tangent := radial.orthogonal()
+                    var arc_start := effect_pos + radial * effect_radius * 0.22 * impact_scale
+                    var points := PackedVector2Array([
+                        arc_start,
+                        arc_start + radial * effect_radius * 0.18 + tangent * (7.0 if impact_arc % 2 == 0 else -7.0),
+                        arc_start + radial * effect_radius * 0.38 - tangent * 5.0,
+                        arc_start + radial * effect_radius * 0.62 + tangent * (9.0 if impact_arc % 3 == 0 else -4.0),
+                    ])
+                    draw_polyline(points, Color("#7920bd", impact_alpha * 0.62), 8.0)
+                    draw_polyline(points, Color("#f0c8ff", impact_alpha), 3.0)
+                draw_arc(effect_pos, effect_radius * impact_scale * 0.72, 0.0, TAU, 28, Color(effect_color, impact_alpha * 0.82), 7.0)
+                draw_arc(effect_pos, effect_radius * impact_scale * 0.48, 0.0, TAU, 20, Color("#ffffff", impact_alpha * 0.72), 3.0)
             &"respawn":
                 for beam in range(3):
                     var beam_x := (float(beam) - 1.0) * 16.0
@@ -936,6 +974,25 @@ func _draw_effects() -> void:
                 draw_line(effect_pos - Vector2(flash_radius * 1.8, 0.0), effect_pos + Vector2(flash_radius * 1.8, 0.0), Color(Color.WHITE, ratio * 0.7), 2.0)
         if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
             draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
+
+func _draw_zone_impacts_foreground() -> void:
+    if zone_impact_atlas == null:
+        return
+    for effect in world.effects:
+        if StringName(effect.get("kind", &"")) != &"zone_impact":
+            continue
+        var ratio := clampf(float(effect["time"]) / maxf(0.001, float(effect["max_time"])), 0.0, 1.0)
+        var progress := 1.0 - ratio
+        var effect_pos: Vector2 = effect["pos"]
+        var follow_slot := int(effect.get("follow_slot", -1))
+        if follow_slot >= 0 and follow_slot < world.heroes.size():
+            effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+        var frame := clampi(int(progress * 8.0), 0, 7)
+        var size := Vector2.ONE * 164.0
+        var alpha := clampf(ratio * 1.35, 0.24, 1.0)
+        draw_set_transform(effect_pos, 0.0, Vector2.ONE)
+        draw_texture_rect_region(zone_impact_atlas, Rect2(-size * 0.5, size), _zone_impact_src_rect(frame), Color(1.0, 1.0, 1.0, alpha))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
     var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
@@ -987,6 +1044,7 @@ func _draw() -> void:
     _heroes.draw_rabbit_holes()
     _heroes.draw_tiger_roars()
     _heroes.draw_heroes()
+    _draw_zone_impacts_foreground()
     _proj.draw_impact_flashes()
     _overlay.draw_finish_prompts()
     _heroes.draw_rat_tides()
