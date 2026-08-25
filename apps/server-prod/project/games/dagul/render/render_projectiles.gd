@@ -274,6 +274,9 @@ func draw_effects_main() -> void:
 	var max_effects := 8 if r.lite_draw else 999
 	var drawn := 0
 	for effect in world.effects:
+		var effect_kind := StringName(effect["kind"])
+		if effect_kind == &"zone_impact":
+			continue
 		if r.lite_draw and drawn >= max_effects:
 			break
 		drawn += 1
@@ -281,7 +284,6 @@ func draw_effects_main() -> void:
 		var ratio := clampf(float(effect["time"]) / float(effect["max_time"]), 0.0, 1.0)
 		var effect_pos: Vector2 = effect["pos"]
 		var effect_radius := float(effect["radius"])
-		var effect_kind := StringName(effect["kind"])
 		var direction := Vector2(effect["direction"]).normalized()
 		var progress := 1.0 - ratio
 		var mobility_texture = _mobility_texture(effect, effect_kind, effect_label(effect))

@@ -10,21 +10,99 @@ func _init(renderer: Node2D) -> void:
 func draw_island() -> void:
 	var arena := Rect2(Vector2.ZERO, world.ARENA_SIZE)
 	r.draw_rect(arena.grow(900.0), Color("#17456f"))
-	if r.island_texture != null:
-		var tex_size = r.island_texture.get_size()
-		var arena_aspect: float = world.ARENA_SIZE.x / world.ARENA_SIZE.y
-		var tex_aspect: float = tex_size.x / tex_size.y
-		var src := Rect2(Vector2.ZERO, tex_size)
-		if tex_aspect > arena_aspect:
-			var w: float = tex_size.y * arena_aspect
-			src = Rect2(Vector2((tex_size.x - w) * 0.5, 0.0), Vector2(w, tex_size.y))
-		else:
-			var h: float = tex_size.x / arena_aspect
-			src = Rect2(Vector2(0.0, (tex_size.y - h) * 0.5), Vector2(tex_size.x, h))
-		r.draw_texture_rect_region(r.island_texture, arena, src)
-	else:
+	if r.island_texture == null:
 		r.draw_rect(arena, Color("#cbb37a"))
 		r.draw_circle(Vector2(world.ARENA_CENTER), world.ARENA_SIZE.y * 0.48, Color("#d9c088"))
+		return
+	var prev_filter := r.texture_filter
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_draw_grass_tiles(arena)
+	_draw_dirt_patches()
+	r.texture_filter = prev_filter
+
+func _draw_grass_tiles(arena: Rect2) -> void:
+	var tex_size: Vector2 = r.island_texture.get_size()
+	var cell := tex_size.x * 12.0
+	var y := 0.0
+	while y < arena.size.y - 0.5:
+		var x := 0.0
+		while x < arena.size.x - 0.5:
+			var dw := minf(cell, arena.size.x - x)
+			var dh := minf(cell, arena.size.y - y)
+			var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * dw / cell, tex_size.y * dh / cell))
+			r.draw_texture_rect_region(r.island_texture, Rect2(Vector2(x, y), Vector2(dw, dh)), src)
+			x += cell
+		y += cell
+
+const DIRT_SPOTS := [
+	[1720.0, 1620.0, 170.0], [1960.0, 1760.0, 150.0], [1800.0, 1860.0, 130.0],
+	[6040.0, 3460.0, 140.0], [6220.0, 3580.0, 115.0], [1380.0, 3680.0, 155.0],
+	[1600.0, 3840.0, 130.0], [1480.0, 3960.0, 110.0], [5480.0, 980.0, 125.0],
+	[5680.0, 1120.0, 105.0], [3100.0, 4120.0, 140.0], [3320.0, 4240.0, 115.0],
+	[6880.0, 2280.0, 150.0], [7080.0, 2460.0, 125.0], [6940.0, 2560.0, 100.0],
+	[780.0, 2680.0, 120.0], [960.0, 2820.0, 100.0],
+]
+
+func _dirt_here(px: float, py: float) -> bool:
+	var p := Vector2(px, py)
+	for spot in DIRT_SPOTS:
+		if p.distance_to(Vector2(spot[0], spot[1])) <= spot[2]:
+			return true
+	return false
+
+func _draw_dirt_patches() -> void:
+	if r.dirt_tile_texture == null:
+		return
+	var cell := 96.0
+	var atlas: Texture2D = r.dirt_tile_texture
+	var use_atlas := atlas.get_width() >= 128
+	var y := 480.0
+	while y < 4440.0:
+		_draw_dirt_row(y, cell, atlas, use_atlas)
+		y += cell
+
+func _draw_dirt_row(y: float, cell: float, atlas: Texture2D, use_atlas: bool) -> void:
+	var x := 360.0
+	while x < 7440.0:
+		if _dirt_here(x + cell * 0.5, y + cell * 0.5):
+			_draw_dirt_cell(x, y, cell, atlas, use_atlas)
+		x += cell
+
+func _draw_dirt_cell(x: float, y: float, cell: float, atlas: Texture2D, use_atlas: bool) -> void:
+	var n := 1 if _dirt_here(x + cell * 0.5, y - cell * 0.5) else 0
+	var e := 2 if _dirt_here(x + cell * 1.5, y + cell * 0.5) else 0
+	var s := 4 if _dirt_here(x + cell * 0.5, y + cell * 1.5) else 0
+	var w := 8 if _dirt_here(x - cell * 0.5, y + cell * 0.5) else 0
+	var mask := n + e + s + w
+	var src := Rect2(Vector2.ZERO, Vector2(32, 32))
+	if use_atlas:
+		src = Rect2(Vector2(float(mask % 4) * 32.0, float(int(mask / 4)) * 32.0), Vector2(32, 32))
+	r.draw_texture_rect_region(atlas, Rect2(Vector2(x, y), Vector2(cell, cell)), src)
+
+func draw_trees() -> void:
+	if r.tree_atlas == null:
+		return
+	var prev_filter := r.texture_filter
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var spots: Array[Vector3] = [
+		Vector3(420, 280, 0), Vector3(680, 420, 1), Vector3(320, 520, 2), Vector3(860, 220, 1), Vector3(180, 180, 0),
+		Vector3(7480, 300, 0), Vector3(7200, 480, 1), Vector3(7620, 560, 2), Vector3(7000, 200, 1),
+		Vector3(380, 4480, 0), Vector3(640, 4320, 1), Vector3(220, 4580, 2), Vector3(900, 4520, 1), Vector3(140, 4200, 2),
+		Vector3(7520, 4460, 0), Vector3(7180, 4320, 1), Vector3(7680, 4580, 2), Vector3(7000, 4520, 1), Vector3(7380, 4100, 2),
+		Vector3(180, 1800, 1), Vector3(280, 3200, 2), Vector3(7600, 1600, 1), Vector3(7720, 3000, 0)
+	]
+	spots.sort_custom(func(a, b): return a.y < b.y)
+	_draw_tree_spots(spots)
+	r.texture_filter = prev_filter
+
+func _draw_tree_spots(spots: Array[Vector3]) -> void:
+	var dw := 48.0 * 3.2
+	var dh := 64.0 * 3.2
+	for spot in spots:
+		var feet := Vector2(spot.x, spot.y)
+		r.draw_circle(feet + Vector2(0, 4), 22.0, Color(0.05, 0.04, 0.03, 0.28))
+		var src := Rect2(Vector2(spot.z * 48.0, 0.0), Vector2(48, 64))
+		r.draw_texture_rect_region(r.tree_atlas, Rect2(feet - Vector2(dw * 0.5, dh - 10.0), Vector2(dw, dh)), src)
 
 func draw_safe_zone() -> void:
 	var center: Vector2 = world.safe_zone_center

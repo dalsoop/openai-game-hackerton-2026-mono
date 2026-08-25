@@ -1,6 +1,7 @@
 extends Control
 
 const GunSig = preload("res://games/dagul/sim/gun_signature.gd")
+const HudPjhScript = preload("res://games/dagul/hud/hud_pjh.gd")
 
 var world
 var mode_id: String = "full"
@@ -17,11 +18,23 @@ const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var ammo_round_texture: Texture2D = null
+var ammo_casing_texture: Texture2D = null
+var zone_lightning_texture: Texture2D = null
+var animal_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
 var _controls_overlay_time: float = 4.0
 var _controls_dismissed: bool = false
 var _kill_feed: Array[Dictionary] = []
 var _last_kill_event_id: int = 0
+var _ammo_last_mag: int = -1
+var _ammo_last_equipment: String = ""
+var _ammo_eject_tick: int = -1000
+var _ammo_casings: Array[Dictionary] = []
+var _ammo_casing_serial: int = 0
+var _ammo_last_tick: int = -1
+var _ammo_world_instance_id: int = 0
+var _pjh
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -32,6 +45,20 @@ func _ready() -> void:
         gun_texture = load("res://games/dagul/assets/items/gun.png")
     if ResourceLoader.exists("res://games/dagul/assets/items/medkit.png"):
         medkit_texture = load("res://games/dagul/assets/items/medkit.png")
+    if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
+        ammo_round_texture = load("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
+    if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoCasing.png"):
+        ammo_casing_texture = load("res://games/dagul/assets/fx/ui/Tex_UI_AmmoCasing.png")
+    if ResourceLoader.exists("res://games/dagul/assets/fx/zone/Tex_FX_ZoneLightning_4x2.png"):
+        zone_lightning_texture = load("res://games/dagul/assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
+    if ResourceLoader.exists("res://games/dagul/assets/lhj/Tex_Animal_4x3.png"):
+        animal_texture = load("res://games/dagul/assets/lhj/Tex_Animal_4x3.png")
+    _pjh = HudPjhScript.new(self)
+
+
+func reset_match_visuals() -> void:
+    if _pjh != null:
+        _pjh.reset_match_visuals()
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -43,6 +70,7 @@ func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -
 func _draw() -> void:
     if world == null or world.heroes.is_empty():
         return
+    _pjh.draw_zone_overlay()
     var summary: Dictionary = world.summary()
     var me: Dictionary = world.heroes[clampi(world.local_slot, 0, world.heroes.size() - 1)]
     if hud_mode == 0:
@@ -67,6 +95,8 @@ func _draw() -> void:
     else:
         draw_rect(Rect2(16.0, 16.0, 112.0, 34.0), Color(0.02, 0.03, 0.05, 0.72))
         _text(Vector2(28.0, 39.0), "F1  HUD", 14, Color("#c8d5e4"))
+    if hud_mode != 2 and world.result == &"playing" and bool(me["alive"]):
+        _pjh.draw_ammo_conveyor(me)
     _draw_critical(me)
     _draw_ultimate_cinematic()
     _draw_crosshair(me)
@@ -188,13 +218,19 @@ func _draw_hotbar(me: Dictionary) -> void:
     var hp_now := float(me["hp"])
     var hp_max := float(me["max_hp"])
     var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2(bar.size.x - 16.0, 18.0)), Color("#151920"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2((bar.size.x - 16.0) * hp_ratio, 18.0)), Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73"))
-    _text(bar.position + Vector2(12.0, 8.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, Color.WHITE, 300.0)
+    var hp_color := Color("#3fe37a")
+    if hp_ratio <= 0.30:
+        hp_color = Color("#ff5d73")
+    elif hp_ratio <= 0.60:
+        hp_color = Color("#ffb347")
+    _text(bar.position + Vector2(10.0, 15.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, hp_color, 304.0)
+    _pjh.draw_status_blocks(Rect2(bar.position + Vector2(8.0, 19.0), Vector2(310.0, 16.0)), hp_ratio, 10, hp_color, hp_now > 0.0, false, 1.2)
     var ult_max := 100.0
     var power_ratio := clampf(float(me.get("ultimate_charge", 0.0)) / maxf(1.0, ult_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2(bar.size.x - 16.0, 6.0)), Color("#1b2430"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2((bar.size.x - 16.0) * power_ratio, 6.0)), Color("#4f8cff"))
+    var ult_ready := power_ratio >= 0.999
+    var ult_color := Color("#a970ff") if ult_ready else Color("#4f8cff")
+    _text(bar.position + Vector2(328.0, 15.0), "ULT READY" if ult_ready else "ULT  %d%%" % roundi(power_ratio * 100.0), 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
+    _pjh.draw_status_blocks(Rect2(bar.position + Vector2(326.0, 19.0), Vector2(168.0, 16.0)), power_ratio, 8, ult_color, false, ult_ready, 0.7)
     _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
 
 func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
@@ -318,44 +354,7 @@ func _draw_scoreboard() -> void:
         _text(Vector2(1442.0, y), state, 11, Color("#ff9ca4") if state != "LIVE" else Color("#8be3ff"))
 
 func _draw_match_result() -> void:
-    draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.005, 0.008, 0.014, 0.72))
-    if world.winner_slot < 0:
-        draw_rect(Rect2(430.0, 290.0, 740.0, 260.0), Color(0.02, 0.03, 0.05, 0.98))
-        _text(Vector2(470.0, 410.0), "DRAW", 54, Color.WHITE, 660.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(470.0, 478.0), "NO SURVIVORS", 22, Color("#aebaca"), 660.0, HORIZONTAL_ALIGNMENT_CENTER)
-        return
-    var winner: Dictionary = world.heroes[world.winner_slot]
-    var equipment: Dictionary = winner["equipment"]
-    var accent: Color = player_colors[world.winner_slot]
-    var reason_title := "HP DECISION WINNER" if world.result_reason == &"time_limit" else "LAST ONE STANDING"
-    draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(0.012, 0.018, 0.028, 0.98))
-    draw_rect(Rect2(330.0, 154.0, 940.0, 592.0), Color(accent, 0.92), false, 6.0)
-    draw_rect(Rect2(330.0, 154.0, 940.0, 72.0), Color(accent, 0.17))
-    _text(Vector2(375.0, 201.0), reason_title, 23, Color("#ffd166"), 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(375.0, 278.0), "P%d  %s  WINS" % [world.winner_slot + 1, equipment["character_name"]], 48, Color.WHITE, 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(375.0, 318.0), "%s  /  %s  /  %s" % [equipment["role"], equipment["name"], equipment["special_name"]], 18, accent, 850.0, HORIZONTAL_ALIGNMENT_CENTER)
-    draw_rect(Rect2(422.0, 346.0, 756.0, 72.0), Color(0.035, 0.048, 0.068, 0.95))
-    _text(Vector2(445.0, 379.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), 25, Color("#6ef3a5"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(695.0, 379.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), 25, Color("#c65cff"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(945.0, 379.0), "SCORE  %d" % roundi(float(winner["score"])), 25, Color("#ffd166"), 210.0, HORIZONTAL_ALIGNMENT_CENTER)
-    var standings: Array[Dictionary] = world.final_standings()
-    _text(Vector2(410.0, 455.0), "FINAL STANDINGS", 16, Color("#aebaca"))
-    for rank in range(mini(3, standings.size())):
-        var row: Dictionary = standings[rank]
-        var slot := int(row["slot"])
-        var row_equipment: Dictionary = world.heroes[slot]["equipment"]
-        var row_y := 490.0 + rank * 52.0
-        draw_rect(Rect2(404.0, row_y - 27.0, 792.0, 42.0), Color(player_colors[slot], 0.16 if rank > 0 else 0.28))
-        draw_circle(Vector2(430.0, row_y - 6.0), 9.0, player_colors[slot])
-        _text(Vector2(452.0, row_y), "%d   P%d  %s / %s" % [rank + 1, slot + 1, row_equipment["character_name"], row_equipment["name"]], 16, Color.WHITE, 380.0)
-        _text(Vector2(845.0, row_y), "HP %3d%%" % roundi(float(row["hp_ratio"]) * 100.0), 15, Color("#6ef3a5"), 92.0)
-        _text(Vector2(952.0, row_y), "LIVE" if bool(row.get("hero_alive", false)) else "OUT", 15, Color("#70e7ff") if bool(row.get("hero_alive", false)) else Color("#ff8d93"), 112.0)
-        _text(Vector2(1076.0, row_y), "%5d" % roundi(float(row["score"])), 15, Color("#ffd166"), 86.0, HORIZONTAL_ALIGNMENT_RIGHT)
-    if bool(world.get("is_net")):
-        _text(Vector2(450.0, 701.0), "대기실로 버튼을 누르세요" if touch_hints else "대기실로 버튼 또는 ESC", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
-    else:
-        if not touch_hints:
-            _text(Vector2(450.0, 701.0), "PRESS R FOR REMATCH", 19, Color("#dbe5f0"), 700.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _pjh.draw_match_result()
 
 func _draw_ultimate_cinematic() -> void:
     if world.ultimate_focus_time <= 0.0 or world.ultimate_focus_slot < 0 or world.ultimate_focus_slot >= world.heroes.size():
@@ -394,10 +393,7 @@ func _draw_critical(me: Dictionary) -> void:
         draw_rect(Rect2(520.0, 52.0, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
         _text(Vector2(530.0, 78.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.start_countdown > 0.0:
-        var count_text := str(ceili(world.start_countdown))
-        draw_circle(Vector2(800.0, 450.0), 82.0, Color(0.02, 0.03, 0.05, 0.88))
-        draw_arc(Vector2(800.0, 450.0), 86.0, 0.0, TAU, 64, Color("#ff5d73"), 7.0)
-        _text(Vector2(720.0, 480.0), count_text, 82, Color.WHITE, 160.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _pjh.draw_countdown()
     elif not bool(me["alive"]) and world.result == &"playing":
         var target_slot := spectate_slot if spectate_slot >= 0 and spectate_slot < world.heroes.size() and spectate_slot != world.local_slot else clampi(world.local_slot, 0, world.heroes.size() - 1)
         var target: Dictionary = world.heroes[target_slot]

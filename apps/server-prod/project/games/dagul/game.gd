@@ -7,6 +7,7 @@ const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const GameServerScript = preload("res://games/dagul/net/game_server.gd")
 const GameClientScript = preload("res://games/dagul/net/game_client.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
+const KillFanfareScript = preload("res://games/dagul/render/kill_fanfare.gd")
 const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
 
 const MODE := "full"
@@ -18,6 +19,8 @@ var _host_ctrl: NetworkHost = null
 var _game_client: GameClient = null
 var _sfx: SfxManager = null
 var _tutorial: TutorialOverlay = null
+var _fanfare = null
+var _last_local_kills: int = -1
 var _is_host := false
 var previous_keys: Dictionary = {}
 var previous_right_mouse := false
@@ -60,6 +63,9 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	spectate_slot = you
 	hud.spectate_slot = spectate_slot
 	hud.hud_mode = hud_mode
+	if hud.has_method("reset_match_visuals"):
+		hud.reset_match_visuals()
+	_last_local_kills = -1
 	last_event_id = 0
 	hit_pause_frames = 0
 	previous_right_mouse = false
@@ -172,6 +178,8 @@ func _ensure_overlays(ctx: Dictionary) -> void:
 		_tutorial.name = "TutorialOverlay"
 		hud_layer.add_child(_tutorial)
 		_tutorial.z_index = 30
+	if _fanfare == null:
+		_attach_kill_fanfare(hud_layer)
 
 # --- 게임 루프 ---
 
@@ -207,6 +215,7 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	last_event_id = sfx_result["last_event_id"]
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
 	_check_tutorial_hints()
+	_check_my_kill_fanfare()
 	_update_spectator()
 	_drive_camera(camera)
 	hud.spectate_slot = spectate_slot
@@ -422,3 +431,42 @@ func _camera_target(camera: Camera2D) -> Vector2:
 	return Vector2(
 		clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x),
 		clampf(desired.y, min_y, world.ARENA_SIZE.y - half_view.y))
+
+
+func _attach_kill_fanfare(hud_layer: CanvasLayer) -> void:
+	var host: Node = hud_layer.get_parent()
+	if host == null:
+		host = hud_layer
+	var fanfare_layer := CanvasLayer.new()
+	fanfare_layer.layer = 80
+	fanfare_layer.name = "KillFanfareLayer"
+	fanfare_layer.follow_viewport_enabled = false
+	fanfare_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	host.add_child(fanfare_layer)
+	_fanfare = KillFanfareScript.new()
+	_fanfare.name = "KillFanfare"
+	fanfare_layer.add_child(_fanfare)
+
+
+func _check_my_kill_fanfare() -> void:
+	if _fanfare == null or world == null or world.heroes.is_empty():
+		_last_local_kills = -1
+		return
+	var me := clampi(int(world.get("local_slot")), 0, world.heroes.size() - 1)
+	var kills := int(world.heroes[me].get("kills", 0))
+	if _last_local_kills < 0:
+		_last_local_kills = kills
+		return
+	if kills > _last_local_kills:
+		_fanfare.burst()
+		_play_kill_fanfare_sfx()
+	_last_local_kills = kills
+
+
+func _play_kill_fanfare_sfx() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	var audio: Node = tree.root.get_node_or_null("/root/Audio")
+	if audio != null and audio.has_method("play_sfx"):
+		audio.play_sfx("kill_fanfare", -2.0, 0.0)
