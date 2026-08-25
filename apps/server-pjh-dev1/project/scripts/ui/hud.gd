@@ -17,11 +17,18 @@ const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var ammo_round_texture: Texture2D = null
+var ammo_casing_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
 var _controls_overlay_time: float = 4.0
 var _controls_dismissed: bool = false
 var _kill_feed: Array[Dictionary] = []
 var _last_kill_event_id: int = 0
+var _ammo_last_mag: int = -1
+var _ammo_last_equipment: String = ""
+var _ammo_eject_tick: int = -1000
+var _ammo_casings: Array[Dictionary] = []
+var _ammo_casing_serial: int = 0
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -32,6 +39,10 @@ func _ready() -> void:
         gun_texture = load("res://assets/items/gun.png")
     if ResourceLoader.exists("res://assets/items/medkit.png"):
         medkit_texture = load("res://assets/items/medkit.png")
+    if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
+        ammo_round_texture = load("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
+    if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoCasing.png"):
+        ammo_casing_texture = load("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
@@ -67,6 +78,8 @@ func _draw() -> void:
     else:
         draw_rect(Rect2(16.0, 16.0, 112.0, 34.0), Color(0.02, 0.03, 0.05, 0.72))
         _text(Vector2(28.0, 39.0), "F1  HUD", 14, Color("#c8d5e4"))
+    if hud_mode != 2 and world.result == &"playing" and bool(me["alive"]):
+        _draw_ammo_conveyor(me)
     _draw_critical(me)
     _draw_ultimate_cinematic()
     _draw_crosshair(me)
@@ -225,6 +238,131 @@ func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
     elif mag_now <= 0:
         label = "EMPTY  0 / %d" % mag_max
     _text(rect.position + Vector2(12.0, 28.0), label, 22, Color.WHITE, rect.size.x - 24.0)
+
+func _ammo_frame_rect(frame: int) -> Rect2:
+    match clampi(frame, 0, 3):
+        0:
+            return Rect2(0.0, 256.0, 440.0, 256.0)
+        1:
+            return Rect2(430.0, 256.0, 470.0, 256.0)
+        2:
+            return Rect2(920.0, 256.0, 500.0, 256.0)
+        _:
+            return Rect2(1400.0, 256.0, 500.0, 256.0)
+
+func _draw_ammo_round(pos: Vector2, frame: int, alpha: float = 1.0) -> void:
+    var display_rect := Rect2(pos, Vector2(74.0, 34.0))
+    if ammo_round_texture != null:
+        draw_texture_rect_region(ammo_round_texture, display_rect, _ammo_frame_rect(frame), Color(1.0, 1.0, 1.0, alpha))
+        return
+    var tint := Color(1.0, 0.73, 0.24, alpha)
+    draw_rect(Rect2(pos + Vector2(8.0, 11.0), Vector2(46.0, 12.0)), tint)
+    draw_colored_polygon(PackedVector2Array([
+        pos + Vector2(54.0, 11.0),
+        pos + Vector2(70.0, 17.0),
+        pos + Vector2(54.0, 23.0),
+    ]), tint)
+
+func _spawn_ammo_casings(amount: int, capacity: int, tick_now: int) -> void:
+    for shot_index in range(amount):
+        _ammo_casing_serial += 1
+        var seed := fposmod(float(_ammo_casing_serial * 37), 101.0) / 101.0
+        _ammo_casings.append({
+            "tick": tick_now + shot_index,
+            "seed": seed,
+            "spin": 1.5 + fposmod(float(_ammo_casing_serial * 19), 100.0) / 100.0,
+            "clockwise": 1.0 if _ammo_casing_serial % 2 == 0 else -1.0,
+        })
+    while _ammo_casings.size() > capacity:
+        _ammo_casings.pop_front()
+
+func _draw_ammo_casings(panel_left: float, row_top: float, tick_now: int) -> void:
+    var alive_casings: Array[Dictionary] = []
+    for casing in _ammo_casings:
+        var age := maxf(0.0, float(tick_now - int(casing["tick"])) / 60.0)
+        if age > 1.0:
+            continue
+        alive_casings.append(casing)
+        var seed := float(casing["seed"])
+        var start := Vector2(panel_left + 88.0 + seed * 20.0, row_top + 7.0 + seed * 5.0)
+        var velocity := Vector2(245.0 + seed * 70.0, -104.0 - seed * 20.0)
+        var pos := start + velocity * age + Vector2(0.0, 400.0 * age * age)
+        var rotation := float(casing["clockwise"]) * TAU * float(casing["spin"]) * age + seed * TAU
+        draw_set_transform(pos, rotation, Vector2.ONE)
+        if ammo_casing_texture != null:
+            draw_texture_rect_region(ammo_casing_texture, Rect2(-15.0, -10.0, 30.0, 20.0), Rect2(240.0, 280.0, 800.0, 680.0))
+        else:
+            draw_rect(Rect2(-9.0, -3.0, 18.0, 6.0), Color(0.95, 0.64, 0.18, 1.0))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    _ammo_casings = alive_casings
+
+func _draw_ammo_conveyor(me: Dictionary) -> void:
+    var equipment: Dictionary = me.get("equipment", {})
+    var equipment_id := str(equipment.get("id", equipment.get("name", "")))
+    var mag_now := maxi(0, int(me.get("mag", 0)))
+    var mag_max := maxi(1, int(equipment.get("mag_size", 1)))
+    var tick_now := int(world.tick)
+    if equipment_id != _ammo_last_equipment:
+        _ammo_last_equipment = equipment_id
+        _ammo_last_mag = mag_now
+        _ammo_eject_tick = -1000
+        _ammo_casings.clear()
+    elif _ammo_last_mag >= 0 and mag_now < _ammo_last_mag:
+        var fired_rounds := _ammo_last_mag - mag_now
+        _ammo_eject_tick = tick_now
+        _spawn_ammo_casings(fired_rounds, int(ceil(float(mag_max) * 0.5)), tick_now)
+    _ammo_last_mag = mag_now
+
+    var right_edge := size.x - 14.0
+    var bottom_edge := size.y - 10.0
+    var header_y := bottom_edge - 134.0
+    var row_top := header_y + 34.0
+    var row_gap := 32.0
+    var panel_width := 196.0
+    var panel_left := right_edge - panel_width
+    var panel_top := header_y - 8.0
+    var notch := 8.0
+    var bullet_x := panel_left + 12.0
+    var panel_shape := PackedVector2Array([
+        Vector2(panel_left + notch, panel_top),
+        Vector2(right_edge, panel_top),
+        Vector2(right_edge, bottom_edge),
+        Vector2(panel_left + notch, bottom_edge),
+        Vector2(panel_left, bottom_edge - notch),
+        Vector2(panel_left, panel_top + notch),
+        Vector2(panel_left + notch, panel_top),
+    ])
+    draw_colored_polygon(panel_shape, Color(0.008, 0.012, 0.020, 0.64))
+    for band_y in range(int(panel_top) + 16, int(bottom_edge), 16):
+        draw_line(Vector2(panel_left + 5.0, float(band_y)), Vector2(right_edge - 4.0, float(band_y)), Color(0.22, 0.25, 0.30, 0.10), 1.0)
+    draw_polyline(panel_shape, Color("#ffd166", 0.68), 2.0)
+    draw_line(Vector2(panel_left + 12.0, panel_top + 27.0), Vector2(right_edge - 10.0, panel_top + 27.0), Color("#ffd166", 0.28), 1.0)
+    for marker_y in range(int(row_top) + 15, int(bottom_edge) - 8, int(row_gap)):
+        draw_line(Vector2(panel_left + 3.0, float(marker_y)), Vector2(panel_left + 8.0, float(marker_y)), Color("#ffd166", 0.42), 2.0)
+    _draw_ammo_casings(panel_left, row_top, tick_now)
+
+    var reloading := float(me.get("reload_left", 0.0)) > 0.0
+    var counter_color := Color("#ffd166") if reloading else (Color("#ff5d73") if mag_now <= 0 else Color.WHITE)
+    var prefix := "RELOAD  " if reloading else ("EMPTY  " if mag_now <= 0 else "")
+    _text(Vector2(panel_left + 10.0, header_y + 18.0), "%s%d / %d" % [prefix, mag_now, mag_max], 21, counter_color, panel_width - 20.0, HORIZONTAL_ALIGNMENT_RIGHT)
+
+    var eject_progress := clampf(float(tick_now - _ammo_eject_tick) / 9.0, 0.0, 1.0)
+    var ejecting := eject_progress < 1.0
+    var shift_offset := row_gap * (1.0 - eject_progress) if ejecting else 0.0
+    var visible_rounds := mini(mag_now, 3)
+    for index in range(visible_rounds):
+        var round_pos := Vector2(bullet_x, row_top + float(index) * row_gap + shift_offset)
+        var slot_alpha := 1.0
+        if round_pos.y + 30.0 > bottom_edge:
+            slot_alpha = clampf((bottom_edge - round_pos.y) / 30.0, 0.0, 1.0)
+        _draw_ammo_round(round_pos, 0, slot_alpha)
+
+    if ejecting:
+        var eased := 1.0 - pow(1.0 - eject_progress, 3.0)
+        var eject_pos := Vector2(bullet_x + eased * 150.0, row_top - sin(eject_progress * PI) * 5.0)
+        var eject_frame := mini(3, int(eject_progress * 4.0))
+        var eject_alpha := 1.0 - clampf((eject_progress - 0.68) / 0.32, 0.0, 1.0)
+        _draw_ammo_round(eject_pos, eject_frame, eject_alpha)
 
 func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
