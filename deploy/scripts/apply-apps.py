@@ -14,6 +14,11 @@ import zipfile
 import re
 from pathlib import Path
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from export_html_contract import assert_export_html  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
 CHART = ROOT / "deploy" / "chart"
@@ -202,15 +207,9 @@ def export_web(folder: str) -> None:
     if not html.is_file():
         raise SystemExit(f"{folder}: 웹 익스포트가 index.html 을 만들지 않음")
     exported = html.read_text(errors="ignore")
-    missing = [m for m in ("wantGame", "gangupShowGame", "glog", "gangup-handoff") if m not in exported]
-    if missing:
-        raise SystemExit(f"{folder}: export HTML is stale (missing {missing}). not pushing old shell.")
-    if "localStorage.getItem('gangup_from_hub')" in exported and "function bootFromHub" in exported:
-        boot = exported[exported.find("function bootFromHub"):exported.find("function bootFromHub")+500]
-        if "leftover" not in boot and "wantGame" in exported:
-            pass
-        if "localStorage.getItem('gangup_from_hub') === '1'" in boot and "launchGodot()" in boot:
-            raise SystemExit(f"{folder}: export HTML still auto-launches on leftover from_hub. not pushing.")
+    shell_file = project / "custom_shell.html"
+    shell = shell_file.read_text(errors="ignore") if shell_file.is_file() else None
+    assert_export_html(folder, exported, shell)
     game_html = export_dir / "game.html"
     if game_html.exists() or (APPS / folder / "public" / "index.html").is_file():
         game_html.write_bytes(html.read_bytes())
@@ -371,10 +370,17 @@ def main() -> int:
         export_web(args[1])
         return 0
     if cmd == "ship":
+        failed: list[str] = []
         for folder in args[1:]:
-            export_web(folder)
-            build_hub(folder)
-            push_web(folder)
+            try:
+                export_web(folder)
+                build_hub(folder)
+                push_web(folder)
+            except SystemExit as exc:
+                print(f"FAIL {folder}: {exc}", file=sys.stderr)
+                failed.append(folder)
+        if failed:
+            raise SystemExit("ship 실패: " + ", ".join(failed))
         return 0
     if cmd == "helm":
         helm_upgrade()
