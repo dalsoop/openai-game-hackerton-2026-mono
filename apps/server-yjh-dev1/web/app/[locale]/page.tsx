@@ -13,7 +13,7 @@ import {
   PlayingPhase,
 } from "@/components/phases";
 import { CONNECTION_CLASS, type HubStatus } from "@/types";
-import type { LoaderState } from "@/hooks/useGodotLoader";
+import { PrefetchStatus } from "@/components/PrefetchStatus";
 
 type Translate = (key: string) => string;
 
@@ -22,14 +22,6 @@ function connLabel(status: HubStatus, t: Translate): string {
   if (status === "connecting") {return t("connection.connecting");}
   if (status === "offline") {return t("connection.offline");}
   return t("connection.connected");
-}
-
-// 로딩 진행 문구 — 같은 이유로 추출.
-function loadLabel(state: LoaderState, pct: number, t: Translate): string {
-  if (state === "ready") {return t("game.loading.ready");}
-  if (state === "downloading") {return `${t("game.loading.downloading")} ${pct}%`;}
-  if (state === "compiling") {return t("game.loading.compiling");}
-  return t("game.loading.preparing");
 }
 
 export default function Home(): JSX.Element {
@@ -50,7 +42,7 @@ export default function Home(): JSX.Element {
     leaveToLobby,
     matchEnd,
     errorToIntro,
-  } = useGameFlow("dagul", t("intro.defaultPlayer"));
+  } = useGameFlow(t("intro.defaultPlayer"));
 
   // 끊김 판정은 페이즈보다 먼저 — 게임 중에도 진행을 막는다.
   const lost = shouldShowConnectionLost(hub.status, phase);
@@ -91,28 +83,9 @@ export default function Home(): JSX.Element {
 
       {lostModal}
 
-      {(phase === "lobby" || phase === "room") && !lost &&
-        (loader.state === "ready" ? (
-          // 완료 상태는 배지로 — 전체 폭 바가 한 줄을 차지하는 위화감 제거
-          <div className="ready-badge">
-            <span className="ready-dot" />
-            {t("game.loading.ready")}
-          </div>
-        ) : (
-          <div className="prefetch-strip">
-            <span className="prefetch-txt">
-              {loadLabel(loader.state, loadPct, t)}
-            </span>
-            <div className="bar-track">
-              {/* 진행률은 동적 값 — width만 인라인 불가피 */}
-              <div
-                className="bar-fill"
-                // eslint-disable-next-line react/forbid-dom-props -- 진행률 동적 값
-                style={{ width: `${loadPct}%` }}
-              />
-            </div>
-          </div>
-        ))}
+      {(phase === "lobby" || phase === "room") && !lost && (
+        <PrefetchStatus state={loader.state} pct={loadPct} />
+      )}
 
       {phase === "intro" && (
         <OfflinePhase

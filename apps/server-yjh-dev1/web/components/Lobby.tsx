@@ -4,7 +4,8 @@
 import type { JSX } from "react";
 import type { HubRoom } from "@/types";
 import { useState } from "react";
-import { HUB_CONFIG, GAME_CATALOG } from "@/lib/hub/config";
+import { HUB_CONFIG } from "@/lib/hub/config";
+import { GAME_CATALOG, DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 
@@ -18,7 +19,7 @@ interface Props {
 
 export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Props): JSX.Element {
   const t = useTranslations("lobby");
-  const [game, setGame] = useState(GAME_CATALOG[0]?.id ?? "");
+  const [game, setGame] = useState<string>(DEFAULT_GAME_ID);
   const sorted = sortRoomsByMembership(rooms, myRoom);
 
   return (

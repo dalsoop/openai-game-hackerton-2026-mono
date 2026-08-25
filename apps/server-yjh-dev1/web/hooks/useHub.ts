@@ -12,7 +12,8 @@ import { clearMyRoom } from "@/lib/room-membership";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom } from "@/hooks/useGameRoom";
-import type { HubPlayer, HubStatus, JoinRequest, UseHubResult, MatchInfo } from "@/types";
+import { deriveStatus } from "@/lib/hub/status";
+import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
 
 let _client: Client | null = null;
 function getClient(): Client {
@@ -20,23 +21,7 @@ function getClient(): Client {
   return _client;
 }
 
-// 접속 상태 계산 — 훅 본문의 복잡도를 낮추기 위해 모듈 레벨로 뺐다.
-function deriveStatus(
-  derived: { status: HubStatus } | null,
-  connected: boolean,
-  lobbyErr: Error | undefined,
-  lobbyConnecting: boolean,
-  matchInfo: MatchInfo | null,
-): HubStatus {
-  if (matchInfo) {return "playing";} // 핸드오프 후 방을 떠났어도 매치는 진행 중
-  if (derived) {return derived.status;}
-  if (!connected) {return "offline";}
-  if (lobbyErr) {return "offline";}
-  if (lobbyConnecting) {return "connecting";}
-  return "lobby";
-}
-
-export function useHub(_game: string): UseHubResult {
+export function useHub(): UseHubResult {
   const nameRef = useRef("");
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);

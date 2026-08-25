@@ -11,7 +11,7 @@
   "game": {
     "loading": {
       "ready": "게임 준비 완료",
-      "downloading": "게임 다운로드",
+      "downloading": "게임 다운로드 {pct}%",
       "compiling": "WASM 컴파일 중...",
       "preparing": "게임 다운로드 준비 중"
     },

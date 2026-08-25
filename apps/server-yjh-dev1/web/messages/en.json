@@ -11,7 +11,7 @@
   "game": {
     "loading": {
       "ready": "Game Ready",
-      "downloading": "Downloading Game",
+      "downloading": "Downloading game {pct}%",
       "compiling": "Compiling WASM...",
       "preparing": "Preparing Download"
     },

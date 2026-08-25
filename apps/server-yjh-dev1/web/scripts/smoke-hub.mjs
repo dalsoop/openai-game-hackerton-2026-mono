@@ -79,7 +79,26 @@ try {
 
   await roomA.leave(true);
   await roomB.leave(true);
-  console.log(`\nsmoke-hub: ${passed}/6 통과 — Colyseus 허브 실왕복 정상`);
+
+  // 7. 방 비번(공식 onAuth) — PIN 방: 거부 2종 + 정상 입장 (LobbyRoom.onAuth 검증)
+  const roomP = await new Client(BASE).create("lobby", { name: "P잠금", pin: "4321" });
+  const rejected = async (pin) => {
+    try {
+      const r = await new Client(BASE).joinById(roomP.roomId, { name: "침입자", ...(pin ? { pin } : {}) });
+      await r.leave(true);
+      return false;
+    } catch { return true; }
+  };
+  if (!(await rejected(undefined))) fail("PIN 방 무PIN 입장 거부");
+  if (!(await rejected("0000"))) fail("PIN 방 틀린 PIN 입장 거부");
+  step("PIN 방: 무PIN·틀린 PIN 입장 거부 (onAuth)");
+  const roomG = await new Client(BASE).joinById(roomP.roomId, { name: "P게스트", pin: "4321" });
+  await waitState(roomG, (s) => s.players?.length === 2, "PIN 게스트 입장");
+  step("PIN 방: 맞는 PIN 입장 성공 (players=2)");
+  await roomG.leave(true);
+  await roomP.leave(true);
+
+  console.log(`\nsmoke-hub: ${passed}/8 통과 — Colyseus 허브 실왕복 정상`);
   process.exit(0);
 } catch (e) {
   fail("스모크 실행", e.message);

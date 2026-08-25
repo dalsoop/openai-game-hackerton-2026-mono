@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
+import { asGameId } from "@/lib/games/catalog";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
 
@@ -26,11 +27,11 @@ export interface UseGameFlowResult {
   errorToIntro: () => void;
 }
 
-export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowResult {
+export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
   const { nickname, saveNickname, clearNickname } = useSession();
-  const hub = useHub(game);
+  const hub = useHub();
   // 유즈맵 — 접속한 방의 게임을 따라간다 (없으면 기본 게임).
-  const loader = useGodotLoader(hub.gameId || game);
+  const loader = useGodotLoader(asGameId(hub.gameId));
   const [phase, setPhase] = useState<GamePhase>("intro");
   const [name, setName] = useState(nickname || "");
 

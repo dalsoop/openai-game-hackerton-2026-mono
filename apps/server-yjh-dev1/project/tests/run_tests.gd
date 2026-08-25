@@ -10,6 +10,7 @@ const SUITES := [
 	"res://tests/test_safe_zone.gd",
 	"res://tests/test_rooster_egg.gd",
 	"res://tests/test_seat_codec.gd",
+	"res://tests/test_gun_signature.gd",
 ]
 
 var pass_count := 0

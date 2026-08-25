@@ -44,12 +44,8 @@ export const DOM_EVT = {
   MATCH_END: "godot-match-end",
 } as const;
 
-// 유즈맵 모델 — 기본 게임과 게임 카탈로그. 신규 게임은 games/<id>/ 폴더와
-// 여기 카탈로그 항목을 추가하면 방 만들기에서 즉시 선택 가능해진다.
-export const DEFAULT_GAME_ID = "dagul";
-export const GAME_CATALOG: ReadonlyArray<{ id: string; title: string }> = [
-  { id: "dagul", title: "다굴" },
-];
+// 게임 정체성의 정본은 lib/games/catalog — 여기선 하위 모듈 재수출만.
+export { DEFAULT_GAME_ID, GAME_CATALOG, asGameId } from "@/lib/games/catalog";
 // Colyseus 방 타입 이름 (매치메이킹 식별자)
 export const ROOM_NAME = "lobby";
 // 방 목록 전용 내장 LobbyRoom (공식 실시간 리스팅 — useLobbyRoom 이 구독)

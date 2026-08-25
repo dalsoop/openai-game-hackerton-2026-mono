@@ -1,6 +1,7 @@
 import { Room, type Client } from "colyseus";
 import { Schema, ArraySchema, type } from "@colyseus/schema";
-import { HUB_CONFIG, MSG, KO, DEFAULT_GAME_ID, MODES } from "./config.js";
+import { HUB_CONFIG, MSG, KO, MODES } from "./config.js";
+import { asGameId } from "../games/catalog.js";
 
 // 다굴 로비/대기실/릴레이 — Colyseus 상태 동기화로 표현한다.
 // 방 상태(멤버·phase·호스트)는 state 가 전부이고,
@@ -14,7 +15,7 @@ export class PlayerSchema extends Schema {
 }
 
 export class LobbyState extends Schema {
-  @type("string") gameId = DEFAULT_GAME_ID; // 유즈맵 — 이 방에서 플레이할 게임
+  @type("string") gameId = asGameId(undefined); // 유즈맵 — 이 방에서 플레이할 게임
   @type("string") phase: "lobby" | "playing" = "lobby";
   @type("string") hostSessionId = "";
   @type("string") title = "";
@@ -32,7 +33,7 @@ export class LobbyRoom extends Room {
 
   onCreate(options: { game?: string; title?: string; name?: string; pin?: string }): void {
     this.maxClients = HUB_CONFIG.maxPlayers;
-    this.state.gameId = this.sanitize(options.game, 32) || DEFAULT_GAME_ID;
+    this.state.gameId = asGameId(options.game); // 카탈로그 등재 게임만 확정
     this.state.title = this.sanitize(options.title, HUB_CONFIG.maxTitleLength)
       || `${MODES[HUB_CONFIG.defaultMode]!.title} #${this.roomId}`;
     this.pin = this.sanitizePin(options.pin);
