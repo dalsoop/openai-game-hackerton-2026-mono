@@ -9,6 +9,7 @@ export interface SeatSnapshot {
 }
 
 export interface RosterSnapshot {
+  readonly gameId?: string;
   readonly phase: string;
   readonly hostSessionId: string;
   readonly players: readonly SeatSnapshot[];

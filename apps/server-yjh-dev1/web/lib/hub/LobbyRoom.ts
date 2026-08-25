@@ -1,6 +1,6 @@
 import { Room, type Client } from "colyseus";
 import { Schema, ArraySchema, type } from "@colyseus/schema";
-import { HUB_CONFIG, MSG, KO, GAME_ID, MODES } from "./config.js";
+import { HUB_CONFIG, MSG, KO, DEFAULT_GAME_ID, MODES } from "./config.js";
 
 // 다굴 로비/대기실/릴레이 — Colyseus 상태 동기화로 표현한다.
 // 방 상태(멤버·phase·호스트)는 state 가 전부이고,
@@ -14,6 +14,7 @@ export class PlayerSchema extends Schema {
 }
 
 export class LobbyState extends Schema {
+  @type("string") gameId = DEFAULT_GAME_ID; // 유즈맵 — 이 방에서 플레이할 게임
   @type("string") phase: "lobby" | "playing" = "lobby";
   @type("string") hostSessionId = "";
   @type("string") title = "";
@@ -27,16 +28,30 @@ export class LobbyRoom extends Room {
   private gameTimer: { clear(): void } | null = null;
   private lastSnap: Record<string, unknown> | null = null;
   private prevSnap: Record<string, unknown> | null = null;
+  private pin = "";
 
-  onCreate(options: { title?: string; name?: string }): void {
+  onCreate(options: { game?: string; title?: string; name?: string; pin?: string }): void {
     this.maxClients = HUB_CONFIG.maxPlayers;
+    this.state.gameId = this.sanitize(options.game, 32) || DEFAULT_GAME_ID;
     this.state.title = this.sanitize(options.title, HUB_CONFIG.maxTitleLength)
       || `${MODES[HUB_CONFIG.defaultMode]!.title} #${this.roomId}`;
-    void this.setMetadata({ gameId: GAME_ID, title: this.state.title, mode: this.state.mode, phase: this.state.phase });
+    this.pin = this.sanitizePin(options.pin);
+    void this.setMetadata({ gameId: this.state.gameId, title: this.state.title, mode: this.state.mode, phase: this.state.phase, locked: this.pin !== "" });
+  }
 
-    this.onMessage(MSG.START, (client) => this.handleStart(client));
-    this.onMessage(MSG.INPUT, (client, data: Record<string, unknown>) => this.relayInput(client, data));
-    this.onMessage(MSG.HOST_SNAP, (client, data: Record<string, unknown>) => this.relaySnap(client, data));
+  // 공식 0.17 선언적 메시지 핸들러 — onCreate 의 this.onMessage 등록을 대체한다.
+  messages = {
+    [MSG.START]: (client: Client): void => this.handleStart(client),
+    [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => this.relayInput(client, data),
+    [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void => this.relaySnap(client, data),
+  };
+
+  // 입장 인증(공식 onAuth) — 잠긴 방은 PIN 일치만 통과.
+  // create 첫 입장은 options.pin 으로 방을 만들었으므로 자동으로 일치한다.
+  onAuth(_client: Client, options: { pin?: string }): boolean {
+    if (this.pin === "") {return true;}
+    if (this.sanitizePin(options.pin) === this.pin) {return true;}
+    throw new Error(KO.WRONG_PIN);
   }
 
   onJoin(client: Client, options: { name?: string }): void {
@@ -48,30 +63,35 @@ export class LobbyRoom extends Room {
     this.syncHost();
   }
 
-  // 재접속 유예 안에서 같은 좌석 복귀를 시도한다. 성공하면 true.
-  // 유예 길이는 페이즈별로: 플레이 중 180초, 대기실 60초 (HUB_CONFIG).
-  private async tryReclaimSeat(client: Client, player: PlayerSchema | undefined, graceSeconds: number): Promise<boolean> {
+  // 공식 0.17 라이프사이클 — 재접속 대상 단절은 onDrop, 동의 퇴장은 onLeave.
+  // 유예 길이는 페이즈별: 플레이 중 180초, 대기실 60초 (HUB_CONFIG).
+  async onDrop(client: Client, _code?: number): Promise<void> {
+    const player = this.playerOf(client.sessionId);
+    const graceMs = this.state.phase === "playing" ? HUB_CONFIG.gracePlayMs : HUB_CONFIG.graceLobbyMs;
     if (player) {player.connected = false;}
     try {
-      await this.allowReconnection(client, graceSeconds);
-      if (player) {player.connected = true;} // 같은 좌석으로 복귀
-      return true;
-    } catch {
-      return false; // 유예 만료
-    }
+      await this.allowReconnection(client, graceMs / 1000);
+      return; // 복귀 성공 — onReconnect 가 connected 를 되돌린다
+    } catch { /* 유예 만료 — 좌석 정리로 */ }
+    this.removeSeat(client.sessionId);
   }
 
-  async onLeave(client: Client, code?: number): Promise<void> {
+  // allowReconnection 성공 직후 호출(공식) — 같은 좌석 복귀 확정.
+  onReconnect(client: Client): void {
     const player = this.playerOf(client.sessionId);
-    // 비의도적 단절(새로고침 포함)은 페이즈 무관 유예 — 같은 세션으로 재접근하면 복귀.
-    if (code !== 1000) {
-      const graceMs = this.state.phase === "playing" ? HUB_CONFIG.gracePlayMs : HUB_CONFIG.graceLobbyMs;
-      if (await this.tryReclaimSeat(client, player, graceMs / 1000)) {return;}
-    }
-    const idx = this.state.players.findIndex((p) => p.sessionId === client.sessionId);
+    if (player) {player.connected = true;}
+  }
+
+  // 동의 퇴장(leave) — 유예 없이 즉시 좌석 반납.
+  async onLeave(client: Client, _code?: number): Promise<void> {
+    this.removeSeat(client.sessionId);
+  }
+
+  private removeSeat(sessionId: string): void {
+    const idx = this.state.players.findIndex((p) => p.sessionId === sessionId);
     if (idx >= 0) {this.state.players.splice(idx, 1);}
 
-    if (this.state.phase === "playing" && client.sessionId === this.state.hostSessionId) {
+    if (this.state.phase === "playing" && sessionId === this.state.hostSessionId) {
       this.resetToLobby(); // 호스트(권위 시뮬) 이탈 = 매치 종료
     }
     this.syncHost();
@@ -180,5 +200,11 @@ export class LobbyRoom extends Room {
 
   private sanitize(s: unknown, max: number): string {
     return (typeof s === "string" ? s : "").replace(/[<>&"'`]/g, "").trim().slice(0, max);
+  }
+
+  // PIN — 숫자 4~8자리만. 빈 값이면 잠금 없음.
+  private sanitizePin(s: unknown): string {
+    const v = (typeof s === "string" ? s : "").replace(/\D/g, "");
+    return v.length >= 4 && v.length <= 8 ? v : "";
   }
 }

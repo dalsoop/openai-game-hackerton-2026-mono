@@ -15,7 +15,7 @@ interface LobbyPhaseProps {
   rooms: HubRoom[];
   status: HubStatus;
   myRoom: MyRoomIdentity | null;
-  onCreateRoom: () => void;
+  onCreateRoom: (game: string) => void;
   onJoinRoom: (id: string) => void;
   onRefresh: () => void;
   onBackToIntro: () => void;

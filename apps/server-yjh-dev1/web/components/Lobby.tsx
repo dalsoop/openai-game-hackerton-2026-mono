@@ -3,20 +3,22 @@
 // 관전: 서버에 관전 슬롯 개념이 없어 제거 — 플레이 중 방은 입장 불가 표시.
 import type { JSX } from "react";
 import type { HubRoom } from "@/types";
-import { HUB_CONFIG } from "@/lib/hub/config";
+import { useState } from "react";
+import { HUB_CONFIG, GAME_CATALOG } from "@/lib/hub/config";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 
 interface Props {
   rooms: HubRoom[];
   myRoom: MyRoomIdentity | null;
-  onCreate: () => void;
+  onCreate: (game: string) => void;
   onJoin: (id: string) => void;
   onRefresh: () => void;
 }
 
 export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Props): JSX.Element {
   const t = useTranslations("lobby");
+  const [game, setGame] = useState(GAME_CATALOG[0]?.id ?? "");
   const sorted = sortRoomsByMembership(rooms, myRoom);
 
   return (
@@ -46,7 +48,7 @@ export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Pr
                 }}
               >
                 <div className="room-info">
-                  <b>{room.title || `${t("room")} ${room.id}`}</b>
+                  <b>{room.title || `${t("room")} ${room.id}`}{room.locked ? " 🔒" : ""}</b>
                   <div className="room-pips">
                     {Array.from({ length: HUB_CONFIG.maxPlayers }, (_, i) => (
                       <i key={i} className={i < room.players ? "on" : ""} />
@@ -76,7 +78,12 @@ export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Pr
         )}
       </div>
 
-      <button className="cta block" onClick={onCreate}>
+      <select className="game-select" value={game} onChange={(e) => setGame(e.target.value)} aria-label={t("gameSelect")}>
+          {GAME_CATALOG.map((g) => (
+            <option key={g.id} value={g.id}>{g.title}</option>
+          ))}
+        </select>
+        <button className="cta block" onClick={() => onCreate(game)}>
         {t("createButton")}
       </button>
     </div>

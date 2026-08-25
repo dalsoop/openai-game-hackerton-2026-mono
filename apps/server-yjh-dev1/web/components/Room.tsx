@@ -1,7 +1,9 @@
 "use client";
+// 대기실 화면 — 좌석 표시는 SlotCard, 여기선 배치·호스트 액션만.
 import type { JSX } from "react";
 import type { HubPlayer } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
+import SlotCard from "@/components/SlotCard";
 import { useTranslations } from "next-intl";
 
 interface Props {
@@ -30,44 +32,10 @@ export default function Room({ players, you, isHost, onStart, onLeave }: Props):
       </header>
 
       <div className="slots">
-        {slots.map((player, i) => {
-          const filled = !!player;
-          const isMe = i === you;
-          const classes = [
-            "slot-card",
-            filled && "filled",
-            isMe && "me",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
-            <div key={i} className={classes}>
-              {filled ? (
-                <>
-                  <div className={`slot-name c${i + 1}`}>
-                    {player.host && <span className="slot-crown">👑 </span>}
-                    {player.name}
-                    {isMe ? ` (${t("me")})` : ""}
-                  </div>
-                  <div
-                    className={`slot-tag ${
-                      player.dropped ? "bad" : player.host ? "cyan" : "ok"
-                    }`}
-                  >
-                    {player.dropped
-                      ? t("waitingReconnect")
-                      : player.host
-                        ? t("host")
-                        : t("waiting")}
-                  </div>
-                </>
-              ) : (
-                <div className="slot-cpu">{t("cpuAtStart")}</div>
-              )}
-            </div>
-          );
-        })}
+        {slots.map((player, i) => (
+          // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
+          <SlotCard key={i} index={i} player={player} you={you} />
+        ))}
       </div>
 
       <div className="wait-summary">

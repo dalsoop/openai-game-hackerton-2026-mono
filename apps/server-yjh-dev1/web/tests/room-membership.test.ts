@@ -8,7 +8,7 @@ import {
 } from "@/lib/room-membership";
 import type { HubRoom } from "@/types";
 
-const room = (id: string): HubRoom => ({ id, title: id, players: 1, mode: "", playing: false });
+const room = (id: string): HubRoom => ({ id, gameId: "", title: id, players: 1, mode: "", playing: false, locked: false });
 
 describe("readMyRoom / saveMyRoom / clearMyRoom — 저장소 주입", () => {
   it("저장·독자·폐기 왕복", () => {

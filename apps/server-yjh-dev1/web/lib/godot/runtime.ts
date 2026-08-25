@@ -2,7 +2,7 @@
 // Godot 웹 런타임의 수명주기 소유자 — 상태머신(idle→downloading→…→running)과
 // 엔진 부팅 시퀀스만 담당한다. URL 체계·다운로드 공유는 AssetStore 가,
 // 핸드오프 키 계약은 lib/hub/config 가 소유한다 (여기선 조립만).
-import { HANDOFF, DOM_EVT, GAME_ID } from "@/lib/hub/config";
+import { HANDOFF, DOM_EVT, DEFAULT_GAME_ID } from "@/lib/hub/config";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
 
 export type RuntimeState =
@@ -32,14 +32,21 @@ interface Manifest {
 const MATCH_WATCHDOG_MS = 30_000;
 
 export class GodotRuntime {
-  private static _instance: GodotRuntime | null = null;
-  static get instance(): GodotRuntime {
-    if (!this._instance) {this._instance = new GodotRuntime(GAME_ID);}
-    return this._instance;
+  // 유즈맵 — 게임별 런타임. 엔진 산출물 URL 도 게임별로 갈라진다.
+  private static _instances = new Map<string, GodotRuntime>();
+  static for(game: string): GodotRuntime {
+    let rt = this._instances.get(game);
+    if (!rt) {rt = new GodotRuntime(game); this._instances.set(game, rt);}
+    return rt;
   }
+  /** 호환 진입점 — 기본 게임(다굴) */
+  static get instance(): GodotRuntime {return this.for(DEFAULT_GAME_ID);}
 
   private readonly game: string;
-  private readonly plan = assetPlanOf(GAME_ID);
+  private readonly plan;
+
+  // 게임별 plan 은 생성자에서 확정한다 (필드 초기화 순서 문제 회피).
+
   private readonly store: AssetStore;
   private manifest: Manifest | null = null;
   private wasmModule: WebAssembly.Module | null = null;
@@ -55,6 +62,7 @@ export class GodotRuntime {
 
   private constructor(game: string) {
     this.game = game;
+    this.plan = assetPlanOf(game);
     this.store = new AssetStore(this.plan, (progress, loaded, total): void => {
       this.update({ progress, bytesLoaded: loaded, bytesTotal: total });
     });

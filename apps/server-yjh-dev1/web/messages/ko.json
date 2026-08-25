@@ -43,7 +43,8 @@
     "modeFull": "합본",
     "mineHost": "내 방 · 방장",
     "mine": "내 방",
-    "inProgress": "진행 중"
+    "inProgress": "진행 중",
+    "gameSelect": "게임 선택"
   },
   "room": {
     "mode": "합본",

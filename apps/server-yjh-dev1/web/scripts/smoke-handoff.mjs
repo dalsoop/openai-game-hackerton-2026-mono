@@ -4,7 +4,7 @@
 // Godot 가 하는 일을 SDK 로 동일하게 재현한다(브라우저 E2E 의 서버측 등가).
 import { Client } from "@colyseus/sdk";
 
-const URL = process.env.SMOKE_URL || "http://127.0.0.1:3000";
+const URL = process.env.HUB_URL || process.env.SMOKE_URL || "http://127.0.0.1:3000";
 const results = [];
 function ok(name, cond) {
   results.push({ name, pass: !!cond });

@@ -6,14 +6,15 @@ import { GodotRuntime, type RuntimeSnapshot } from "@/lib/godot/runtime";
 
 export type LoaderState = RuntimeSnapshot["state"];
 
-export function useGodotLoader(_game: string): RuntimeSnapshot & { start: () => void } {
-  const [snap, setSnap] = useState<RuntimeSnapshot>(GodotRuntime.instance.snapshot);
+export function useGodotLoader(game: string): RuntimeSnapshot & { start: () => void } {
+  const runtime = GodotRuntime.for(game);
+  const [snap, setSnap] = useState<RuntimeSnapshot>(runtime.snapshot);
 
-  useEffect(() => GodotRuntime.instance.subscribe(setSnap), []);
+  useEffect(() => runtime.subscribe(setSnap), [runtime]);
 
   const start = useCallback(() => {
-    void GodotRuntime.instance.preload();
-  }, []);
+    void runtime.preload();
+  }, [runtime]);
 
   return { ...snap, start };
 }

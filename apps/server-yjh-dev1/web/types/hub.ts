@@ -24,17 +24,22 @@ export const CONNECTION_CLASS: Record<HubStatus, string> = {
 /**
  * 방 입장 요청 타입
  */
-export type JoinRequest = { kind: "create" } | { kind: "join"; id: string } | { kind: "resume" };
+export type JoinRequest =
+  | { kind: "create"; game?: string; pin?: string }
+  | { kind: "join"; id: string; game?: string; pin?: string }
+  | { kind: "resume" };
 
 /**
  * 허브 방 메타데이터
  */
 export interface HubRoom {
   id: string;
+  gameId: string;
   title: string;
   players: number;
   mode: string;
   playing: boolean;
+  locked: boolean;
 }
 
 /**
@@ -54,6 +59,8 @@ export interface HubPlayer {
 export interface UseHubResult {
   // 상태
   status: HubStatus;
+  /** 접속 중인 방의 게임(유즈맵) — 방 밖이면 빈 문자열 */
+  gameId: string;
   rooms: HubRoom[];
   players: HubPlayer[];
   you: number;
@@ -65,7 +72,7 @@ export interface UseHubResult {
 
   // 동작
   connect: (name: string) => void;
-  createRoom: () => void;
+  createRoom: (game?: string) => void;
   joinRoom: (id: string) => void;
   leaveRoom: () => void;
   returnToLobby: (name: string) => void;

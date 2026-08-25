@@ -29,7 +29,8 @@ export interface UseGameFlowResult {
 export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowResult {
   const { nickname, saveNickname, clearNickname } = useSession();
   const hub = useHub(game);
-  const loader = useGodotLoader(game);
+  // 유즈맵 — 접속한 방의 게임을 따라간다 (없으면 기본 게임).
+  const loader = useGodotLoader(hub.gameId || game);
   const [phase, setPhase] = useState<GamePhase>("intro");
   const [name, setName] = useState(nickname || "");
 
