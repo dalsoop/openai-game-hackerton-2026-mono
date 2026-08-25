@@ -33,4 +33,9 @@ jobs:
         with:
           path: deploy/.godot-cache
           key: godot-4.7.1-linux-x86_64
+      - name: Cache Godot import
+        uses: actions/cache@v4
+        with:
+          path: apps/server-yjh-dev1/project/.godot
+          key: godot-import-${{ hashFiles('apps/server-yjh-dev1/project/**/*.gd', 'apps/server-yjh-dev1/project/**/*.tscn') }}
       - run: python3 scripts/gd_test.py

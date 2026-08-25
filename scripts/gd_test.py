@@ -31,12 +31,14 @@ def load_godot_bin():
 def main() -> int:
     godot = load_godot_bin()
     print(f"godot: {godot}")
-    proc = subprocess.run(
-        [str(godot), "--headless", "--path", str(PROJECT), "--script", "res://tests/run_tests.gd"],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    cmd = [str(godot), "--headless", "--path", str(PROJECT), "--script", "res://tests/run_tests.gd"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired as exc:
+        print("gd_test: timeout — Godot stdout/stderr 마지막:")
+        print((exc.stdout or "")[-2000:])
+        print((exc.stderr or "")[-2000:])
+        return 1
     passed = failed = 0
     for line in (proc.stdout + proc.stderr).splitlines():
         m = GDTEST_RE.match(line.strip())

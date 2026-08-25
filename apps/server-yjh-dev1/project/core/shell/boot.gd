@@ -4,6 +4,10 @@ extends Node
 #   언급하는 core 파일이다(동적 디스패치 — lint 게이트 예외 사실).
 
 func _ready() -> void:
+	# --script res://tests/run_tests.gd 는 본편 씬을 열면 CI 헤드리스가 멈춘다.
+	for arg in OS.get_cmdline_args():
+		if str(arg).ends_with("run_tests.gd"):
+			return
 	var path := "res://games/%s/main.tscn" % _game_id()
 	if not ResourceLoader.exists(path):
 		path = "res://games/%s/main.tscn" % WebContract.DEFAULT_GAME
