@@ -54,6 +54,9 @@ hub:
   # (printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결)
   strategy: ""
   publicPrefix: ""
+  scale:
+    folders: []
+    replicaCount: 1
   resources:
     requests:
       cpu: 50m
