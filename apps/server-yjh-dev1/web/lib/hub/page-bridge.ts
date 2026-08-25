@@ -72,7 +72,11 @@ export interface HubStateInput {
 }
 
 /** Godot _sync_state 용 — sessionId 가 없으면 호스트 판정이 비므로 버린다. */
-export function encodeHubState(snap: HubStateInput, sessionId: string): Record<string, unknown> | null {
+export function encodeHubState(
+  snap: HubStateInput,
+  sessionId: string,
+  rttMs = 0,
+): Record<string, unknown> | null {
   if (sessionId === "") {return null;}
   const players = Array.isArray(snap.players)
     ? snap.players.map((p) => ({
@@ -87,6 +91,7 @@ export function encodeHubState(snap: HubStateInput, sessionId: string): Record<s
     hostSessionId: snap.hostSessionId ?? "",
     sessionId,
     players,
+    ...(rttMs > 0 ? { rttMs } : {}),
   };
 }
 

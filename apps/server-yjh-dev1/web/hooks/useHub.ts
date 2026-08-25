@@ -13,6 +13,7 @@ import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
+import { useRoomRtt } from "@/hooks/useRoomRtt";
 import { reactOwnsResume, shouldMarkRoomDropped } from "@/lib/game-flow-state";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
@@ -87,7 +88,8 @@ export function useHub(): UseHubResult {
 
   // 방 상태 = 서버 state 의 불변 스냅샷.
   const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
-  usePageBridge(room, matchInfo, snap);
+  const rttMs = useRoomRtt(room);
+  usePageBridge(room, matchInfo, snap, rttMs);
 
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
     setError(msg.msg ?? null);
@@ -192,6 +194,7 @@ export function useHub(): UseHubResult {
     isHost: derived?.isHost ?? false,
     roomOpen: derived?.open ?? true,
     resumeToken: derived?.resumeToken ?? "",
+    rttMs,
     error,
     matchInfo,
     connect,

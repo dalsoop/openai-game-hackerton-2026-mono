@@ -12,6 +12,7 @@ export function usePageBridge(
   room: Room | undefined,
   matchInfo: MatchInfo | null,
   snap: RosterSnapshot | undefined,
+  rttMs = 0,
 ): void {
   useEffect(() => {
     if (!room || !matchInfo) {return;}
@@ -28,7 +29,7 @@ export function usePageBridge(
 
   useEffect(() => {
     if (!room || !matchInfo || !snap) {return;}
-    const encoded = encodeHubState(snap, room.sessionId);
+    const encoded = encodeHubState(snap, room.sessionId, rttMs);
     if (encoded) {postToEngine(MSG.STATE, encoded);}
-  }, [room, matchInfo, snap]);
+  }, [room, matchInfo, snap, rttMs]);
 }

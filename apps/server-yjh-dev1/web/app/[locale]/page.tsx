@@ -80,6 +80,9 @@ export default function Home(): JSX.Element {
           <div className={CONNECTION_CLASS[hub.status]}>
             <span className="conn-dot" />
             <span className="conn-txt">{connLabel(hub.status, t)}</span>
+            {hub.rttMs > 0 && (
+              <span className="conn-ping">{t("connection.ping", { ms: hub.rttMs })}</span>
+            )}
           </div>
         )}
       </header>

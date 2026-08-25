@@ -45,6 +45,9 @@ export const MSG = {
   STATE: "state",
   /** Godot → React 퇴장 요청. 허브 메시지 타입이 아니다. */
   LEAVE: "leave",
+  /** 방 소켓 RTT. 클라가 t 를 보내면 서버가 그대로 돌려준다. */
+  PING: "ping",
+  PONG: "pong",
 } as const;
 
 export const CLOSE_CODE = {

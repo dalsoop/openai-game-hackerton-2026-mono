@@ -6,7 +6,8 @@
   "connection": {
     "connected": "접속됨",
     "connecting": "연결 중...",
-    "offline": "오프라인"
+    "offline": "오프라인",
+    "ping": "{ms}ms"
   },
   "game": {
     "loading": {

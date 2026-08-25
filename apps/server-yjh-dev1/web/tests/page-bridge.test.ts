@@ -146,4 +146,12 @@ describe("encodeHubState", () => {
   it("반전: 빈 sessionId 는 패키지를 만들지 않는다", () => {
     expect(encodeHubState({ phase: "playing", hostSessionId: "h1" }, "")).toBeNull();
   });
+
+  it("표본이 있으면 rttMs 를 싣는다", () => {
+    expect(encodeHubState({ phase: "lobby" }, "s1", 42)).toMatchObject({ sessionId: "s1", rttMs: 42 });
+  });
+
+  it("반전: 0ms 는 필드 없이 보낸다", () => {
+    expect(encodeHubState({ phase: "lobby" }, "s1", 0)).not.toHaveProperty("rttMs");
+  });
 });

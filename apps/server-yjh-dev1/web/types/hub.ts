@@ -71,6 +71,8 @@ export interface UseHubResult {
   /** 방장의 문 — 닫힌 방은 입장 불가 (닫는 순간 재실자 강퇴) */
   roomOpen: boolean;
   resumeToken: string;
+  /** 게임 방 소켓 왕복 ms. 방 밖이거나 아직 표본이 없으면 0. */
+  rttMs: number;
   error: string | null;
   matchInfo: MatchInfo | null;
 

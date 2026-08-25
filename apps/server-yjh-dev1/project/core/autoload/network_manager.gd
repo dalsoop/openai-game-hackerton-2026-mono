@@ -117,6 +117,8 @@ func _apply_start(msg: Dictionary) -> void:
 func _sync_state(state: Variant) -> void:
     if not state is Dictionary:
         return
+    if state.has("rttMs"):
+        rtt_ms = int(state.get("rttMs", 0))
     var phase := str(state.get("phase", ""))
     var host_sid := str(state.get("hostSessionId", ""))
     var my_sid := str(state.get("sessionId", ""))
