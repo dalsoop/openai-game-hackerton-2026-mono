@@ -17,11 +17,21 @@ const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var ammo_round_texture: Texture2D = null
+var ammo_casing_texture: Texture2D = null
+var zone_lightning_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
 var _controls_overlay_time: float = 4.0
 var _controls_dismissed: bool = false
 var _kill_feed: Array[Dictionary] = []
 var _last_kill_event_id: int = 0
+var _ammo_last_mag: int = -1
+var _ammo_last_equipment: String = ""
+var _ammo_eject_tick: int = -1000
+var _ammo_casings: Array[Dictionary] = []
+var _ammo_casing_serial: int = 0
+var _ammo_last_tick: int = -1
+var _ammo_world_instance_id: int = 0
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -32,9 +42,24 @@ func _ready() -> void:
         gun_texture = load("res://assets/items/gun.png")
     if ResourceLoader.exists("res://assets/items/medkit.png"):
         medkit_texture = load("res://assets/items/medkit.png")
+    if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
+        ammo_round_texture = load("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
+    if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoCasing.png"):
+        ammo_casing_texture = load("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
+    if ResourceLoader.exists("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png"):
+        zone_lightning_texture = load("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
+
+func reset_match_visuals() -> void:
+    _ammo_last_mag = -1
+    _ammo_last_equipment = ""
+    _ammo_eject_tick = -1000
+    _ammo_casings.clear()
+    _ammo_casing_serial = 0
+    _ammo_last_tick = -1
+    _ammo_world_instance_id = 0
 
 func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
     draw_string(GameFont.get_font(), pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
@@ -43,6 +68,7 @@ func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -
 func _draw() -> void:
     if world == null or world.heroes.is_empty():
         return
+    _draw_zone_damage_overlay()
     var summary: Dictionary = world.summary()
     var me: Dictionary = world.heroes[clampi(world.local_slot, 0, world.heroes.size() - 1)]
     if hud_mode == 0:
@@ -67,6 +93,8 @@ func _draw() -> void:
     else:
         draw_rect(Rect2(16.0, 16.0, 112.0, 34.0), Color(0.02, 0.03, 0.05, 0.72))
         _text(Vector2(28.0, 39.0), "F1  HUD", 14, Color("#c8d5e4"))
+    if hud_mode != 2 and world.result == &"playing" and bool(me["alive"]):
+        _draw_ammo_conveyor(me)
     _draw_critical(me)
     _draw_ultimate_cinematic()
     _draw_crosshair(me)
@@ -179,6 +207,114 @@ func _draw_zone_timer() -> void:
     if urgent:
         draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(clock_color, 0.34 + sin(float(world.tick) * 0.22) * 0.08), false, 9.0)
 
+func _draw_zone_damage_overlay() -> void:
+    var slot := clampi(int(world.local_slot), 0, world.heroes.size() - 1)
+    var hero: Dictionary = world.heroes[slot]
+    if not bool(hero.get("alive", false)) or bool(hero.get("eliminated", false)):
+        return
+    var distance := Vector2(hero["pos"]).distance_to(Vector2(world.safe_zone_center))
+    var outside := distance - float(world.safe_zone_radius)
+    if outside <= 0.0:
+        return
+    var danger := clampf(0.34 + outside / 260.0, 0.34, 1.0)
+    var shock_pulse := 0.72 + 0.28 * sin(float(world.tick) * 0.38)
+    var edge_alpha := danger * shock_pulse
+    var edge_color := Color(0.66, 0.15, 0.96, 0.20 * edge_alpha)
+    # Dense outer bands fading inward imitate a purple post-process vignette.
+    draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.42, 0.03, 0.68, 0.07 * edge_alpha))
+    for inset_index in range(10):
+        var inset := float(inset_index) * 8.0
+        var gradient_t := 1.0 - float(inset_index) / 10.0
+        var gradient_alpha := edge_color.a * gradient_t * gradient_t
+        draw_rect(Rect2(inset, inset, 1600.0 - inset * 2.0, 900.0 - inset * 2.0), Color(edge_color, gradient_alpha), false, 9.0)
+    # Short edge shocks: rise inward, hold for a beat, then disappear in ~0.1 sec.
+    var burst_cycle := int(world.tick / 9)
+    var burst_tick := posmod(int(world.tick), 9)
+    if burst_tick >= 6:
+        return
+    var burst_progress := float(burst_tick) / 5.0
+    var rise := clampf(float(burst_tick) / 2.0, 0.0, 1.0)
+    var envelope := sin(burst_progress * PI) * edge_alpha
+    for bolt_index in range(6):
+        var seed := bolt_index * 137 + burst_cycle * 293 + int(world.local_slot) * 41
+        if posmod(seed, 5) == 0:
+            continue
+        var side := posmod(seed, 4)
+        var side_ratio := float(posmod(seed * 17, 941)) / 941.0
+        var start := Vector2.ZERO
+        var inward := Vector2.ZERO
+        var tangent := Vector2.ZERO
+        match side:
+            0:
+                start = Vector2(40.0 + side_ratio * 1520.0, 2.0)
+                inward = Vector2.DOWN
+                tangent = Vector2.RIGHT
+            1:
+                start = Vector2(1598.0, 40.0 + side_ratio * 820.0)
+                inward = Vector2.LEFT
+                tangent = Vector2.DOWN
+            2:
+                start = Vector2(40.0 + side_ratio * 1520.0, 898.0)
+                inward = Vector2.UP
+                tangent = Vector2.RIGHT
+            _:
+                start = Vector2(2.0, 40.0 + side_ratio * 820.0)
+                inward = Vector2.RIGHT
+                tangent = Vector2.DOWN
+        if zone_lightning_texture != null:
+            var frame := posmod(seed / 7, 8)
+            var cell := Vector2(float(zone_lightning_texture.get_width()) / 4.0, float(zone_lightning_texture.get_height()) / 2.0)
+            var src := Rect2(Vector2(float(frame % 4), float(frame / 4)) * cell, cell)
+            var scale_random := 1.0 + float(posmod(seed * 31, 501)) / 1000.0
+            var visible_ratio := 0.50 + float(posmod(seed * 19, 301)) / 1000.0
+            var bolt_size := Vector2(52.0, 90.0) * scale_random
+            var visible_length := bolt_size.y * visible_ratio * rise
+            # Keep part of the sprite outside the viewport so only 50-80% pierces inward.
+            var bolt_center := start + inward * (visible_length - bolt_size.y * 0.5)
+            var fixed_rotation := 0.0
+            match side:
+                0: fixed_rotation = 0.0
+                1: fixed_rotation = -PI * 0.5
+                2: fixed_rotation = PI
+                _: fixed_rotation = PI * 0.5
+            draw_set_transform(bolt_center, fixed_rotation, Vector2.ONE)
+            draw_texture_rect_region(zone_lightning_texture, Rect2(-bolt_size * 0.5, bolt_size), src, Color(1.0, 1.0, 1.0, envelope))
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            continue
+        var pattern := posmod(seed / 4, 5)
+        var shape := PackedVector2Array()
+        match pattern:
+            0: shape = PackedVector2Array([Vector2(0, 0), Vector2(-5, 9), Vector2(3, 17), Vector2(-3, 28), Vector2(8, 40)])
+            1: shape = PackedVector2Array([Vector2(0, 0), Vector2(7, 7), Vector2(2, 18), Vector2(10, 25), Vector2(-4, 42)])
+            2: shape = PackedVector2Array([Vector2(0, 0), Vector2(-8, 11), Vector2(8, 19), Vector2(-7, 29), Vector2(2, 44)])
+            3: shape = PackedVector2Array([Vector2(0, 0), Vector2(3, 10), Vector2(-10, 20), Vector2(-2, 31), Vector2(9, 39)])
+            _: shape = PackedVector2Array([Vector2(0, 0), Vector2(10, 8), Vector2(-2, 15), Vector2(5, 27), Vector2(-8, 43)])
+        var points := PackedVector2Array()
+        for shape_point in shape:
+            points.append(start + tangent * shape_point.x + inward * shape_point.y)
+        draw_polyline(points, Color(0.52, 0.08, 0.90, 0.58 * envelope), 7.0)
+        draw_polyline(points, Color(0.94, 0.76, 1.0, 0.96 * envelope), 2.0)
+        var spark := points[points.size() - 1]
+        draw_rect(Rect2(spark - Vector2.ONE * 3.0, Vector2.ONE * 6.0), Color(1.0, 0.90, 1.0, envelope))
+
+func _draw_status_blocks(rect: Rect2, ratio: float, segments: int, color: Color, pulse_endpoint: bool, pulse_all: bool, pulse_hz: float) -> void:
+    var gap := 3.0
+    var block_width := (rect.size.x - gap * float(segments - 1)) / float(segments)
+    var filled_units := clampf(ratio, 0.0, 1.0) * float(segments)
+    var endpoint := clampi(ceili(filled_units) - 1, 0, segments - 1)
+    var pulse := 0.5 + 0.5 * sin(float(world.tick) * TAU * pulse_hz / 60.0)
+    for index in range(segments):
+        var block := Rect2(rect.position + Vector2(float(index) * (block_width + gap), 0.0), Vector2(block_width, rect.size.y))
+        var portion := clampf(filled_units - float(index), 0.0, 1.0)
+        draw_rect(block, Color(0.025, 0.035, 0.050, 0.94))
+        var is_pulsing := pulse_all or (pulse_endpoint and index == endpoint and portion > 0.0)
+        var fill_alpha := lerpf(1.0, 0.18, pulse) if is_pulsing else 1.0
+        var border_alpha := lerpf(0.58, 1.0, pulse) if is_pulsing else (0.52 if portion > 0.0 else 0.20)
+        if portion > 0.0:
+            var inner := Rect2(block.position + Vector2(2.0, 2.0), Vector2(maxf(0.0, (block.size.x - 4.0) * portion), block.size.y - 4.0))
+            draw_rect(inner, Color(color, fill_alpha))
+        draw_rect(block, Color(color, border_alpha), false, 2.0)
+
 func _draw_hotbar(me: Dictionary) -> void:
     var bar := Rect2(549.0, 802.0, 502.0, 86.0)
     draw_rect(bar, Color(0.008, 0.012, 0.020, 0.78))
@@ -186,13 +322,19 @@ func _draw_hotbar(me: Dictionary) -> void:
     var hp_now := float(me["hp"])
     var hp_max := float(me["max_hp"])
     var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2(bar.size.x - 16.0, 18.0)), Color("#151920"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2((bar.size.x - 16.0) * hp_ratio, 18.0)), Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73"))
-    _text(bar.position + Vector2(12.0, 8.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, Color.WHITE, 300.0)
+    var hp_color := Color("#3fe37a")
+    if hp_ratio <= 0.30:
+        hp_color = Color("#ff5d73")
+    elif hp_ratio <= 0.60:
+        hp_color = Color("#ffb347")
+    _text(bar.position + Vector2(10.0, 15.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, hp_color, 304.0)
+    _draw_status_blocks(Rect2(bar.position + Vector2(8.0, 19.0), Vector2(310.0, 16.0)), hp_ratio, 10, hp_color, hp_now > 0.0, false, 1.2)
     var ult_max := 100.0
     var power_ratio := clampf(float(me.get("ultimate_charge", 0.0)) / maxf(1.0, ult_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2(bar.size.x - 16.0, 6.0)), Color("#1b2430"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2((bar.size.x - 16.0) * power_ratio, 6.0)), Color("#4f8cff"))
+    var ult_ready := power_ratio >= 0.999
+    var ult_color := Color("#a970ff") if ult_ready else Color("#4f8cff")
+    _text(bar.position + Vector2(328.0, 15.0), "ULT READY" if ult_ready else "ULT  %d%%" % roundi(power_ratio * 100.0), 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
+    _draw_status_blocks(Rect2(bar.position + Vector2(326.0, 19.0), Vector2(168.0, 16.0)), power_ratio, 8, ult_color, false, ult_ready, 0.7)
     _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
 
 func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
@@ -225,6 +367,136 @@ func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
     elif mag_now <= 0:
         label = "EMPTY  0 / %d" % mag_max
     _text(rect.position + Vector2(12.0, 28.0), label, 22, Color.WHITE, rect.size.x - 24.0)
+
+func _ammo_frame_rect(frame: int) -> Rect2:
+    match clampi(frame, 0, 3):
+        0:
+            return Rect2(0.0, 256.0, 440.0, 256.0)
+        1:
+            return Rect2(430.0, 256.0, 470.0, 256.0)
+        2:
+            return Rect2(920.0, 256.0, 500.0, 256.0)
+        _:
+            return Rect2(1400.0, 256.0, 500.0, 256.0)
+
+func _draw_ammo_round(pos: Vector2, frame: int, alpha: float = 1.0) -> void:
+    var display_rect := Rect2(pos, Vector2(74.0, 34.0))
+    if ammo_round_texture != null:
+        draw_texture_rect_region(ammo_round_texture, display_rect, _ammo_frame_rect(frame), Color(1.0, 1.0, 1.0, alpha))
+        return
+    var tint := Color(1.0, 0.73, 0.24, alpha)
+    draw_rect(Rect2(pos + Vector2(8.0, 11.0), Vector2(46.0, 12.0)), tint)
+    draw_colored_polygon(PackedVector2Array([
+        pos + Vector2(54.0, 11.0),
+        pos + Vector2(70.0, 17.0),
+        pos + Vector2(54.0, 23.0),
+    ]), tint)
+
+func _spawn_ammo_casings(amount: int, capacity: int, tick_now: int) -> void:
+    for shot_index in range(amount):
+        _ammo_casing_serial += 1
+        var seed := fposmod(float(_ammo_casing_serial * 37), 101.0) / 101.0
+        _ammo_casings.append({
+            "tick": tick_now + shot_index,
+            "seed": seed,
+            "spin": 1.5 + fposmod(float(_ammo_casing_serial * 19), 100.0) / 100.0,
+            "clockwise": 1.0 if _ammo_casing_serial % 2 == 0 else -1.0,
+        })
+    while _ammo_casings.size() > capacity:
+        _ammo_casings.pop_front()
+
+func _draw_ammo_casings(panel_left: float, row_top: float, tick_now: int) -> void:
+    var alive_casings: Array[Dictionary] = []
+    for casing in _ammo_casings:
+        var age := maxf(0.0, float(tick_now - int(casing["tick"])) / 60.0)
+        if age > 1.0:
+            continue
+        alive_casings.append(casing)
+        var seed := float(casing["seed"])
+        var start := Vector2(panel_left + 88.0 + seed * 20.0, row_top + 7.0 + seed * 5.0)
+        var velocity := Vector2(245.0 + seed * 70.0, -104.0 - seed * 20.0)
+        var pos := start + velocity * age + Vector2(0.0, 400.0 * age * age)
+        var rotation := float(casing["clockwise"]) * TAU * float(casing["spin"]) * age + seed * TAU
+        draw_set_transform(pos, rotation, Vector2.ONE)
+        if ammo_casing_texture != null:
+            draw_texture_rect_region(ammo_casing_texture, Rect2(-15.0, -10.0, 30.0, 20.0), Rect2(240.0, 280.0, 800.0, 680.0))
+        else:
+            draw_rect(Rect2(-9.0, -3.0, 18.0, 6.0), Color(0.95, 0.64, 0.18, 1.0))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    _ammo_casings = alive_casings
+
+func _draw_ammo_conveyor(me: Dictionary) -> void:
+    var equipment: Dictionary = me.get("equipment", {})
+    var equipment_id := str(equipment.get("id", equipment.get("name", "")))
+    var mag_now := maxi(0, int(me.get("mag", 0)))
+    var mag_max := maxi(1, int(equipment.get("mag_size", 1)))
+    var tick_now := int(world.tick)
+    var world_instance_id := int(world.get_instance_id())
+    if _ammo_world_instance_id != world_instance_id or (_ammo_last_tick >= 0 and tick_now < _ammo_last_tick):
+        reset_match_visuals()
+        _ammo_world_instance_id = world_instance_id
+    _ammo_last_tick = tick_now
+    if equipment_id != _ammo_last_equipment:
+        _ammo_last_equipment = equipment_id
+        _ammo_last_mag = mag_now
+        _ammo_eject_tick = -1000
+        _ammo_casings.clear()
+    elif _ammo_last_mag >= 0 and mag_now < _ammo_last_mag:
+        var fired_rounds := _ammo_last_mag - mag_now
+        _ammo_eject_tick = tick_now
+        _spawn_ammo_casings(fired_rounds, int(ceil(float(mag_max) * 0.5)), tick_now)
+    _ammo_last_mag = mag_now
+
+    var right_edge := size.x - 14.0
+    var bottom_edge := size.y - 10.0
+    var header_y := bottom_edge - 134.0
+    var row_top := header_y + 34.0
+    var row_gap := 32.0
+    var panel_width := 196.0
+    var panel_left := right_edge - panel_width
+    var panel_top := header_y - 8.0
+    var notch := 8.0
+    var bullet_x := panel_left + 12.0
+    var panel_shape := PackedVector2Array([
+        Vector2(panel_left + notch, panel_top),
+        Vector2(right_edge, panel_top),
+        Vector2(right_edge, bottom_edge),
+        Vector2(panel_left + notch, bottom_edge),
+        Vector2(panel_left, bottom_edge - notch),
+        Vector2(panel_left, panel_top + notch),
+        Vector2(panel_left + notch, panel_top),
+    ])
+    draw_colored_polygon(panel_shape, Color(0.008, 0.012, 0.020, 0.64))
+    for band_y in range(int(panel_top) + 16, int(bottom_edge), 16):
+        draw_line(Vector2(panel_left + 5.0, float(band_y)), Vector2(right_edge - 4.0, float(band_y)), Color(0.22, 0.25, 0.30, 0.10), 1.0)
+    draw_polyline(panel_shape, Color("#ffd166", 0.68), 2.0)
+    draw_line(Vector2(panel_left + 12.0, panel_top + 27.0), Vector2(right_edge - 10.0, panel_top + 27.0), Color("#ffd166", 0.28), 1.0)
+    for marker_y in range(int(row_top) + 15, int(bottom_edge) - 8, int(row_gap)):
+        draw_line(Vector2(panel_left + 3.0, float(marker_y)), Vector2(panel_left + 8.0, float(marker_y)), Color("#ffd166", 0.42), 2.0)
+    _draw_ammo_casings(panel_left, row_top, tick_now)
+
+    var reloading := float(me.get("reload_left", 0.0)) > 0.0
+    var counter_color := Color("#ffd166") if reloading else (Color("#ff5d73") if mag_now <= 0 else Color.WHITE)
+    var prefix := "RELOAD  " if reloading else ("EMPTY  " if mag_now <= 0 else "")
+    _text(Vector2(panel_left + 10.0, header_y + 18.0), "%s%d / %d" % [prefix, mag_now, mag_max], 21, counter_color, panel_width - 20.0, HORIZONTAL_ALIGNMENT_RIGHT)
+
+    var eject_progress := clampf(float(tick_now - _ammo_eject_tick) / 9.0, 0.0, 1.0)
+    var ejecting := eject_progress < 1.0
+    var shift_offset := row_gap * (1.0 - eject_progress) if ejecting else 0.0
+    var visible_rounds := mini(mag_now, 3)
+    for index in range(visible_rounds):
+        var round_pos := Vector2(bullet_x, row_top + float(index) * row_gap + shift_offset)
+        var slot_alpha := 1.0
+        if round_pos.y + 30.0 > bottom_edge:
+            slot_alpha = clampf((bottom_edge - round_pos.y) / 30.0, 0.0, 1.0)
+        _draw_ammo_round(round_pos, 0, slot_alpha)
+
+    if ejecting:
+        var eased := 1.0 - pow(1.0 - eject_progress, 3.0)
+        var eject_pos := Vector2(bullet_x + eased * 150.0, row_top - sin(eject_progress * PI) * 5.0)
+        var eject_frame := mini(3, int(eject_progress * 4.0))
+        var eject_alpha := 1.0 - clampf((eject_progress - 0.68) / 0.32, 0.0, 1.0)
+        _draw_ammo_round(eject_pos, eject_frame, eject_alpha)
 
 func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))

@@ -68,7 +68,7 @@ func apply_safe_zone_damage(dt: float) -> void:
 			continue
 		if w._hero_in_own_pocket(slot):
 			continue
-		w._damage_hero_environment(slot, amount, show_tick)
+		w._damage_hero_environment(slot, amount, show_tick, &"safe_zone")
 	for crate_i in range(w.crates.size()):
 		var cr: Dictionary = w.crates[crate_i]
 		if not bool(cr.get("alive", false)):

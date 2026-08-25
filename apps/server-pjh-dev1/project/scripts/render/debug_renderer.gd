@@ -46,12 +46,15 @@ var reload_bubble_atlas: Texture2D = null
 var tracer_fx_atlas: Texture2D = null
 var hit_spark_fx_atlas: Texture2D = null
 var explosion_fx_atlas: Texture2D = null
+var ammo_casing_texture: Texture2D = null
 var mobility_fx_atlases: Dictionary = {}
 var dash_departure_atlas: Texture2D = null
 var rooster_beam_step_atlas: Texture2D = null
 var character_shadow_tex: Texture2D = null
 var knockout_trail_atlas: Texture2D = null
 var death_burst_atlas: Texture2D = null
+var zone_lightning_atlas: Texture2D = null
+var zone_impact_atlas: Texture2D = null
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -67,6 +70,8 @@ var recoil_strap: Array = []
 var recoil_decay: Array = []
 var muzzle_life: Array = []
 var rooster_comb_lag: float = 0.0
+var world_casings: Array[Dictionary] = []
+var world_casing_serial: int = 0
 
 const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
 const ANIMAL_COLS := 4
@@ -133,6 +138,7 @@ func _ready() -> void:
     tracer_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Tracer_4x1.png")
     hit_spark_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_HitSpark_4x1.png")
     explosion_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    ammo_casing_texture = _load_tex("res://assets/fx/ui/Tex_UI_AmmoCasing.png")
     var mobility_files := {
         "speed_streak": "Tex_FX_MobilityDash_4x1.png", "beam_step": "Tex_FX_BeamStep_4x1.png",
         "drain": "Tex_FX_DrainStep_4x1.png", "guard": "Tex_FX_GuardStep_4x1.png",
@@ -147,6 +153,8 @@ func _ready() -> void:
     character_shadow_tex = _load_tex("res://assets/fx/character/Tex_FX_CharacterShadow.png")
     knockout_trail_atlas = _load_tex("res://assets/fx/character/Tex_FX_KnockoutTrail_4x1.png")
     death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
+    zone_lightning_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneLightning_4x2.png")
+    zone_impact_atlas = _load_tex("res://assets/fx/zone/Tex_FX_ZoneImpact_4x2.png")
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -276,6 +284,8 @@ func _consume_shot_events() -> void:
             var slot := int(event.get("actor_id", -1))
             if slot >= 0 and slot < recoil_kick.size():
                 _apply_shot_recoil(slot)
+                if et == &"gun_fire":
+                    _spawn_world_casing(slot)
         elif et == &"tower_hit":
             var td: Dictionary = event.get("data", {})
             var tdmg := float(td.get("damage", 0.0))
@@ -322,6 +332,73 @@ func _consume_shot_events() -> void:
                 var vis: Dictionary = GunSig.visual_for_equipment(hid)
                 hrow = int(vis.get("impact_row", 1))
                 impact_flashes.append({"pos":htpos, "row":hrow, "time":0.0})
+
+func _world_casing_size(equipment_id: String) -> Vector2:
+    var family := GunSig.family_of(equipment_id)
+    match family:
+        "pistol":
+            return Vector2(10.0, 7.0)
+        "smg":
+            return Vector2(12.0, 8.0)
+        "shotgun":
+            return Vector2(16.0, 11.0)
+        "heavy":
+            return Vector2(18.0, 12.0)
+        _:
+            return Vector2(14.0, 9.0)
+
+func _spawn_world_casing(slot: int) -> void:
+    if slot < 0 or slot >= world.heroes.size():
+        return
+    var hero: Dictionary = world.heroes[slot]
+    if not bool(hero.get("alive", false)):
+        return
+    var aim := Vector2(hero.get("aim", Vector2.RIGHT))
+    if aim.length_squared() < 0.0001:
+        aim = Vector2.RIGHT
+    aim = aim.normalized()
+    var side := Vector2(-aim.y, aim.x)
+    var equipment: Dictionary = hero.get("equipment", {})
+    var equipment_id := str(equipment.get("id", "burst"))
+    world_casing_serial += 1
+    var seed := fposmod(float(world_casing_serial * 37), 101.0) / 101.0
+    world_casings.append({
+        "pos": Vector2(hero.get("pos", Vector2.ZERO)) + aim * 24.0 + side * (7.0 + seed * 5.0),
+        "aim": aim,
+        "age": 0.0,
+        "seed": seed,
+        "spin": 1.5 + fposmod(float(world_casing_serial * 23), 100.0) / 100.0,
+        "clockwise": 1.0 if world_casing_serial % 2 == 0 else -1.0,
+        "size": _world_casing_size(equipment_id),
+    })
+    while world_casings.size() > 48:
+        world_casings.pop_front()
+
+func _tick_world_casings(dt: float) -> void:
+    var alive: Array[Dictionary] = []
+    for casing in world_casings:
+        casing["age"] = float(casing.get("age", 0.0)) + dt
+        if float(casing["age"]) < 0.95:
+            alive.append(casing)
+    world_casings = alive
+
+func _draw_world_casings() -> void:
+    for casing in world_casings:
+        var age := float(casing.get("age", 0.0))
+        var seed := float(casing.get("seed", 0.0))
+        var aim := Vector2(casing.get("aim", Vector2.RIGHT))
+        var origin := Vector2(casing.get("pos", Vector2.ZERO))
+        var velocity := aim * (110.0 + seed * 34.0) + Vector2(0.0, -90.0 - seed * 24.0)
+        var pos := origin + velocity * age + Vector2(0.0, 180.0 * age * age)
+        var rotation := float(casing.get("clockwise", 1.0)) * TAU * float(casing.get("spin", 2.0)) * age + seed * TAU
+        var alpha := 0.72 * (1.0 - clampf((age - 0.58) / 0.37, 0.0, 1.0))
+        var casing_size := Vector2(casing.get("size", Vector2(14.0, 9.0)))
+        draw_set_transform(pos, rotation, Vector2.ONE)
+        if ammo_casing_texture != null:
+            draw_texture_rect_region(ammo_casing_texture, Rect2(-casing_size * 0.5, casing_size), Rect2(240.0, 280.0, 800.0, 680.0), Color(1.0, 1.0, 1.0, alpha))
+        else:
+            draw_rect(Rect2(-casing_size * 0.5, casing_size), Color(0.95, 0.64, 0.18, alpha))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func feel_muzzle_max(row: int) -> float:
     var counts := [2, 3, 4]
@@ -390,6 +467,20 @@ func _bullet_src_rect(kind: String, tick: int) -> Rect2:
     var col := posmod(tick / 3, BULLET_COLS)
     var cell := Vector2(float(bullet_atlas.get_width()) / float(BULLET_COLS), float(bullet_atlas.get_height()) / float(BULLET_ROWS))
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+func _zone_lightning_src_rect(frame: int) -> Rect2:
+    if zone_lightning_atlas == null:
+        return Rect2()
+    var cell := Vector2(float(zone_lightning_atlas.get_width()) / 4.0, float(zone_lightning_atlas.get_height()) / 2.0)
+    var safe_frame := posmod(frame, 8)
+    return Rect2(Vector2(float(safe_frame % 4), float(safe_frame / 4)) * cell, cell)
+
+func _zone_impact_src_rect(frame: int) -> Rect2:
+    if zone_impact_atlas == null:
+        return Rect2()
+    var cell := Vector2(float(zone_impact_atlas.get_width()) / 4.0, float(zone_impact_atlas.get_height()) / 2.0)
+    var safe_frame := clampi(frame, 0, 7)
+    return Rect2(Vector2(float(safe_frame % 4), float(safe_frame / 4)) * cell, cell)
 
 func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String, scale: float = 1.0) -> void:
     if bullet_atlas == null:
@@ -681,6 +772,8 @@ func _draw_effects() -> void:
         var effect_pos: Vector2 = effect["pos"]
         var effect_radius := float(effect["radius"])
         var effect_kind := StringName(effect["kind"])
+        if effect_kind == &"zone_impact" and zone_impact_atlas != null:
+            continue
         var direction := Vector2(effect["direction"]).normalized()
         var progress := 1.0 - ratio
         var follow_slot := int(effect.get("follow_slot", -1))
@@ -821,12 +914,48 @@ func _draw_effects() -> void:
                 draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
                 draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
             &"heal_pickup":
-                var heal_lift := progress * effect_radius * 0.55
-                draw_line(effect_pos + Vector2(-12.0, -heal_lift), effect_pos + Vector2(12.0, -heal_lift), Color(effect_color, ratio), 7.0)
-                draw_line(effect_pos + Vector2(0.0, -12.0 - heal_lift), effect_pos + Vector2(0.0, 12.0 - heal_lift), Color(effect_color, ratio), 7.0)
+                var heal_lift := progress * effect_radius * 0.68
+                var cross_center := effect_pos + Vector2(0.0, -heal_lift)
+                var strong_ratio := clampf(1.0 - progress * 0.72, 0.34, 1.0)
+                var cross_color := Color(effect_color, strong_ratio)
+                draw_rect(Rect2(cross_center + Vector2(-18.0, -6.0), Vector2(36.0, 12.0)), Color(effect_color, strong_ratio * 0.38))
+                draw_rect(Rect2(cross_center + Vector2(-6.0, -18.0), Vector2(12.0, 36.0)), Color(effect_color, strong_ratio * 0.38))
+                draw_rect(Rect2(cross_center + Vector2(-15.0, -5.0), Vector2(30.0, 10.0)), cross_color)
+                draw_rect(Rect2(cross_center + Vector2(-5.0, -15.0), Vector2(10.0, 30.0)), cross_color)
+                draw_rect(Rect2(cross_center + Vector2(-6.0, -6.0), Vector2(12.0, 12.0)), Color(Color.WHITE, strong_ratio * 0.90))
+                var burst_radius := effect_radius * lerpf(0.20, 0.88, progress)
+                draw_arc(effect_pos, burst_radius, 0.0, TAU, 24, Color(effect_color, strong_ratio * 0.76), 6.0)
+                for heal_pixel in range(10):
+                    var heal_angle := TAU * float(heal_pixel) / 10.0 + progress * 1.7
+                    var heal_pos := effect_pos + Vector2.RIGHT.rotated(heal_angle) * effect_radius * lerpf(0.20, 0.82, progress)
+                    var heal_size := 7.0 if heal_pixel % 3 == 0 else 4.0
+                    draw_rect(Rect2(heal_pos - Vector2.ONE * heal_size * 0.5, Vector2.ONE * heal_size), Color(effect_color, strong_ratio * 0.92))
             &"heal_ready":
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), -PI * 0.35, PI * 0.35, 18, Color(effect_color, ratio), 5.0)
-                draw_arc(effect_pos, effect_radius * lerpf(0.52, 0.92, progress), PI * 0.65, PI * 1.35, 18, Color(effect_color, ratio), 5.0)
+                var ready_radius := effect_radius * lerpf(0.48, 0.88, progress)
+                for ready_pixel in range(12):
+                    if ready_pixel in [2, 3, 8, 9]:
+                        continue
+                    var ready_angle := TAU * float(ready_pixel) / 12.0
+                    var ready_pos := effect_pos + Vector2.RIGHT.rotated(ready_angle) * ready_radius
+                    draw_rect(Rect2(ready_pos - Vector2.ONE * 3.0, Vector2.ONE * 6.0), Color(effect_color, ratio))
+            &"zone_impact":
+                var impact_scale := lerpf(0.34, 1.16, progress)
+                var impact_alpha := clampf(1.0 - progress * 0.74, 0.26, 1.0)
+                for impact_arc in range(8):
+                    var arc_angle := TAU * float(impact_arc) / 8.0 + float(posmod(impact_arc * 7 + int(world.tick / 2), 5)) * 0.08
+                    var radial := Vector2.RIGHT.rotated(arc_angle)
+                    var tangent := radial.orthogonal()
+                    var arc_start := effect_pos + radial * effect_radius * 0.22 * impact_scale
+                    var points := PackedVector2Array([
+                        arc_start,
+                        arc_start + radial * effect_radius * 0.18 + tangent * (7.0 if impact_arc % 2 == 0 else -7.0),
+                        arc_start + radial * effect_radius * 0.38 - tangent * 5.0,
+                        arc_start + radial * effect_radius * 0.62 + tangent * (9.0 if impact_arc % 3 == 0 else -4.0),
+                    ])
+                    draw_polyline(points, Color("#7920bd", impact_alpha * 0.62), 8.0)
+                    draw_polyline(points, Color("#f0c8ff", impact_alpha), 3.0)
+                draw_arc(effect_pos, effect_radius * impact_scale * 0.72, 0.0, TAU, 28, Color(effect_color, impact_alpha * 0.82), 7.0)
+                draw_arc(effect_pos, effect_radius * impact_scale * 0.48, 0.0, TAU, 20, Color("#ffffff", impact_alpha * 0.72), 3.0)
             &"respawn":
                 for beam in range(3):
                     var beam_x := (float(beam) - 1.0) * 16.0
@@ -846,6 +975,25 @@ func _draw_effects() -> void:
                 draw_line(effect_pos - Vector2(flash_radius * 1.8, 0.0), effect_pos + Vector2(flash_radius * 1.8, 0.0), Color(Color.WHITE, ratio * 0.7), 2.0)
         if str(effect["label"]) != "" and effect_kind in [&"heal_pickup", &"respawn"]:
             draw_string(GameFont.get_font(), effect_pos + Vector2(-100.0, -effect_radius - 10.0), str(effect["label"]), HORIZONTAL_ALIGNMENT_CENTER, 200.0, 16, Color(effect_color, ratio))
+
+func _draw_zone_impacts_foreground() -> void:
+    if zone_impact_atlas == null:
+        return
+    for effect in world.effects:
+        if StringName(effect.get("kind", &"")) != &"zone_impact":
+            continue
+        var ratio := clampf(float(effect["time"]) / maxf(0.001, float(effect["max_time"])), 0.0, 1.0)
+        var progress := 1.0 - ratio
+        var effect_pos: Vector2 = effect["pos"]
+        var follow_slot := int(effect.get("follow_slot", -1))
+        if follow_slot >= 0 and follow_slot < world.heroes.size():
+            effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+        var frame := clampi(int(progress * 8.0), 0, 7)
+        var size := Vector2.ONE * 164.0
+        var alpha := clampf(ratio * 1.35, 0.24, 1.0)
+        draw_set_transform(effect_pos, 0.0, Vector2.ONE)
+        draw_texture_rect_region(zone_impact_atlas, Rect2(-size * 0.5, size), _zone_impact_src_rect(frame), Color(1.0, 1.0, 1.0, alpha))
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
     var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)
@@ -868,6 +1016,7 @@ func _draw() -> void:
         return
     _consume_shot_events()
     _tick_recoil(1.0 / 60.0)
+    _tick_world_casings(1.0 / 60.0)
     _tick_combat_texts(1.0 / 60.0)
     _env.world = world
     _heroes.world = world
@@ -875,6 +1024,7 @@ func _draw() -> void:
     _overlay.world = world
     _env.draw_island()
     _env.draw_safe_zone()
+    _draw_world_casings()
     _env.draw_covers()
     _env.draw_crates()
     _env.draw_mid_tower()
@@ -895,6 +1045,7 @@ func _draw() -> void:
     _heroes.draw_rabbit_holes()
     _heroes.draw_tiger_roars()
     _heroes.draw_heroes()
+    _draw_zone_impacts_foreground()
     _proj.draw_impact_flashes()
     _overlay.draw_finish_prompts()
     _heroes.draw_rat_tides()

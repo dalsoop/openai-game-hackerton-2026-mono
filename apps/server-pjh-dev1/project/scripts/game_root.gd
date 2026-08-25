@@ -288,6 +288,8 @@ func _return_to_hub() -> void:
 func _set_phase(next: StringName) -> void:
 	phase = next
 	var playing := next == &"play"
+	if not playing and hud != null and hud.has_method("reset_match_visuals"):
+		hud.reset_match_visuals()
 	world_view.visible = playing
 	hud.visible = playing
 	screens.visible = not playing

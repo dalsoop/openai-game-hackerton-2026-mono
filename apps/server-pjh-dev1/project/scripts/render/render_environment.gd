@@ -1,6 +1,8 @@
 class_name RenderEnvironment
 extends RefCounted
 
+const CRATE_ORB_ATLAS: Texture2D = preload("res://assets/fx/pickups/Tex_FX_CrateEnergyOrb_4x2.png")
+
 var r: Node2D
 var world
 
@@ -34,17 +36,64 @@ func draw_safe_zone() -> void:
 	var mid := (radius + outer) * 0.5
 	var width := maxf(12.0, outer - radius)
 	var seg := 32 if r.lite_draw else 96
-	r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.45, 0.10, 0.78, 0.30), width)
+	r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.42, 0.06, 0.68, 0.40), width)
 	if not r.lite_draw:
-		r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.30, 0.02, 0.50, 0.22), width * 0.55)
+		r.draw_arc(center, mid, 0.0, TAU, seg, Color(0.28, 0.02, 0.48, 0.34), width * 0.55)
 	var shrinking := bool(world.safe_zone_shrinking)
 	var ring: Color = r.ZONE_RING_HOT if shrinking else r.ZONE_RING
-	var pulse := 7.0 + (3.0 if shrinking else 0.0) + sin(float(world.tick) * 0.12) * 1.4
-	r.draw_arc(center, radius, 0.0, TAU, 96, Color(ring, 0.28), pulse * 2.8)
-	r.draw_arc(center, radius, 0.0, TAU, 96, ring, pulse)
-	r.draw_arc(center, radius, 0.0, TAU, 96, Color("#f4e2ff"), 2.0)
+	var pulse := 6.0 + (2.0 if shrinking else 0.0) + sin(float(world.tick) * 0.12) * 1.0
+	# Layered broken bands read like a pixel-energy wall instead of a vector circle.
+	var band_count := 24 if r.lite_draw else 48
+	var phase_speed := 0.026 if shrinking else 0.007
+	var phase := float(world.tick) * phase_speed
+	for band_index in range(band_count):
+		if posmod(band_index + int(world.tick / 8), 5) == 0:
+			continue
+		var a0 := TAU * float(band_index) / float(band_count) + phase
+		var a1 := a0 + TAU / float(band_count) * 0.72
+		var band_radius := radius + (4.0 if band_index % 2 == 0 else -3.0)
+		var band_color := Color(ring, 0.82 if band_index % 3 else 0.52)
+		r.draw_arc(center, band_radius, a0, a1, 3, band_color, pulse)
+		if not r.lite_draw and band_index % 4 == 0:
+			var spark_pos := center + Vector2.RIGHT.rotated(a0) * (radius + 11.0)
+			var spark_size := 4.0 + float(posmod(band_index, 3)) * 2.0
+			r.draw_rect(Rect2(spark_pos - Vector2.ONE * spark_size * 0.5, Vector2.ONE * spark_size), Color("#e8c8ff", 0.64))
+	r.draw_arc(center, radius, 0.0, TAU, 64, Color(ring, 0.22), pulse * 2.5)
+	# Short angular bolts sell the boundary as electricity without hiding gameplay.
+	if not r.lite_draw:
+		var bolt_count := 12 if shrinking else 7
+		var bolt_step := int(world.tick / (2 if shrinking else 5))
+		for bolt_index in range(bolt_count):
+			var bolt_life := fmod(float(world.tick) * (0.052 if shrinking else 0.025) + float(bolt_index) * 0.173, 1.0)
+			if bolt_life > 0.64:
+				continue
+			var seed := bolt_index * 37 + bolt_step * 17
+			var bolt_angle := TAU * float(posmod(seed, 997)) / 997.0
+			var tangent := Vector2.RIGHT.rotated(bolt_angle + PI * 0.5)
+			var radial := Vector2.RIGHT.rotated(bolt_angle)
+			var bolt_center := center + radial * radius
+			var bolt_length := 34.0 + float(posmod(seed * 11, 32))
+			var life_envelope := sin(bolt_life / 0.64 * PI)
+			var bolt_alpha := (0.98 if shrinking else 0.82) * life_envelope
+			if r.zone_lightning_atlas != null:
+				var frame := posmod(seed + bolt_step, 8)
+				var bolt_size := Vector2(54.0, 92.0) * (1.10 if shrinking else 0.92)
+				var bolt_rotation := tangent.angle() + PI * 0.5
+				r.draw_set_transform(bolt_center, bolt_rotation, Vector2.ONE)
+				r.draw_texture_rect_region(r.zone_lightning_atlas, Rect2(-bolt_size * 0.5, bolt_size), r._zone_lightning_src_rect(frame), Color(1.0, 1.0, 1.0, bolt_alpha))
+				r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			else:
+				var bolt_color := Color("#f1d9ff", bolt_alpha)
+				var bolt_points := PackedVector2Array()
+				for point_index in range(5):
+					var along := (float(point_index) / 4.0 - 0.5) * bolt_length
+					var jitter_seed := posmod(seed + point_index * 23, 9) - 4
+					var jitter := float(jitter_seed) * (2.2 if shrinking else 1.5)
+					bolt_points.append(bolt_center + tangent * along + radial * jitter)
+				r.draw_polyline(bolt_points, Color(ring, bolt_alpha * 0.42), 6.0)
+				r.draw_polyline(bolt_points, bolt_color, 2.0)
 	if shrinking or absf(target_radius - radius) > 4.0:
-		r._draw_dashed_circle(center, target_radius, Color(1.0, 1.0, 1.0, 0.62), 3.0)
+		r._draw_dashed_circle(center, target_radius, Color(0.90, 0.76, 1.0, 0.55), 3.0, 0.075, 0.075)
 
 func draw_covers() -> void:
 	for cover_index in range(world.covers.size()):
@@ -109,16 +158,28 @@ func draw_pickups() -> void:
 			continue
 		var show_kind := _item_display_kind(pickup)
 		var tint: Color = _item_tint(show_kind)
+		var is_medkit := show_kind == "medkit"
 		var magnet_slot := int(pickup.get("magnet_slot", -1))
 		if magnet_slot >= 0 and magnet_slot < world.heroes.size():
 			var magnet_dir := pickup_pos.direction_to(Vector2(world.heroes[magnet_slot]["pos"]))
 			for trail_index in range(3):
 				var side := magnet_dir.orthogonal() * (float(trail_index) - 1.0) * 7.0
-				r.draw_line(pickup_pos - magnet_dir * (20.0 + float(trail_index) * 9.0) + side, pickup_pos - magnet_dir * (48.0 + float(trail_index) * 12.0) + side, Color(tint, 0.72), 4.0)
-			r.draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color(tint, 0.95), 5.0)
+				for pixel_index in range(3):
+					var pixel_pos := pickup_pos - magnet_dir * (24.0 + float(trail_index) * 8.0 + float(pixel_index) * 10.0) + side
+					var pixel_size := 5.0 - float(pixel_index)
+					r.draw_rect(Rect2(pixel_pos - Vector2.ONE * pixel_size * 0.5, Vector2.ONE * pixel_size), Color(tint, 0.80 - float(pixel_index) * 0.18))
 		else:
-			r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
-			r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
+			if is_medkit:
+				var orbit_phase := float(world.tick) * 0.035 + float(pickup["id"])
+				for pixel_index in range(8):
+					var pixel_angle := orbit_phase + TAU * float(pixel_index) / 8.0
+					var pixel_pos := pickup_pos + Vector2.RIGHT.rotated(pixel_angle) * (27.0 + float(pixel_index % 2) * 3.0)
+					var pixel_size := 4.0 if pixel_index % 3 else 6.0
+					r.draw_rect(Rect2(pixel_pos - Vector2.ONE * pixel_size * 0.5, Vector2.ONE * pixel_size), Color(tint, 0.52 + float(pixel_index % 2) * 0.24))
+				r.draw_rect(Rect2(pickup_pos + Vector2(-21.0, 17.0), Vector2(42.0, 4.0)), Color(0.02, 0.07, 0.05, 0.50))
+			else:
+				r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
+				r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
 		if show_kind == "medkit" and r.medkit_texture != null:
 			r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(19.0, 19.0) * pulse, Vector2(38.0, 38.0) * pulse), false)
 		elif show_kind == "medkit":
@@ -175,11 +236,21 @@ func draw_crate_orbs() -> void:
 		if not bool(orb.get("active", true)):
 			continue
 		var pos: Vector2 = orb["pos"]
-		var pulse := 1.0 + sin(float(world.tick) * 0.18) * 0.12
-		var tint := Color("#ff4f4f") if bool(orb.get("red", true)) else Color("#4f8cff")
-		r.draw_circle(pos, 18.0 * pulse, Color(tint, 0.18))
-		r.draw_circle(pos, 11.0 * pulse, Color(tint, 0.92))
-		r.draw_arc(pos, 16.0 * pulse, 0.0, TAU, 22, Color.WHITE, 2.0)
+		var frame := posmod(int(world.tick / 5), 4)
+		var row := 0 if bool(orb.get("red", true)) else 1
+		var cell_size := Vector2(
+			float(CRATE_ORB_ATLAS.get_width()) / 4.0,
+			float(CRATE_ORB_ATLAS.get_height()) / 2.0
+		)
+		# The generated cells are portrait-shaped; crop their centered square so the orb is not squashed.
+		var crop_size := minf(cell_size.x, cell_size.y)
+		var src_pos := Vector2(
+			float(frame) * cell_size.x + (cell_size.x - crop_size) * 0.5,
+			float(row) * cell_size.y + (cell_size.y - crop_size) * 0.5
+		)
+		var pulse := 1.0 + sin(float(world.tick) * 0.12) * 0.04
+		var draw_size := Vector2.ONE * 58.0 * pulse
+		r.draw_texture_rect_region(CRATE_ORB_ATLAS, Rect2(pos - draw_size * 0.5, draw_size), Rect2(src_pos, Vector2.ONE * crop_size))
 
 func draw_mid_tower() -> void:
 	if world == null or not bool(world.mid_tower.get("alive", false)):
