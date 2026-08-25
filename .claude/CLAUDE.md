@@ -6,7 +6,7 @@
 
 | 앱 | 역할 | 실행 |
 |---|---|---|
-| `server-yjh-dev1` | 정한 본 슬롯. 클라 + 클러스터 허브 | `godot --path apps/server-yjh-dev1/project` · `npm start` |
+| `server-yjh-dev1` | 정한 본 슬롯. 클라 + 클러스터 허브 | `godot --path apps/server-yjh-dev1/ingame/gang-up` · `cd backend && npm start` |
 | `server-pjh-dev1` | 크리엘 본 슬롯 | `godot --path apps/server-pjh-dev1/project` |
 | `server-fig-dev1` | Figix 본 슬롯 | `godot --path apps/server-fig-dev1/project` |
 | `server-board` | 배포 보드 | `https://server-board.external.kr/` |
@@ -24,5 +24,5 @@
 `AGENTS.md`의 "GDScript 코드 규칙" 절을 따른다. 핵심:
 - 파일 700줄 이하, 함수 40줄 이하, 중첩 3단 이하
 - 매직 컬러 금지, SSOT(정본 1곳), 모듈 패턴
-- 검증: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts`
+- 검증: `python3 lint_gd.py apps/server-yjh-dev1/ingame/gang-up/scripts`
 - 정본: `apps/server-yjh-dev1/`

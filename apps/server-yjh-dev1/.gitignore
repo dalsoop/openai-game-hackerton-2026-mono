@@ -1,2 +1,18 @@
-node_modules/
-.godot/
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/.env.test
+backend/.env.local
+backend/.env.*.local
+
+# Godot
+ingame/**/.godot/
+ingame/**/*.import
+
+# Godot web export (빌드 산출물 — CI에서 재생성)
+ingame/**/web/*.pck
+ingame/**/web/*.wasm
+ingame/**/web/*.js
+ingame/**/web/*.html
+ingame/**/web/*.png
