@@ -64,4 +64,60 @@ describe("LobbyRoom 규칙", () => {
     expect(String(room.state.phase)).toBe("playing");
     expect(Number(room.state.seed)).toBeGreaterThan(0);
   });
+
+  it("방 닫기 — 재실자 강퇴·좌석 정리", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    await room.waitForNextPatch();
+
+    const kickedP = guest.waitForMessage(MSG.KICKED);
+    const leaveP = new Promise<boolean>((resolve) => {guest.onLeave(() => resolve(true));});
+    host.send(MSG.ROOM_TOGGLE, {});
+    const kicked = (await kickedP) as { msg?: string };
+
+    expect(await leaveP).toBe(true);
+    expect(kicked.msg).toBe(KO.KICKED_MSG);
+    expect(room.state.open).toBe(false);
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(1); // 방장만 남는다
+  });
+
+  it("닫힌 방 — 입장 거부", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.ROOM_TOGGLE, {});
+    await room.waitForNextPatch();
+    expect(room.state.open).toBe(false);
+
+    await expect(colyseus.connectTo(room, { name: "늦은이" }))
+      .rejects.toThrow(KO.ROOM_CLOSED);
+  });
+
+  it("비호스트 토글 시도 — ERROR 거부", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+
+    const errorP = guest.waitForMessage(MSG.ERROR);
+    guest.send(MSG.ROOM_TOGGLE, {});
+    const payload = (await errorP) as { msg?: string };
+
+    expect(payload.msg).toBe(KO.HOST_ONLY_TOGGLE);
+    expect(room.state.open).toBe(true); // 상태 불변
+  });
+
+  it("방 다시 열기 — 입장 재개", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.ROOM_TOGGLE, {});
+    await room.waitForNextPatch();
+    host.send(MSG.ROOM_TOGGLE, {});
+    await room.waitForNextPatch();
+    expect(room.state.open).toBe(true);
+
+    await colyseus.connectTo(room, { name: "재입장" });
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(2);
+  });
 });

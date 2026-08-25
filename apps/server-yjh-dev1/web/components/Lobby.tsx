@@ -3,7 +3,6 @@
 // 관전: 서버에 관전 슬롯 개념이 없어 제거 — 플레이 중 방은 입장 불가 표시.
 import type { JSX } from "react";
 import type { HubRoom } from "@/types";
-import { useState } from "react";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { GAME_CATALOG, DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
@@ -19,7 +18,6 @@ interface Props {
 
 export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Props): JSX.Element {
   const t = useTranslations("lobby");
-  const [game, setGame] = useState<string>(DEFAULT_GAME_ID);
   const sorted = sortRoomsByMembership(rooms, myRoom);
 
   return (
@@ -79,14 +77,24 @@ export default function Lobby({ rooms, myRoom, onCreate, onJoin, onRefresh }: Pr
         )}
       </div>
 
-      <select className="game-select" value={game} onChange={(e) => setGame(e.target.value)} aria-label={t("gameSelect")}>
+      {/* 비제어 select — 폼 제출로 값을 읽는다(컴포넌트 상태 없음) */}
+      <form
+        className="create-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          onCreate(String(data.get("game") ?? DEFAULT_GAME_ID));
+        }}
+      >
+        <select className="game-select" name="game" defaultValue={DEFAULT_GAME_ID} aria-label={t("gameSelect")}>
           {GAME_CATALOG.map((g) => (
             <option key={g.id} value={g.id}>{t(g.titleKey)}</option>
           ))}
         </select>
-        <button className="cta block" onClick={() => onCreate(game)}>
-        {t("createButton")}
-      </button>
+        <button className="cta block" type="submit">
+          {t("createButton")}
+        </button>
+      </form>
     </div>
   );
 }

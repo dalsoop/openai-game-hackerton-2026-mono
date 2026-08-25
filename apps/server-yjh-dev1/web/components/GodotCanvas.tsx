@@ -1,13 +1,13 @@
 "use client";
-// 렌더 전용: 캔버스 + 오버레이. 수명주기는 GodotRuntime 이 소유한다.
+// 렌더 전용: 캔버스 + 오버레이. 수명주기는 useGodotMatch(어댑터)·GodotRuntime(클래스)이 소유한다.
 import type { JSX } from "react";
-import { useEffect, useRef, useState } from "react";
-import { GodotRuntime, type HandoffInfo, type RuntimeSnapshot } from "@/lib/godot/runtime";
-import { DOM_EVT } from "@/lib/hub/config";
+import { GodotRuntime } from "@/lib/godot/runtime";
 import { runtimeErrorKey } from "@/lib/godot/runtime-errors";
+import { useGodotMatch } from "@/hooks/useGodotMatch";
 import { useTranslations } from "next-intl";
+import type { MatchInfo } from "@/types";
 
-export type MatchInfo = HandoffInfo;
+export type { MatchInfo } from "@/types";
 
 interface GodotCanvasProps {
   game: string;
@@ -19,29 +19,7 @@ interface GodotCanvasProps {
 
 export default function GodotCanvas({ matchInfo, visible, onMatchEnd, onError }: GodotCanvasProps): JSX.Element | null {
   const t = useTranslations("godot");
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [snap, setSnap] = useState<RuntimeSnapshot>(GodotRuntime.instance.snapshot);
-
-  useEffect(() => GodotRuntime.instance.subscribe(setSnap), []);
-
-  useEffect(() => {
-    if (!visible || !canvasRef.current) {return;}
-    void GodotRuntime.instance.boot(canvasRef.current, matchInfo).catch(() => {
-      // 부팅 실패는 runtime 상태(error)로 전파된다.
-    });
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps -- matchInfo는 최초 부팅에만 쓰인다
-
-  useEffect(() => {
-    if (!onMatchEnd) {return;}
-    const handler = (e: Event): void => {
-      GodotRuntime.instance.quit();
-      onMatchEnd((e as CustomEvent).detail ?? {});
-    };
-    window.addEventListener(DOM_EVT.MATCH_END, handler);
-    return (): void => window.removeEventListener(DOM_EVT.MATCH_END, handler);
-  }, [onMatchEnd]);
-
-  useEffect((): (() => void) => () => GodotRuntime.instance.quit(), []);
+  const { canvasRef, snap } = useGodotMatch({ matchInfo, visible, onMatchEnd });
 
   if (!visible) {return null;}
 

@@ -19,14 +19,14 @@ export function pinForJoin(): string | null {
 }
 
 /** 입장 요청 조립 — 잠긴 방이면 PIN 을 묻고, 취소면 null. */
-export function joinRequestFor(id: string, locked: boolean | undefined): { kind: "join"; id: string; pin?: string } | null {
+export function buildJoinRequest(id: string, locked: boolean | undefined): { kind: "join"; id: string; pin?: string } | null {
   if (!locked) {return { kind: "join", id };}
   const pin = pinForJoin();
   return pin === null ? null : { kind: "join", id, pin };
 }
 
 /** 생성 요청 조립 — PIN(선택)·게임(선택)만 붙인다. */
-export function createRequestFor(game: string | undefined): { kind: "create"; game?: string; pin?: string } {
+export function buildCreateRequest(game?: string): { kind: "create"; game?: string; pin?: string } {
   const pin = pinForCreate();
   return { kind: "create", ...(game ? { game } : {}), ...(pin.length >= 4 ? { pin } : {}) };
 }

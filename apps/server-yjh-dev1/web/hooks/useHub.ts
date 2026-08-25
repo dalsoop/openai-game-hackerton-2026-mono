@@ -13,7 +13,7 @@ import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom } from "@/hooks/useGameRoom";
 import { deriveStatus } from "@/lib/hub/status";
-import { createRequestFor, joinRequestFor } from "@/lib/hub/pin-prompt";
+import { buildCreateRequest, buildJoinRequest } from "@/lib/hub/pin-prompt";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
 
 let _client: Client | null = null;
@@ -111,11 +111,11 @@ export function useHub(): UseHubResult {
 
   // 방 비번(선택) — PIN 은 joinRequest 에만 실리고, 서버 onAuth 가 검증한다.
   const createRoom = useCallback((game?: string) => {
-    setJoinRequest(createRequestFor(game));
+    setJoinRequest(buildCreateRequest(game));
   }, []);
   const joinRoom = useCallback((id: string) => {
     const locked = rooms.find((r) => r.id === id)?.locked;
-    const req = joinRequestFor(id, locked);
+    const req = buildJoinRequest(id, locked);
     if (req !== null) {setJoinRequest(req);} // null = PIN 취소 — 입장 중단
   }, [rooms]);
 

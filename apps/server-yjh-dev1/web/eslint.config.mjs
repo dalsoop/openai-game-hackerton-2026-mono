@@ -126,10 +126,11 @@ const config = [
     rules: { "no-restricted-syntax": "off" },
   },
 
-  // page.tsx 는 렌더 전용 — 상태·이펙트·페이즈 판단 로직이 새어들어오면
-  // 이 규칙이 막는다. 로직은 hooks/(useGameFlow 등)로 가야 한다.
+  // page.tsx·components 는 렌더 전용 — 상태·이펙트·페이즈 판단 로직이 새어들어오면
+  // 이 규칙이 막는다. 수명주기·구독은 hooks/(어댑터)나 lib/(클래스)로 가야 한다.
+  // 컴포넌트 국소 입력 상태도 금지 — 비제어 폼(FormData)으로 해소한다.
   {
-    files: ["app/**/page.tsx"],
+    files: ["app/**/page.tsx", "components/**/*.tsx"],
     rules: {
       "no-restricted-syntax": [
         "error",
