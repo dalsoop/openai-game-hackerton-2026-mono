@@ -469,17 +469,6 @@ function prefetchAssets() {
 		if (fill) fill.style.width = pct + '%';
 	}
 
-	// WASM 프리컴파일 (백그라운드 — 메인 스레드 블로킹 최소화)
-	if (typeof WebAssembly !== 'undefined' && WebAssembly.compileStreaming) {
-		WebAssembly.compileStreaming(fetch('index.wasm'))
-			.then(function(mod) {
-				_compiledWasm = mod;
-				$assetProgress.childNodes[0].textContent = '엔진 준비 완료 ';
-				var fill = document.getElementById('asset-fill');
-				if (fill) fill.style.width = '100%';
-			})
-			.catch(function(e) { console.warn('WASM 프리컴파일 실패:', e); });
-	}
 
 	// PCK도 캐시에 넣기
 	trackFetch('index.pck').catch(function() {});
