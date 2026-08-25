@@ -48,6 +48,10 @@ const pairs = [
   ["HANDOFF.MATCH", HANDOFF.MATCH, "KEY_MATCH"],
   ["DOM_EVT.MATCH_START", DOM_EVT.MATCH_START, "EVT_MATCH_START"],
   ["DOM_EVT.MATCH_END", DOM_EVT.MATCH_END, "EVT_MATCH_END"],
+  ["DOM_EVT.TO_ENGINE", DOM_EVT.TO_ENGINE, "EVT_TO_ENGINE"],
+  ["DOM_EVT.FROM_ENGINE", DOM_EVT.FROM_ENGINE, "EVT_FROM_ENGINE"],
+  ["DOM_EVT.PAGE_HIDDEN", DOM_EVT.PAGE_HIDDEN, "EVT_PAGE_HIDDEN"],
+  ["DOM_EVT.PAGE_VISIBLE", DOM_EVT.PAGE_VISIBLE, "EVT_PAGE_VISIBLE"],
 ];
 
 for (const [label, tsVal, gdName] of pairs) {
@@ -57,7 +61,7 @@ for (const [label, tsVal, gdName] of pairs) {
   else if (tsVal !== gdVal) fail(`${label}: 정본 "${tsVal}" ≠ 거울 "${gdVal}"`);
 }
 
-const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "ERROR"];
+const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "ERROR", "STATE", "LEAVE"];
 const msgBlock = ts.match(/export const MSG = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
 for (const key of MSG_KEYS) {
   const tsVal = msgBlock.match(new RegExp(`(?:^|[\\s,{])${key}: "([^"]+)"`))?.[1];
@@ -101,4 +105,4 @@ if (errors > 0) {
   console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(lib/contract, catalog)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
 }
-console.log(`check-contract: 정본-거울 일치 (키 7종 + MSG 6종 + DEFAULT_GAME/MODE + pack ${packs.length}) · Godot 산출물 버전 무결`);
+console.log(`check-contract: 정본-거울 일치 (HANDOFF 7 + DOM_EVT 4 + MSG 8 + DEFAULT_GAME/MODE + pack ${packs.length}) · Godot 산출물 버전 무결`);

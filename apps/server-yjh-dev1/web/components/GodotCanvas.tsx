@@ -3,7 +3,7 @@
 import type { JSX } from "react";
 import { GodotRuntime } from "@/lib/godot/runtime";
 import { asGameId } from "@/lib/games/catalog";
-import { runtimeErrorKey } from "@/lib/godot/runtime-errors";
+import { runtimeErrorText } from "@/lib/godot/runtime-errors";
 import { useGodotMatch } from "@/hooks/useGodotMatch";
 import { useTranslations } from "next-intl";
 import type { MatchInfo } from "@/types";
@@ -27,8 +27,7 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
   if (!visible) {return null;}
 
   const booting = snap.state !== "running" && snap.state !== "error";
-  const errorKey = runtimeErrorKey(snap.error ?? "");
-  const errorText = errorKey.startsWith("game.errors.") ? t(errorKey) : t("godot.startError");
+  const errorText = runtimeErrorText(snap.error ?? "", t);
 
   return (
     <div className="gc-overlay">
@@ -42,7 +41,7 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
       {snap.state === "error" && (
         <div className="gc-error-box">
           <div className="gc-error-msg">
-            {t("godot.startError")}: {errorText}
+            {errorText}
           </div>
           <button
             className="ghost"

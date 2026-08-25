@@ -116,6 +116,24 @@ const moved = before && after && Math.hypot(after.x - before.x, after.y - before
 await page.screenshot({ path: `${SHOT}-6-moved.png` });
 ok("8. WASD 이동", moved, before && after ? `${before.x.toFixed(0)},${before.y.toFixed(0)} → ${after.x.toFixed(0)},${after.y.toFixed(0)}` : "probe 없음");
 
+const autoloadLeak = consoleErrors.some((line) => /non-existent singleton '(GameState|Audio)'/.test(line));
+ok("9. 오토로드는 엔진 싱글톤이 아님", !autoloadLeak);
+
+const pageFocusEvents = await page.evaluate(() => {
+  const seen = { hidden: false, visible: false };
+  const onHidden = () => { seen.hidden = true; };
+  const onVisible = () => { seen.visible = true; };
+  window.addEventListener("godot-page-hidden", onHidden);
+  window.addEventListener("godot-page-visible", onVisible);
+  document.getElementById("godot-canvas")?.blur();
+  window.dispatchEvent(new Event("blur"));
+  window.dispatchEvent(new Event("focus"));
+  window.removeEventListener("godot-page-hidden", onHidden);
+  window.removeEventListener("godot-page-visible", onVisible);
+  return { ...seen, canvas: document.activeElement?.id === "godot-canvas" };
+});
+ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas && pageFocusEvents.hidden && pageFocusEvents.visible);
+
 console.log("\n— 콘솔 에러 —");
 console.log(consoleErrors.length ? consoleErrors.slice(0, 10).join("\n") : "(없음)");
 console.log(`\nE2E: ${results.filter((r) => r.pass).length}/${results.length} 통과`);

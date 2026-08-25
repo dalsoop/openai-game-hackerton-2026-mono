@@ -1,6 +1,6 @@
 // START 페이로드 경계 — 서버·React·Godot 가 같은 형태로만 핸드오프한다.
 import { describe, expect, it } from "vitest";
-import { parseStartPayload } from "@/lib/hub/start-payload";
+import { matchInfoFromStoredStart, parseStartPayload } from "@/lib/hub/start-payload";
 
 const valid = {
   you: 0,
@@ -25,6 +25,29 @@ describe("parseStartPayload", () => {
     expect(parseStartPayload({ you: 0, host: true, mode: "full" })).toBeNull();
     expect(parseStartPayload({ ...valid, seed: 0 })).toBeNull();
     expect(parseStartPayload({ ...valid, you: "x" })).toBeNull();
+  });
+
+  it("저장된 MATCH 로 브릿지용 matchInfo 를 복원한다", () => {
+    const info = matchInfoFromStoredStart(JSON.stringify(valid), {
+      roomId: "r1",
+      reconnectionToken: "tok",
+      gameId: "sparring",
+    }, "호스트");
+    expect(info).toEqual({
+      roomId: "r1",
+      name: "호스트",
+      slot: 0,
+      resumeToken: "tok",
+      match: valid,
+      gameId: "sparring",
+    });
+  });
+
+  it("반전: 깨진 MATCH 는 복원하지 않는다", () => {
+    const room = { roomId: "r1", reconnectionToken: "tok" };
+    expect(matchInfoFromStoredStart(null, room, "A")).toBeNull();
+    expect(matchInfoFromStoredStart("{", room, "A")).toBeNull();
+    expect(matchInfoFromStoredStart(JSON.stringify({ you: 0, seed: 0 }), room, "A")).toBeNull();
   });
 
   it("불량 좌석은 버리고, connected 생략은 접속 중으로 본다", () => {

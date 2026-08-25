@@ -22,6 +22,14 @@ export const WEB_STORE = {
 export const DOM_EVT = {
   MATCH_START: "godot-match-start",
   MATCH_END: "godot-match-end",
+  /** React → Godot 인게임 수송. 허브 소켓은 React 만 연다. */
+  TO_ENGINE: "gangup-to-engine",
+  /** Godot → React. 엔진은 matchmake/reconnect 를 치지 않는다. */
+  FROM_ENGINE: "gangup-from-engine",
+  /** 알탭·숨김. 엔진은 물리 키 상태를 비운다. */
+  PAGE_HIDDEN: "godot-page-hidden",
+  /** 창 복귀. 허브는 캔버스 포커스를 되돌리고 엔진은 키 상태를 비운다. */
+  PAGE_VISIBLE: "godot-page-visible",
 } as const;
 
 export const MSG = {
@@ -33,6 +41,10 @@ export const MSG = {
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",
   KICKED: "kicked",
+  /** React → Godot 방 state. 허브 메시지 타입이 아니다. */
+  STATE: "state",
+  /** Godot → React 퇴장 요청. 허브 메시지 타입이 아니다. */
+  LEAVE: "leave",
 } as const;
 
 export const CLOSE_CODE = {

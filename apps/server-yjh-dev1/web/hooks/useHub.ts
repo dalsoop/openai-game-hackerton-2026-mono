@@ -12,7 +12,8 @@ import { clearMyRoom } from "@/lib/room-membership";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
-import { shouldMarkRoomDropped } from "@/lib/game-flow-state";
+import { usePageBridge } from "@/hooks/usePageBridge";
+import { reactOwnsResume, shouldMarkRoomDropped } from "@/lib/game-flow-state";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
@@ -86,6 +87,7 @@ export function useHub(): UseHubResult {
 
   // 방 상태 = 서버 state 의 불변 스냅샷.
   const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
+  usePageBridge(room, matchInfo, snap);
 
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
     setError(msg.msg ?? null);
@@ -131,6 +133,8 @@ export function useHub(): UseHubResult {
   const leaveRoom = useCallback(() => {
     clearDrop();
     localStorage.removeItem(HANDOFF.RESUME); // 의도적 퇴장 — 세션 종료
+    localStorage.removeItem(HANDOFF.FROM_HUB);
+    localStorage.removeItem(HANDOFF.MATCH);
     clearMyRoom((k) => localStorage.removeItem(k)); // 멤버십도 폐기 — 더 이상 내 방 아님
     setMatchInfo(null);
     setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
@@ -148,12 +152,15 @@ export function useHub(): UseHubResult {
     setConnected(false); // 리스트 룸도 내린다 — 뒤로가기가 인트로에서 멈추게
   }, [leaveRoom]);
 
-  // 게임 종료 후: Godot 이 세션을 반납했으므로 페이지가 재입장해 대기실로 돌아간다.
+  // 게임 종료 후: 소켓이 남아 있으면 대기실로, 없으면 같은 방에 다시 들어간다.
   const returnToLobby = useCallback((_name: string) => {
     const roomId = matchInfo?.roomId;
+    localStorage.removeItem(HANDOFF.FROM_HUB);
+    localStorage.removeItem(HANDOFF.MATCH);
     setMatchInfo(null);
-    if (!room && roomId) {setJoinRequest({ kind: "join", id: roomId });}
-    else if (!room) {setJoinRequest(null);}
+    if (room) {return;}
+    if (roomId) {setJoinRequest({ kind: "join", id: roomId });}
+    else {setJoinRequest(null);}
   }, [room, matchInfo, setMatchInfo]);
 
   const startMatch = useCallback(() => room?.send(MSG.START, {}), [room]);
@@ -164,10 +171,10 @@ export function useHub(): UseHubResult {
   // 리스트가 실시간이므로 수동 새로고침은 없다 (인터페이스 호환용 no-op).
   const refreshRooms = useCallback(() => {}, []);
 
-  // 세션 재개 — 저장된 토큰이 있으면 재접속을 시도한다 (성공 여부는 room 상태로 판정).
+  // 세션 재개 — 토큰이 있으면 React 만 reconnect 한다. FROM_HUB 는 엔진 부팅 신호다.
   const tryResume = useCallback((): boolean => {
     const token = localStorage.getItem(HANDOFF.RESUME);
-    if (!token) {return false;}
+    if (!reactOwnsResume(localStorage.getItem(HANDOFF.FROM_HUB), token)) {return false;}
     nameRef.current = localStorage.getItem(HANDOFF.NAME) ?? "";
     setResumeFailed(false);
     setConnected(true);

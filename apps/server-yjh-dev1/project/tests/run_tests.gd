@@ -13,12 +13,19 @@ const SUITES := [
 	"res://tests/test_gun_signature.gd",
 	"res://tests/test_hub_state_sync.gd",
 	"res://tests/test_touch_policy.gd",
+	"res://tests/test_game_state_autoload.gd",
+	"res://tests/test_input_release.gd",
+	"res://tests/test_network_bridge.gd",
 ]
 
 var pass_count := 0
 var fail_count := 0
 
 func _init() -> void:
+	# 오토로드(/root/GameState 등)는 메인 루프 첫 프레임 뒤에 붙는다.
+	call_deferred("_run_all")
+
+func _run_all() -> void:
 	for suite_path in SUITES:
 		var suite = load(suite_path).new()
 		suite.run(self)

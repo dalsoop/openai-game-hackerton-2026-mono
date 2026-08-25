@@ -14,10 +14,18 @@ describe("isWebGL2Available — Godot 공식 Engine.isWebGLAvailable(2)", () => 
     })).toBe(false);
   });
 
-  it("엔진이 없으면 더미 캔버스 webgl2 만 본다 — 게임 캔버스 아님", () => {
-    const getContext = vi.fn((id: string) => (id === "webgl2" ? {} : null));
-    expect(isWebGL2Available({ createCanvas: () => ({ getContext }) })).toBe(true);
+  it("더미 캔버스가 있으면 엔진 API보다 더미를 쓰고 컨텍스트를 버린다", () => {
+    const loseContext = vi.fn();
+    const getExtension = vi.fn(() => ({ loseContext }));
+    const getContext = vi.fn((id: string) => (id === "webgl2" ? { getExtension } : null));
+    const isWebGLAvailable = vi.fn(() => true);
+    expect(isWebGL2Available({
+      Engine: { isWebGLAvailable },
+      createCanvas: () => ({ getContext }),
+    })).toBe(true);
+    expect(isWebGLAvailable).not.toHaveBeenCalled();
     expect(getContext).toHaveBeenCalledWith("webgl2");
+    expect(loseContext).toHaveBeenCalled();
   });
 
   it("더미 캔버스도 없고 엔진도 없으면 false", () => {

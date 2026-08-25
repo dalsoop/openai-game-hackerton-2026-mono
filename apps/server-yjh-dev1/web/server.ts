@@ -8,6 +8,7 @@ import { RedisPresence } from "@colyseus/redis-presence";
 import { RedisDriver } from "@colyseus/redis-driver";
 import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
+import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -15,8 +16,15 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 const GODOT_DIR = path.join(process.cwd(), "public", "godot");
-// GDExtension 웹 라이브러리 — Godot dlopen 이 res:// 경로 그대로 요청한다.
-const ADDONS_DIR = path.join(process.cwd(), "..", "project", "addons");
+// 이미지 안에서는 public/addons, 로컬 dev 는 project/addons.
+const ADDONS_DIR = process.env.ADDONS_DIR
+  ?? (statExists(path.join(process.cwd(), "public", "addons"))
+    ? path.join(process.cwd(), "public", "addons")
+    : path.join(process.cwd(), "..", "project", "addons"));
+
+function statExists(p: string): boolean {
+  try { statSync(p); return true; } catch { return false; }
+}
 const GODOT_MIME: Record<string, string> = {
   ".wasm": "application/wasm",
   ".pck": "application/octet-stream",
@@ -144,9 +152,14 @@ void app.prepare().then(async () => {
         res.setHeader("cross-origin-embedder-policy", "require-corp");
         res.setHeader("cross-origin-resource-policy", "same-origin");
         const pathname = (req.url ?? "/").split("?")[0];
-        // GDExtension 웹 라이브러리 — Godot dlopen 이 파일명만 요청한다(페이지 루트).
-        if (pathname === "/libcolyseus_godot.web.wasm32.release.wasm" &&
-            serveAddonsAsset(req, res, "/addons/colyseus/bin/" + pathname.slice(1))) {return;}
+        if (pathname === "/health" || pathname === "/healthz") {
+          res.writeHead(200, { "content-type": "text/plain", "cache-control": "no-store" });
+          res.end("ok");
+          return;
+        }
+        // GDExtension — 페이지가 /ko 이면 엔진이 /ko/libcolyseus... 로 상대 요청한다.
+        if (isExtLibPath(pathname) &&
+            serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
         if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
         if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
         void handle(req, res);

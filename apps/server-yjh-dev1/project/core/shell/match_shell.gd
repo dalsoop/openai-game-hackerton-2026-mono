@@ -7,6 +7,7 @@ extends Node
 const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.gd"
 # Autoload 전역명은 --script 단독 파스에서 안 잡힌다. 스크립트는 preload, 인스턴스는 싱글톤.
 const GameStateScript := preload("res://core/autoload/game_state.gd")
+const HeldInputScript := preload("res://core/input/held_input.gd")
 
 @onready var world_view: Node2D = $WorldView
 @onready var camera: Camera2D = $WorldView/Camera2D
@@ -18,6 +19,9 @@ var module: GameModule = null
 var touch: CanvasLayer = null
 var _ctx: Dictionary = {}
 var _play_probe_acc := 0.0
+# create_callback 은 이 참조가 살아야 JS 가 GC 로 콜백을 잃지 않는다.
+var _js_page_hidden_cb = null
+var _js_page_visible_cb = null
 
 func _ready() -> void:
 	hub = get_node_or_null("/root/NetworkManager")
@@ -46,6 +50,7 @@ func _ready() -> void:
 		if hub.has_method("consume_pending_match"):
 			hub.consume_pending_match()
 	if OS.has_feature("web"):
+		_bind_web_page_focus()
 		JavaScriptBridge.eval("window.glog && window.glog('godot','shell_ready')")
 
 func _on_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
@@ -58,10 +63,15 @@ func _on_snapshot_received(snap: Dictionary) -> void:
 		module.push_snap(snap)
 
 func _game_state() -> Node:
-	return Engine.get_singleton("GameState") as Node
+	# 오토로드는 엔진 싱글톤 API 대상이 아니다. 그 경로로 찾으면
+	# 웹에서 null 이 나와 매치 진입이 죽는다. /root 노드가 정본이다.
+	return get_node_or_null("/root/GameState")
 
 func _on_host_changed(now_host: bool) -> void:
-	_game_state().set("net_host", now_host)
+	var gs := _game_state()
+	if gs == null:
+		return
+	gs.set("net_host", now_host)
 	if module == null:
 		return
 	if now_host:
@@ -79,8 +89,12 @@ func _game_id() -> String:
 	return raw
 
 func _on_match_started(you: int, room: Dictionary) -> void:
-	_game_state().set("net_active", true)
-	_game_state().set("net_host", hub.is_host)
+	var gs := _game_state()
+	if gs == null:
+		_return_to_hub()
+		return
+	gs.set("net_active", true)
+	gs.set("net_host", hub.is_host)
 	if module == null:
 		module = GameRegistry.load_game(_game_id())
 		if module == null:
@@ -95,11 +109,12 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 		"mode": str(room.get("mode", WebContract.DEFAULT_MODE)),
 		"seats": hub.players,
 	}, _ctx)
-	_game_state().request(GameStateScript.State.PLAYING)
+	gs.request(GameStateScript.State.PLAYING)
 	_apply_playing_visuals(true)
 
 func _physics_process(delta: float) -> void:
-	if not _game_state().is_state(GameStateScript.State.PLAYING) or module == null:
+	var gs := _game_state()
+	if gs == null or not gs.is_state(GameStateScript.State.PLAYING) or module == null:
 		return
 	module.tick(delta, _ctx)
 	_emit_play_probe(delta)
@@ -132,8 +147,10 @@ func _emit_play_probe(delta: float) -> void:
 	JavaScriptBridge.eval(js)
 
 func _leave_match() -> void:
-	_game_state().set("net_active", false)
-	_game_state().set("net_host", false)
+	var gs := _game_state()
+	if gs != null:
+		gs.set("net_active", false)
+		gs.set("net_host", false)
 	if hub != null and hub.in_room:
 		hub.leave_room()
 	_return_to_hub()
@@ -142,7 +159,9 @@ func _leave_match() -> void:
 func _return_to_hub() -> void:
 	if module != null:
 		module.stop()
-	_game_state().request(GameStateScript.State.BOOT)
+	var gs := _game_state()
+	if gs != null:
+		gs.request(GameStateScript.State.BOOT)
 	_apply_playing_visuals(false)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('%s', {detail: {}}))" % WebContract.EVT_MATCH_END)
@@ -156,6 +175,26 @@ func _apply_playing_visuals(playing: bool) -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.glog && window.glog('shell.phase','%s')" % ("play" if playing else "boot"))
+
+func _bind_web_page_focus() -> void:
+	_js_page_hidden_cb = JavaScriptBridge.create_callback(_on_web_page_hidden)
+	_js_page_visible_cb = JavaScriptBridge.create_callback(_on_web_page_visible)
+	var win = JavaScriptBridge.get_interface("window")
+	if win == null:
+		return
+	win.addEventListener(WebContract.EVT_PAGE_HIDDEN, _js_page_hidden_cb)
+	win.addEventListener(WebContract.EVT_PAGE_VISIBLE, _js_page_visible_cb)
+
+func _on_web_page_hidden(_args: Array) -> void:
+	HeldInputScript.release_all()
+
+func _on_web_page_visible(_args: Array) -> void:
+	HeldInputScript.release_all()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
+			or what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		HeldInputScript.release_all()
 
 func _attach_touch() -> void:
 	if not ResourceLoader.exists(TOUCH_CONTROLS_PATH):

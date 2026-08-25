@@ -11,12 +11,18 @@ export interface WebGLProbeHost {
   createCanvas?: () => { getContext: (id: string) => unknown };
 }
 
-/** Godot 공식: major 2 → getContext("webgl2"). 엔진이 있으면 그 API를 우선한다. */
+/** Godot 공식과 같이 webgl2 를 묻되, 더미 컨텍스트는 바로 버린다. */
 export function isWebGL2Available(host: WebGLProbeHost = {}): boolean {
+  if (host.createCanvas) {
+    const canvas = host.createCanvas();
+    const ctx = canvas.getContext("webgl2") as
+      | { getExtension?: (name: string) => { loseContext?: () => void } | null }
+      | null;
+    ctx?.getExtension?.("WEBGL_lose_context")?.loseContext?.();
+    return !!ctx;
+  }
   if (typeof host.Engine?.isWebGLAvailable === "function") {
     return host.Engine.isWebGLAvailable(2);
   }
-  const canvas = host.createCanvas?.();
-  if (!canvas) {return false;}
-  return !!canvas.getContext("webgl2");
+  return false;
 }

@@ -11,13 +11,15 @@ describe("MSG 메시지 계약", () => {
     for (const v of values) {expect(v.length).toBeGreaterThan(0);}
   });
 
-  it("필수 메시지(START/INPUT/SNAP/PEER_INPUT/HOST_SNAP/ERROR)가 존재한다", () => {
+  it("필수 메시지(START/INPUT/SNAP/PEER_INPUT/HOST_SNAP/ERROR/STATE/LEAVE)가 존재한다", () => {
     expect(MSG.START).toBeDefined();
     expect(MSG.INPUT).toBeDefined();
     expect(MSG.SNAP).toBeDefined();
     expect(MSG.PEER_INPUT).toBeDefined();
     expect(MSG.HOST_SNAP).toBeDefined();
     expect(MSG.ERROR).toBeDefined();
+    expect(MSG.STATE).toBe("state");
+    expect(MSG.LEAVE).toBe("leave");
   });
 });
 

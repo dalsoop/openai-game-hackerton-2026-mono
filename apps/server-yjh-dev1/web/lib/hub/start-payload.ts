@@ -45,3 +45,31 @@ export function parseStartPayload(raw: unknown): StartPayload | null {
     seats,
   };
 }
+
+/** 새로고침 후 React 가 MATCH 로 브릿지를 다시 연다. */
+export function matchInfoFromStoredStart(
+  raw: string | null,
+  room: { roomId: string; reconnectionToken: string; gameId?: string },
+  name: string,
+): {
+  roomId: string;
+  name: string;
+  slot: number;
+  resumeToken: string;
+  match: StartPayload;
+  gameId?: string;
+} | null {
+  if (!raw) {return null;}
+  let parsed: unknown;
+  try {parsed = JSON.parse(raw);} catch {return null;}
+  const payload = parseStartPayload(parsed);
+  if (!payload) {return null;}
+  return {
+    roomId: room.roomId,
+    name,
+    slot: payload.you,
+    resumeToken: room.reconnectionToken,
+    match: payload,
+    gameId: room.gameId,
+  };
+}

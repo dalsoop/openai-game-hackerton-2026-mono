@@ -44,6 +44,17 @@ const GODOT_PACK_SYNTAX = [
   },
 ];
 
+const JPEG_SYNTAX = [
+  {
+    selector: "Literal[value=/\\.jpe?g(\\b|[?#\"']|$)/i]",
+    message: "JPEG 금지 — 정적 이미지는 webp 이상(webp/avif). 자리 표시도 jpg/jpeg 를 쓰지 않는다.",
+  },
+  {
+    selector: "TemplateElement[value.cooked=/\\.jpe?g/i]",
+    message: "JPEG 금지 — 정적 이미지는 webp 이상(webp/avif). 자리 표시도 jpg/jpeg 를 쓰지 않는다.",
+  },
+];
+
 const PAGE_HOOK_SYNTAX = {
   selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
   message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
@@ -103,7 +114,7 @@ const config = [
       // || 폴스티 삼킴 방지 — 널 병합은 ?? 로만 (문자열 ""·숫자 0·false 오용 차단)
       "@typescript-eslint/prefer-nullish-coalescing": "error",
       // 하드코딩 한글·계약 리터럴 금지 — 문구는 i18n/KO, 프로토콜은 config 상수
-      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX],
+      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -151,7 +162,7 @@ const config = [
     files: ["server.ts", "scripts/**/*.{mjs,ts,js}"],
     rules: {
       "no-console": "off",
-      "no-restricted-syntax": ["error", ...GODOT_PACK_SYNTAX],
+      "no-restricted-syntax": ["error", ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
     },
   },
 
@@ -174,7 +185,7 @@ const config = [
   {
     files: ["app/**/page.tsx", "components/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX],
+      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
     },
   },
 

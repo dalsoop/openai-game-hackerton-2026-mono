@@ -41,8 +41,8 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 
 	_ensure_overlays(ctx)
 	var hud_layer: CanvasLayer = ctx["hud_layer"]
-	# Autoload 전역명은 --script 단독 파스에서 안 잡힌다.
-	var audio := Engine.get_singleton("Audio")
+	# RefCounted 모듈은 트리 밖이다. 오토로드는 노드 절대경로로 찾는다.
+	var audio := hud_layer.get_node_or_null("/root/Audio")
 	if audio != null and audio.has_method("register_catalog"):
 		audio.register_catalog(SfxCatalogScript)
 

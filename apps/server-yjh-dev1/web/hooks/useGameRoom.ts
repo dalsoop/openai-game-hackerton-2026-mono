@@ -8,18 +8,16 @@ import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF } from "@/lib/contract";
 import { ROOM_NAME } from "@/lib/hub/config";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
-import { parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
-import { leaveOnceForHandoff } from "@/lib/hub/handoff-leave";
+import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
-/** Godot 양도는 튕김이 아니다. 그 외 onLeave 는 강제 퇴장. */
+/** 소켓 유지는 튕김이 아니다. onLeave 만 강제 퇴장. */
 export type RoomEndKind = "handoff" | "drop";
 
-// 인게임 핸드오프 — 브릿지는 없다. 매치 시작(START) 정보와 재접속 토큰을
-// localStorage 에 남기고 방을 떠난다. Godot 가 공식 SDK reconnect(token) 으로
-// 같은 세션·좌석을 이어받는다(서버 allowReconnection 유예 안에서).
-function handOffToGodot(
+// 인게임 핸드오프 — START 정보와 재접속 토큰을 localStorage 에 남긴다.
+// 허브 소켓은 React 가 유지한다. Godot 는 페이지 브릿지로만 I/O 한다.
+function persistMatchForEngine(
   room: BridgeableRoom,
   onStarted: (payload: StartPayload) => void,
 ): void {
@@ -30,9 +28,7 @@ function handOffToGodot(
       localStorage.setItem(HANDOFF.MATCH, JSON.stringify(payload));
       localStorage.setItem(HANDOFF.RESUME, room.reconnectionToken);
       localStorage.setItem(HANDOFF.FROM_HUB, "1");
-    } catch { /* localStorage 불가 — 엔진이 토큰 없이 시도한다 */ }
-    // 비동의 leave — 좌석을 유지한 채 소켓만 넘긴다. 동의 퇴장은 자리를 지운다.
-    leaveOnceForHandoff(room);
+    } catch { /* localStorage 불가 — 엔진은 MATCH 없이 부팅한다 */ }
     onStarted(payload);
   });
 }
@@ -64,9 +60,7 @@ export function useGameRoom(
             : joinRequest.kind === "resume"
               ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
               : await getClient().joinById(joinRequest.id, { name: settings.name });
-          let handedOff = false;
-          handOffToGodot(r as unknown as BridgeableRoom, (payload): void => {
-            handedOff = true;
+          persistMatchForEngine(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({
               roomId: r.roomId,
               name: playerName(),
@@ -76,10 +70,19 @@ export function useGameRoom(
               gameId: (r.state as RosterSnapshot | undefined)?.gameId,
             });
           });
+          const restored = matchInfoFromStoredStart(
+            localStorage.getItem(HANDOFF.MATCH),
+            {
+              roomId: r.roomId,
+              reconnectionToken: r.reconnectionToken,
+              gameId: (r.state as RosterSnapshot | undefined)?.gameId,
+            },
+            playerName(),
+          );
+          if (restored) {setMatchInfo(restored);}
           r.onLeave(() => {
-            const kind: RoomEndKind = handedOff ? "handoff" : "drop";
-            if (kind === "drop") {setMatchInfo(null);}
-            onRoomEnded(kind);
+            setMatchInfo(null);
+            onRoomEnded("drop");
           });
           return r;
         }
@@ -92,6 +95,8 @@ export function useGameRoom(
     if (!roomError) {return;}
     if (joinRequest?.kind !== "resume") {return;}
     localStorage.removeItem(HANDOFF.RESUME);
+    localStorage.removeItem(HANDOFF.FROM_HUB);
+    localStorage.removeItem(HANDOFF.MATCH);
     onResumeFailed(roomError.message);
   }, [roomError, joinRequest, onResumeFailed]);
 
