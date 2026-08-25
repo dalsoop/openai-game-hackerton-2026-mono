@@ -29,6 +29,8 @@ var _ammo_last_equipment: String = ""
 var _ammo_eject_tick: int = -1000
 var _ammo_casings: Array[Dictionary] = []
 var _ammo_casing_serial: int = 0
+var _ammo_last_tick: int = -1
+var _ammo_world_instance_id: int = 0
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -46,6 +48,15 @@ func _ready() -> void:
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
+
+func reset_match_visuals() -> void:
+    _ammo_last_mag = -1
+    _ammo_last_equipment = ""
+    _ammo_eject_tick = -1000
+    _ammo_casings.clear()
+    _ammo_casing_serial = 0
+    _ammo_last_tick = -1
+    _ammo_world_instance_id = 0
 
 func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
     draw_string(GameFont.get_font(), pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
@@ -192,6 +203,24 @@ func _draw_zone_timer() -> void:
     if urgent:
         draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(clock_color, 0.34 + sin(float(world.tick) * 0.22) * 0.08), false, 9.0)
 
+func _draw_status_blocks(rect: Rect2, ratio: float, segments: int, color: Color, pulse_endpoint: bool, pulse_all: bool, pulse_hz: float) -> void:
+    var gap := 3.0
+    var block_width := (rect.size.x - gap * float(segments - 1)) / float(segments)
+    var filled_units := clampf(ratio, 0.0, 1.0) * float(segments)
+    var endpoint := clampi(ceili(filled_units) - 1, 0, segments - 1)
+    var pulse := 0.5 + 0.5 * sin(float(world.tick) * TAU * pulse_hz / 60.0)
+    for index in range(segments):
+        var block := Rect2(rect.position + Vector2(float(index) * (block_width + gap), 0.0), Vector2(block_width, rect.size.y))
+        var portion := clampf(filled_units - float(index), 0.0, 1.0)
+        draw_rect(block, Color(0.025, 0.035, 0.050, 0.94))
+        var is_pulsing := pulse_all or (pulse_endpoint and index == endpoint and portion > 0.0)
+        var fill_alpha := lerpf(1.0, 0.18, pulse) if is_pulsing else 1.0
+        var border_alpha := lerpf(0.58, 1.0, pulse) if is_pulsing else (0.52 if portion > 0.0 else 0.20)
+        if portion > 0.0:
+            var inner := Rect2(block.position + Vector2(2.0, 2.0), Vector2(maxf(0.0, (block.size.x - 4.0) * portion), block.size.y - 4.0))
+            draw_rect(inner, Color(color, fill_alpha))
+        draw_rect(block, Color(color, border_alpha), false, 2.0)
+
 func _draw_hotbar(me: Dictionary) -> void:
     var bar := Rect2(549.0, 802.0, 502.0, 86.0)
     draw_rect(bar, Color(0.008, 0.012, 0.020, 0.78))
@@ -199,13 +228,19 @@ func _draw_hotbar(me: Dictionary) -> void:
     var hp_now := float(me["hp"])
     var hp_max := float(me["max_hp"])
     var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2(bar.size.x - 16.0, 18.0)), Color("#151920"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 6.0), Vector2((bar.size.x - 16.0) * hp_ratio, 18.0)), Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73"))
-    _text(bar.position + Vector2(12.0, 8.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, Color.WHITE, 300.0)
+    var hp_color := Color("#3fe37a")
+    if hp_ratio <= 0.30:
+        hp_color = Color("#ff5d73")
+    elif hp_ratio <= 0.60:
+        hp_color = Color("#ffb347")
+    _text(bar.position + Vector2(10.0, 15.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, hp_color, 304.0)
+    _draw_status_blocks(Rect2(bar.position + Vector2(8.0, 19.0), Vector2(310.0, 16.0)), hp_ratio, 10, hp_color, hp_now > 0.0, false, 1.2)
     var ult_max := 100.0
     var power_ratio := clampf(float(me.get("ultimate_charge", 0.0)) / maxf(1.0, ult_max), 0.0, 1.0)
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2(bar.size.x - 16.0, 6.0)), Color("#1b2430"))
-    draw_rect(Rect2(bar.position + Vector2(8.0, 28.0), Vector2((bar.size.x - 16.0) * power_ratio, 6.0)), Color("#4f8cff"))
+    var ult_ready := power_ratio >= 0.999
+    var ult_color := Color("#a970ff") if ult_ready else Color("#4f8cff")
+    _text(bar.position + Vector2(328.0, 15.0), "ULT READY" if ult_ready else "ULT  %d%%" % roundi(power_ratio * 100.0), 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
+    _draw_status_blocks(Rect2(bar.position + Vector2(326.0, 19.0), Vector2(168.0, 16.0)), power_ratio, 8, ult_color, false, ult_ready, 0.7)
     _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
 
 func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
@@ -302,6 +337,11 @@ func _draw_ammo_conveyor(me: Dictionary) -> void:
     var mag_now := maxi(0, int(me.get("mag", 0)))
     var mag_max := maxi(1, int(equipment.get("mag_size", 1)))
     var tick_now := int(world.tick)
+    var world_instance_id := int(world.get_instance_id())
+    if _ammo_world_instance_id != world_instance_id or (_ammo_last_tick >= 0 and tick_now < _ammo_last_tick):
+        reset_match_visuals()
+        _ammo_world_instance_id = world_instance_id
+    _ammo_last_tick = tick_now
     if equipment_id != _ammo_last_equipment:
         _ammo_last_equipment = equipment_id
         _ammo_last_mag = mag_now

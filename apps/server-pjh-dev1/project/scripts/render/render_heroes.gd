@@ -70,19 +70,45 @@ func draw_flee_mark(body_pos: Vector2, hero: Dictionary) -> void:
 		r.draw_circle(mark, 16.0, Color("#ffcc33"))
 	r.draw_string(GameFont.get_font(), mark + Vector2(-30.0, 28.0), "도망", HORIZONTAL_ALIGNMENT_CENTER, 60.0, 12, Color("#ffe066"))
 
-func draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
-	var tag := display_name if display_name != "" else "P%d %s" % [slot + 1, r._zodiac_name(slot)]
-	r.draw_string(GameFont.get_font(), pos + Vector2(-71.0, -78.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(0.0, 0.0, 0.0, 0.85 * opacity))
-	r.draw_string(GameFont.get_font(), pos + Vector2(-72.0, -79.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(1.0, 1.0, 1.0, opacity))
-	var bar := Rect2(pos + Vector2(-46.0, -64.0), Vector2(92.0, 16.0))
-	r.draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.92 * opacity))
-	r.draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95 * opacity))
-	var fill := Color("#3fe37a") if hp_ratio > 0.34 else Color("#ff5d73")
-	var fill_w := (bar.size.x - 4.0) * clampf(hp_ratio, 0.0, 1.0)
-	r.draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2(fill_w, bar.size.y - 4.0)), Color(fill, opacity))
-	var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
-	r.draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 13.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7 * opacity))
-	r.draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(1.0, 1.0, 1.0, opacity))
+func draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", wanted: bool = false, kill_streak: int = 0) -> void:
+	var tag := display_name if display_name != "" else "P%d" % (slot + 1)
+	var plate := Rect2(pos + Vector2(-47.0, -84.0), Vector2(94.0, 17.0))
+	var slot_color := Color(r._slot_color(slot), opacity)
+	var plate_points := PackedVector2Array([
+		plate.position + Vector2(4.0, 0.0), plate.position + Vector2(plate.size.x, 0.0),
+		plate.position + plate.size, plate.position + Vector2(0.0, plate.size.y),
+		plate.position + Vector2(0.0, 4.0), plate.position + Vector2(4.0, 0.0),
+	])
+	r.draw_colored_polygon(plate_points, Color(0.015, 0.022, 0.034, 0.84 * opacity))
+	r.draw_polyline(plate_points, Color(slot_color, 0.88 if slot == world.local_slot else 0.55), 1.5)
+	r.draw_string(GameFont.get_font(), plate.position + Vector2(3.0, 13.0), tag, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x - 6.0, 12, Color(1.0, 1.0, 1.0, opacity))
+	if wanted:
+		var badge := Rect2(plate.position + Vector2(-17.0, 0.0), Vector2(14.0, 17.0))
+		r.draw_rect(badge, Color("#7a121c", 0.92 * opacity))
+		r.draw_rect(badge, Color("#ff5d73", opacity), false, 1.5)
+		r.draw_string(GameFont.get_font(), badge.position + Vector2(0.0, 14.0), "!", HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 13, Color("#ffd166", opacity))
+	if kill_streak >= 2:
+		var streak_badge := Rect2(plate.position + Vector2(plate.size.x + 3.0, 0.0), Vector2(23.0, 17.0))
+		r.draw_rect(streak_badge, Color(0.10, 0.07, 0.02, 0.88 * opacity))
+		r.draw_rect(streak_badge, Color("#ffd166", 0.82 * opacity), false, 1.5)
+		r.draw_string(GameFont.get_font(), streak_badge.position + Vector2(1.0, 13.0), "x%d" % kill_streak, HORIZONTAL_ALIGNMENT_CENTER, streak_badge.size.x - 2.0, 10, Color("#ffd166", opacity))
+	var hp_color := Color("#3fe37a")
+	if hp_ratio <= 0.30:
+		hp_color = Color("#ff5d73")
+	elif hp_ratio <= 0.60:
+		hp_color = Color("#ffb347")
+	var segments := 8
+	var gap := 2.0
+	var hp_rect := Rect2(pos + Vector2(-42.0, -63.0), Vector2(84.0, 9.0))
+	var segment_width := (hp_rect.size.x - gap * float(segments - 1)) / float(segments)
+	var filled_units := clampf(hp_ratio, 0.0, 1.0) * float(segments)
+	for index in range(segments):
+		var block := Rect2(hp_rect.position + Vector2(float(index) * (segment_width + gap), 0.0), Vector2(segment_width, hp_rect.size.y))
+		var portion := clampf(filled_units - float(index), 0.0, 1.0)
+		r.draw_rect(block, Color(0.025, 0.035, 0.050, 0.88 * opacity))
+		if portion > 0.0:
+			r.draw_rect(Rect2(block.position + Vector2(1.0, 1.0), Vector2((block.size.x - 2.0) * portion, block.size.y - 2.0)), Color(hp_color, opacity))
+		r.draw_rect(block, Color(hp_color, (0.62 if portion > 0.0 else 0.18) * opacity), false, 1.0)
 
 func draw_knockouts() -> void:
 	for knockout in world.knockouts:
@@ -331,9 +357,6 @@ func draw_heroes() -> void:
 		if float(hero.get("launch_time", 0.0)) > 0.0 and Vector2(hero.get("launch_vel", Vector2.ZERO)).length_squared() > 1.0:
 			var launch_dir := Vector2(hero["launch_vel"]).normalized()
 			r.draw_line(pos - launch_dir * 94.0, pos - launch_dir * 18.0, Color(r._slot_color(slot), 0.28), 9.0)
-		if slot == world.wanted_slot:
-			r.draw_colored_polygon(PackedVector2Array([pos + Vector2(-18.0, -58.0), pos + Vector2(-15.0, -74.0), pos + Vector2(-5.0, -65.0), pos + Vector2(0.0, -80.0), pos + Vector2(5.0, -65.0), pos + Vector2(15.0, -74.0), pos + Vector2(18.0, -58.0)]), Color("#ff3349"))
-			r.draw_string(GameFont.get_font(), pos + Vector2(-40.0, -86.0), "WANTED", HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
 		_draw_hero_status_arcs(pos, hero, slot)
 		var hop_time: float = float(hero.get("hop_time", 0.0))
 		var hop_lift: float = 0.0
@@ -378,13 +401,10 @@ func draw_heroes() -> void:
 		_draw_hero_body(pos, body_pos, slot, aim, hero, is_down, is_turtle, hop_lift, hop_scale, body_squash, ghost, hit_flash, comb_nudge, timed_ids)
 		_draw_hero_buff_icons(body_pos, timed_ids)
 		var hp_ratio := maxf(0.0, float(hero["hp"]) / float(hero["max_hp"]))
-		var animal_name = r._zodiac_name(int(hero.get("animal", slot)))
 		var tag := str(hero.get("display_name", ""))
 		if tag == "":
-			tag = "P%d %s" % [slot + 1, animal_name]
-		draw_nametag(body_pos, slot, hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
-		if int(hero.get("kill_streak", 0)) >= 2:
-			r.draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
+			tag = "P%d" % (slot + 1)
+		draw_nametag(body_pos, slot, hp_ratio, ghost, tag, slot == world.wanted_slot, int(hero.get("kill_streak", 0)))
 		r._overlay.draw_reload_bubble(body_pos, hero)
 		r._overlay.draw_head_roulette(body_pos, hero)
 
@@ -465,14 +485,14 @@ func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, h
 			r._draw_hero_gun(cbody, slot, caim, 0.94, body_squash)
 
 func _draw_hero_buff_icons(body_pos: Vector2, timed_ids: Array) -> void:
-	var icon_x := -18.0
+	var icon_y := -84.0
 	for mark_id in ["berserk", "sniper", "shield"]:
 		if not timed_ids.has(mark_id):
 			continue
 		var mark_tex: Texture2D = r.roulette_icons.get(mark_id, null)
-		var mark_pos: Vector2 = body_pos + Vector2(icon_x, -108.0)
+		var mark_pos: Vector2 = body_pos + Vector2(51.0, icon_y)
 		if mark_tex != null:
-			r.draw_texture_rect(mark_tex, Rect2(mark_pos, Vector2(36.0, 36.0)), false)
+			r.draw_texture_rect(mark_tex, Rect2(mark_pos, Vector2(22.0, 22.0)), false)
 		else:
-			r.draw_circle(mark_pos + Vector2(18.0, 18.0), 14.0, Color.WHITE)
-		icon_x += 40.0
+			r.draw_circle(mark_pos + Vector2(11.0, 11.0), 9.0, Color.WHITE)
+		icon_y += 24.0

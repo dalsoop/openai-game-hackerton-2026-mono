@@ -105,12 +105,12 @@ func draw_reload_bubble(body_pos: Vector2, hero: Dictionary) -> void:
 		var frame_size := Vector2(384.0, 384.0)
 		var source := Rect2(Vector2(frame % 4, floori(float(frame) / 4.0)) * frame_size, frame_size)
 		var display_size := Vector2(58.0, 58.0)
-		var display_rect := Rect2(body_pos + Vector2(-display_size.x * 0.5, -116.0), display_size)
+		var display_rect := Rect2(body_pos + Vector2(-display_size.x * 0.5, -150.0), display_size)
 		r.draw_texture_rect_region(r.reload_bubble_atlas, display_rect, source)
 		return
 	var bw := 36.0
 	var bh := 28.0
-	var origin: Vector2 = body_pos + Vector2(-bw * 0.5, -88.0)
+	var origin: Vector2 = body_pos + Vector2(-bw * 0.5, -122.0)
 	r.draw_rect(Rect2(origin, Vector2(bw, bh)), Color(1.0, 1.0, 1.0, 0.96))
 	r.draw_rect(Rect2(origin, Vector2(bw, bh)), Color(0.05, 0.05, 0.07, 1.0), false, 1.0)
 	var tail: PackedVector2Array = PackedVector2Array([
