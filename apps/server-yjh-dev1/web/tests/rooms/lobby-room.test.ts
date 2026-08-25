@@ -121,3 +121,30 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.players.length).toBe(2);
   });
 });
+
+describe("LobbyRoom PIN 잠금 (onAuth)", () => {
+  it("잘못된 PIN 입장 — 거부", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", pin: "4321" });
+    await colyseus.connectTo(room, { pin: "4321", name: "호스트" });
+    await room.waitForNextPatch();
+    await expect(colyseus.connectTo(room, { pin: "0000", name: "침입자" })).rejects.toThrow();
+    expect(room.state.players.length).toBe(1);
+  });
+
+  it("올바른 PIN 입장 — 허용", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", pin: "4321" });
+    await colyseus.connectTo(room, { pin: "4321", name: "호스트" });
+    await colyseus.connectTo(room, { pin: "4321", name: "게스트" });
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(2);
+  });
+
+  it("닫힌 방(open=false) 입장 — 거부", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.ROOM_TOGGLE, {});
+    await room.waitForNextPatch();
+    expect(room.state.open).toBe(false);
+    await expect(colyseus.connectTo(room, { name: "늦은이" })).rejects.toThrow();
+  });
+});
