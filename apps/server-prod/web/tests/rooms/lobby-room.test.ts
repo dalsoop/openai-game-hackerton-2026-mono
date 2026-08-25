@@ -173,6 +173,14 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.players.length).toBe(1); // 방장만 남는다
   });
 
+  it("PING 은 보낸 t 를 PONG 으로 그대로 돌려준다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const pongP = host.waitForMessage(MSG.PONG);
+    host.send(MSG.PING, { t: 1234 });
+    expect(await pongP).toEqual({ t: 1234 });
+  });
+
   it("닫힌 방 — 입장 거부", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });

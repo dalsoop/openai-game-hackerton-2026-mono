@@ -40,27 +40,29 @@ export default function CreateRoom({ listings, onSubmit, onBack }: Props): JSX.E
           <legend className="sec-title">{t("gameSelect")}</legend>
           <div className="game-list">
             {listings.map((g) => (
-              <label key={g.id} className="game-row">
+              <label key={g.id} className="game-card">
                 <input
                   type="radio"
                   name="game"
                   value={g.id}
                   defaultChecked={g.id === DEFAULT_GAME_ID}
                 />
-                <div className="game-row-head">
-                  <b>{games(g.titleKey)}</b>
+                <div className="game-card-art">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 카탈로그 정적 썸네일 */}
+                  <img src={g.thumbSrc} alt={games(g.titleKey)} />
+                </div>
+                <div className="game-card-body">
+                  <div className="game-row-head">
+                    <b>{games(g.titleKey)}</b>
+                    <span className="mode-check" aria-hidden="true" />
+                  </div>
+                  <p>{games(g.blurbKey)}</p>
                   <span className="game-meta">
                     {t("meta", {
                       version: g.version ?? t("versionUnknown"),
                       size: sizeLabel(t, g.bytes),
                     })}
                   </span>
-                  <span className="mode-check" aria-hidden="true" />
-                </div>
-                <div className="game-preview">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 카탈로그 정적 썸네일 */}
-                  <img src={g.thumbSrc} alt={games(g.titleKey)} />
-                  <p>{games(g.blurbKey)}</p>
                 </div>
               </label>
             ))}

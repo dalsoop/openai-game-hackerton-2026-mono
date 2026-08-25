@@ -27,7 +27,7 @@ export function OfflinePhase({
     <div className="intro">
       <div className="banner-frame">
         {/* eslint-disable-next-line @next/next/no-img-element -- 정적 장식 배너, 반응형 폭 유지 위해 img 유지 */}
-        <img src="/assets/banner.png" alt="" />
+        <img src="/assets/banner.webp" alt="" />
       </div>
 
       {hasSavedName && (

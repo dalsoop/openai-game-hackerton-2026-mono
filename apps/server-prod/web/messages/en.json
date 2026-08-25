@@ -6,7 +6,8 @@
   "connection": {
     "connected": "Connected",
     "connecting": "Connecting...",
-    "offline": "Offline"
+    "offline": "Offline",
+    "ping": "{ms}ms"
   },
   "game": {
     "loading": {

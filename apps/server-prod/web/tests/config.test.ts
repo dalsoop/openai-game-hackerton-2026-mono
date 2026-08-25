@@ -11,13 +11,17 @@ describe("MSG 메시지 계약", () => {
     for (const v of values) {expect(v.length).toBeGreaterThan(0);}
   });
 
-  it("필수 메시지(START/INPUT/SNAP/PEER_INPUT/HOST_SNAP/ERROR)가 존재한다", () => {
+  it("필수 메시지(START/INPUT/SNAP/PEER_INPUT/HOST_SNAP/ERROR/STATE/LEAVE/PING/PONG)가 존재한다", () => {
     expect(MSG.START).toBeDefined();
     expect(MSG.INPUT).toBeDefined();
     expect(MSG.SNAP).toBeDefined();
     expect(MSG.PEER_INPUT).toBeDefined();
     expect(MSG.HOST_SNAP).toBeDefined();
     expect(MSG.ERROR).toBeDefined();
+    expect(MSG.STATE).toBe("state");
+    expect(MSG.LEAVE).toBe("leave");
+    expect(MSG.PING).toBe("ping");
+    expect(MSG.PONG).toBe("pong");
   });
 });
 
@@ -53,6 +57,7 @@ describe("HUB_CONFIG", () => {
 
   it("워치독·종료 코드는 공식 SDK 값과 같다", () => {
     expect(HUB_CONFIG.matchWatchdogMs).toBeGreaterThan(0);
+    expect(HUB_CONFIG.rttIntervalMs).toBeGreaterThan(0);
     expect(CLOSE_CODE.CONSENTED).toBe(CloseCode.CONSENTED);
     expect(CLOSE_CODE.KICKED).toBe(CloseCode.CONSENTED);
     expect(ROOM_LEAVE.HANDOFF).toBe(false);

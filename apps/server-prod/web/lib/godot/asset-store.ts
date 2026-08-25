@@ -34,6 +34,11 @@ export function assetPlanOf(pack: string): AssetPlan {
   };
 }
 
+/** 엔진 locateFile 은 로케일 경로 상대(/ko/파일명)로 요청한다. 파일명만 맞으면 같은 산출물이다. */
+export function isExtLibPath(pathname: string, file = assetPlanOf("dagul").extLibFile): boolean {
+  return pathname === `/${file}` || pathname.endsWith(`/${file}`);
+}
+
 type ProgressFn = (progress: number, loaded: number, total: number) => void;
 
 /** 파일별 진행 중 Promise 메모 — 동시 요청·재요청 모두 네트워크 1회로 수렴시킨다. */

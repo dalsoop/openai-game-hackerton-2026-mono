@@ -17,3 +17,11 @@ const KEYS: Record<RuntimeErrorCode, string> = {
 export function runtimeErrorKey(code: string): string {
   return (code in KEYS) ? KEYS[code as RuntimeErrorCode] : code;
 }
+
+/** 오버레이에 한 줄만 넣는다. startError 를 앞에 붙이면 같은 문구가 중복된다. */
+export function runtimeErrorText(code: string, t: (key: string) => string): string {
+  const key = runtimeErrorKey(code);
+  if (key.startsWith("game.errors.")) {return t(key);}
+  if (code.trim() !== "") {return code;}
+  return t("godot.startError");
+}

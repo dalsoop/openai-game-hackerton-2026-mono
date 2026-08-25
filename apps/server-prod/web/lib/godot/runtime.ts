@@ -6,6 +6,7 @@ import { HANDOFF, DOM_EVT } from "@/lib/contract";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { DEFAULT_GAME_ID, packOf, type GameId } from "@/lib/games/catalog";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
+import { bindCanvasKeyboardFocus } from "@/lib/godot/canvas-focus";
 import { isWebGL2Available, type GodotEngineApi } from "@/lib/godot/webgl";
 import type { StartPayload } from "@/lib/hub/start-payload";
 
@@ -58,6 +59,7 @@ export class GodotRuntime {
   private preloadPromise: Promise<void> | null = null;
   private engine: { requestQuit?: () => void } | null = null;
   private boundCanvas: HTMLCanvasElement | null = null;
+  private unbindCanvasFocus: (() => void) | null = null;
   private scriptPromise: Promise<void> | null = null;
   private bootPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -161,13 +163,13 @@ export class GodotRuntime {
     if (!EngineCtor) {throw new Error("engine-missing");}
     // Godot 공식 사전 검사 — 게임 캔버스가 아니라 엔진/더미 캔버스만 본다.
     if (!isWebGL2Available({
-      Engine: EngineCtor,
       createCanvas: () => document.createElement("canvas"),
     })) {throw new Error("webgl2-missing");}
 
     const config: Record<string, unknown> = {
       canvas,
       canvasResizePolicy: 2,
+      focusCanvas: true,
       executable: this.plan.engineBase,
       args: ["--main-pack", "index.pck"],
       // dlink GDExtension — locateFile 매핑용 파일명 목록.
@@ -197,9 +199,8 @@ export class GodotRuntime {
     await engine.start(config);
     this.engine = engine;
     this.boundCanvas = canvas;
-    canvas.tabIndex = 0;
-    canvas.focus({ preventScroll: true });
-    canvas.addEventListener("pointerdown", () => { canvas.focus({ preventScroll: true }); });
+    this.unbindCanvasFocus?.();
+    this.unbindCanvasFocus = bindCanvasKeyboardFocus(canvas);
     this.update({ state: "running" });
     this.armWatchdog();
   }
@@ -249,6 +250,8 @@ export class GodotRuntime {
     if (this.engine?.requestQuit) {
       try { this.engine.requestQuit(); } catch { /* 이미 종료됨 */ }
     }
+    this.unbindCanvasFocus?.();
+    this.unbindCanvasFocus = null;
     this.engine = null;
     this.boundCanvas = null;
     if (this.snap.state === "running") {this.update({ state: "ready" });}

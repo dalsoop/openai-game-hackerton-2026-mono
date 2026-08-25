@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, downloadStartsInRoom, phaseAfterMatchEnd, phaseFromHubStatus, reconnectJoinId, shouldMarkRoomDropped, shouldShowConnectionLost, shouldShowReconnect } from "@/lib/game-flow-state";
+import { displayNameOf, downloadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, reconnectJoinId, shouldMarkRoomDropped, shouldShowConnectionLost, shouldShowReconnect } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -91,6 +91,38 @@ describe("reconnectJoinId — 재접속 대상", () => {
     expect(reconnectJoinId("dropped", "abc")).toBe("abc");
     expect(reconnectJoinId("offline", "abc")).toBe("abc");
     expect(reconnectJoinId("dropped", "")).toBeNull();
+  });
+});
+
+describe("reactOwnsResume — 허브 reconnect 주인은 React", () => {
+  it("토큰이 있으면 FROM_HUB 와 무관하게 React 가 재개한다", () => {
+    expect(reactOwnsResume(null, "room:tok")).toBe(true);
+    expect(reactOwnsResume("1", "room:tok")).toBe(true);
+  });
+
+  it("반전: 옛 계약(FROM_HUB 면 Godot 가 토큰을 가져감)은 실패해야 한다", () => {
+    expect(reactOwnsResume("1", "room:tok")).not.toBe(false);
+  });
+
+  it("토큰이 없으면 재개하지 않는다", () => {
+    expect(reactOwnsResume(null, null)).toBe(false);
+    expect(reactOwnsResume("1", "")).toBe(false);
+  });
+});
+
+describe("godotMayHubReconnect", () => {
+  it("반전: Godot 허브 reconnect 는 항상 금지", () => {
+    expect(godotMayHubReconnect()).toBe(false);
+  });
+});
+
+describe("phaseOnMount", () => {
+  it("재개 성공이면 로비에서 허브 상태를 기다린다", () => {
+    expect(phaseOnMount(true)).toBe("lobby");
+  });
+
+  it("반전: FROM_HUB 만으로 플레이에 들어가지 않는다", () => {
+    expect(phaseOnMount(false)).toBeNull();
   });
 });
 
