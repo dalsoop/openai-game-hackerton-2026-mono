@@ -24,21 +24,24 @@ func draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> v
 		r.draw_circle(Vector2.ZERO, radius_x * float(ring[0]), Color(0.0, 0.0, 0.0, float(ring[1]) * alpha_mul * opacity))
 	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0) -> void:
+func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0, lean: float = 0.0) -> void:
 	var hit_tint: Color = Color(3.4, 3.4, 3.4, opacity) if hit_flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
+	if hit_flash <= 0.0 and world != null and pos.distance_to(Vector2(world.safe_zone_center)) > float(world.safe_zone_radius):
+		var zone_flicker := 0.78 + 0.12 * sin(float(world.tick) * 0.34 + float(slot))
+		hit_tint = Color(1.08, zone_flicker, 1.28, opacity)
 	draw_blob_shadow(pos, hop_lift, opacity)
 	r.draw_arc(pos, 30.0, 0.0, TAU, 28, Color(r._slot_color(slot), 0.85 * opacity), 3.5)
 	var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
 	var flip: float = -1.0 if aim.x < -0.05 else 1.0
 	var draw_scale: Vector2 = Vector2(flip * hop_scale.x, hop_scale.y)
 	if r.animal_atlas != null:
-		r.draw_set_transform(sprite_pos, 0.0, draw_scale)
+		r.draw_set_transform(sprite_pos, lean, draw_scale)
 		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), r._animal_src_rect(slot), hit_tint)
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
 		var tex = r._zodiac_texture(slot)
 		if tex != null:
-			r.draw_set_transform(sprite_pos, 0.0, draw_scale)
+			r.draw_set_transform(sprite_pos, lean, draw_scale)
 			r.draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, hit_tint)
 			r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		else:
@@ -363,25 +366,37 @@ func draw_heroes() -> void:
 			r.draw_colored_polygon(PackedVector2Array([pos + Vector2(-18.0, -58.0), pos + Vector2(-15.0, -74.0), pos + Vector2(-5.0, -65.0), pos + Vector2(0.0, -80.0), pos + Vector2(5.0, -65.0), pos + Vector2(15.0, -74.0), pos + Vector2(18.0, -58.0)]), Color("#ff3349"))
 			r.draw_string(GameFont.get_font(), pos + Vector2(-40.0, -86.0), "WANTED", HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
 		_draw_hero_status_arcs(pos, hero, slot)
-		var hop := _hero_hop(hero)
-		var hop_lift: float = hop["lift"]
-		var body_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
-		var timed_ids: Array = _timed_ids(hero)
-		var comb_nudge := 0.0
-		if posmod(int(hero.get("animal", slot)), 12) == 9 and r.rooster_comb_lag > 0.0:
-			comb_nudge = 1.0
-		var ghost := _hero_ghost(hero)
-		_draw_hero_auras(hero, pos, timed_ids)
-		var body_squash := _hero_body_squash(slot)
-		var hop_scale := _hero_hop_scale(hero, slot, hop["scale"])
-		var is_turtle: bool = timed_ids.has("turtle")
-		var hit_flash: float = float(hero.get("hit_flash", 0.0))
-		_draw_hero_body(pos, body_pos, slot, aim, hero, is_down, is_turtle, hop_lift, hop_scale, body_squash, ghost, hit_flash, comb_nudge, timed_ids)
-		draw_emote(body_pos, hero, slot)
-		_draw_hero_buff_icons(body_pos, timed_ids)
-		_draw_hero_tag(body_pos, slot, hero, ghost)
-		r._overlay.draw_reload_bubble(body_pos, hero)
-		r._overlay.draw_head_roulette(body_pos, hero)
+		_draw_live_hero(hero, slot, pos, aim, is_down)
+
+func _draw_live_hero(hero: Dictionary, slot: int, pos: Vector2, aim: Vector2, is_down: bool) -> void:
+	var hop := _hero_hop(hero)
+	var hop_lift: float = hop["lift"]
+	var body_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
+	var timed_ids: Array = _timed_ids(hero)
+	var comb_nudge := 0.0
+	if posmod(int(hero.get("animal", slot)), 12) == 9 and r.rooster_comb_lag > 0.0:
+		comb_nudge = 1.0
+	var ghost := _hero_ghost(hero)
+	_draw_hero_auras(hero, pos, timed_ids)
+	var hop_scale := _hero_hop_scale(hero, slot, hop["scale"])
+	var is_turtle: bool = timed_ids.has("turtle")
+	var lean := 0.0 if is_turtle else _hero_lean(hero, is_down, hop_lift)
+	_draw_hero_body(pos, body_pos, slot, aim, hero, is_down, is_turtle, hop_lift, hop_scale, _hero_body_squash(slot), ghost, float(hero.get("hit_flash", 0.0)), comb_nudge, timed_ids, lean)
+	draw_emote(body_pos, hero, slot)
+	_draw_hero_buff_icons(body_pos, timed_ids)
+	_draw_hero_tag(body_pos, slot, hero, ghost)
+	r._overlay.draw_reload_bubble(body_pos, hero)
+	r._overlay.draw_head_roulette(body_pos, hero)
+
+func _hero_lean(hero: Dictionary, is_down: bool, hop_lift: float) -> float:
+	if is_down or hop_lift > 0.05:
+		return 0.0
+	if float(hero.get("launch_time", 0.0)) > 0.0 or float(hero.get("stun_time", 0.0)) > 0.0:
+		return 0.0
+	var lean := float(hero.get("move_lean", 0.0))
+	if absf(lean) < 0.004:
+		lean = clampf(Vector2(hero.get("vel", Vector2.ZERO)).x / 400.0, -1.0, 1.0) * 0.14
+	return lean
 
 func _hero_hop(hero: Dictionary) -> Dictionary:
 	var hop_time: float = float(hero.get("hop_time", 0.0))
@@ -394,6 +409,18 @@ func _hero_hop(hero: Dictionary) -> Dictionary:
 		lift = hop_height * sin(PI * hop_t)
 		var hop_squash: float = cos(PI * hop_t)
 		scale = Vector2(1.00 + 0.12 * hop_squash, 1.02 - 0.14 * hop_squash)
+	elif float(hero.get("launch_time", 0.0)) <= 0.0 and float(hero.get("stun_time", 0.0)) <= 0.0:
+		var run_t := clampf((Vector2(hero.get("vel", Vector2.ZERO)).length() - 50.0) / 340.0, 0.0, 1.0)
+		if run_t > 0.05:
+			var gait := float(world.tick) * 0.20 + float(int(hero.get("slot", 0))) * 1.37
+			var bob := sin(gait)
+			lift = 6.8 * run_t * maxf(0.0, bob)
+			scale = Vector2(1.0 + 0.08 * run_t * (1.0 - bob), 1.0 + 0.11 * run_t * bob)
+	var plant := float(hero.get("move_plant", 0.0))
+	if hop_time <= 0.0 and absf(plant) > 0.03:
+		scale = Vector2(scale.x * (1.0 + 0.14 * plant), scale.y * (1.0 - 0.16 * plant))
+		if plant > 0.0:
+			lift *= (1.0 - 0.55 * plant)
 	return {"lift": lift, "scale": scale}
 
 func _hero_body_squash(slot: int) -> float:
@@ -479,7 +506,7 @@ func _draw_stun_stars(pos: Vector2, stun_spin: float) -> void:
 		else:
 			r.draw_colored_polygon(PackedVector2Array([star_pos + Vector2(0.0, -8.0), star_pos + Vector2(7.0, 0.0), star_pos + Vector2(0.0, 8.0), star_pos + Vector2(-7.0, 0.0)]), Color("#ffe27a"))
 
-func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, hero: Dictionary, is_down: bool, is_turtle: bool, hop_lift: float, hop_scale: Vector2, body_squash: float, ghost: float, hit_flash: float, comb_nudge: float, timed_ids: Array) -> void:
+func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, hero: Dictionary, is_down: bool, is_turtle: bool, hop_lift: float, hop_scale: Vector2, body_squash: float, ghost: float, hit_flash: float, comb_nudge: float, timed_ids: Array, lean: float = 0.0) -> void:
 	if is_turtle:
 		_draw_turtle_body(pos, aim)
 		return
@@ -487,7 +514,7 @@ func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, h
 	if is_down:
 		_draw_downed_hero(pos, animal, aim, hero)
 	else:
-		draw_hero_sprite(pos + Vector2(0.0, comb_nudge), animal, aim, ghost, hop_lift, hop_scale, hit_flash)
+		draw_hero_sprite(pos + Vector2(0.0, comb_nudge), animal, aim, ghost, hop_lift, hop_scale, hit_flash, lean)
 		r._draw_hero_gun(body_pos, slot, aim, ghost, body_squash)
 		draw_flee_mark(body_pos, hero)
 		draw_dog_alert(body_pos, hero)

@@ -63,9 +63,10 @@ func reset_match_visuals() -> void:
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]
 
-func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
-    draw_string(GameFont.get_font(), pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
-    draw_string(GameFont.get_font(), pos, text, align, width, size, color)
+func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT, bold: bool = false) -> void:
+    var font := GameFont.get_bold_font() if bold else GameFont.get_font()
+    draw_string(font, pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
+    draw_string(font, pos, text, align, width, size, color)
 
 func _draw() -> void:
     if world == null or world.heroes.is_empty():

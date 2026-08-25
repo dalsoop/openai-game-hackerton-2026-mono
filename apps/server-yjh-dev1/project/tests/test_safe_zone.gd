@@ -18,6 +18,10 @@ class MockWorld extends RefCounted:
 	var safe_zone_target_radius := 100.0
 	var safe_zone_radius := 200.0
 	var heroes: Array = []
+	var last_announce := ""
+
+	func _announce(text: String, _ticks: int) -> void:
+		last_announce = text
 
 func run(t) -> void:
 	var w0 := MockWorld.new()
