@@ -274,6 +274,10 @@ func _on_msg(msg: Dictionary) -> void:
             you = int(msg.get("you", 0))
             is_host = bool(msg.get("host", false))
             room = msg.get("room", {})
+            if typeof(room) != TYPE_DICTIONARY:
+                room = {}
+            if str(msg.get("gameServerUrl", "")) != "":
+                room["game_url"] = str(msg.get("gameServerUrl", ""))
             players = msg.get("players", [])
             _set_status(STATUS_LOBBY)
             if bool(msg.get("playing", false)):
