@@ -487,7 +487,7 @@ func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String,
         return
     var dir := direction if direction.length_squared() > 0.0001 else Vector2.RIGHT
     var src := _bullet_src_rect(kind, int(world.tick))
-    var dest := Rect2(Vector2(-28.0, -10.0) * scale, Vector2(56.0, 20.0) * scale)
+    var dest := Rect2(Vector2(-28.0, -10.0) * scale * 3.0, Vector2(56.0, 20.0) * scale * 3.0)
     draw_set_transform(projectile_pos, dir.angle(), Vector2.ONE)
     draw_texture_rect_region(bullet_atlas, dest, src)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -609,7 +609,7 @@ func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, si
     var texture: Texture2D = projectile_textures.get(kind) as Texture2D
     if texture == null or not PROJECTILE_TEXTURE_SIZES.has(kind):
         return false
-    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale
+    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale * 3.0
     draw_set_transform(pos, direction.angle(), Vector2.ONE)
     draw_texture_rect(texture, Rect2(Vector2(-draw_size.x * 0.72, -draw_size.y * 0.5), draw_size), false)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
