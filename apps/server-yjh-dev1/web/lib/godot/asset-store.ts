@@ -69,7 +69,8 @@ export class AssetStore {
 
   private async fetchCounted(url: string, expectBytes: number): Promise<ArrayBuffer> {
     // FIXME: 진단 계측(제거 예정) — 재다운로드 범인 식별용.
-    ((globalThis as Record<string, unknown>).__assetFetches ??= []).push(url + "@" + new Error().stack?.split("\n")[2]?.trim().slice(0, 60));
+    const fetchLog = ((globalThis as { __assetFetches?: string[] }).__assetFetches ??= []);
+    fetchLog.push(url + "@" + new Error().stack?.split("\n")[2]?.trim().slice(0, 60));
     const resp = await fetch(url);
     if (!resp.ok) {throw new Error(`${url}: ${resp.status}`);}
     const total = Number(resp.headers.get("content-length") || expectBytes || 0);
