@@ -38,6 +38,7 @@ var stun_spin_tex: Texture2D = null
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var animal_atlas: Texture2D = null
+var animal_down_atlas: Texture2D = null
 var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
@@ -133,6 +134,7 @@ func _ready() -> void:
     gun_texture = _load_tex("res://assets/items/gun.png")
     medkit_texture = _load_tex("res://assets/items/medkit.png")
     animal_atlas = _load_tex("res://assets/lhj/Tex_Animal_4x3.png")
+    animal_down_atlas = _load_tex("res://assets/lhj/Tex_AnimalDown_4x3.png")
     bullet_atlas = _load_tex("res://assets/lhj/Tex_FX_Bullet_4x4_256x144.png")
     gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
@@ -475,6 +477,15 @@ func _zodiac_texture(slot: int) -> Texture2D:
 func _animal_src_rect(slot: int) -> Rect2:
     var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
     var cell := Vector2(float(animal_atlas.get_width()) / float(ANIMAL_COLS), float(animal_atlas.get_height()) / float(ANIMAL_ROWS))
+    var col := frame % ANIMAL_COLS
+    var row := int(frame / ANIMAL_COLS)
+    return Rect2(Vector2(float(col), float(row)) * cell, cell)
+
+func _animal_down_src_rect(slot: int) -> Rect2:
+    if animal_down_atlas == null:
+        return Rect2()
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+    var cell := Vector2(float(animal_down_atlas.get_width()) / float(ANIMAL_COLS), float(animal_down_atlas.get_height()) / float(ANIMAL_ROWS))
     var col := frame % ANIMAL_COLS
     var row := int(frame / ANIMAL_COLS)
     return Rect2(Vector2(float(col), float(row)) * cell, cell)

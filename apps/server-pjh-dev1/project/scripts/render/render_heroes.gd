@@ -51,6 +51,14 @@ func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.
 func draw_hero_gun(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, extra_squash: float = 0.0) -> void:
 	r._draw_hero_gun(pos, slot, aim, opacity, extra_squash)
 
+func draw_down_sprite(pos: Vector2, animal: int, opacity: float = 1.0, rotation: float = 0.0, size: float = 78.0) -> bool:
+	if r.animal_down_atlas == null:
+		return false
+	r.draw_set_transform(pos, rotation, Vector2.ONE)
+	r.draw_texture_rect_region(r.animal_down_atlas, Rect2(Vector2(-size * 0.5, -size * 0.5), Vector2.ONE * size), r._animal_down_src_rect(animal), Color(1.0, 1.0, 1.0, opacity))
+	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	return true
+
 func draw_emote(body_pos: Vector2, hero: Dictionary, slot: int) -> void:
 	if float(hero.get("emote_time", 0.0)) <= 0.0:
 		return
@@ -149,7 +157,9 @@ func draw_knockouts() -> void:
 				r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		else:
 			r._draw_motion_trail(knockout_trail, r._slot_color(knockout_slot), 9.0, knockout_fade)
-		if r.animal_atlas != null:
+		if r.animal_down_atlas != null:
+			draw_down_sprite(knockout_pos, knockout_slot, 0.78 * knockout_fade, spin * 5.0, 68.0)
+		elif r.animal_atlas != null:
 			r.draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
 			r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), r._animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
 			r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -470,6 +480,16 @@ func _draw_hero_status_arcs(pos: Vector2, hero: Dictionary, slot: int) -> void:
 		r.draw_colored_polygon(PackedVector2Array([pos + Vector2(-22.0, crown_y + 17.0), pos + Vector2(-20.0, crown_y), pos + Vector2(-7.0, crown_y + 10.0), pos + Vector2(0.0, crown_y - 6.0), pos + Vector2(7.0, crown_y + 10.0), pos + Vector2(20.0, crown_y), pos + Vector2(22.0, crown_y + 17.0)]), Color("#ffd166"))
 
 func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, hero: Dictionary, is_down: bool, is_turtle: bool, hop_lift: float, hop_scale: Vector2, body_squash: float, ghost: float, hit_flash: float, comb_nudge: float, timed_ids: Array) -> void:
+	if is_down and r.animal_down_atlas != null:
+		var animal := int(hero.get("animal", slot))
+		draw_blob_shadow(pos, 0.0, 0.9)
+		draw_down_sprite(pos + Vector2(0.0, -2.0), animal, 0.98, 0.0, 82.0)
+		var bleed := clampf(float(hero.get("down_left", 0.0)) / 5.0, 0.0, 1.0)
+		r.draw_arc(pos, 38.0, -PI * 0.5, -PI * 0.5 + TAU * bleed, 28, Color("#ff8d93"), 4.0)
+		var fin := clampf(float(hero.get("down_taken", 0.0)) / 48.0, 0.0, 1.0)
+		r.draw_arc(pos, 32.0, -PI * 0.5, -PI * 0.5 + TAU * fin, 22, Color("#ff3349"), 3.0)
+		r.draw_string(GameFont.get_font(), pos + Vector2(-36.0, 54.0), "DOWN %.1f" % float(hero.get("down_left", 0.0)), HORIZONTAL_ALIGNMENT_CENTER, 72.0, 12, Color("#ffe066"))
+		return
 	if is_turtle:
 		var turtle_tex: Texture2D = r.turtle_body_tex if r.turtle_body_tex != null else r.roulette_icons.get("turtle", null)
 		var turtle_size := 110.0
