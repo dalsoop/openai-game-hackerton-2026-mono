@@ -21,12 +21,12 @@
       "static/chunks/main-app-48b906164c08441f.js",
       "static/chunks/app/api/session/route-0abf87480299e469.js"
     ],
-    "/dagul/page": [
+    "/hex/page": [
       "static/chunks/webpack-30b9dd9193356b11.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-87552e6e05b8e3aa.js",
       "static/chunks/main-app-48b906164c08441f.js",
-      "static/chunks/app/dagul/page-e654ddafcf07f198.js"
+      "static/chunks/app/hex/page-efab09e3f427139a.js"
     ],
     "/page": [
       "static/chunks/webpack-30b9dd9193356b11.js",
@@ -35,12 +35,12 @@
       "static/chunks/main-app-48b906164c08441f.js",
       "static/chunks/app/page-09bb1a07d77a6ab8.js"
     ],
-    "/hex/page": [
+    "/dagul/page": [
       "static/chunks/webpack-30b9dd9193356b11.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-87552e6e05b8e3aa.js",
       "static/chunks/main-app-48b906164c08441f.js",
-      "static/chunks/app/hex/page-efab09e3f427139a.js"
+      "static/chunks/app/dagul/page-cac939036a420f59.js"
     ],
     "/snake/page": [
       "static/chunks/webpack-30b9dd9193356b11.js",

@@ -1,8 +1,8 @@
 {
   "/_not-found/page": "/_not-found",
   "/api/session/route": "/api/session",
-  "/dagul/page": "/dagul",
-  "/page": "/",
   "/hex/page": "/hex",
+  "/page": "/",
+  "/dagul/page": "/dagul",
   "/snake/page": "/snake"
 }

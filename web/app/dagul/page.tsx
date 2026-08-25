@@ -1,17 +1,33 @@
 "use client";
+import { useEffect } from "react";
 import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
+import { useGodotLoader } from "@/hooks/useGodotLoader";
 import NicknameInput from "@/components/NicknameInput";
 import Lobby from "@/components/Lobby";
 import Room from "@/components/Room";
+import AssetStatus from "@/components/AssetStatus";
+import GodotCanvas from "@/components/GodotCanvas";
 
 export default function DagulLobby() {
   const { nickname, saveNickname } = useSession();
   const hub = useHub("dagul");
+  const loader = useGodotLoader("dagul");
+
+  useEffect(() => {
+    if (hub.status === "lobby" || hub.status === "in-room") {
+      loader.start();
+    }
+  }, [hub.status]);
 
   function handleConnect(name: string) {
     saveNickname(name);
     hub.connect(name);
+  }
+
+  function handleStart() {
+    if (loader.state !== "ready") return;
+    hub.startMatch();
   }
 
   return (
@@ -30,32 +46,48 @@ export default function DagulLobby() {
       )}
 
       {hub.status === "lobby" && (
-        <Lobby
-          rooms={hub.rooms}
-          onCreate={hub.createRoom}
-          onJoin={hub.joinRoom}
-          onRefresh={hub.refreshRooms}
-        />
+        <>
+          <Lobby
+            rooms={hub.rooms}
+            onCreate={hub.createRoom}
+            onJoin={hub.joinRoom}
+            onRefresh={hub.refreshRooms}
+          />
+          <AssetStatus {...loader} />
+        </>
       )}
 
       {hub.status === "in-room" && (
-        <Room
-          players={hub.players}
-          you={hub.you}
-          isHost={hub.isHost}
-          chatLog={hub.chatLog}
-          onStart={hub.startMatch}
-          onLeave={hub.leaveRoom}
-          onChat={hub.sendChat}
-        />
+        <>
+          <Room
+            players={hub.players}
+            you={hub.you}
+            isHost={hub.isHost}
+            chatLog={hub.chatLog}
+            onStart={handleStart}
+            onLeave={hub.leaveRoom}
+            onChat={hub.sendChat}
+          />
+          <AssetStatus {...loader} />
+          {hub.isHost && loader.state !== "ready" && (
+            <p style={{ color: "#c47b17", fontSize: "0.85rem", textAlign: "center", marginTop: "0.5rem" }}>
+              게임 에셋을 받는 중입니다. 완료되면 시작할 수 있습니다.
+            </p>
+          )}
+        </>
       )}
 
-      {hub.status === "playing" && (
-        <div style={{ textAlign: "center", padding: "3rem", color: "#d4a843" }}>
-          <h2>게임이 시작됩니다!</h2>
-          <p style={{ color: "#7a8194" }}>Godot 엔진을 로딩합니다...</p>
-        </div>
-      )}
+      <GodotCanvas
+        visible={hub.status === "playing"}
+        game="dagul"
+        matchInfo={{
+          roomId: hub.roomId,
+          name: nickname,
+          slot: hub.you,
+          hubUrl: "",
+        }}
+        onMatchEnd={() => hub.leaveRoom()}
+      />
     </main>
   );
 }
