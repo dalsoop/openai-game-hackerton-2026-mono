@@ -1,0 +1,14 @@
+# 로컬·클러스터 모두 Redis 1대. 허브는 REDIS_URL=redis://127.0.0.1:6379
+name: hackertone-redis
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 2s

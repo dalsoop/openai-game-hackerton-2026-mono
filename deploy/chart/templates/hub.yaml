@@ -1,5 +1,4 @@
 {{- range .Values.hubs }}
-{{- $redisSidecar := and $.Values.redis.enabled (not $.Values.redis.url) }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -44,9 +43,9 @@ spec:
               value: {{ $.Values.hub.env.PORT | quote }}
             - name: SLOT_FOLDER
               value: {{ .folder | quote }}
-            {{- if $.Values.redis.enabled }}
+            {{- if and $.Values.redis.enabled $.Values.redis.url }}
             - name: REDIS_URL
-              value: {{ (default "redis://127.0.0.1:6379" $.Values.redis.url) | quote }}
+              value: {{ $.Values.redis.url | quote }}
             {{- end }}
             {{- if $.Values.hub.publicPrefix }}
             - name: HUB_PUBLIC_PREFIX
@@ -75,34 +74,6 @@ spec:
             {{- toYaml $.Values.hub.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
-        {{- if $redisSidecar }}
-        - name: redis
-          image: {{ $.Values.redis.image | default "redis:7-alpine" }}
-          imagePullPolicy: IfNotPresent
-          args: ["--maxmemory-policy", "noeviction", "--save", ""]
-          ports:
-            - name: redis
-              containerPort: 6379
-          readinessProbe:
-            tcpSocket:
-              port: redis
-            initialDelaySeconds: 1
-            periodSeconds: 5
-          livenessProbe:
-            tcpSocket:
-              port: redis
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          resources:
-            requests:
-              cpu: 25m
-              memory: 32Mi
-            limits:
-              cpu: 250m
-              memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-        {{- end }}
 ---
 apiVersion: v1
 kind: Service
