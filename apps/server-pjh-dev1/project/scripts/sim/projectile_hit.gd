@@ -51,6 +51,22 @@ func spawn_arc_bomb(slot: int, direction: Vector2, distance: float, flight_time:
 func add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void:
 	w.effects.append({"kind":kind, "pos":pos, "radius":radius, "time":duration, "max_time":duration, "color":color, "label":label, "direction":direction})
 
+func add_mobility_effect(slot: int, kind: StringName, start_pos: Vector2, end_pos: Vector2, radius: float, duration: float, color: Color, label: String, direction: Vector2, draw_departure: bool = true) -> void:
+	var shortened_duration := duration * 0.80
+	w.effects.append({
+		"kind":kind,
+		"pos":end_pos,
+		"start_pos":start_pos,
+		"follow_slot":slot,
+		"radius":radius,
+		"time":shortened_duration,
+		"max_time":shortened_duration,
+		"color":color,
+		"label":label,
+		"direction":direction,
+		"draw_departure":draw_departure,
+	})
+
 func add_zone(owner: int, pos: Vector2, radius: float, delay: float, damage: float, source: StringName, cc_time: float, knockback: float, label: String, color: Color, leech: bool = false, effect_kind: StringName = &"explosion", combo_finisher: bool = false, control_kind: StringName = &"slow") -> void:
 	w.zones.append({"id":w.next_entity_id, "owner":owner, "pos":pos, "radius":radius, "delay":delay, "warning_duration":delay, "time":delay + 0.28, "damage":damage, "applied":false, "source":source, "cc_time":cc_time, "knockback":knockback, "label":label, "color":color, "leech":leech, "effect_kind":effect_kind, "combo_finisher":combo_finisher, "control_kind":control_kind, "telegraphed":delay > 0.06})
 	w.next_entity_id += 1
@@ -119,7 +135,8 @@ func update_projectiles(dt: float) -> void:
 				splash_damage(int(p["owner"]), Vector2(p["pos"]), float(p["splash"]), float(p["damage"]) * 0.55, -1, StringName(p["source"]), float(p.get("cc_time", 0.0)) * 0.65, float(p.get("knockback", 0.0)) * 0.65)
 				add_effect(&"explosion", Vector2(p["pos"]), float(p["splash"]), 0.32, Color("#ff554a"), "")
 			else:
-				add_effect(&"impact", Vector2(p["pos"]), maxf(30.0, float(p["splash"])), 0.24, Color("#c4d0df"), "BLOCKED")
+				var impact_direction := -Vector2(p["vel"]).normalized()
+				add_effect(&"hit_spark", Vector2(p["pos"]), 34.0, 0.24, Color("#c4d0df"), "", impact_direction)
 			w.event_log.emit(w.tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"]})
 			continue
 		var owner := int(p["owner"])

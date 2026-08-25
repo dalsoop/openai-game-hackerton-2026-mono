@@ -84,7 +84,7 @@ func draw_impact_flashes() -> void:
 			continue
 		var col := clampi(int(float(flash.get("time", 0.0)) / 0.055), 0, n - 1)
 		var pos: Vector2 = flash["pos"]
-		r.draw_texture_rect_region(r.impact_atlas, Rect2(pos - Vector2(28.0, 28.0), Vector2(56.0, 56.0)), r._impact_src_rect(row, col), Color.WHITE)
+		r.draw_texture_rect_region(r.impact_atlas, Rect2(pos - Vector2(42.0, 42.0), Vector2(84.0, 84.0)), r._impact_src_rect(row, col), Color.WHITE)
 
 func draw_combat_texts() -> void:
 	for item in r.combat_texts:

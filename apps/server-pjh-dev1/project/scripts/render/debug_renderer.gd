@@ -19,6 +19,9 @@ const BULLET_YELLOW := Color("#ffd23f")
 
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
+var rock_atlas: Texture2D = null
+var crate_atlas: Texture2D = null
+var projectile_textures: Dictionary = {}
 var tower_texture: Texture2D = null
 var rat_run_tex: Texture2D = null
 var dragon_smoke_tex: Texture2D = null
@@ -39,6 +42,16 @@ var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
 var impact_atlas: Texture2D = null
+var reload_bubble_atlas: Texture2D = null
+var tracer_fx_atlas: Texture2D = null
+var hit_spark_fx_atlas: Texture2D = null
+var explosion_fx_atlas: Texture2D = null
+var mobility_fx_atlases: Dictionary = {}
+var dash_departure_atlas: Texture2D = null
+var rooster_beam_step_atlas: Texture2D = null
+var character_shadow_tex: Texture2D = null
+var knockout_trail_atlas: Texture2D = null
+var death_burst_atlas: Texture2D = null
 var impact_flashes: Array = []
 var combat_texts: Array = []
 var roulette_icons: Dictionary = {}
@@ -60,6 +73,26 @@ const ANIMAL_COLS := 4
 const ANIMAL_ROWS := 3
 const BULLET_COLS := 4
 const BULLET_ROWS := 4
+const ROCK_SOURCE_RECTS := [
+    Rect2(136.0, 205.0, 169.0, 157.0),
+    Rect2(510.0, 158.0, 274.0, 227.0),
+    Rect2(927.0, 204.0, 329.0, 175.0),
+    Rect2(1380.0, 178.0, 283.0, 201.0),
+    Rect2(1743.0, 94.0, 411.0, 297.0),
+]
+const CRATE_SOURCE_RECTS := [
+    Rect2(28.0, 16.0, 344.0, 374.0),
+    Rect2(442.0, 20.0, 342.0, 374.0),
+    Rect2(848.0, 34.0, 340.0, 362.0),
+    Rect2(1242.0, 116.0, 342.0, 262.0),
+]
+const PROJECTILE_TEXTURE_SIZES := {
+    "beam": Vector2(180.0, 42.0), "shell": Vector2(54.0, 28.0),
+    "tether": Vector2(50.0, 26.0), "seeker": Vector2(46.0, 30.0),
+    "slash": Vector2(66.0, 48.0), "fist": Vector2(68.0, 38.0),
+    "bomb": Vector2(34.0, 38.0), "spear": Vector2(106.0, 28.0),
+    "chain": Vector2(72.0, 30.0), "shield": Vector2(52.0, 48.0),
+}
 
 var _env
 var _heroes
@@ -72,7 +105,12 @@ func _ready() -> void:
         RenderingServer.viewport_set_msaa_2d(get_viewport().get_viewport_rid(), RenderingServer.VIEWPORT_MSAA_DISABLED)
     for index in range(12):
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
-    island_texture = _load_tex("res://assets/world/island_bg.png")
+    island_texture = _load_tex("res://assets/world/Tex_BG_Field_Wide.png")
+    rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
+    crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
+    reload_bubble_atlas = _load_tex("res://assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")
+    for projectile_kind in PROJECTILE_TEXTURE_SIZES:
+        projectile_textures[projectile_kind] = _load_tex("res://assets/fx/projectiles/projectile_%s.png" % projectile_kind)
     tower_texture = _load_tex("res://assets/world/bounty-tower.png")
     rat_run_tex = _load_tex("res://assets/fx/rat-run.png")
     dragon_smoke_tex = _load_tex("res://assets/fx/dragon-smoke.png")
@@ -92,6 +130,23 @@ func _ready() -> void:
     gun_atlas = _load_tex("res://assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")
     impact_atlas = _load_tex("res://assets/lhj/Tex_Fx_ImpactFlash.png")
+    tracer_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Tracer_4x1.png")
+    hit_spark_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_HitSpark_4x1.png")
+    explosion_fx_atlas = _load_tex("res://assets/fx/combat/Tex_FX_Explosion_6x1.png")
+    var mobility_files := {
+        "speed_streak": "Tex_FX_MobilityDash_4x1.png", "beam_step": "Tex_FX_BeamStep_4x1.png",
+        "drain": "Tex_FX_DrainStep_4x1.png", "guard": "Tex_FX_GuardStep_4x1.png",
+        "slash_dash": "Tex_FX_SlashDash_4x1.png", "fuse": "Tex_FX_FuseStep_4x1.png",
+        "spear_line": "Tex_FX_SpearStep_4x1.png", "chain_arc": "Tex_FX_ChainStep_4x1.png",
+        "blast_hop": "Tex_FX_BlastHop_4x1.png",
+    }
+    for mobility_kind in mobility_files:
+        mobility_fx_atlases[mobility_kind] = _load_tex("res://assets/fx/mobility/%s" % mobility_files[mobility_kind])
+    dash_departure_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_DashDeparture_4x1.png")
+    rooster_beam_step_atlas = _load_tex("res://assets/fx/mobility/Tex_FX_RoosterBeamStep_4x1.png")
+    character_shadow_tex = _load_tex("res://assets/fx/character/Tex_FX_CharacterShadow.png")
+    knockout_trail_atlas = _load_tex("res://assets/fx/character/Tex_FX_KnockoutTrail_4x1.png")
+    death_burst_atlas = _load_tex("res://assets/fx/character/Tex_FX_DeathBurst_6x1.png")
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
         var icon_tex := _load_tex("res://assets/hud/roulette/%s.png" % icon_id)
         if icon_tex != null:
@@ -191,6 +246,19 @@ func _impact_src_rect(row: int, col: int) -> Rect2:
         return Rect2()
     var cell: Vector2 = Vector2(float(impact_atlas.get_width()) / 4.0, float(impact_atlas.get_height()) / 3.0)
     return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
+
+func _horizontal_fx_src_rect(texture: Texture2D, columns: int, frame: int) -> Rect2:
+    var cell := Vector2(float(texture.get_width()) / float(columns), float(texture.get_height()))
+    return Rect2(Vector2(float(clampi(frame, 0, columns - 1)) * cell.x, 0.0), cell)
+
+func _mobility_fx_texture(kind: StringName, label: String) -> Texture2D:
+    if kind == &"guard" and label not in ["IRON MARCH", "BRACE STEP"]:
+        return null
+    if kind == &"drain" and label != "+8 SHADOW PULL":
+        return null
+    if kind == &"fuse" and label != "BLAST ROLL":
+        return null
+    return mobility_fx_atlases.get(str(kind)) as Texture2D
 
 func _consume_shot_events() -> void:
     if world == null or world.event_log == null:
@@ -445,6 +513,15 @@ func _tick_combat_texts(dt: float) -> void:
             keep.append(ct)
     combat_texts = keep
 
+func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, size_scale: float = 1.0) -> bool:
+    var texture: Texture2D = projectile_textures.get(kind) as Texture2D
+    if texture == null or not PROJECTILE_TEXTURE_SIZES.has(kind):
+        return false
+    var draw_size: Vector2 = Vector2(PROJECTILE_TEXTURE_SIZES[kind]) * size_scale
+    draw_set_transform(pos, direction.angle(), Vector2.ONE)
+    draw_texture_rect(texture, Rect2(Vector2(-draw_size.x * 0.72, -draw_size.y * 0.5), draw_size), false)
+    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    return true
 
 func _draw_projectiles() -> void:
     for projectile in world.projectiles:
@@ -459,10 +536,15 @@ func _draw_projectiles() -> void:
             var bomb_scale := 0.72 + sin(arc_progress * PI) * 0.95
             var landing: Vector2 = projectile["landing_pos"]
             draw_circle(projectile_pos + Vector2(7.0, 9.0), 13.0 * bomb_scale, Color(0.0, 0.0, 0.0, 0.23))
-            draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
-            draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
+            if not _draw_projectile_texture(projectile_pos, direction, "bomb", bomb_scale):
+                draw_circle(projectile_pos, 11.0 * bomb_scale, Color("#2c1115"))
+                draw_arc(projectile_pos, 13.0 * bomb_scale, 0.0, TAU, 22, Color("#ff6b4a"), 4.0)
             draw_circle(landing, float(projectile["splash"]), Color(0.35, 0.04, 0.03, 0.07))
             draw_arc(landing, float(projectile["splash"]) * lerpf(1.0, 0.78, arc_progress), 0.0, TAU, 36, Color(1.0, 0.34, 0.22, 0.68), 3.0)
+            continue
+        if kind in ["shell", "seeker", "bomb"]:
+            _draw_dashed_tracer(projectile_pos, direction, BULLET_YELLOW, 4.0)
+        if _draw_projectile_texture(projectile_pos, direction, kind):
             continue
         match kind:
             "beam":
@@ -508,8 +590,17 @@ func _draw_projectiles() -> void:
                 var trail: Array = projectile.get("trail", [])
                 if trail.size() > 0:
                     origin = trail[0]
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 1.0, 1.0, 0.22), 10.0)
-                draw_line(origin, projectile_pos + direction * 28.0, Color(1.0, 0.95, 0.75, 0.95), 3.0)
+                var tracer_end := projectile_pos + direction * 28.0
+                if tracer_fx_atlas != null:
+                    var tracer_length := clampf(origin.distance_to(tracer_end), 96.0, 240.0)
+                    var tracer_center := origin.lerp(tracer_end, 0.5)
+                    var tracer_frame := posmod(int(world.tick / 2), 4)
+                    draw_set_transform(tracer_center, direction.angle(), Vector2.ONE)
+                    draw_texture_rect_region(tracer_fx_atlas, Rect2(Vector2(-tracer_length * 0.5, -28.0), Vector2(tracer_length, 56.0)), _horizontal_fx_src_rect(tracer_fx_atlas, 4, tracer_frame))
+                    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+                else:
+                    draw_line(origin, tracer_end, Color(1.0, 1.0, 1.0, 0.22), 10.0)
+                    draw_line(origin, tracer_end, Color(1.0, 0.95, 0.75, 0.95), 3.0)
             "pellet", "burst", "bolt":
                 _draw_lhj_bullet(projectile_pos, direction, kind, 2.5 if bool(projectile.get("heavy", false)) else 1.0)
             _:
@@ -591,6 +682,34 @@ func _draw_effects() -> void:
         var effect_kind := StringName(effect["kind"])
         var direction := Vector2(effect["direction"]).normalized()
         var progress := 1.0 - ratio
+        var follow_slot := int(effect.get("follow_slot", -1))
+        var effect_label := str(effect.get("label", ""))
+        var mobility_texture := _mobility_fx_texture(effect_kind, effect_label)
+        if effect_label == "SIGHTLINE STEP" and effect_kind == &"beam_step" and rooster_beam_step_atlas != null:
+            mobility_texture = rooster_beam_step_atlas
+        if mobility_texture != null:
+            var mobility_frame := clampi(int(progress * 4.0), 0, 3)
+            var mobility_alpha := clampf(ratio * 1.20 + 0.18, 0.18, 1.0)
+            var directional := effect_kind in [&"speed_streak", &"beam_step", &"slash_dash", &"spear_line", &"chain_arc", &"blast_hop"]
+            var mobility_size := Vector2(effect_radius * 1.25, clampf(effect_radius * 0.62, 72.0, 168.0)) if directional else Vector2.ONE * effect_radius * 2.15
+            if effect_label in ["IRON MARCH", "BRACE STEP"]:
+                mobility_size *= 1.35
+            var start_pos: Vector2 = effect.get("start_pos", effect_pos)
+            if dash_departure_atlas != null and bool(effect.get("draw_departure", true)):
+                var departure_size := Vector2.ONE * clampf(effect_radius * 0.55, 84.0, 138.0)
+                draw_set_transform(start_pos, 0.0, Vector2.ONE)
+                draw_texture_rect_region(dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size), _horizontal_fx_src_rect(dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha))
+                draw_texture_rect_region(dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size), _horizontal_fx_src_rect(dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha * 0.65))
+            if follow_slot >= 0 and follow_slot < world.heroes.size():
+                effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+            if effect_label == "SIGHTLINE STEP":
+                effect_pos += direction * 58.0
+            var mobility_angle := direction.angle() + (PI if effect_label == "SHADOW SHEATH" else 0.0)
+            draw_set_transform(effect_pos, mobility_angle, Vector2.ONE)
+            draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size), _horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha))
+            draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size), _horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha * 0.65))
+            draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+            continue
         match effect_kind:
             &"line", &"beam_hit", &"beam_step":
                 var line_start := effect_pos - direction * effect_radius * (0.75 if effect_kind == &"beam_hit" else 1.0)
@@ -598,10 +717,15 @@ func _draw_effects() -> void:
                 draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
                 draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
             &"explosion":
-                var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
-                draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
-                draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
-                draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
+                if explosion_fx_atlas != null:
+                    var explosion_frame := clampi(int(progress * 6.0), 0, 5)
+                    var explosion_size := Vector2.ONE * effect_radius * 2.35
+                    draw_texture_rect_region(explosion_fx_atlas, Rect2(effect_pos - explosion_size * 0.5, explosion_size), _horizontal_fx_src_rect(explosion_fx_atlas, 6, explosion_frame))
+                else:
+                    var blast_radius := effect_radius * lerpf(0.18, 1.28, progress)
+                    draw_circle(effect_pos, blast_radius * 0.72, Color("#3a0808", ratio * 0.72))
+                    draw_circle(effect_pos, blast_radius * 0.48, Color(effect_color, ratio * 0.86))
+                    draw_arc(effect_pos, blast_radius, 0.0, TAU, 52, Color.WHITE, ratio, 9.0 * ratio + 2.0)
             &"drain":
                 for arc_index in range(4):
                     var arc_radius := effect_radius * (0.28 + float(arc_index) * 0.18) * (0.65 + progress * 0.35)
@@ -613,10 +737,17 @@ func _draw_effects() -> void:
                 for spoke in range(10):
                     var radial := Vector2.RIGHT.rotated(TAU * float(spoke) / 10.0)
                     draw_line(effect_pos + radial * shock_radius * 0.48, effect_pos + radial * shock_radius, Color(Color.WHITE, ratio * 0.85), 3.0)
-            &"wall_impact", &"hit_spark":
-                for spark in range(9):
-                    var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
-                    draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
+            &"wall_impact", &"hit_spark", &"impact":
+                if effect_kind in [&"hit_spark", &"impact"] and hit_spark_fx_atlas != null:
+                    var hit_frame := clampi(int(progress * 4.0), 0, 3)
+                    var hit_size := Vector2.ONE * effect_radius * 2.1
+                    draw_set_transform(effect_pos, direction.angle(), Vector2.ONE)
+                    draw_texture_rect_region(hit_spark_fx_atlas, Rect2(-hit_size * 0.5, hit_size), _horizontal_fx_src_rect(hit_spark_fx_atlas, 4, hit_frame))
+                    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+                else:
+                    for spark in range(9):
+                        var spark_dir := (-direction).rotated((float(spark) - 4.0) * 0.16)
+                        draw_line(effect_pos, effect_pos + spark_dir * effect_radius * (0.45 + float(spark % 3) * 0.22), Color(effect_color, ratio), 5.0 if effect_kind == &"wall_impact" else 3.0)
             &"speed_streak":
                 for streak in range(5):
                     var side := direction.orthogonal() * (float(streak) - 2.0) * 9.0
@@ -674,11 +805,17 @@ func _draw_effects() -> void:
                 draw_arc(effect_pos, effect_radius * lerpf(0.45, 1.20, progress), 0.0, TAU, 34, Color(effect_color, ratio), 8.0)
                 draw_line(effect_pos - direction * effect_radius, effect_pos + direction * effect_radius, Color(effect_color, ratio * 0.72), 5.0)
             &"death_burst":
-                var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
-                draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
-                draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
-                draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
-                draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+                if death_burst_atlas != null:
+                    var death_frame := clampi(int(progress * 6.0), 0, 5)
+                    var death_size := effect_radius * lerpf(0.72, 2.05, progress)
+                    var death_rect := Rect2(effect_pos - Vector2.ONE * death_size * 0.5, Vector2.ONE * death_size)
+                    draw_texture_rect_region(death_burst_atlas, death_rect, _horizontal_fx_src_rect(death_burst_atlas, 6, death_frame), Color(1.0, 1.0, 1.0, ratio))
+                else:
+                    var death_radius := effect_radius * lerpf(0.16, 1.10, progress)
+                    draw_circle(effect_pos, death_radius * 0.52, Color("#48030b", ratio * 0.82))
+                    draw_arc(effect_pos, death_radius, 0.0, TAU, 54, Color("#ff3349", ratio), 16.0)
+                    draw_line(effect_pos - Vector2.ONE * death_radius * 0.72, effect_pos + Vector2.ONE * death_radius * 0.72, Color.WHITE, ratio, 12.0)
+                    draw_line(effect_pos + Vector2(-1.0, 1.0) * death_radius * 0.72, effect_pos + Vector2(1.0, -1.0) * death_radius * 0.72, Color.WHITE, ratio, 12.0)
             &"guard":
                 draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
                 draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
@@ -746,7 +883,6 @@ func _draw() -> void:
     _proj.draw_deployables()
     _draw_zones()
     _draw_projectiles()
-    _proj.draw_impact_flashes()
     _draw_effects()
     _heroes.draw_knockouts()
     _overlay.draw_pocket_bubbles()
@@ -758,6 +894,7 @@ func _draw() -> void:
     _heroes.draw_rabbit_holes()
     _heroes.draw_tiger_roars()
     _heroes.draw_heroes()
+    _proj.draw_impact_flashes()
     _overlay.draw_finish_prompts()
     _heroes.draw_rat_tides()
     _heroes.draw_snake_skins()

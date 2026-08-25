@@ -61,11 +61,12 @@ func try_mobility(slot: int, direction: Vector2) -> void:
 		w.proj.add_effect(&"combo_break", old_pos, 72.0, 0.34, Color("#6ef3a5"), "ESCAPE", dir)
 	match equipment_id:
 		"scatter":
-			w.proj.add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.30, Color("#ffb45c"), "SKIRMISH HOP", -dir)
+			w.proj.add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.30, Color("#ffb45c"), "SKIRMISH HOP", -dir)
 		"rail":
-			w.proj.add_effect(&"beam_step", Vector2(h["pos"]), distance, 0.26, Color("#71e7ff"), "SIGHTLINE STEP", -dir)
+			w.proj.add_mobility_effect(slot, &"beam_step", old_pos, Vector2(h["pos"]), distance, 0.26, Color("#71e7ff"), "SIGHTLINE STEP", -dir)
 		"mortar":
 			w.proj.add_effect(&"explosion", old_pos, 105.0, 0.36, Color("#ff604f"), "BLAST HOP")
+			w.proj.add_mobility_effect(slot, &"blast_hop", old_pos, Vector2(h["pos"]), distance, 0.32, Color("#ff604f"), "BLAST HOP", -dir, false)
 			w.heroes[slot] = h
 			for target in range(w.PLAYER_COUNT):
 				if target != slot and bool(w.heroes[target]["alive"]) and old_pos.distance_to(Vector2(w.heroes[target]["pos"])) <= 120.0:
@@ -73,27 +74,27 @@ func try_mobility(slot: int, direction: Vector2) -> void:
 			h = w.heroes[slot]
 		"leech":
 			h["hp"] = minf(float(h["max_hp"]), float(h["hp"]) + 8.0)
-			w.proj.add_effect(&"drain", Vector2(h["pos"]), 88.0, 0.42, Color("#d45cff"), "+8 SHADOW PULL", -dir)
+			w.proj.add_mobility_effect(slot, &"drain", old_pos, Vector2(h["pos"]), 88.0, 0.42, Color("#d45cff"), "+8 SHADOW PULL", -dir)
 		"breaker":
 			h["guard_time"] = 0.80
-			w.proj.add_effect(&"guard", Vector2(h["pos"]), 68.0, 0.80, Color("#ffe066"), "IRON MARCH", dir)
+			w.proj.add_mobility_effect(slot, &"guard", old_pos, Vector2(h["pos"]), 68.0, 0.20, Color("#ffe066"), "IRON MARCH", dir)
 		"burst":
-			w.proj.add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.28, Color("#ff5ca8"), "FLASH CUT", -dir)
+			w.proj.add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.28, Color("#ff5ca8"), "FLASH CUT", -dir)
 		"blade":
 			h["evade_time"] = 0.48
-			w.proj.add_effect(&"slash_dash", Vector2(h["pos"]), distance, 0.34, Color("#b9f3ff"), "SHADOW SHEATH", -dir)
+			w.proj.add_mobility_effect(slot, &"slash_dash", old_pos, Vector2(h["pos"]), distance, 0.34, Color("#b9f3ff"), "SHADOW SHEATH", -dir)
 		"brawler":
 			h["combo_immunity"] = 0.95
-			w.proj.add_effect(&"speed_streak", Vector2(h["pos"]), distance, 0.28, Color("#ff9466"), "WEAVE", -dir)
+			w.proj.add_mobility_effect(slot, &"speed_streak", old_pos, Vector2(h["pos"]), distance, 0.28, Color("#ff9466"), "WEAVE", -dir)
 		"bomb":
-			w.proj.add_effect(&"fuse", old_pos, 75.0, 0.50, Color("#ff5d4f"), "BLAST ROLL")
+			w.proj.add_mobility_effect(slot, &"fuse", old_pos, Vector2(h["pos"]), 75.0, 0.50, Color("#ff5d4f"), "BLAST ROLL", -dir)
 		"spear":
-			w.proj.add_effect(&"spear_line", Vector2(h["pos"]), distance, 0.32, Color("#ffe27a"), "POLE VAULT", -dir)
+			w.proj.add_mobility_effect(slot, &"spear_line", old_pos, Vector2(h["pos"]), distance, 0.32, Color("#ffe27a"), "POLE VAULT", -dir)
 		"chain":
-			w.proj.add_effect(&"chain_arc", Vector2(h["pos"]), distance, 0.34, Color("#b78cff"), "SWING STEP", -dir)
+			w.proj.add_mobility_effect(slot, &"chain_arc", old_pos, Vector2(h["pos"]), distance, 0.34, Color("#b78cff"), "SWING STEP", -dir)
 		_:
 			h["guard_time"] = 1.20
-			w.proj.add_effect(&"guard", Vector2(h["pos"]), 78.0, 1.20, Color("#8de1ff"), "BRACE STEP", dir)
+			w.proj.add_mobility_effect(slot, &"guard", old_pos, Vector2(h["pos"]), 78.0, 0.30, Color("#8de1ff"), "BRACE STEP", dir)
 	w.heroes[slot] = h
 	w.event_log.emit(w.tick, &"mobility_used", slot, -1, {"equipment":equipment_id, "name":equipment["mobility_name"]})
 
