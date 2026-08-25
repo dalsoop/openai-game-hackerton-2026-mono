@@ -68,6 +68,7 @@ func try_start_reload(slot: int) -> void:
 	h["spray_idle"] = 1.0
 	h["action"] = &"RELOAD"
 	w.heroes[slot] = h
+	w.event_log.emit(w.tick, &"reload_started", slot, -1, {"equipment":str(h["equipment"].get("id", "")), "gun":str(h["equipment"].get("name", ""))})
 
 func stamp_gun_fire(h: Dictionary, slot: int, equipment_id: String) -> void:
 	var fx: Dictionary = w.GunSig.fx_for_equipment(equipment_id)
@@ -330,6 +331,9 @@ func damage_hero(owner: int, target: int, amount: float, source: StringName = &"
 		var launch_speed = (900.0 + absf(launch_knockback) * 9.8) / float(h["equipment"]["weight"])
 		h["launch_vel"] = launch_direction * launch_speed
 		h["launch_time"] = clampf(0.22 + absf(launch_knockback) * 0.0022, 0.26, 0.72)
+		if not attack_finisher:
+			w.event_log.emit(w.tick, &"hero_launched", owner, target, {"knockback":launch_knockback})
+			print("[gangup] launch slot=%s" % target)
 		h["wall_bounces"] = 0
 		h["launch_owner"] = owner
 		h["launch_trail"] = [Vector2(h["pos"])]

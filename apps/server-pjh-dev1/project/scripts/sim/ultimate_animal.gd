@@ -287,6 +287,8 @@ func tick_rabbit_burrows(dt: float) -> void:
 			h["burrowed"] = false
 			h["burrow_left"] = 0.0
 			h["spawn_protect_time"] = maxf(float(h.get("spawn_protect_time", 0.0)), 0.25)
+			w.event_log.emit(w.tick, &"rabbit_emerge", slot, -1, {"pos": exit_pos})
+			print("[gangup] rabbit emerge slot=%s" % slot)
 		w.heroes[slot] = h
 	var kept: Array[Dictionary] = []
 	for hole0 in w.rabbit_holes:

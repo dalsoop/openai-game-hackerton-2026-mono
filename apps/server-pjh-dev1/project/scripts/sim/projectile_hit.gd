@@ -137,7 +137,7 @@ func update_projectiles(dt: float) -> void:
 			else:
 				var impact_direction := -Vector2(p["vel"]).normalized()
 				add_effect(&"hit_spark", Vector2(p["pos"]), 34.0, 0.24, Color("#c4d0df"), "", impact_direction)
-			w.event_log.emit(w.tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"]})
+			w.event_log.emit(w.tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"], "pos":Vector2(p["pos"])})
 			continue
 		var owner := int(p["owner"])
 		var hit := false

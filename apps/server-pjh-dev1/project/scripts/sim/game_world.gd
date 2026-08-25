@@ -143,6 +143,9 @@ var last_down_slot: int = -1
 var last_down_ticks: int = 0
 var start_countdown: float = START_COUNTDOWN
 var time_limit_warning_emitted: bool = false
+var fight_countdown_emitted: bool = false
+var fight_surge_emitted: bool = false
+var fight_surge_at: float = -1.0
 var ultimate_focus_slot: int = -1
 var ultimate_focus_time: float = 0.0
 var ultimate_focus_max: float = 0.48
@@ -221,6 +224,7 @@ func reset() -> void:
     ultimate_focus_slot = -1; ultimate_focus_time = 0.0
     streak_callout = ""; streak_subtitle = ""; streak_callout_ticks = 0; streak_callout_shutdown = false
     start_countdown = START_COUNTDOWN; time_limit_warning_emitted = false
+    fight_countdown_emitted = false; fight_surge_emitted = false; fight_surge_at = -1.0
     safe_zone_center = ARENA_CENTER; safe_zone_radius = SAFE_ZONE_INITIAL_RADIUS
     safe_zone_from_radius = SAFE_ZONE_INITIAL_RADIUS
     safe_zone_target_radius = float(SAFE_ZONE_PHASES[0]["radius"])
@@ -275,6 +279,15 @@ func step_tick(command: Dictionary, dt: float = FIXED_DT) -> void:
         start_countdown = 0.0; _announce("GO!", 45)
         event_log.emit(tick, &"combat_started", -1, -1, {})
     match_time += dt
+    if not fight_countdown_emitted and MATCH_TIME_LIMIT - match_time <= 60.0:
+        fight_countdown_emitted = true
+        fight_surge_at = match_time + 1.65
+        _announce("1 MINUTE LEFT", 80)
+        event_log.emit(tick, &"fight_countdown", -1, -1, {"remaining":60.0})
+        print("[gangup] fight countdown t=%.2f" % match_time)
+    if fight_surge_at >= 0.0 and (not fight_surge_emitted) and match_time >= fight_surge_at:
+        fight_surge_emitted = true
+        grant_fight_surge()
     if not time_limit_warning_emitted and MATCH_TIME_LIMIT - match_time <= 10.0:
         time_limit_warning_emitted = true; _announce("10 SECONDS TO HP DECISION", 90)
         event_log.emit(tick, &"time_limit_warning", -1, -1, {"remaining":10.0})
@@ -325,6 +338,42 @@ func _hero_move_speed(slot: int) -> float: return mov.hero_move_speed(slot)
 func _hurt_crate(index: int, damage: float, show_number: bool = true) -> void: crate.hurt_crate(index, damage, show_number)
 func _nudge_out_of_cover(point: Vector2, radius: float) -> Vector2: return arena.nudge_out_of_cover(point, radius)
 func _resolve_cover_motion(old_pos: Vector2, motion: Vector2) -> Vector2: return arena.resolve_cover_motion(old_pos, motion)
+
+
+func grant_fight_surge() -> void:
+    var standing := 0
+    var pending := 0
+    for slot in range(heroes.size()):
+        var h: Dictionary = heroes[slot]
+        if bool(h.get("eliminated", false)):
+            continue
+        h["ultimate_charge"] = ULTIMATE_MAX
+        if bool(h.get("alive", false)) and not bool(h.get("downed", false)):
+            h["fight_surge_pending"] = false
+            heroes[slot] = h
+            roul.queue_roulette(slot, "kill")
+            standing += 1
+        else:
+            h["fight_surge_pending"] = true
+            heroes[slot] = h
+            pending += 1
+    _announce("READY TO FIGHT", 90)
+    event_log.emit(tick, &"fight_surge", -1, -1, {"standing":standing, "pending":pending})
+    print("[gangup] fight surge standing=%s pending=%s" % [standing, pending])
+
+func deliver_fight_surge_if_pending(slot: int) -> void:
+    if slot < 0 or slot >= heroes.size():
+        return
+    var h: Dictionary = heroes[slot]
+    if not bool(h.get("fight_surge_pending", false)):
+        return
+    if bool(h.get("eliminated", false)) or not bool(h.get("alive", false)):
+        return
+    h["fight_surge_pending"] = false
+    h["ultimate_charge"] = ULTIMATE_MAX
+    heroes[slot] = h
+    roul.queue_roulette(slot, "kill")
+    print("[gangup] fight surge late slot=%s" % slot)
 
 func summary() -> Dictionary:
     var alive := 0; var core_hps: Array[float] = []; var ult_uses := 0; var eq_hits := 0

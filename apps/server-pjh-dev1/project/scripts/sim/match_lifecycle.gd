@@ -209,6 +209,7 @@ func update_respawns(dt: float) -> void:
 		w.heroes[slot] = h
 		w.proj.add_effect(&"respawn", spawn_pos, 70.0, 0.45, Color("#b9f3ff"), "RESPAWN")
 		w.event_log.emit(w.tick, &"hero_respawned", slot, -1, {"revives_used":int(h.get("revives_used", 0))})
+		w.deliver_fight_surge_if_pending(slot)
 
 func standing_leader() -> int:
 	var best = -1
@@ -308,6 +309,7 @@ func stand_up(slot: int) -> void:
 	w.heroes[slot] = h
 	w.proj.add_effect(&"respawn", Vector2(h["pos"]), 56.0, 0.40, Color("#6ef3a5"), "UP")
 	w.event_log.emit(w.tick, &"hero_stood", slot, -1, {})
+	w.deliver_fight_surge_if_pending(slot)
 
 func tick_downs(dt: float) -> void:
 	for slot in range(w.heroes.size()):

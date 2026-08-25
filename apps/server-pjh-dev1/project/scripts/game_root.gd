@@ -78,6 +78,7 @@ func _ready() -> void:
 			hub.joined_room.connect(_on_hub_joined_after_launch)
 	_restart()
 	camera.position = _camera_target()
+	Audio.attach_world(world_view, camera)
 	screens.start_match.connect(_on_start_match)
 	screens.request_resume.connect(func(): _set_phase(&"play"))
 	screens.request_quit_to_intro.connect(func(): _return_to_hub())
@@ -321,6 +322,10 @@ func _set_phase(next: StringName) -> void:
 		if page == &"play" or page == &"select":
 			page = &"lobby"
 		screens.show_page(page)
+	if playing:
+		Audio.play_music("match")
+	else:
+		Audio.play_music("lobby")
 
 func _set_net_banner(text: String) -> void:
 	if _net_banner == null:
@@ -448,6 +453,7 @@ func _physics_process(_delta: float) -> void:
 	# SFX
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
 	last_event_id = sfx_result["last_event_id"]
+	Audio.tick_world_sfx(world)
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
 	_check_my_kill_fanfare()
 	_check_tutorial_hints()
@@ -700,5 +706,6 @@ func _check_my_kill_fanfare() -> void:
 	if kills > _last_local_kills:
 		print("[gangup] fanfare my_kill slot=", me, " kills=", _last_local_kills, "->", kills)
 		_fanfare.burst()
+		Audio.play_sfx("kill_fanfare", -2.0, 0.0)
 	_last_local_kills = kills
 
