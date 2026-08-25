@@ -149,6 +149,8 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
     const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
     expect(e2e).toContain("/matchmake/reconnect");
     expect(e2e).toContain("reconnectHits");
+    expect(e2e).toContain("__e2eJsReconnect");
+    expect(e2e).toContain("godotOwned");
   });
 });
 
