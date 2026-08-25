@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-50 -->
+		<!-- gangup-handoff-51 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -537,8 +537,21 @@ function showEngineFail(err) {
 	lobbyRoot.style.opacity = '1';
 	lobbyRoot.style.pointerEvents = 'auto';
 	godotStarting = false;
-	try { Engine.unload(); } catch (e) {}
-	engine = new Engine(GODOT_CONFIG);
+	// Engine.unload()+new Engine() leaves index.js initPromise resolved
+	// on the old instance, so the next startGame hits "must be initialized".
+	var poisoned = /must be initialized/i.test(text);
+	glog('engine.failKeep', poisoned ? 'poisoned' : 'keep');
+	if (poisoned) {
+		var n = 0;
+		try { n = parseInt(sessionStorage.getItem('gangup_engine_reload') || '0', 10) || 0; } catch (e) {}
+		if (n < 2) {
+			try { sessionStorage.setItem('gangup_engine_reload', String(n + 1)); } catch (e) {}
+			gfail('엔진독소', '페이지다시로드 ' + (n + 1));
+			location.reload();
+			return;
+		}
+		gfail('엔진독소', '재로드한도');
+	}
 }
 
 function launchGodot() {
@@ -613,6 +626,7 @@ function launchGodot() {
 		clearTimeout(hangTimer);
 		godotReady = true;
 		godotStarting = false;
+		try { sessionStorage.removeItem('gangup_engine_reload'); } catch (e) {}
 		gok('엔진준비');
 		$assetProgress.childNodes[0].textContent = '준비 완료 ';
 		var fill = document.getElementById('asset-fill');
