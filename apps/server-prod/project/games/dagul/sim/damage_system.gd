@@ -393,7 +393,7 @@ func _finisher_launch(owner: int, target: int, h: Dictionary, attacker: Dictiona
 	w.impact_ticks = maxi(w.impact_ticks, 18)
 	return launch_knockback
 
-func _apply_launch(owner: int, _target: int, h: Dictionary, source: StringName, impact_origin: Vector2, launch_knockback: float) -> void:
+func _apply_launch(owner: int, target: int, h: Dictionary, source: StringName, impact_origin: Vector2, launch_knockback: float) -> void:
 	h["combo_capture_time"] = 0.0
 	var origin = impact_origin if impact_origin != Vector2.ZERO else Vector2(w.heroes[owner]["pos"])
 	var push_direction = origin.direction_to(Vector2(h["pos"]))
@@ -403,6 +403,8 @@ func _apply_launch(owner: int, _target: int, h: Dictionary, source: StringName, 
 	var launch_speed = (900.0 + absf(launch_knockback) * 9.8) / float(h["equipment"]["weight"])
 	h["launch_vel"] = launch_direction * launch_speed
 	h["launch_time"] = clampf(0.22 + absf(launch_knockback) * 0.0022, 0.26, 0.72)
+	if source != &"mobility":
+		w.event_log.emit(w.tick, &"hero_launched", owner, target, {"knockback":launch_knockback})
 	h["wall_bounces"] = 0
 	h["launch_owner"] = owner
 	h["launch_trail"] = [Vector2(h["pos"])]

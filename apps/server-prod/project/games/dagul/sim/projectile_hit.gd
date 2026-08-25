@@ -164,7 +164,7 @@ func _hit_cover(p: Dictionary) -> bool:
 	else:
 		var impact_direction := -Vector2(p["vel"]).normalized()
 		add_effect(&"hit_spark", Vector2(p["pos"]), 34.0, 0.24, Color("#c4d0df"), "", impact_direction)
-	w.event_log.emit(w.tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"]})
+	w.event_log.emit(w.tick, &"shot_blocked", int(p["owner"]), -1, {"source":p["source"], "pos":Vector2(p["pos"])})
 	return true
 
 func _hit_any_target(p: Dictionary, owner: int) -> bool:

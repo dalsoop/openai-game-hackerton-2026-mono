@@ -70,8 +70,13 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	hit_pause_frames = 0
 	previous_right_mouse = false
 	previous_left_mouse = false
+	_bind_match_camera(ctx, audio, world_view)
+
+func _bind_match_camera(ctx: Dictionary, audio: Node, world_view: Node2D) -> void:
 	var camera: Camera2D = ctx["camera"]
 	camera.position = _camera_target(camera)
+	if audio != null and audio.has_method("attach_world"):
+		audio.attach_world(world_view, camera)
 	if _tutorial != null and TutorialOverlay.is_first_play():
 		_tutorial.start_tutorial()
 
@@ -211,9 +216,7 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
 	_tick_world(move, aim_world, primary, equipment_held, touch, hub, hud, world_view)
 
-	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")), last_event_id)
-	last_event_id = sfx_result["last_event_id"]
-	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
+	_tick_match_audio(ctx)
 	_check_tutorial_hints()
 	_check_my_kill_fanfare()
 	_update_spectator()
@@ -221,6 +224,14 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	hud.spectate_slot = spectate_slot
 	world_view.queue_redraw()
 	hud.queue_redraw()
+
+func _tick_match_audio(ctx: Dictionary) -> void:
+	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")), last_event_id)
+	last_event_id = sfx_result["last_event_id"]
+	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
+	var audio_tick: Node = ctx["hud_layer"].get_node_or_null("/root/Audio")
+	if audio_tick != null and audio_tick.has_method("tick_world_sfx"):
+		audio_tick.tick_world_sfx(world)
 
 func _read_move(touch: CanvasLayer) -> Vector2:
 	var move := LayoutKeysScript.move_axis()
