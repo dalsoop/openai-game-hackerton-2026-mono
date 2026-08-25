@@ -12,7 +12,7 @@ export const CONFIG = {
   maxChatLength: 120,
   chatCooldownMs: 400,
   rateBudget: 60,
-  rateRefillPerMs: 0.04,
+  rateRefillPerMs: 0.06,
   snapDeltaLogInterval: 100,
   resetToLobbyDelayMs: 5_000,
   hostBootTimeoutMs: 180_000,
