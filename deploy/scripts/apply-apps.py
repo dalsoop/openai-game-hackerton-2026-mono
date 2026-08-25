@@ -195,6 +195,11 @@ def export_web(folder: str) -> None:
     )
     if not html.is_file():
         raise SystemExit(f"{folder}: 웹 익스포트가 index.html 을 만들지 않음")
+    game_html = export_dir / "game.html"
+    if game_html.exists() or (APPS / folder / "public" / "index.html").is_file():
+        game_html.write_bytes(html.read_bytes())
+        print(f"copied export html -> {game_html}")
+
 
 
 def push_web(folder: str) -> None:
