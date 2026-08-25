@@ -151,7 +151,6 @@ export function startMatch(room: Room): void {
     return { slot, name: c?.name ?? "?", resume_token: c?.resume ?? "" };
   });
   notifyGameServer(room.id, players, room.mode, seed);
-  const gameWsUrl = deriveGameWsUrl();
   for (const id of room.members) {
     const c = clients.get(id);
     if (c?.dead) {
@@ -159,6 +158,8 @@ export function startMatch(room: Room): void {
     } else {
       const slot = room.members.indexOf(id);
       const isHost = id === room.hostClientId;
+      const gameWsUrl = deriveGameWsUrl(c);
+      console.log(`[gang-up] start game-ws slot=${slot} host=${isHost} url=${gameWsUrl || "(empty)"}`);
       sendTo(id, { t: MSG.START, you: slot, host: isHost, room: roomPublic(room), gameServerUrl: gameWsUrl, seed });
     }
   }
@@ -183,11 +184,19 @@ function notifyGameServer(roomId: string, players: { slot: number; name: string;
   }).catch((err: Error) => console.error(`[gang-up] game server notify failed: ${err.message}`));
 }
 
-function deriveGameWsUrl(): string {
-  const base = CONFIG.gameServerUrl;
-  const host = new URL(base).hostname;
-  const port = 9121;
-  return `wss://${host}:${port}/game-ws`;
+function deriveGameWsUrl(client?: Client): string {
+  const host = String(client?.publicHost || "").trim();
+  if (host && host !== "127.0.0.1" && !host.startsWith("localhost")) {
+    return `wss://${host}/game-ws`;
+  }
+  try {
+    const envHost = new URL(CONFIG.gameServerUrl).hostname;
+    if (envHost && envHost !== "127.0.0.1" && envHost !== "localhost") {
+      return `wss://${envHost}/game-ws`;
+    }
+  } catch { /* ignore */ }
+  console.error("[gang-up] refuse loopback game-ws for a remote client");
+  return "";
 }
 
 export function leaveRoom(client: Client, { silent }: { silent?: boolean } = {}): void {
@@ -298,7 +307,7 @@ export function attachResume(fresh: Client, token: string): Client {
         players: peersPayload(room),
         playing: Boolean(playing),
         snap: playing ? room.lastSnap : null,
-        gameServerUrl: playing ? deriveGameWsUrl() : "",
+        gameServerUrl: playing ? deriveGameWsUrl(old) : "",
       });
       notifyRoom(room, { notice: KO.playerReconnected(old.name) });
     } else {
