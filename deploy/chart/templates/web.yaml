@@ -50,15 +50,23 @@ data:
       }
 
       {{- range .Values.hubs }}
+      {{- $ctx := dict "folder" .folder "root" $ }}
+      {{- $scaled := eq (include "hackertone-games.hubScaled" $ctx) "true" }}
       @hub_{{ .id | replace "-" "_" }} host {{ .folder }}.external.kr
       handle @hub_{{ .id | replace "-" "_" }} {
         {{- if $.Values.hub.publicPrefix }}
-        # 다중 복제 WS 핀닝 — /hubp/<pod-name>/* 를 해당 Pod 의 헤드리스 DNS 로.
-        # (slothub 과 같은 placeholder 업스트림 방식 — 동적 업스트림 지원 확인됨)
-        @hubpod_{{ .id | replace "-" "_" }} path_regexp hubpod_{{ .id | replace "-" "" }} ^/hubp/([A-Za-z0-9-]+)(/.*)?$
+        # 다중 복제 WS 핀닝 — /hubp/<pod-name>/* 를 해당 Pod 로. 접두사는 떼고 넘긴다.
+        @hubpod_{{ .id | replace "-" "_" }} path_regexp hubpod_{{ .id | replace "-" "" }} ^/hubp/([A-Za-z0-9-]+)(.*)$
         handle @hubpod_{{ .id | replace "-" "_" }} {
+          rewrite * {http.regexp.hubpod_{{ .id | replace "-" "" }}.2}
+          @hubpod_empty_{{ .id | replace "-" "_" }} path ""
+          rewrite @hubpod_empty_{{ .id | replace "-" "_" }} /
           reverse_proxy {http.regexp.hubpod_{{ .id | replace "-" "" }}.1}.{{ .folder }}-hub-pods.{{ $.Release.Namespace }}.svc.cluster.local:8080 {
             flush_interval -1
+            transport http {
+              read_timeout 3600s
+              write_timeout 3600s
+            }
           }
         }
         {{- end }}
@@ -68,25 +76,67 @@ data:
             flush_interval -1
           }
         }
-        {{- if eq (default "/gang-up" .pathPrefix) "/" }}
+        {{- if and $.Values.hub.staticSplit $scaled }}
+        handle /godot* {
+          reverse_proxy {{ .folder }}-hub-static:80 {
+            flush_interval -1
+          }
+        }
+        handle /addons* {
+          reverse_proxy {{ .folder }}-hub-static:80 {
+            flush_interval -1
+          }
+        }
         handle {
           reverse_proxy {{ .folder }}-hub:80 {
             flush_interval -1
+            transport http {
+              read_timeout 3600s
+              write_timeout 3600s
+            }
+          }
+        }
+        {{- else if eq (default "/gang-up" .pathPrefix) "/" }}
+        handle {
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+            transport http {
+              read_timeout 3600s
+              write_timeout 3600s
+            }
           }
         }
         {{- else }}
-        handle {{ .pathPrefix | default "/gang-up" }}* {
+        handle /rooms {
           reverse_proxy {{ .folder }}-hub:80 {
             flush_interval -1
           }
         }
-        {{- end }}
+        handle /matchmake* {
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+            transport http {
+              read_timeout 3600s
+              write_timeout 3600s
+            }
+          }
+        }
+        handle {{ .pathPrefix | default "/gang-up" }}* {
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+            transport http {
+              read_timeout 3600s
+              write_timeout 3600s
+            }
+          }
+        }
         root * /srv/g/{{ .folder }}
         @html_files path *.html
         header @html_files Cache-Control "no-store, no-cache, must-revalidate"
         @cacheable not path *.html
         header @cacheable Cache-Control "no-cache"
         file_server
+        {{- end }}
       }
       {{- end }}
 

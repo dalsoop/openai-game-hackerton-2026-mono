@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomAvailable } from "@colyseus/sdk";
-import { removeRoom, roomJoinable, toHubRoom, upsertRoom } from "@/lib/hub/room-mapper";
+import { listableRoom, removeRoom, roomJoinable, toHubRoom, upsertRoom } from "@/lib/hub/room-mapper";
 
 const avail = (id: string, clients = 1, phase = "lobby"): RoomAvailable =>
   ({ roomId: id, clients, metadata: { title: `방${id}`, mode: "solo", phase } }) as unknown as RoomAvailable;
@@ -23,6 +23,17 @@ describe("toHubRoom — 뷰 모델 매핑", () => {
     expect(toHubRoom(closed)).toEqual({
       id: "r3", gameId: "sparring", title: "저녁", players: 2, mode: "full", playing: false, open: false,
     });
+  });
+});
+
+describe("listableRoom", () => {
+  it("플레이 중·닫힘·만석·잠금은 뺀다", () => {
+    expect(listableRoom(avail("a", 1, "lobby"))).toBe(true);
+    expect(listableRoom(avail("b", 1, "playing"))).toBe(false);
+    const full = { ...avail("c", 8, "lobby"), maxClients: 8 } as RoomAvailable;
+    expect(listableRoom(full)).toBe(false);
+    const locked = { ...avail("d", 1, "lobby"), locked: true } as RoomAvailable;
+    expect(listableRoom(locked)).toBe(false);
   });
 });
 

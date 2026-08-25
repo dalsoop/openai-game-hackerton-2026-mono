@@ -6,6 +6,7 @@ import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
 import { matchJustEnded, startBodies } from "./lobby-relay.js";
+import { shouldRelaySnap } from "./snap-relay.js";
 
 export { PlayerSchema, LobbyState } from "./lobby-state.js";
 
@@ -156,12 +157,14 @@ export class LobbyRoom extends Room {
 
   private relaySnap(client: Client, data: Record<string, unknown>): void {
     if (this.state.phase !== "playing" || client.sessionId !== this.state.hostSessionId) {return;}
+    const ended = matchJustEnded(data, this.lastSnap);
+    if (!ended && !shouldRelaySnap(this.lastSnap, data, HUB_CONFIG.maxSnapBytes)) {return;}
     this.prevSnap = this.lastSnap;
     this.lastSnap = data;
     for (const c of this.clients) {
       if (c.sessionId !== client.sessionId) {c.send(MSG.SNAP, data);}
     }
-    if (matchJustEnded(data, this.prevSnap)) {
+    if (ended) {
       if (this.gameTimer) {this.gameTimer.clear();}
       this.resetToLobby();
     }

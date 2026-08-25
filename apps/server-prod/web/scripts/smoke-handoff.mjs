@@ -3,6 +3,7 @@
 import { Client } from "@colyseus/sdk";
 
 const URL = process.env.HUB_URL || process.env.SMOKE_URL || "http://127.0.0.1:3000";
+const ROOM_NAME = `${(process.env.SLOT_FOLDER || "server-prod").trim()}-lobby`;
 const results = [];
 function ok(name, cond) {
   results.push({ name, pass: !!cond });
@@ -25,7 +26,7 @@ function onceEvent(room, kind, timeoutMs = 8000) {
 const host = new Client(URL);
 const guest = new Client(URL);
 
-const hostRoom = await host.create("lobby", { name: "호스트" });
+const hostRoom = await host.create(ROOM_NAME, { name: "호스트" });
 const guestRoom = await guest.joinById(hostRoom.roomId, { name: "게스트" });
 await sleep(500);
 ok("1. 2인 입장 → players=2", hostRoom.state.players.length === 2);

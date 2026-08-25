@@ -22,17 +22,17 @@ hubs:
     id: pjh-dev1
     pathPrefix: /gang-up
     image: harbor.50.internal.xz/library/server-pjh-dev1
-    tag: f0b76f5efaa3
+    tag: a4a8d7772c7d
   - folder: server-prod
     id: prod
-    pathPrefix: /gang-up
+    pathPrefix: /
     image: harbor.50.internal.xz/library/server-prod
-    tag: 98e948f57845
+    tag: 7e1fc78c714f
   - folder: server-yjh-dev1
     id: yjh-dev1
-    pathPrefix: /gang-up
+    pathPrefix: /
     image: harbor.50.internal.xz/library/server-yjh-dev1
-    tag: a4eb3896dde8
+    tag: f2733b15bffe
   - folder: server-yjh-hexclash
     id: yjh-hexclash
     pathPrefix: /hexclash

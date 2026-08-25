@@ -77,6 +77,20 @@ body.wait #wait { display: block; }
 .mode-check::after { content:""; width:7px; height:4px; border-left:2px solid #1a1400; border-bottom:2px solid #1a1400; transform:rotate(-45deg) translateY(-1px); }
 .mode-card.on .mode-check, .mode-card:has(input:checked) .mode-check { opacity:1; transform:scale(1); }
 
+.lobby-board { display:flex; flex-direction:column; gap:16px; }
+.lobby-toolbar { display:flex; align-items:center; gap:10px; }
+.lobby-toolbar .lobby-create-link { margin:0; flex:1; }
+.room-game-line { display:block; font-size:12px; color:var(--tx-2); margin-top:2px; }
+.room-aside { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+.wait-panel { display:flex; flex-direction:column; gap:14px; }
+.wait-idle { margin:0; font-size:13px; color:var(--tx-1); }
+.wait-games { border:1.5px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin:0; }
+.wait-game-list { display:flex; flex-wrap:wrap; gap:8px; }
+.wait-game { display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--line); border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px; }
+.wait-game input { accent-color:var(--acc); }
+.wait-game.on { border-color:var(--acc); background:rgba(255,210,62,.08); }
+.wait-game-fixed { margin:0; font-size:14px; color:var(--tx-1); }
+
 /* --- room list --- */
 .rooms { display:flex; flex-direction:column; gap:8px; }
 .room-card { background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:.15s; }

@@ -2,7 +2,7 @@
 // GD 거울(web_contract.gd)과의 정합은 check-contract.mjs 가 담당한다.
 import { describe, expect, it } from "vitest";
 import { CloseCode } from "@colyseus/sdk";
-import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE } from "@/lib/hub/config";
+import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE, DEFAULT_SLOT, slotId, slotRoomName, ROOM_NAME } from "@/lib/hub/config";
 
 describe("MSG 메시지 계약", () => {
   it("메시지 타입은 중복 없고 비어 있지 않다", () => {
@@ -45,6 +45,24 @@ describe("DOM_EVT · 핸드오프", () => {
   });
 });
 
+describe("슬롯 룸 이름", () => {
+  it("빈 슬롯은 이 앱 기본 폴더를 쓴다", () => {
+    expect(slotId("")).toBe(DEFAULT_SLOT);
+    expect(slotId("  ")).toBe(DEFAULT_SLOT);
+    expect(slotRoomName("lobby", "")).toBe(`${DEFAULT_SLOT}-lobby`);
+  });
+
+  it("슬롯이 있으면 핸들러 이름 앞에 붙는다", () => {
+    expect(slotRoomName("lobby", "server-fig-dev1")).toBe("server-fig-dev1-lobby");
+    expect(slotRoomName("room_list", "server-prod")).toBe("server-prod-room_list");
+  });
+
+  it("실행 중 ROOM_NAME 은 다른 슬롯의 lobby 와 같지 않다", () => {
+    expect(ROOM_NAME).toBe(slotRoomName("lobby"));
+    expect(ROOM_NAME).not.toBe("lobby");
+  });
+});
+
 describe("HUB_CONFIG", () => {
   it("최대 인원은 8(다굴), 시드 상한이 양수다", () => {
     expect(HUB_CONFIG.maxPlayers).toBe(8);
@@ -58,6 +76,10 @@ describe("HUB_CONFIG", () => {
   it("워치독·종료 코드는 공식 SDK 값과 같다", () => {
     expect(HUB_CONFIG.matchWatchdogMs).toBeGreaterThan(0);
     expect(HUB_CONFIG.rttIntervalMs).toBeGreaterThan(0);
+    expect(HUB_CONFIG.maxPayload).toBeLessThanOrEqual(32 * 1024);
+    expect(HUB_CONFIG.maxSnapBytes).toBeLessThan(HUB_CONFIG.maxPayload);
+    expect(HUB_CONFIG.listPollMs).toBeGreaterThanOrEqual(2_000);
+    expect(HUB_CONFIG.lobbyHealthRttMs).toBe(0);
     expect(CLOSE_CODE.CONSENTED).toBe(CloseCode.CONSENTED);
     expect(CLOSE_CODE.KICKED).toBe(CloseCode.CONSENTED);
     expect(ROOM_LEAVE.HANDOFF).toBe(false);

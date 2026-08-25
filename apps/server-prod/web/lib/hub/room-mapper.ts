@@ -21,6 +21,15 @@ export function roomJoinable(room: Pick<HubRoom, "playing" | "open">): boolean {
   return !room.playing && room.open;
 }
 
+/** HTTP 목록에 올릴 방 — 닫힘·잠금·만석은 뺀다. */
+export function listableRoom(r: RoomAvailable & { locked?: boolean }): boolean {
+  const room = toHubRoom(r);
+  if (!roomJoinable(room)) {return false;}
+  if (r.locked === true) {return false;}
+  const max = Number(r.maxClients) || 8;
+  return Number(r.clients) < max;
+}
+
 /** 전체 목록 수신(LIST_MSG.ROOMS). */
 export function replaceList(prev: RoomAvailable[], next: RoomAvailable[]): RoomAvailable[] {
   return next;

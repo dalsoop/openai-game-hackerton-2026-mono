@@ -3,7 +3,8 @@ export { HANDOFF, DOM_EVT, MSG, CLOSE_CODE, ROOM_LEAVE } from "../contract/wire"
 export const HUB_CONFIG = {
   graceLobbyMs: 60_000,
   gracePlayMs: 180_000,
-  maxPayload: 256 * 1024,
+  maxPayload: 32 * 1024,
+  maxSnapBytes: 24 * 1024,
   defaultName: "손님",
   gameServerUrl: process.env.GAME_SERVER_URL ?? "http://127.0.0.1:9122",
   maxNameLength: 12,
@@ -17,11 +18,30 @@ export const HUB_CONFIG = {
   gameServerTimeoutMs: 5_000,
   matchWatchdogMs: 30_000,
   rttIntervalMs: 2_000,
+  listPollMs: 4_000,
+  lobbyHealthRttMs: 0,
+  perProcessCcu: 500,
+  targetCcu: 10_000,
 } as const;
 
 export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;
-export const ROOM_NAME = "lobby";
-export const LIST_ROOM_NAME = "room_list";
+
+/** 이 앱 폴더의 기본 슬롯. 브라우저 번들은 SLOT_FOLDER 가 없으므로 여기로 맞춘다. */
+export const DEFAULT_SLOT = "server-prod";
+
+/** 공용 Redis 에서 매치메이킹이 섞이지 않게 핸들러 이름에 슬롯을 붙인다.
+ * ioredis keyPrefix 는 쓰지 않는다 (pub/sub·예약 키가 갈라져 4002).
+ * RedisDriver 0.17 은 roomcaches 해시 이름이 고정이다. */
+export function slotId(slot = process.env.SLOT_FOLDER ?? ""): string {
+  const trimmed = slot.trim();
+  return trimmed || DEFAULT_SLOT;
+}
+
+export function slotRoomName(base: string, slot = slotId()): string {
+  return `${slotId(slot)}-${base}`;
+}
+
+export const ROOM_NAME = slotRoomName("lobby");
 
 export const KO = {
   DEFAULT_NAME: "손님",

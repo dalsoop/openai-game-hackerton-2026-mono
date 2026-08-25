@@ -10,6 +10,7 @@
 import { Client } from "@colyseus/sdk";
 
 const BASE = process.env.HUB_URL || "http://127.0.0.1:3000";
+const ROOM_NAME = `${(process.env.SLOT_FOLDER || "server-yjh-dev1").trim()}-lobby`;
 const STEP_MS = 8000;
 let passed = 0;
 const step = (name) => console.log(`  ✓ ${++passed}. ${name}`);
@@ -38,7 +39,7 @@ async function main() {
   const host = new Client(BASE);
 
   // 1. 방 생성 — 대기실 페이즈
-  const room = await host.create("lobby", { name: "재개테스터" });
+  const room = await host.create(ROOM_NAME, { name: "재개테스터" });
   const token = room.reconnectionToken;
   const roomId = room.roomId;
   step(`방 생성 (room=${roomId}, phase=lobby)`);
