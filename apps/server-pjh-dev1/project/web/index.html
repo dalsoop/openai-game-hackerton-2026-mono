@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-51 -->
+		<!-- gangup-handoff-52 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -214,6 +214,7 @@ let matchStartMsg = null;
 let pendingQuickStart = false;
 let showGameWhenReady = false;
 let wantGame = false;
+let htmlWsDone = false;
 let assetLoaded = 0;
 let assetTotal = 0;
 
@@ -291,6 +292,7 @@ function connectHub() {
 	};
 	ws.onclose = function() {
 		hubConnected = false;
+		if (htmlWsDone) { glog('htmlWs.stayClosed'); return; }
 		gfail('허브끊김');
 		$connStatus.textContent = '연결 끊김';
 		$connStatus.className = 'conn-status error';
@@ -661,7 +663,7 @@ function switchToGame() {
 	canvas.classList.add('ready');
 	document.querySelector('.status-bar').style.display = 'none';
 	gok('매치표시');
-	if (ws) { glog('switchToGame.closeHtmlWs'); ws.close(); ws = null; }
+	if (ws) { htmlWsDone = true; glog('switchToGame.closeHtmlWs'); ws.close(); ws = null; }
 }
 
 /* ── 백그라운드 프리페치 + WASM 프리컴파일 ── */

@@ -136,10 +136,13 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_host = hub.is_host
 	var game_url = str(room.get("game_url", ""))
 	if game_url != "" and not GameState.net_host:
+		print("game_root path=game_server url=", game_url)
 		_start_with_game_server(you, room, game_url)
 	elif GameState.net_host:
+		print("game_root path=host")
 		_start_as_host(you, room)
 	else:
+		print("game_root path=hub_client")
 		_start_as_hub_client(you, room)
 	world_view.world = world
 	hud.world = world

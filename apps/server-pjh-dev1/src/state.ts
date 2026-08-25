@@ -185,17 +185,9 @@ function notifyGameServer(roomId: string, players: { slot: number; name: string;
 }
 
 function deriveGameWsUrl(client?: Client): string {
-  const host = String(client?.publicHost || "").trim();
-  if (host && host !== "127.0.0.1" && !host.startsWith("localhost")) {
-    return `wss://${host}/game-ws`;
-  }
-  try {
-    const envHost = new URL(CONFIG.gameServerUrl).hostname;
-    if (envHost && envHost !== "127.0.0.1" && envHost !== "localhost") {
-      return `wss://${envHost}/game-ws`;
-    }
-  } catch { /* ignore */ }
-  console.error("[gang-up] refuse loopback game-ws for a remote client");
+  // /game-ws is not on Caddy and this slot does not spawn a Godot game server.
+  // Guests play through hub host_snap/input relay.
+  console.log(`[gang-up] game-ws not routed; hub relay for ${client?.id || "?"}`);
   return "";
 }
 

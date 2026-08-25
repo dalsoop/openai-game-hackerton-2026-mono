@@ -68,12 +68,12 @@ func _js_text(code: String) -> String:
 
 func _public_game_url(raw: String) -> String:
     var url := raw.strip_edges()
-    if url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0:
-        push_warning("NetworkManager: ignore loopback game-ws %s" % url)
-        url = ""
-    if url != "":
-        return url
-    return GameClient.resolve_game_url(_resolve_url())
+    if url == "":
+        return ""
+    if url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0 or url.find("/game-ws") >= 0:
+        push_warning("NetworkManager: ignore unrouted game-ws %s" % url)
+        return ""
+    return url
 
 func _resolve_url() -> String:
     var env := OS.get_environment("GANG_UP_WS")
