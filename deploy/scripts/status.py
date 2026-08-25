@@ -36,6 +36,16 @@ def folders() -> list[tuple[str, str]]:
     return out
 
 
+def hub_health_ok(folder: str, body: str) -> bool:
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    return str(data.get("slot") or "") == folder
+
+
 def probe(url: str) -> tuple[int, str]:
     ctx = ssl.create_default_context()
     req = urllib.request.Request(
@@ -45,7 +55,7 @@ def probe(url: str) -> tuple[int, str]:
     )
     try:
         with urllib.request.urlopen(req, timeout=8, context=ctx) as res:
-            body = res.read(120).decode("utf-8", "replace").replace("\n", " ")
+            body = res.read(2048).decode("utf-8", "replace").replace("\n", " ")
             return res.status, body
     except urllib.error.HTTPError as exc:
         return exc.code, str(exc.reason)
@@ -74,15 +84,9 @@ def main() -> int:
             if status not in (0, 502, 503, 504):
                 break
             time.sleep(3 * (attempt + 1))
-        if kind == "hub" and ok:
-            try:
-                body = json.loads(detail)
-                slot = str(body.get("slot") or "")
-            except json.JSONDecodeError:
-                slot = ""
-            if slot != folder:
-                ok = False
-                detail = f"공유 허브 또는 slot 불일치 (got {slot or '없음'}) {detail}"
+        if kind == "hub" and ok and not hub_health_ok(folder, detail):
+            ok = False
+            detail = f"공유 허브 또는 slot 불일치 {detail}"
         mark = "OK" if ok else "FAIL"
         if not ok:
             failed += 1

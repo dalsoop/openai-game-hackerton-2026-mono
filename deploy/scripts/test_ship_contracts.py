@@ -6,6 +6,7 @@ import re
 import unittest
 from pathlib import Path
 
+from status import hub_health_ok
 from export_html_contract import (
     REQUIRED_PLACEHOLDERS,
     assert_export_html,
@@ -100,6 +101,17 @@ class SlotShells(unittest.TestCase):
             re.search(r'html/custom_html_shell=""', text),
             "hexclash 는 공식 기본 HTML 을 쓴다",
         )
+
+
+class HubHealth(unittest.TestCase):
+    def test_plain_ok_fails_slot_contract(self) -> None:
+        self.assertFalse(hub_health_ok("server-yjh-dev1", "ok"))
+
+    def test_json_slot_matches(self) -> None:
+        self.assertTrue(hub_health_ok("server-yjh-dev1", '{"ok":true,"slot":"server-yjh-dev1"}'))
+
+    def test_wrong_slot_fails(self) -> None:
+        self.assertFalse(hub_health_ok("server-prod", '{"ok":true,"slot":"server-yjh-dev1"}'))
 
 
 class BodyToken(unittest.TestCase):
