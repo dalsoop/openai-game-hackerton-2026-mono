@@ -7,40 +7,69 @@ var world: HexWorld
 var local_player := 0
 var ai_timer := 0.0
 var tick_accum := 0.0
+var phase := &"intro"
+var player_name := "플레이어"
 
 func _ready() -> void:
+	Engine.max_fps = 60
+	_show_intro()
+
+func _show_intro() -> void:
+	phase = &"intro"
+	world = null
+	renderer.world = null
+	ui.world = null
+	ui.phase = &"intro"
+	ui.queue_redraw()
+
+func _start_game() -> void:
 	world = HexWorld.new()
 	renderer.world = world
 	renderer.local_player = local_player
 	ui.world = world
 	ui.local_player = local_player
-	Engine.max_fps = 60
+	ui.phase = &"playing"
+	phase = &"playing"
+	ai_timer = 0.0
+	tick_accum = 0.0
 
 func _process(delta: float) -> void:
+	if phase == &"intro":
+		ui.queue_redraw()
+		return
+	if world == null:
+		return
 	tick_accum += delta
 	ai_timer += delta
 	while tick_accum >= HexWorld.TICK_RATE:
 		tick_accum -= HexWorld.TICK_RATE
 		var commands := {}
-		commands[local_player] = _local_command()
-		if ai_timer >= 0.4:
-			ai_timer -= 0.4
+		if ai_timer >= 0.15:
+			ai_timer -= 0.15
 			_ai_commands(commands)
 		world.step_tick(commands)
+	if world.result == &"finished":
+		phase = &"result"
+		ui.phase = &"result"
 	var mouse := renderer.get_global_mouse_position()
 	renderer.hover_cell = renderer.screen_to_hex(mouse)
 	renderer.queue_redraw()
 	ui.queue_redraw()
 
-func _local_command() -> Dictionary:
-	return {}
-
 func _unhandled_input(event: InputEvent) -> void:
-	if world.result != &"playing":
+	if phase == &"intro":
 		if event is InputEventMouseButton and event.pressed:
-			world.reset()
-			renderer.world = world
-			ui.world = world
+			_start_game()
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
+			_start_game()
+		return
+	if phase == &"result":
+		if event is InputEventMouseButton and event.pressed:
+			_show_intro()
+		if event is InputEventKey and event.pressed:
+			_show_intro()
+		return
+	if world == null or world.result != &"playing":
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var hex = renderer.screen_to_hex(event.position)

@@ -8,7 +8,9 @@ var camera_offset := Vector2.ZERO
 func _draw() -> void:
 	if world == null:
 		return
-	var center := get_viewport_rect().size * 0.5 + camera_offset
+	var vp := get_viewport_rect().size
+	draw_rect(Rect2(-vp, vp * 3.0), Color(0.06, 0.07, 0.09))
+	var center := vp * 0.5 + camera_offset
 	_draw_grid(center)
 	_draw_hover(center)
 
@@ -21,21 +23,26 @@ func _draw_grid(center: Vector2) -> void:
 		var pulse := float(cell["pulse"])
 		var base_color: Color
 		if owner >= 0 and owner < HexWorld.PLAYER_COUNT:
-			base_color = world.players[owner]["color"]
+			base_color = Color(world.players[owner]["color"])
 			if bool(cell["fortified"]):
-				base_color = base_color.lightened(0.15)
+				base_color = base_color.lightened(0.18)
 		else:
-			base_color = Color(0.18, 0.16, 0.14, 1.0)
+			base_color = Color(0.13, 0.12, 0.11, 1.0)
 		if pulse > 0.0:
-			base_color = base_color.lightened(pulse * 0.3)
+			base_color = base_color.lightened(pulse * 0.35)
 		draw_colored_polygon(corners, base_color)
-		draw_polyline(corners, Color(0.1, 0.1, 0.1, 0.5), 1.5, true)
+		var border_color := Color(0.2, 0.2, 0.2, 0.6) if owner < 0 else Color(0.05, 0.05, 0.05, 0.7)
+		draw_polyline(corners, border_color, 1.0, true)
 		if bool(cell.get("fortified", false)) and owner >= 0:
 			_draw_fortify_mark(px)
 
 func _draw_fortify_mark(center: Vector2) -> void:
-	var s := HexGrid.HEX_SIZE * 0.22
-	draw_rect(Rect2(center - Vector2(s, s), Vector2(s * 2.0, s * 2.0)), Color(1, 1, 1, 0.45), true)
+	var s := HexGrid.HEX_SIZE * 0.18
+	var pts := PackedVector2Array([
+		center + Vector2(0, -s), center + Vector2(s, 0),
+		center + Vector2(0, s), center + Vector2(-s, 0)
+	])
+	draw_colored_polygon(pts, Color(1, 1, 1, 0.35))
 
 func _draw_hover(center: Vector2) -> void:
 	if hover_cell == Vector2i(-999, -999):
@@ -44,10 +51,13 @@ func _draw_hover(center: Vector2) -> void:
 		return
 	var px := HexGrid.axial_to_pixel(hover_cell.x, hover_cell.y) + center
 	var corners := HexGrid.hex_corners(px)
-	var owner := int(world.cells[hover_cell]["owner"])
-	var can_claim := _can_claim(hover_cell)
-	var color := Color(1, 1, 1, 0.6) if can_claim else Color(1, 0.3, 0.3, 0.4)
-	draw_polyline(corners, color, 3.0, true)
+	var can := _can_claim(hover_cell)
+	var color := Color(1, 1, 1, 0.7) if can else Color(1, 0.3, 0.3, 0.35)
+	draw_polyline(corners, color, 2.5, true)
+	if can:
+		var cost := _claim_cost(hover_cell)
+		var font := ThemeDB.fallback_font
+		draw_string(font, px + Vector2(-12, 5), "-%d" % int(cost), HORIZONTAL_ALIGNMENT_CENTER, 24, 11, Color(1, 1, 1, 0.8))
 
 func _can_claim(coord: Vector2i) -> bool:
 	if not world.cells.has(coord):
@@ -63,10 +73,17 @@ func _can_claim(coord: Vector2i) -> bool:
 			break
 	if not adjacent:
 		return false
+	return float(world.players[local_player]["energy"]) >= _claim_cost(coord)
+
+func _claim_cost(coord: Vector2i) -> float:
+	var cell: Dictionary = world.cells[coord]
+	var owner := int(cell["owner"])
+	if owner == local_player:
+		return HexWorld.FORTIFY_COST
 	var cost := HexWorld.CLAIM_COST_EMPTY if owner == -1 else HexWorld.CLAIM_COST_ENEMY
 	if bool(cell["fortified"]) and owner != -1:
 		cost += HexWorld.FORTIFY_DEFENSE_BONUS
-	return float(world.players[local_player]["energy"]) >= cost
+	return cost
 
 func screen_to_hex(screen_pos: Vector2) -> Vector2i:
 	var center := get_viewport_rect().size * 0.5 + camera_offset
