@@ -11,7 +11,7 @@ if (/from_hub=1/.test(String(location.search||''))) document.documentElement.cla
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>다굴 같이하기</title>
-		<!-- gangup-handoff-45 -->
+		<!-- gangup-handoff-46 -->
 		<style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -21,8 +21,8 @@ body {
 	touch-action: none;
 	font-family: 'Noto Sans KR', 'Pretendard', 'Noto Sans', Arial, sans-serif;
 }
-#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s; z-index: 5; pointer-events: none; }
-#canvas.ready { opacity: 1; pointer-events: auto; }
+#canvas { display: block; position: absolute; top: 0; left: 0; opacity: 0; visibility: hidden; transition: opacity 0.5s; z-index: 5; pointer-events: none; }
+#canvas.ready { opacity: 1; visibility: visible; pointer-events: auto; }
 #canvas:focus { outline: none; }
 
 /* ── 로비 (즉시 보이는 HTML) ── */
@@ -188,6 +188,7 @@ let godotStarting = false;
 let matchStartMsg = null;
 let pendingQuickStart = false;
 let showGameWhenReady = false;
+let wantGame = false;
 let assetLoaded = 0;
 let assetTotal = 0;
 
@@ -274,6 +275,7 @@ function handleMsg(msg) {
 			renderWaitroom();
 			break;
 		case 'start':
+			if (!wantGame) break;
 			matchStartMsg = msg;
 			showGameWhenReady = true;
 			try {
@@ -322,6 +324,7 @@ function renderRooms(rooms) {
 			+ '<div class="room-join">' + (r.playing ? '관전' : '참가') + '</div>';
 		card.onclick = function() {
 			try { localStorage.setItem('gangup_name', getName()); } catch(e) {}
+			wantGame = true;
 			sendMsg({t:'hello', name: getName(), mode:'classic'});
 			sendMsg({t:'join', roomId: r.id});
 		};
@@ -381,6 +384,7 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 
 /* ── 버튼 이벤트 ── */
 document.getElementById('btn-quick').onclick = function() {
+	wantGame = true;
 	try {
 		localStorage.setItem('gangup_name', getName());
 		localStorage.setItem('gangup_from_hub', '1');
@@ -391,12 +395,13 @@ document.getElementById('btn-quick').onclick = function() {
 	sendMsg({t:'create'});
 };
 document.getElementById('btn-create').onclick = function() {
+	wantGame = true;
 	sendMsg({t:'hello', name: getName(), mode:'classic'});
 	sendMsg({t:'create'});
 };
 document.getElementById('btn-refresh').onclick = function() { sendMsg({t:'rooms'}); };
 document.getElementById('btn-leave').onclick = function() { leaveRoom(); };
-$btnStart.onclick = function() { sendMsg({t:'start'}); };
+$btnStart.onclick = function() { wantGame = true; sendMsg({t:'start'}); };
 document.getElementById('btn-chat-send').onclick = function() {
 	var t = $chatInput.value.trim();
 	if (t) { sendMsg({t:'chat', text: t}); $chatInput.value = ''; }
@@ -504,7 +509,18 @@ function launchGodot() {
 	});
 }
 
+function restoreLobby() {
+	lobbyRoot.classList.remove('hidden');
+	canvas.classList.remove('ready');
+	var bar = document.querySelector('.status-bar');
+	if (bar) bar.style.display = '';
+}
+
 function switchToGame() {
+	if (!wantGame) {
+		restoreLobby();
+		return;
+	}
 	lobbyRoot.classList.add('hidden');
 	canvas.classList.add('ready');
 	document.querySelector('.status-bar').style.display = 'none';
@@ -556,9 +572,16 @@ function prefetchAssets() {
 function bootFromHub() {
 	var fromQuery = String(location.search||'').indexOf('from_hub=1') >= 0;
 	if (!fromQuery) {
-		try { localStorage.removeItem('gangup_from_hub'); } catch (e) {}
+		try {
+			localStorage.removeItem('gangup_from_hub');
+			localStorage.removeItem('gangup_resume');
+		} catch (e) {}
+		try { window.GANGUP_FROM_HUB = false; } catch (e) {}
+		wantGame = false;
+		restoreLobby();
 		return;
 	}
+	wantGame = true;
 	try { window.GANGUP_FROM_HUB = true; } catch (e) {}
 	var resume = '';
 	try { resume = localStorage.getItem('gangup_resume') || ''; } catch (e) {}
@@ -569,8 +592,17 @@ function bootFromHub() {
 }
 
 window.gangupShowGame = function () {
+	if (!wantGame) { restoreLobby(); return; }
 	switchToGame();
 };
+window.gangupShowLobby = function () {
+	wantGame = false;
+	restoreLobby();
+};
+window.gangupHideGame = restoreLobby;
+window.addEventListener('pageshow', function () {
+	if (!wantGame) restoreLobby();
+});
 
 /* ── 시작 ── */
 connectHub();
