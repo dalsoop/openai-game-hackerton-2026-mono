@@ -149,6 +149,29 @@ body {
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 
+(function () {
+	var origGodot = window.Godot;
+	if (typeof origGodot !== 'function') return;
+	window.Godot = function (config) {
+		config = config || {};
+		config.instantiateWasm = function (imports, onSuccess) {
+			fetch('index.wasm', { credentials: 'same-origin' }).then(function (res) {
+				if (!res.ok) throw new Error('index.wasm HTTP ' + res.status);
+				return res.arrayBuffer();
+			}).then(function (buf) {
+				return WebAssembly.instantiate(buf, imports);
+			}).then(function (result) {
+				onSuccess(result.instance, result.module);
+			}).catch(function (err) {
+				console.error('wasm instantiate failed', err);
+				if (typeof config.printErr === 'function') config.printErr(String(err && err.message || err));
+			});
+			return {};
+		};
+		return origGodot(config);
+	};
+})();
+
 /* ── 상태 ── */
 let ws = null;
 let hubConnected = false;
@@ -366,7 +389,34 @@ $chatInput.onkeydown = function(e) { if (e.key === 'Enter') document.getElementB
 $name.onchange = function() { try { localStorage.setItem('gangup_name', getName()); } catch(e) {} };
 
 /* ── Godot 엔진 ── */
-const engine = new Engine(GODOT_CONFIG);
+let engine = new Engine(GODOT_CONFIG);
+let lastEngineErr = '';
+window.addEventListener('unhandledrejection', function (ev) {
+	var msg = (ev && ev.reason && (ev.reason.message || ev.reason)) || ev;
+	lastEngineErr = String(msg);
+	console.error('unhandledrejection', ev.reason || ev);
+});
+window.addEventListener('error', function (ev) {
+	lastEngineErr = String(ev.message || ev.error || ev);
+	console.error('window.error', ev.error || ev.message || ev);
+});
+
+function showEngineFail(err) {
+	var text = (err && (err.message || err.stack)) ? (err.message || String(err)) : String(err || lastEngineErr || 'unknown');
+	console.error('engine fail', err || lastEngineErr);
+	var notice = document.getElementById('status-notice');
+	if (notice) {
+		notice.style.display = 'block';
+		notice.textContent = '게임 로드 실패: ' + text;
+	}
+	$assetProgress.childNodes[0].textContent = '엔진 시작 실패. 바로 시작을 다시 눌러봐. ';
+	lobbyRoot.classList.remove('hidden');
+	lobbyRoot.style.opacity = '1';
+	lobbyRoot.style.pointerEvents = 'auto';
+	godotStarting = false;
+	try { Engine.unload(); } catch (e) {}
+	engine = new Engine(GODOT_CONFIG);
+}
 
 function launchGodot() {
 	if (matchStartMsg) {
@@ -378,7 +428,12 @@ function launchGodot() {
 	}
 	if (godotStarting) return;
 	godotStarting = true;
+	lastEngineErr = '';
 	$assetProgress.innerHTML = '게임 로딩 중… <span class="asset-bar"><span class="asset-bar-fill" id="asset-fill" style="width:0%"></span></span>';
+	if (canvas) {
+		canvas.width = Math.max(2, window.innerWidth || 1280);
+		canvas.height = Math.max(2, window.innerHeight || 720);
+	}
 
 	var missing = [];
 	try { missing = Engine.getMissingFeatures({threads: false}) || []; } catch (e) { missing = []; }
@@ -386,23 +441,40 @@ function launchGodot() {
 		console.warn('Godot missing features, starting anyway', missing);
 	}
 
+	var downloaded = false;
+	var settled = false;
+	var hangTimer = setTimeout(function () {
+		if (settled) return;
+		settled = true;
+		showEngineFail(lastEngineErr || (downloaded ? 'wasm 받은 뒤 엔진이 안 켜짐' : '엔진 로딩 타임아웃'));
+	}, 45000);
+
 	engine.startGame({
+		canvas: canvas,
+		onPrintError: function (line) {
+			lastEngineErr = String(line || '');
+			console.error('godot', line);
+		},
+		onPrint: function (line) { console.log('godot', line); },
 		onProgress: function(cur, tot) {
 			if (cur > 0 && tot > 0) {
 				var pct = Math.round(cur/tot*100);
 				var fill = document.getElementById('asset-fill');
 				if (fill) fill.style.width = pct + '%';
-				$assetProgress.querySelector('.asset-bar') || null;
 				var mb = (cur/1048576).toFixed(1);
 				var tmb = (tot/1048576).toFixed(1);
 				if (cur >= tot) {
-					$assetProgress.childNodes[0].textContent = '게임 준비 완료 ';
+					downloaded = true;
+					$assetProgress.childNodes[0].textContent = '엔진 시작 중… ';
 				} else {
 					$assetProgress.childNodes[0].textContent = mb + '/' + tmb + 'MB ';
 				}
 			}
 		}
 	}).then(function() {
+		if (settled) return;
+		settled = true;
+		clearTimeout(hangTimer);
 		godotReady = true;
 		godotStarting = false;
 		$assetProgress.childNodes[0].textContent = '준비 완료 ';
@@ -410,13 +482,10 @@ function launchGodot() {
 		if (fill) fill.style.width = '100%';
 		switchToGame();
 	}, function(err) {
-		console.error(err);
-		document.getElementById('status-notice').style.display = 'block';
-		document.getElementById('status-notice').textContent = '게임 로드 실패: ' + (err.message || err);
-		lobbyRoot.classList.remove('hidden');
-		lobbyRoot.style.opacity = '1';
-		lobbyRoot.style.pointerEvents = 'auto';
-		godotStarting = false;
+		if (settled) return;
+		settled = true;
+		clearTimeout(hangTimer);
+		showEngineFail(err);
 	});
 }
 
@@ -484,8 +553,8 @@ function bootFromHub() {
 
 /* ── 시작 ── */
 connectHub();
-prefetchAssets();
 bootFromHub();
+if (!godotStarting && !godotReady) prefetchAssets();
 setInterval(function() { if (hubConnected) sendMsg({t:'ping'}); }, 3000);
 		</script>
 	</body>
