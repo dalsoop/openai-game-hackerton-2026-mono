@@ -75,8 +75,14 @@ func _ready() -> void:
 		screens.visible = false
 		world_view.visible = false
 		hud.visible = false
+		get_tree().create_timer(2.0).timeout.connect(_hub_start_fallback)
 	else:
 		_set_phase(&"intro")
+
+func _hub_start_fallback() -> void:
+	if phase == &"play" or GameState.net_active:
+		return
+	_on_start_match()
 
 func _start_dedicated_server() -> void:
 	world_view.visible = false
