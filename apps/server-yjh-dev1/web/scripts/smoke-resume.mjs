@@ -3,7 +3,7 @@
 // 전제: 서버 실행 중 (기본 http://127.0.0.1:3000). HUB_URL 로 재지정.
 // 시나리오:
 //   1. 방 생성(대기실) → 재접속 토큰 확보
-//   2. 비의도 단절(4000 — 새로고침 시뮬레이션)
+//   2. 비의도 단절(1001 Going Away — 새로고침. 4000 은 동의 종료/강퇴)
 //   3. 다른 클라이언트가 관측: 좌석이 "재접속 대기"(connected=false)로 유지된다
 //   4. 새 클라이언트(=새로 고친 페이지) reconnect(token) → 같은 방·같은 좌석 복귀
 //   5. 무효 토큰 reconnect → 거부된다 (유예 밖 세션은 재개 불가)
@@ -31,7 +31,7 @@ function forceDrop(room) {
   // 비의도 단절: consent 없이 소켓을 닫는다(브라우저 새로고침과 동일 취급, code≠1000).
   const conn = room.connection ?? room["_connection"];
   const ws = conn?.websocket ?? conn?.ws ?? conn?.transport?.socket ?? conn?.socket;
-  if (ws) { ws.close(4000, "simulate refresh"); } else { conn.close(4000); }
+  if (ws) { ws.close(1001, "simulate refresh"); } else { conn.close(); }
 }
 
 async function main() {
@@ -46,7 +46,7 @@ async function main() {
   // 2. 비의도 단절
   forceDrop(room);
   await new Promise((r) => setTimeout(r, 400));
-  step("비의도 단절 (code=4000, 새로고침 시뮬레이션)");
+  step("비의도 단절 (code=1001, 새로고침 시뮬레이션)");
 
   // 3. 관측자: 유예 안에서 좌석이 재접속 대기로 살아있는다
   const observer = new Client(BASE);
