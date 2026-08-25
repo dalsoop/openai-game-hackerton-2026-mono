@@ -18,3 +18,11 @@
 확인: `python3 deploy/scripts/status.py` · 보드 `https://server-board.external.kr/`
 
 방 서버는 `server-*`마다 따로다. 보드만 빼면 자기 호스트 `/gang-up`을 갖는다. `apps/` 푸시 후 Actions `Apps ship`이 허브와 Godot 웹을 올린다.
+
+## GDScript 코드 규칙
+
+`AGENTS.md`의 "GDScript 코드 규칙" 절을 따른다. 핵심:
+- 파일 700줄 이하, 함수 40줄 이하, 중첩 3단 이하
+- 매직 컬러 금지, SSOT(정본 1곳), 모듈 패턴
+- 검증: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts`
+- 정본: `apps/server-yjh-dev1/`

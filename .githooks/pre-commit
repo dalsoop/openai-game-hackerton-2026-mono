@@ -1,0 +1,6 @@
+#!/bin/sh
+python3 lint_gd.py apps/server-yjh-dev1/project/scripts
+if [ $? -ne 0 ]; then
+  echo "❌ GDScript 린트 실패 — 700줄 초과 파일 또는 코드 품질 문제"
+  exit 1
+fi
