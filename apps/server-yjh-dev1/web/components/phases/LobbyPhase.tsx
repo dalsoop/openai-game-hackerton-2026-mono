@@ -9,10 +9,12 @@ import { Button } from "@/components/ui";
 import Lobby from "@/components/Lobby";
 import { ConnectingPhase } from "./ConnectingPhase";
 import type { HubRoom, HubStatus } from "@/types";
+import type { MyRoomIdentity } from "@/lib/room-membership";
 
 interface LobbyPhaseProps {
   rooms: HubRoom[];
   status: HubStatus;
+  myRoom: MyRoomIdentity | null;
   onCreateRoom: () => void;
   onJoinRoom: (id: string) => void;
   onRefresh: () => void;
@@ -22,6 +24,7 @@ interface LobbyPhaseProps {
 export function LobbyPhase({
   rooms,
   status,
+  myRoom,
   onCreateRoom,
   onJoinRoom,
   onRefresh,
@@ -43,6 +46,7 @@ export function LobbyPhase({
 
       <Lobby
         rooms={rooms}
+        myRoom={myRoom}
         onCreate={onCreateRoom}
         onJoin={onJoinRoom}
         onRefresh={onRefresh}

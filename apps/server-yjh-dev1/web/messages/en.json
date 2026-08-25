@@ -19,15 +19,14 @@
     "serverConnecting": "Connecting to server...",
     "serverConnectFailed": "Cannot connect to server.",
     "reconnect": "Reconnect",
-    "back": "Back"
+    "back": "Back",
+    "resuming": "Reconnecting to your previous session...",
+    "startFresh": "Start fresh"
   },
   "intro": {
     "namePlaceholder": "Your Name",
     "startButton": "Start",
-    "defaultPlayer": "Player",
-    "welcomeBack": "Welcome back, {name}",
-    "continue": "Continue",
-    "changeName": "Change name"
+    "defaultPlayer": "Player"
   },
   "logo": {
     "word": "Dagulz"
@@ -38,9 +37,11 @@
     "emptyRooms": "No rooms open yet. Create a room to start.",
     "room": "Room",
     "createButton": "Create Room",
-    "spectate": "Spectate",
     "join": "Join",
-    "modeFull": "Full"
+    "modeFull": "Full",
+    "mineHost": "My room · Host",
+    "mine": "My room",
+    "inProgress": "In progress"
   },
   "room": {
     "mode": "Full",

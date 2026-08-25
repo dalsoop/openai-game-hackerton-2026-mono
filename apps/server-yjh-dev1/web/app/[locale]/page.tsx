@@ -7,6 +7,7 @@ import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { shouldShowConnectionLost } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
+  ConnectingPhase,
   LobbyPhase,
   InRoomPhase,
   PlayingPhase,
@@ -38,8 +39,6 @@ export default function Home(): JSX.Element {
     phase,
     name,
     setName,
-    resetName,
-    hasSavedName,
     hub,
     loader,
     matchInfo,
@@ -116,22 +115,40 @@ export default function Home(): JSX.Element {
       {phase === "intro" && (
         <OfflinePhase
           nickname={name}
-          hasSavedName={hasSavedName}
           onNameChange={setName}
           onConnect={findRoom}
-          onResetName={resetName}
         />
       )}
 
       {phase === "lobby" && hub.status !== "in-room" && (
-        <LobbyPhase
-          rooms={hub.rooms}
-          status={hub.status}
-          onCreateRoom={hub.createRoom}
-          onJoinRoom={hub.joinRoom}
-          onRefresh={hub.refreshRooms}
-          onBackToIntro={backToIntro}
-        />
+        <div className="fade-in">
+          {hub.resuming ? (
+            <>
+              <ConnectingPhase message={t("game.resuming")} />
+              <div className="center-row">
+                <button
+                  className="btn-text"
+                  onClick={() => {
+                    hub.leaveRoom();
+                    backToIntro();
+                  }}
+                >
+                  {t("game.startFresh")}
+                </button>
+              </div>
+            </>
+          ) : (
+            <LobbyPhase
+              rooms={hub.rooms}
+              status={hub.status}
+              myRoom={hub.myRoom}
+              onCreateRoom={hub.createRoom}
+              onJoinRoom={hub.joinRoom}
+              onRefresh={hub.refreshRooms}
+              onBackToIntro={backToIntro}
+            />
+          )}
+        </div>
       )}
 
       {phase === "room" && (

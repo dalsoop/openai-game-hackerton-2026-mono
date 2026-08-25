@@ -8,6 +8,8 @@ import { Client, type Room, type RoomAvailable } from "@colyseus/sdk";
 import { useRoom, useRoomState, useRoomMessage } from "@colyseus/react";
 import { MSG, HANDOFF, ROOM_NAME, LIST_ROOM_NAME } from "@/lib/hub/config";
 import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
+import { clearMyRoom } from "@/lib/room-membership";
+import { useMyRoom } from "@/hooks/useMyRoom";
 import type { HubRoom, HubPlayer, HubStatus, JoinRequest, BridgeableRoom, UseHubResult, MatchInfo } from "@/types";
 
 let _client: Client | null = null;
@@ -173,6 +175,9 @@ export function useHub(_game: string): UseHubResult {
   // 접속 상태: 리스트 룸 실왕복이 성공해야 "접속됨"이다.
   const status: HubStatus = deriveStatus(derived, connected, lobbyErr, lobbyConnecting, matchInfo);
 
+  // 내 방 멤버십 — 방에 있으면 식별자를 남긴다(강제 단절 후 로비 목록에서 상단 고정·재입장용).
+  const myRoom = useMyRoom(derived);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 리스트 룸(외부 시스템) 오류 → React 반영
     if (lobbyErr) {setError(lobbyErr.message);}
@@ -189,6 +194,7 @@ export function useHub(_game: string): UseHubResult {
 
   const leaveRoom = useCallback(() => {
     localStorage.removeItem(HANDOFF.RESUME); // 의도적 퇴장 — 세션 종료
+    clearMyRoom((k) => localStorage.removeItem(k)); // 멤버십도 폐기 — 더 이상 내 방 아님
     setMatchInfo(null);
     setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
   }, []);
@@ -237,5 +243,6 @@ export function useHub(_game: string): UseHubResult {
     tryResume,
     resuming: joinRequest?.kind === "resume",
     resumeFailed,
+    myRoom,
   };
 }

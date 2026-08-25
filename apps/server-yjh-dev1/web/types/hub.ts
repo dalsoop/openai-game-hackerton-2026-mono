@@ -1,4 +1,5 @@
 import type { MatchInfo } from "./game";
+import type { MyRoomIdentity } from "@/lib/room-membership";
 /**
  * 허브/방 관련 타입 정의
  * Colyseus WebSocket 통합 타입
@@ -75,6 +76,9 @@ export interface UseHubResult {
   tryResume: () => boolean;
   resuming: boolean;
   resumeFailed: boolean;
+
+  // 내 방 멤버십 — 로비 목록 상단 고정·배지 판정 원천 (room-membership 모듈)
+  myRoom: MyRoomIdentity | null;
 }
 
 /**

@@ -297,3 +297,10 @@ body.wait #wait { display: block; }
 .welcome-name { color:var(--tx-0); font-size:18px; font-weight:700; text-align:center; }
 .btn-text { background:none; border:none; color:var(--tx-2); font-size:12px; cursor:pointer; text-decoration:underline; padding:2px 6px; }
 .btn-text:hover { color:var(--tx-1); }
+
+.center-row { text-align:center; margin-top:10px; }
+/* --- 내 방 멤버십 표시 --- */
+.room-card.mine { border-color:var(--acc); box-shadow:0 0 0 1px rgba(79,140,255,.35); }
+.room-mine-badge { padding:2px 8px; font-size:10px; color:var(--tx-0); background:var(--acc); border-radius:999px; }
+.room-mine-badge.host { background:var(--cyan); }
+.room-playing { font-size:11px; color:var(--tx-2); }

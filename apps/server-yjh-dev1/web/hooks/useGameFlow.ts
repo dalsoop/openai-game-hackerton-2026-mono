@@ -1,6 +1,6 @@
 "use client";
 // 게임 페이즈 상태머신 — page.tsx 가 화면 그리기만 하도록 로직을 이곳으로 뺀다.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
@@ -41,6 +41,21 @@ export function useGameFlow(game: string, defaultPlayer: string): UseGameFlowRes
     slot: hub.you,
     resumeToken: hub.resumeToken,
   };
+
+  // 재접근 시 이전 세션 재개 — 세션이 살아있는(재접속 유예 안) 동안에는 그 세션으로 복귀한다.
+  const resumeTried = useRef(false);
+  useEffect(() => {
+    if (resumeTried.current) {return;} // StrictMode 2회 실행 가드
+    resumeTried.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 세션(유예 창) 재개 1회 시도
+    if (hub.tryResume()) {setPhase("lobby");}
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 최초 마운트 1회 시도
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 유예 만료 → 인트로 복귀
+    if (hub.resumeFailed) {setPhase("intro");}
+  }, [hub.resumeFailed]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 저장소(localStorage) → React 동기화

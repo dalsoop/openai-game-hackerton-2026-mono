@@ -15,10 +15,13 @@
     "verify": "tsc --noEmit && eslint . && vitest run && node scripts/check-contract.mjs && npm run test:gd",
     "smoke:handoff": "node scripts/smoke-handoff.mjs",
     "e2e": "node scripts/e2e-dagul.mjs",
-    "test:gd": "python3 ../../../scripts/gd_test.py"
+    "test:gd": "python3 ../../../scripts/gd_test.py",
+    "smoke:resume": "node scripts/smoke-resume.mjs"
   },
   "dependencies": {
     "@colyseus/react": "^0.1.19",
+    "@colyseus/redis-driver": "^0.17.7",
+    "@colyseus/redis-presence": "^0.17.8",
     "@colyseus/sdk": "^0.17.43",
     "@colyseus/ws-transport": "^0.17.13",
     "@swc/helpers": "^0.5.23",

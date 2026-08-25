@@ -19,28 +19,29 @@
     "serverConnecting": "서버에 연결하는 중입니다...",
     "serverConnectFailed": "서버에 연결할 수 없습니다.",
     "reconnect": "다시 연결",
-    "back": "뒤로"
+    "back": "뒤로",
+    "resuming": "이전 세션에 재접속 중입니다...",
+    "startFresh": "새로 시작하기"
   },
   "intro": {
     "namePlaceholder": "내 이름",
     "startButton": "시작하기",
-    "defaultPlayer": "플레이어",
-    "welcomeBack": "{name}님, 다시 오셨네요",
-    "continue": "계속하기",
-    "changeName": "이름 변경"
+    "defaultPlayer": "플레이어"
   },
   "logo": {
     "word": "다굴즈"
   },
   "lobby": {
     "title": "열린 방",
-    "refresh": "새고로침",
+    "refresh": "새로고침",
     "emptyRooms": "아직 열린 방이 없습니다. 방을 만들어 시작하세요.",
     "room": "방",
     "createButton": "방 만들기",
-    "spectate": "관전",
     "join": "입장",
-    "modeFull": "합본"
+    "modeFull": "합본",
+    "mineHost": "내 방 · 방장",
+    "mine": "내 방",
+    "inProgress": "진행 중"
   },
   "room": {
     "mode": "합본",

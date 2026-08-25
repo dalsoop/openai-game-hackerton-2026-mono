@@ -52,6 +52,16 @@ data:
       {{- range .Values.hubs }}
       @hub_{{ .id | replace "-" "_" }} host {{ .folder }}.external.kr
       handle @hub_{{ .id | replace "-" "_" }} {
+        {{- if $.Values.hub.publicPrefix }}
+        # 다중 복제 WS 핀닝 — /hubp/<pod-name>/* 를 해당 Pod 의 헤드리스 DNS 로.
+        # (slothub 과 같은 placeholder 업스트림 방식 — 동적 업스트림 지원 확인됨)
+        @hubpod_{{ .id | replace "-" "_" }} path_regexp hubpod_{{ .id | replace "-" "" }} ^/hubp/([A-Za-z0-9-]+)(/.*)?$
+        handle @hubpod_{{ .id | replace "-" "_" }} {
+          reverse_proxy {http.regexp.hubpod_{{ .id | replace "-" "" }}.1}.{{ .folder }}-hub-pods.{{ $.Release.Namespace }}.svc.cluster.local:8080 {
+            flush_interval -1
+          }
+        }
+        {{- end }}
         handle /health {
           header Access-Control-Allow-Origin *
           reverse_proxy {{ .folder }}-hub:80 {

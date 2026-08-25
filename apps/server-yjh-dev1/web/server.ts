@@ -4,6 +4,8 @@ import path from "path";
 import next from "next";
 import { Server as ColyseusServer, LobbyRoom as RoomListRoom } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
+import { RedisPresence } from "@colyseus/redis-presence";
+import { RedisDriver } from "@colyseus/redis-driver";
 import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
 
@@ -117,9 +119,19 @@ void app.prepare().then(async () => {
     filter: (req) => !(req.url || "").startsWith("/_next"),
   });
 
+  // 다중 인스턴스 확장(공식 docs.colyseus.io/scalability) — 조건부:
+  // REDIS_URL 이 없으면 로컬 폴백(현재 단일 프로세스 동작 100% 유지),
+  // HUB_PUBLIC_PREFIX+POD_NAME 가 있으면 클라가 이 Pod 로 직접 WS 연결한다.
+  const redisUrl = process.env.REDIS_URL;
+  const publicAddress = process.env.HUB_PUBLIC_PREFIX && process.env.POD_NAME
+    ? `${process.env.HUB_PUBLIC_PREFIX}/${process.env.POD_NAME}`
+    : undefined;
+
   const gameServer = new ColyseusServer({
     transport,
     greet: false,
+    ...(redisUrl ? { presence: new RedisPresence(redisUrl), driver: new RedisDriver(redisUrl) } : {}),
+    ...(publicAddress ? { publicAddress } : {}),
     // Colyseus 라우터(매치메이킹 /matchmake/*)가 못 받는 요청은 여기로 폴백된다.
     express: (expressApp): void => {
       expressApp.use((req: IncomingMessage, res: ServerResponse) => {
