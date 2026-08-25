@@ -1,27 +1,40 @@
 "use client";
 // Colyseus 허브 훅(조합 루트) — 세부는 각 훅·모듈이 소유한다.
-//   방 목록: useRoomList (리스트 룸 구독·델타는 lib/hub/room-mapper)
+//   방 목록: useRoomList (GET /rooms 폴링)
 //   방 연결: useGameRoom (핸드오프·matchInfo)
 //   파생 명단: lib/domain/roster · 내 방 멤버십: useMyRoom
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
-import { MSG, HANDOFF } from "@/lib/contract";
+import { MSG } from "@/lib/contract";
 import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
-import { clearMyRoom } from "@/lib/room-membership";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
+import { useRoomIdle } from "@/hooks/useRoomIdle";
+import { useHubCommands } from "@/hooks/useHubCommands";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import { useRoomRtt } from "@/hooks/useRoomRtt";
-import { useHealthRtt } from "@/hooks/useHealthRtt";
-import { reactOwnsResume, shouldMarkRoomDropped } from "@/lib/game-flow-state";
+import { shouldMarkRoomDropped } from "@/lib/game-flow-state";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
 
 function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): number {
   return room ? roomRtt : healthRtt;
+}
+
+function useHubExternalErrors(
+  roomError: Error | null | undefined,
+  lobbyErr: Error | null | undefined,
+  setError: (message: string | null) => void,
+): void {
+  useEffect(() => {
+    if (roomError) {setError(roomError.message);}
+  }, [roomError, setError]);
+  useEffect(() => {
+    if (lobbyErr) {setError(lobbyErr.message);}
+  }, [lobbyErr, setError]);
 }
 
 let _client: Client | null = null;
@@ -33,6 +46,7 @@ function getClient(): Client {
 
 interface HubFacts {
   gameId: string;
+  createdAtMs: number;
   open: boolean;
   players: HubPlayer[];
   you: number;
@@ -52,6 +66,7 @@ function deriveHubFacts(room: Room | undefined, snap: RosterSnapshot | undefined
   }));
   return {
     gameId: snap.gameId ?? "",
+    createdAtMs: Number(snap.createdAtMs ?? 0),
     open: snap.open !== false,
     players,
     you: roster.you,
@@ -62,6 +77,8 @@ function deriveHubFacts(room: Room | undefined, snap: RosterSnapshot | undefined
   };
 }
 
+// 조합 루트 — 분기 명령은 useHubCommands 가 맡는다.
+// eslint-disable-next-line complexity -- 훅 조합과 반환 필드가 한곳에 모인다
 export function useHub(): UseHubResult {
   const nameRef = useRef("");
   const [connected, setConnected] = useState(false);
@@ -73,7 +90,7 @@ export function useHub(): UseHubResult {
   } = useDropSession();
 
   // 게임 방에 들어가 있는 동안엔 리스트 연결을 내려 자원을 아낀다.
-  const { rooms, lobbyErr, lobbyConnecting } = useRoomList(connected && !joinRequest, getClient);
+  const { rooms, lobbyErr, lobbyConnecting, refresh } = useRoomList(connected && !joinRequest);
   const handleResumeFailed = useCallback((message: string) => {
     setError(message);
     setJoinRequest(null);
@@ -94,19 +111,14 @@ export function useHub(): UseHubResult {
   // 방 상태 = 서버 state 의 불변 스냅샷.
   const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
   const roomRtt = useRoomRtt(room);
-  const healthRtt = useHealthRtt(!room);
-  const rttMs = liveRttMs(room, roomRtt, healthRtt);
+  const rttMs = liveRttMs(room, roomRtt, 0);
   usePageBridge(room, matchInfo, snap, rttMs);
 
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
     setError(msg.msg ?? null);
   });
   useRoomMessage(room, MSG.KICKED, onKicked);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 허브(외부 시스템) 오류 → React 반영
-    if (roomError) {setError(roomError.message);}
-  }, [roomError]);
+  useHubExternalErrors(roomError, lobbyErr, setError);
 
   // 파생 사실은 도메인(Roster)이 계산한다.
   const derived = useMemo(() => deriveHubFacts(room, snap), [room, snap]);
@@ -120,76 +132,17 @@ export function useHub(): UseHubResult {
 
   // 내 방 멤버십 — 방에 있으면 식별자를 남긴다(강제 단절 후 로비 목록에서 상단 고정·재입장용).
   const myRoom = useMyRoom(derived);
+  const commands = useHubCommands(
+    nameRef, room, matchInfo, setJoinRequest, setMatchInfo,
+    setError, setConnected, setResumeFailed, clearDrop, takeReconnectId,
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 리스트 룸(외부 시스템) 오류 → React 반영
-    if (lobbyErr) {setError(lobbyErr.message);}
-  }, [lobbyErr]);
-
-  const connect = useCallback((name: string) => {
-    nameRef.current = name;
-    setError(null);
-    setConnected(true);
-  }, []);
-
-  const createRoom = useCallback((raw?: { game?: string; title?: string }) => {
-    setJoinRequest({ kind: "create", game: raw?.game, title: raw?.title });
-  }, []);
-  const joinRoom = useCallback((id: string) => {
-    setJoinRequest({ kind: "join", id });
-  }, []);
-
-  const leaveRoom = useCallback(() => {
-    clearDrop();
-    localStorage.removeItem(HANDOFF.RESUME); // 의도적 퇴장 — 세션 종료
-    localStorage.removeItem(HANDOFF.FROM_HUB);
-    localStorage.removeItem(HANDOFF.MATCH);
-    clearMyRoom((k) => localStorage.removeItem(k)); // 멤버십도 폐기 — 더 이상 내 방 아님
-    setMatchInfo(null);
-    setJoinRequest(null); // useRoom 이 room.leave 를 수행하고, 리스트 룸이 다시 붙는다
-  }, [setMatchInfo, clearDrop]);
-
-  const reconnectAfterDrop = useCallback(() => {
-    const id = takeReconnectId();
-    setError(null);
-    setConnected(true);
-    if (id) {setJoinRequest({ kind: "join", id });}
-  }, [takeReconnectId]);
-
-  const disconnect = useCallback(() => {
-    leaveRoom();
-    setConnected(false); // 리스트 룸도 내린다 — 뒤로가기가 인트로에서 멈추게
-  }, [leaveRoom]);
-
-  // 게임 종료 후: 소켓이 남아 있으면 대기실로, 없으면 같은 방에 다시 들어간다.
-  const returnToLobby = useCallback((_name: string) => {
-    const roomId = matchInfo?.roomId;
-    localStorage.removeItem(HANDOFF.FROM_HUB);
-    localStorage.removeItem(HANDOFF.MATCH);
-    setMatchInfo(null);
-    if (room) {return;}
-    if (roomId) {setJoinRequest({ kind: "join", id: roomId });}
-    else {setJoinRequest(null);}
-  }, [room, matchInfo, setMatchInfo]);
-
-  const startMatch = useCallback(() => room?.send(MSG.START, {}), [room]);
-
-  // 방장의 방 열기/닫기 — 닫으면 서버가 재실자를 강퇴한다.
-  const toggleRoom = useCallback(() => room?.send(MSG.ROOM_TOGGLE, {}), [room]);
-
-  // 리스트가 실시간이므로 수동 새로고침은 없다 (인터페이스 호환용 no-op).
-  const refreshRooms = useCallback(() => {}, []);
-
-  // 세션 재개 — 토큰이 있으면 React 만 reconnect 한다. FROM_HUB 는 엔진 부팅 신호다.
-  const tryResume = useCallback((): boolean => {
-    const token = localStorage.getItem(HANDOFF.RESUME);
-    if (!reactOwnsResume(localStorage.getItem(HANDOFF.FROM_HUB), token)) {return false;}
-    nameRef.current = localStorage.getItem(HANDOFF.NAME) ?? "";
-    setResumeFailed(false);
-    setConnected(true);
-    setJoinRequest({ kind: "resume" });
-    return true;
-  }, []);
+  const sends = useMemo(() => ({
+    startMatch: (): void => {room?.send(MSG.START, {});},
+    setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
+    toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
+  }), [room]);
+  const idleLeftSec = useRoomIdle(derived?.createdAtMs ?? 0, status === "in-room");
 
   return {
     status,
@@ -204,21 +157,23 @@ export function useHub(): UseHubResult {
     rttMs,
     error,
     matchInfo,
-    connect,
-    createRoom,
-    joinRoom,
-    leaveRoom,
-    disconnect,
-    returnToLobby,
-    startMatch,
-    toggleRoom,
-    refreshRooms,
-    tryResume,
+    connect: commands.connect,
+    createRoom: commands.createRoom,
+    joinRoom: commands.joinRoom,
+    leaveRoom: commands.leaveRoom,
+    disconnect: commands.disconnect,
+    returnToLobby: commands.returnToLobby,
+    startMatch: sends.startMatch,
+    setGame: sends.setGame,
+    idleLeftSec,
+    toggleRoom: sends.toggleRoom,
+    refreshRooms: refresh,
+    tryResume: commands.tryResume,
     resuming: joinRequest?.kind === "resume",
     resumeFailed,
     dropReason,
     lastRoomId,
-    reconnectAfterDrop,
+    reconnectAfterDrop: commands.reconnectAfterDrop,
     myRoom,
   };
 }

@@ -40,6 +40,8 @@ export const MSG = {
   PEER_INPUT: "peer_input",
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",
+  /** 방장만. 대기실에서 유즈맵을 바꾼다. */
+  SET_GAME: "set_game",
   KICKED: "kicked",
   /** React → Godot 방 state. 허브 메시지 타입이 아니다. */
   STATE: "state",

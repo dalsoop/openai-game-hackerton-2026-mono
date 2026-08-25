@@ -91,7 +91,10 @@
     "waitingForHost": "호스트가 시작할 때까지 기다리세요",
     "open": "방 열기",
     "close": "방 닫기",
-    "downloading": "게임 받는 중"
+    "downloading": "게임 받는 중",
+    "changeGame": "게임",
+    "idleHost": "시작하지 않으면 {sec}초 뒤 방이 닫힙니다",
+    "idleGuest": "방장이 {sec}초 안에 시작하지 않으면 방이 닫힙니다"
   },
   "godot": {
     "starting": "게임을 시작하는 중...",

@@ -2,20 +2,20 @@ import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { createReadStream, statSync } from "fs";
 import path from "path";
 import next from "next";
-import { Server as ColyseusServer, LobbyRoom as RoomListRoom } from "colyseus";
+import { matchMaker, Server as ColyseusServer } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RedisPresence } from "@colyseus/redis-presence";
 import { RedisDriver } from "@colyseus/redis-driver";
 import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
-import { HUB_CONFIG, ROOM_NAME, LIST_ROOM_NAME } from "./lib/hub/config.js";
+import { HUB_CONFIG, ROOM_NAME } from "./lib/hub/config.js";
+import { hubPublicAddress } from "./lib/hub/public-address.js";
+import { roomsHttpBody } from "./lib/hub/rooms-http.js";
 import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
-const app = next({ dev });
-const handle = app.getRequestHandler();
 
 const GODOT_DIR = path.join(process.cwd(), "public", "godot");
 // 이미지 안에서는 public/addons, 로컬 dev 는 project/addons.
@@ -118,7 +118,31 @@ function serveOne(
   return true;
 }
 
-void app.prepare().then(async () => {
+function startStatic(): void {
+  createServer((req, res) => {
+    res.setHeader("cross-origin-opener-policy", "same-origin");
+    res.setHeader("cross-origin-embedder-policy", "require-corp");
+    res.setHeader("cross-origin-resource-policy", "same-origin");
+    const pathname = (req.url ?? "/").split("?")[0];
+    if (pathname === "/health" || pathname === "/healthz") {
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(healthBody());
+      return;
+    }
+    if (isExtLibPath(pathname) &&
+        serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
+    if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
+    if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
+    res.writeHead(404).end();
+  }).listen(port, "0.0.0.0", () => {
+    console.log(`> Static on http://localhost:${port}`);
+  });
+}
+
+function startHub(): void {
+  const app = next({ dev });
+  const handle = app.getRequestHandler();
+  void app.prepare().then(async () => {
   const httpServer = createServer();
 
   // Next dev HMR(webpack-hmr) 업그레이드는 Next 핸들러로 넘긴다 — 끊으면
@@ -137,9 +161,7 @@ void app.prepare().then(async () => {
   // REDIS_URL 이 없으면 로컬 폴백(현재 단일 프로세스 동작 100% 유지),
   // HUB_PUBLIC_PREFIX+POD_NAME 가 있으면 클라가 이 Pod 로 직접 WS 연결한다.
   const redisUrl = process.env.REDIS_URL;
-  const publicAddress = process.env.HUB_PUBLIC_PREFIX && process.env.POD_NAME
-    ? `${process.env.HUB_PUBLIC_PREFIX}/${process.env.POD_NAME}`
-    : undefined;
+  const publicAddress = hubPublicAddress(process.env.HUB_PUBLIC_PREFIX, process.env.POD_NAME);
 
   const gameServer = new ColyseusServer({
     transport,
@@ -159,23 +181,38 @@ void app.prepare().then(async () => {
           res.end(healthBody());
           return;
         }
-        // GDExtension — 페이지가 /ko 이면 엔진이 /ko/libcolyseus... 로 상대 요청한다.
-        if (isExtLibPath(pathname) &&
+        if (pathname === "/rooms") {
+          void matchMaker.query({ name: ROOM_NAME }).then((listed) => {
+            res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+            res.end(JSON.stringify(roomsHttpBody(listed)));
+          }).catch(() => {
+            res.writeHead(503, { "content-type": "application/json" });
+            res.end(JSON.stringify({ rooms: [] }));
+          });
+          return;
+        }
+        const servePack = process.env.HUB_STATIC_SPLIT !== "1";
+        if (servePack && isExtLibPath(pathname) &&
             serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
-        if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
-        if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
+        if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
+        if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
         void handle(req, res);
       });
     },
   });
 
-  // 게임 방: 생성/변경/소멸이 내장 리스트 룸으로 실시간 전파된다 (공식 리스팅).
-  gameServer.define(ROOM_NAME, LobbyRoom).enableRealtimeListing();
-  gameServer.define(LIST_ROOM_NAME, RoomListRoom);
+  gameServer.define(ROOM_NAME, LobbyRoom);
 
   await gameServer.serverless();
   httpServer.listen(port, "0.0.0.0", () => {
     console.log(`> Ready on http://localhost:${port}`);
     console.log(`> Colyseus room: "${ROOM_NAME}" (matchmake: /matchmake/*)`);
   });
-});
+  });
+}
+
+if (process.env.HUB_ROLE === "static") {
+  startStatic();
+} else {
+  startHub();
+}

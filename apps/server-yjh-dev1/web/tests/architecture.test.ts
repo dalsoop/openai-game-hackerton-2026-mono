@@ -179,6 +179,14 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("HANDOFF.FROM_HUB");
   });
 
+  it("로비 목록은 리스트 룸이 아니라 GET /rooms 다", () => {
+    const src = sourceOf(join(ROOT, "hooks/useRoomList.ts"));
+    expect(src).toContain("/rooms");
+    expect(src).not.toContain("joinOrCreate");
+    expect(sourceOf(join(ROOT, "server.ts"))).toContain('pathname === "/rooms"');
+    expect(sourceOf(join(ROOT, "server.ts"))).not.toContain("RoomListRoom");
+  });
+
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
     expect(sourceOf(join(ROOT, "lib/hub/page-bridge.ts"))).not.toContain("onMessage");
     expect(sourceOf(join(ROOT, "hooks/usePageBridge.ts"))).toContain("useRoomMessage");

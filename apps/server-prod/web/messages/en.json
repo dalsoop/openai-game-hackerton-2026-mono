@@ -88,7 +88,13 @@
     "cpuAtStart": "CPU at Start",
     "playerCount": "{count}/{max} players · Empty slots filled by CPU at start",
     "startButton": "Start Game",
-    "waitingForHost": "Waiting for host to start"
+    "waitingForHost": "Waiting for host to start",
+    "open": "Open room",
+    "close": "Close room",
+    "downloading": "Downloading game",
+    "changeGame": "Game",
+    "idleHost": "Room closes in {sec}s if you do not start",
+    "idleGuest": "Room closes in {sec}s unless the host starts"
   },
   "godot": {
     "starting": "Starting game...",

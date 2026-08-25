@@ -4,6 +4,7 @@
 import { Client } from "@colyseus/sdk";
 
 const BASE = process.env.HUB_URL || "http://127.0.0.1:3000";
+const ROOM_NAME = `${(process.env.SLOT_FOLDER || "server-prod").trim()}-lobby`;
 const STEP_MS = 6000;
 let passed = 0;
 const step = (name) => console.log(`  ✓ ${++passed}. ${name}`);
@@ -34,7 +35,7 @@ try {
   const b = new Client(BASE);
 
   // 1. A 방 생성 → state 에 본인 등장 (매치메이킹+WS+state 동기화 왕복)
-  const roomA = await a.create("lobby", { name: "스모크A" });
+  const roomA = await a.create(ROOM_NAME, { name: "스모크A" });
   await waitState(roomA, (s) => s.players?.length === 1, "A create");
   step(`A create → state.players=1 (room=${roomA.roomId})`);
 

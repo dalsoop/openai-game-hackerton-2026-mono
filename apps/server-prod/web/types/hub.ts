@@ -85,6 +85,8 @@ export interface UseHubResult {
   disconnect: () => void;
   returnToLobby: (name: string) => void;
   startMatch: () => void;
+  setGame: (game: string) => void;
+  idleLeftSec: number;
   toggleRoom: () => void;
   refreshRooms: () => void;
 

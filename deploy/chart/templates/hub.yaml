@@ -1,4 +1,6 @@
 {{- range .Values.hubs }}
+{{- $ctx := dict "folder" .folder "root" $ }}
+{{- $scaled := eq (include "hackertone-games.hubScaled" $ctx) "true" }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -9,10 +11,10 @@ metadata:
     app.kubernetes.io/component: hub
     hackertone-games/slot: {{ .folder }}
 spec:
-  replicas: {{ $.Values.hub.replicaCount }}
+  replicas: {{ include "hackertone-games.hubReplicas" $ctx }}
   strategy:
-    type: {{ $.Values.hub.strategy | default "Recreate" }}
-    {{- if eq ($.Values.hub.strategy | default "Recreate") "RollingUpdate" }}
+    type: {{ $.Values.hub.strategy | default "RollingUpdate" }}
+    {{- if eq ($.Values.hub.strategy | default "RollingUpdate") "RollingUpdate" }}
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
@@ -55,6 +57,10 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             {{- end }}
+            {{- if and $.Values.hub.staticSplit $scaled }}
+            - name: HUB_STATIC_SPLIT
+              value: "1"
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080
@@ -71,7 +77,11 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
           resources:
+            {{- if $scaled }}
+            {{- toYaml $.Values.hub.scale.resources | nindent 12 }}
+            {{- else }}
             {{- toYaml $.Values.hub.resources | nindent 12 }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
 ---
@@ -113,6 +123,86 @@ spec:
   ports:
     - name: http
       port: 8080
+      targetPort: 8080
+{{- end }}
+{{- if and $.Values.hub.staticSplit $scaled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .folder }}-hub-static
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub-static
+    hackertone-games/slot: {{ .folder }}
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "hackertone-games.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: hub-static
+      hackertone-games/slot: {{ .folder }}
+  template:
+    metadata:
+      labels:
+        {{- include "hackertone-games.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: hub-static
+        hackertone-games/slot: {{ .folder }}
+    spec:
+      enableServiceLinks: false
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: static
+          image: "{{ .image | default $.Values.hub.image.repository }}:{{ .tag | default $.Values.hub.image.tag }}"
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          env:
+            - name: PORT
+              value: {{ $.Values.hub.env.PORT | quote }}
+            - name: SLOT_FOLDER
+              value: {{ .folder | quote }}
+            - name: HUB_ROLE
+              value: static
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml $.Values.hub.scale.staticResources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .folder }}-hub-static
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub-static
+    hackertone-games/slot: {{ .folder }}
+spec:
+  selector:
+    {{- include "hackertone-games.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub-static
+    hackertone-games/slot: {{ .folder }}
+  ports:
+    - name: http
+      port: 80
       targetPort: 8080
 {{- end }}
 {{- end }}

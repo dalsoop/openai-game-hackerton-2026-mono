@@ -30,3 +30,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "hackertone-games.publicHost" -}}
 {{- printf "%s.external.kr" . -}}
 {{- end -}}
+
+{{- define "hackertone-games.hubScaled" -}}
+{{- if has .folder (.root.Values.hub.scale.folders | default list) }}true{{ end -}}
+{{- end -}}
+
+{{- define "hackertone-games.hubReplicas" -}}
+{{- if eq (include "hackertone-games.hubScaled" .) "true" -}}
+{{- .root.Values.hub.scale.replicaCount -}}
+{{- else -}}
+{{- .root.Values.hub.replicaCount -}}
+{{- end -}}
+{{- end -}}

@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: {
+    SLOT_FOLDER: process.env.SLOT_FOLDER ?? "server-yjh-dev1",
+  },
   async headers() {
     return [
       {

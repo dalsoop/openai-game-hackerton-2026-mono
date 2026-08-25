@@ -16,5 +16,6 @@ export class LobbyState extends Schema {
   @type("string") title = "";
   @type("string") mode = defaultModeOf(asGameId(undefined));
   @type("number") seed = 0;
+  @type("number") createdAtMs = 0;
   @type([PlayerSchema]) players = new ArraySchema<PlayerSchema>();
 }

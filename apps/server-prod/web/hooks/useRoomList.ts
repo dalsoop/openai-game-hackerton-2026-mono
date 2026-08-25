@@ -1,39 +1,53 @@
 "use client";
-// 방 목록 훅 — 내장 리스트 룸 구독(실시간, 폴링 없음).
-// useLobbyRoom 은 핸들러 등록이 passive effect 로 늦어져, 서버가 join 직후
-// 보내는 첫 전체 목록(MSG.ROOMS)이 등록 전에 도착하면 놓친다 — 그래서
-// join 프로미스 resolve 시점에 직접 등록한다 (마이크로태스크라 다음 WS 프레임보다 먼저).
-import { useMemo, useState } from "react";
-import type { Room, RoomAvailable } from "@colyseus/sdk";
-import { useRoom } from "@colyseus/react";
-import { LIST_MSG, LIST_ROOM_NAME } from "@/lib/hub/config";
-import { toHubRoom, replaceList, upsertRoom, removeRoom } from "@/lib/hub/room-mapper";
+// 방 목록 — 리스트 룸 대신 GET /rooms 를 짧게 폴링한다.
+import { useEffect, useMemo, useState } from "react";
+import type { RoomAvailable } from "@colyseus/sdk";
+import { HUB_CONFIG } from "@/lib/hub/config";
+import { roomsHttpBody } from "@/lib/hub/rooms-http";
+import { toHubRoom } from "@/lib/hub/room-mapper";
 import type { HubRoom } from "@/types";
-import type { Client } from "@colyseus/sdk";
 
-export function useRoomList(active: boolean, getClient: () => Client): {
+export async function fetchJoinableRooms(fetchImpl: typeof fetch = fetch): Promise<RoomAvailable[]> {
+  const res = await fetchImpl("/rooms", { cache: "no-store" });
+  if (!res.ok) {throw new Error("rooms");}
+  const body = roomsHttpBody((await res.json() as { rooms?: RoomAvailable[] }).rooms ?? []);
+  return body.rooms;
+}
+
+export function useRoomList(active: boolean): {
   rooms: HubRoom[];
   lobbyErr: Error | undefined;
   lobbyConnecting: boolean;
 } {
   const [roomList, setRoomList] = useState<RoomAvailable[]>([]);
-  const { error: lobbyErr, isConnecting: lobbyConnecting } = useRoom(
-    active
-      ? async (): Promise<Room> => {
-          const list = await getClient().joinOrCreate(LIST_ROOM_NAME);
-          list.onMessage(LIST_MSG.ROOMS, (r: RoomAvailable[]) => {setRoomList((prev) => replaceList(prev, r));});
-          list.onMessage(LIST_MSG.ADD, ([roomId, room]: [string, RoomAvailable]) => {
-            setRoomList((prev) => upsertRoom(prev, roomId, room));
-          });
-          list.onMessage(LIST_MSG.REMOVE, (roomId: string) => {
-            setRoomList((prev) => removeRoom(prev, roomId));
-          });
-          return list;
-        }
-      : null,
-    [active],
-  );
+  const [lobbyErr, setLobbyErr] = useState<Error | undefined>();
+  const [ready, setReady] = useState(false);
 
-  const rooms: HubRoom[] = useMemo(() => roomList.map(toHubRoom), [roomList]);
-  return { rooms, lobbyErr, lobbyConnecting };
+  useEffect(() => {
+    if (!active) {return;}
+    let alive = true;
+    const tick = (): void => {
+      void fetchJoinableRooms()
+        .then((next) => {
+          if (!alive) {return;}
+          setRoomList(next);
+          setLobbyErr(undefined);
+          setReady(true);
+        })
+        .catch((err: unknown) => {
+          if (!alive) {return;}
+          setLobbyErr(err instanceof Error ? err : new Error(String(err)));
+          setReady(true);
+        });
+    };
+    tick();
+    const id = setInterval(tick, HUB_CONFIG.listPollMs);
+    return (): void => {alive = false; clearInterval(id);};
+  }, [active]);
+
+  const rooms: HubRoom[] = useMemo(
+    () => (active ? roomList.map(toHubRoom) : []),
+    [active, roomList],
+  );
+  return { rooms, lobbyErr: active ? lobbyErr : undefined, lobbyConnecting: active && !ready };
 }

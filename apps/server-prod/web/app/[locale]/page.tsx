@@ -130,6 +130,9 @@ export default function Home(): JSX.Element {
         <InRoomPhase
           roomOpen={hub.roomOpen}
           onToggleRoom={hub.toggleRoom}
+          gameId={hub.gameId}
+          idleLeftSec={hub.idleLeftSec}
+          onSetGame={hub.setGame}
           players={hub.players}
           you={hub.you}
           isHost={hub.isHost}
