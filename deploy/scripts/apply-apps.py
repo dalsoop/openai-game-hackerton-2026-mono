@@ -176,6 +176,9 @@ def export_web(folder: str) -> None:
     if not web.get("enabled"):
         print(f"skip web export {folder} (disabled)")
         return
+    if web.get("skipExport"):
+        print(f"skip web export {folder} (platform image)")
+        return
     project = APPS / folder / "project"
     presets = project / "export_presets.cfg"
     if not (project / "project.godot").is_file() or not presets.is_file():
@@ -271,7 +274,8 @@ def build_hub(folder: str) -> None:
     if listed.stdout.strip():
         print(f"skip hub {folder} ({ref})")
         return
-    subprocess.run(["docker", "build", "-t", ref, str(APPS / folder)], check=True)
+    context = APPS / folder
+    subprocess.run(["docker", "build", "-t", ref, "-f", str(docker), str(context)], check=True)
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
     load = subprocess.run(k3s_argv("k3s ctr images import -"), stdin=save.stdout, check=False)
     save.wait()

@@ -31,13 +31,31 @@ def tree_hash(root: Path) -> str:
 
 
 def hub_image_tag(folder: Path) -> str:
-    parts = [
-        folder / "Dockerfile",
-        folder / "package.json",
-        folder / "package-lock.json",
-        folder / "src",
-        folder / "public",
-    ]
+    data = parse_yaml((folder / "hackertone.yaml").read_text()) if (folder / "hackertone.yaml").is_file() else {}
+    docker_rel = str((data.get("hub") or {}).get("dockerfile") or "Dockerfile")
+    docker = folder / docker_rel
+    # 슬롯 루트 Dockerfile 은 기존 태그 공식을 유지한다. 하위 경로(web/)만 새 트리를 해시한
+    if docker.parent.resolve() == folder.resolve():
+        parts = [
+            docker,
+            folder / "package.json",
+            folder / "package-lock.json",
+            folder / "src",
+            folder / "public",
+        ]
+    else:
+        ctx = docker.parent
+        parts = [
+            docker,
+            ctx / "package.json",
+            ctx / "package-lock.json",
+            ctx / "src",
+            ctx / "app",
+            ctx / "lib",
+            ctx / "public",
+            ctx / "server.ts",
+            folder / "project" / "addons" / "colyseus" / "bin",
+        ]
     digest = hashlib.sha256()
     for part in parts:
         digest.update(tree_hash(part).encode())

@@ -68,11 +68,19 @@ data:
             flush_interval -1
           }
         }
+        {{- if eq (default "/gang-up" .pathPrefix) "/" }}
+        handle {
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
+        {{- else }}
         handle {{ .pathPrefix | default "/gang-up" }}* {
           reverse_proxy {{ .folder }}-hub:80 {
             flush_interval -1
           }
         }
+        {{- end }}
         root * /srv/g/{{ .folder }}
         @html_files path *.html
         header @html_files Cache-Control "no-store, no-cache, must-revalidate"

@@ -6,6 +6,8 @@ players: 1–8
 web:
   enabled: true
   exportDir: project/web
+  skipExport: true
 hub:
-  # 구 Node 허브는 폐기됨 — 로비/허브는 리포 루트 web/ (Next.js 플랫폼)이 담당
-  enabled: false
+  enabled: true
+  pathPrefix: /
+  dockerfile: web/Dockerfile
