@@ -60,7 +60,7 @@ const PLAYER_KEYS: Array[String] = [
 
 static func pack_header(world) -> Dictionary:
 	var center: Vector2 = world.safe_zone_center
-	return {
+	var header := {
 		TICK: world.tick,
 		TIME: world.match_time,
 		RESULT: str(world.result),
@@ -74,6 +74,13 @@ static func pack_header(world) -> Dictionary:
 		WANTED_SLOT: world.wanted_slot,
 		MODE: world.mode,
 	}
+	header.merge(_pack_map(world))
+	return header
+
+static func _pack_map(world) -> Dictionary:
+	if "play_map" in world and world.play_map != null:
+		return world.play_map.to_wire()
+	return PlayMapScript.island_2x2().to_wire()
 
 static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 	var pos := Vector2(h["pos"])
@@ -171,6 +178,8 @@ static func apply_header(dst, snap: Dictionary) -> void:
 		dst.wanted_slot = int(snap[WANTED_SLOT])
 	if snap.has(MODE):
 		dst.mode = str(snap[MODE])
+	if PlayMapScript.has_wire(snap) and "play_map" in dst:
+		dst.play_map = PlayMapScript.from_wire(snap)
 
 static func _f(d: Dictionary, key: String, fallback: float) -> float:
 	return NetSnapParser._f(d, key, fallback)

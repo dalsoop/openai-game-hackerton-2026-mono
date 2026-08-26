@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1fyc70jbycyp"
-path="res://.godot/imported/sniper.png-9c03e65849ac54c6e9b358e576bf2cf3.ctex"
+path="res://.godot/imported/sniper.png-7bb360c14297df5e3202b6608a43a90c.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/sniper.png"
-dest_files=["res://.godot/imported/sniper.png-9c03e65849ac54c6e9b358e576bf2cf3.ctex"]
+dest_files=["res://.godot/imported/sniper.png-7bb360c14297df5e3202b6608a43a90c.ctex"]
 
 [params]
 

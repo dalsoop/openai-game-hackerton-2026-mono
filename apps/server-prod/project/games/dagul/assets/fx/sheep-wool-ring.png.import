@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://be7go2tbgrvxk"
-path="res://.godot/imported/sheep-wool-ring.png-36f0cf14fbfdfba0c19de1ccb993886d.ctex"
+path="res://.godot/imported/sheep-wool-ring.png-e5d5882c82df2e2ab6b07747f173f631.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/sheep-wool-ring.png"
-dest_files=["res://.godot/imported/sheep-wool-ring.png-36f0cf14fbfdfba0c19de1ccb993886d.ctex"]
+dest_files=["res://.godot/imported/sheep-wool-ring.png-e5d5882c82df2e2ab6b07747f173f631.ctex"]
 
 [params]
 

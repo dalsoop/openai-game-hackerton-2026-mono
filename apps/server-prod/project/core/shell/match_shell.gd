@@ -41,6 +41,7 @@ func _ready() -> void:
 		"hud": hud, "hud_layer": hud_layer, "touch": touch,
 		"leave": Callable(self, "_leave_match"),
 		"settings_open": false,
+		"net_active": false,
 	}
 	if hub != null:
 		hub.match_started.connect(_on_match_started)
@@ -99,6 +100,7 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 		_return_to_hub()
 		return
 	gs.set("net_active", true)
+	_ctx["net_active"] = true
 	gs.set("net_host", hub.is_host)
 	if module == null:
 		module = GameRegistry.load_game(_game_id())
@@ -159,6 +161,7 @@ func _leave_match() -> void:
 	if gs != null:
 		gs.set("net_active", false)
 		gs.set("net_host", false)
+	_ctx["net_active"] = false
 	if hub != null and hub.in_room:
 		hub.leave_room()
 	_return_to_hub()
@@ -170,6 +173,7 @@ func _return_to_hub() -> void:
 	var gs := _game_state()
 	if gs != null:
 		gs.request(GameStateScript.State.BOOT)
+	_ctx["net_active"] = false
 	_apply_playing_visuals(false)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('%s', {detail: {}}))" % WebContract.EVT_MATCH_END)

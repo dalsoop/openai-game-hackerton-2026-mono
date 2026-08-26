@@ -461,21 +461,13 @@ func _check_my_kill_fanfare() -> void:
 func _try_offline_rematch(ctx: Dictionary) -> bool:
 	if bool(ctx.get("settings_open", false)):
 		return false
-	if _net_active() or world == null or world.result == &"playing":
+	if bool(ctx.get("net_active", false)) or world == null or world.result == &"playing":
 		return false
 	if not _input.edge(KEY_R):
 		return false
 	seed_value += 1
 	_restart_offline(ctx)
 	return true
-
-
-func _net_active() -> bool:
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree == null:
-		return true
-	var gs := tree.root.get_node_or_null("/root/GameState")
-	return gs != null and bool(gs.get("net_active"))
 
 
 func _restart_offline(ctx: Dictionary) -> void:

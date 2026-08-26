@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://vmoeo5hq6b2g"
-path="res://.godot/imported/island_bg.png-9ee0ceb2b65d278f78828b7311c721c6.ctex"
+path="res://.godot/imported/island_bg.png-4857f21ae1e90160997b2c39a1dd1d06.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/world/island_bg.png"
-dest_files=["res://.godot/imported/island_bg.png-9ee0ceb2b65d278f78828b7311c721c6.ctex"]
+dest_files=["res://.godot/imported/island_bg.png-4857f21ae1e90160997b2c39a1dd1d06.ctex"]
 
 [params]
 

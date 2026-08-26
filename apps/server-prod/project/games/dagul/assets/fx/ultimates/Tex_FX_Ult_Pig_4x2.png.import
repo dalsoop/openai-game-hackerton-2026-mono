@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://5f4sbw3rw4wb"
-path="res://.godot/imported/Tex_FX_Ult_Pig_4x2.png-7e3923a891cf430ab0ab88a389275809.ctex"
+path="res://.godot/imported/Tex_FX_Ult_Pig_4x2.png-e03b40b79f88b8200e806fc6365dfc76.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/ultimates/Tex_FX_Ult_Pig_4x2.png"
-dest_files=["res://.godot/imported/Tex_FX_Ult_Pig_4x2.png-7e3923a891cf430ab0ab88a389275809.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_Ult_Pig_4x2.png-e03b40b79f88b8200e806fc6365dfc76.ctex"]
 
 [params]
 

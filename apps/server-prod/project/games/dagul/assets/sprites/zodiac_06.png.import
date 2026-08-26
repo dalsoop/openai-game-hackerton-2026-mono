@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://baxhb553qoquh"
-path="res://.godot/imported/zodiac_06.png-841d7fc31018acfa27c0440e88bf95d3.ctex"
+path="res://.godot/imported/zodiac_06.png-abc02019e222272e6fc0eb0920c66616.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/sprites/zodiac_06.png"
-dest_files=["res://.godot/imported/zodiac_06.png-841d7fc31018acfa27c0440e88bf95d3.ctex"]
+dest_files=["res://.godot/imported/zodiac_06.png-abc02019e222272e6fc0eb0920c66616.ctex"]
 
 [params]
 

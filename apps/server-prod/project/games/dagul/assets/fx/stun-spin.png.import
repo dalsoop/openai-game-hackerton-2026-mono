@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0euckttn75gx"
-path="res://.godot/imported/stun-spin.png-754c309b1d62a6e8f7e0d859ba7f0d00.ctex"
+path="res://.godot/imported/stun-spin.png-4ed066940e6f73e94b2129fbcd9b3e61.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/stun-spin.png"
-dest_files=["res://.godot/imported/stun-spin.png-754c309b1d62a6e8f7e0d859ba7f0d00.ctex"]
+dest_files=["res://.godot/imported/stun-spin.png-4ed066940e6f73e94b2129fbcd9b3e61.ctex"]
 
 [params]
 

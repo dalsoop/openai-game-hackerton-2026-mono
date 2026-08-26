@@ -6,7 +6,7 @@ const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
 const TouchPolicy := preload("res://core/contract/touch_policy.gd")
 const TouchPadScript := preload("res://games/dagul/input/touch_pad.gd")
 
-var pad
+var pad: TouchPadScript
 var previous_keys: Dictionary = {}
 var previous_right_mouse: bool = false
 var previous_left_mouse: bool = false

@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://baafndd357amv"
-path="res://.godot/imported/double_giant.png-bc326df8b62068e7066ef5af4e0357c0.ctex"
+path="res://.godot/imported/double_giant.png-0a1e58916bbee057d574581209554fa3.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/double_giant.png"
-dest_files=["res://.godot/imported/double_giant.png-bc326df8b62068e7066ef5af4e0357c0.ctex"]
+dest_files=["res://.godot/imported/double_giant.png-0a1e58916bbee057d574581209554fa3.ctex"]
 
 [params]
 

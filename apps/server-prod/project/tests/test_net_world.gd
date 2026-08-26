@@ -62,13 +62,19 @@ func _peer_reload_reaches_host(t) -> void:
 	t.check("호스트가 게스트 리로드를 적용한다", float(world.heroes[1]["reload_left"]) > 0.0)
 
 func _host_map_overrides_old_island(t) -> void:
+	var PlayMapScript := preload("res://games/dagul/sim/play_map.gd")
 	var nw = NetWorldScript.new()
 	nw.local_slot = 0
-	nw.ARENA_SIZE = Vector2(804.0, 804.0)
-	nw.ARENA_CENTER = Vector2(402.0, 402.0)
+	nw.play_map = PlayMapScript.from_wire({
+		"mapId": "island_1x1",
+		"mapCols": 1, "mapRows": 1,
+		"cellW": 804.0, "cellH": 804.0,
+		"cellScale": 1.0, "mapMargin": 0.0,
+	})
+	t.check("덮기 전 게스트는 옛 섬", is_equal_approx(nw.ARENA_SIZE.x, 804.0))
 	nw.push_snap(_center_snap(3920.0, 2380.0, 176.0, 7, 18))
-	t.check("호스트 mapW 가 게스트 옛 섬을 덮는다", is_equal_approx(nw.ARENA_SIZE.x, 7840.0))
-	t.check("호스트 mapH 가 게스트 옛 섬을 덮는다", is_equal_approx(nw.ARENA_SIZE.y, 4760.0))
+	t.check("호스트 격자가 게스트 옛 섬을 덮는다", is_equal_approx(nw.ARENA_SIZE.x, 7840.0))
+	t.check("호스트 격자 높이도 덮인다", is_equal_approx(nw.ARENA_SIZE.y, 4760.0))
 	t.check("호스트 중심이 게스트 중심이 된다", nw.ARENA_CENTER == Vector2(3920.0, 2380.0))
 	nw.predict_local(Vector2.RIGHT, false, Vector2(4100.0, 2380.0), 1.0 / 60.0)
 	var pos := Vector2(nw.heroes[0]["pos"])
@@ -82,10 +88,13 @@ func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> 
 		SnapContract.ZONE_R: 3304.0,
 		SnapContract.ZONE_CX: 3920.0,
 		SnapContract.ZONE_CY: 2380.0,
-		"mapW": 7840.0,
-		"mapH": 4760.0,
-		"mapCX": 3920.0,
-		"mapCY": 2380.0,
+		"mapId": "island_2x2",
+		"mapCols": 2,
+		"mapRows": 2,
+		"cellW": 2800.0,
+		"cellH": 1700.0,
+		"cellScale": 1.4,
+		"mapMargin": 104.0,
 		SnapContract.PLAYERS: [{
 			SnapContract.P_SLOT: 0,
 			SnapContract.P_NAME: "게스트",

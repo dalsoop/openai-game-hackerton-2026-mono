@@ -243,6 +243,8 @@ class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:
         root = APPS.parent
         self.assertTrue((root / "deploy" / "scripts" / "build-godot.sh").is_file())
+        self.assertTrue((root / "deploy" / "scripts" / "export_web.py").is_file())
+        self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
         for folder in ("server-yjh-dev1", "server-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)

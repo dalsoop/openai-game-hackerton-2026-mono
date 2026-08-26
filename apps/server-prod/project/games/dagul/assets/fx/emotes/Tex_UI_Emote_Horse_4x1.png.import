@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bagu6cdeyelyk"
-path="res://.godot/imported/Tex_UI_Emote_Horse_4x1.png-aad3350a2f954582adf43920bcccb5e7.ctex"
+path="res://.godot/imported/Tex_UI_Emote_Horse_4x1.png-385e2143c8719f498e3081a060695049.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/emotes/Tex_UI_Emote_Horse_4x1.png"
-dest_files=["res://.godot/imported/Tex_UI_Emote_Horse_4x1.png-aad3350a2f954582adf43920bcccb5e7.ctex"]
+dest_files=["res://.godot/imported/Tex_UI_Emote_Horse_4x1.png-385e2143c8719f498e3081a060695049.ctex"]
 
 [params]
 

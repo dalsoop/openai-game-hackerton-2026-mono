@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dtakp2xniw0hh"
-path="res://.godot/imported/wheel_assist.png-50aad57f0cf07e02c9d44f7d64c0a5d4.ctex"
+path="res://.godot/imported/wheel_assist.png-ec96dce75a5bba3753e7be002e1e63b2.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/wheel_assist.png"
-dest_files=["res://.godot/imported/wheel_assist.png-50aad57f0cf07e02c9d44f7d64c0a5d4.ctex"]
+dest_files=["res://.godot/imported/wheel_assist.png-ec96dce75a5bba3753e7be002e1e63b2.ctex"]
 
 [params]
 

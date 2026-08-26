@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b6al8tmvyawlc"
-path="res://.godot/imported/Tex_FX_ChainStep_4x1.png-e665fb11d1072304425127468a790d7b.ctex"
+path="res://.godot/imported/Tex_FX_ChainStep_4x1.png-94e53bb039d3a6794244119e814441ae.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/mobility/Tex_FX_ChainStep_4x1.png"
-dest_files=["res://.godot/imported/Tex_FX_ChainStep_4x1.png-e665fb11d1072304425127468a790d7b.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_ChainStep_4x1.png-94e53bb039d3a6794244119e814441ae.ctex"]
 
 [params]
 

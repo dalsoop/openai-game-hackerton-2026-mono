@@ -35,10 +35,11 @@ func _header_keys(t) -> void:
 	t.check("header zoneR", is_equal_approx(float(header[SnapContract.ZONE_R]), 3304.0))
 	t.check("header zoneCX", is_equal_approx(float(header[SnapContract.ZONE_CX]), 3920.0))
 	t.check("header wantedSlot", int(header[SnapContract.WANTED_SLOT]) == 3)
-	t.check("header mapW", is_equal_approx(float(header["mapW"]), 7840.0))
-	t.check("header mapH", is_equal_approx(float(header["mapH"]), 4760.0))
-	t.check("header mapCX", is_equal_approx(float(header["mapCX"]), 3920.0))
-	t.check("header mapCY", is_equal_approx(float(header["mapCY"]), 2380.0))
+	t.check("header mapId", str(header["mapId"]) == "island_2x2")
+	t.check("header mapCols", int(header["mapCols"]) == 2)
+	t.check("header mapRows", int(header["mapRows"]) == 2)
+	t.check("header cellW", is_equal_approx(float(header["cellW"]), 2800.0))
+	t.check("header cellH", is_equal_approx(float(header["cellH"]), 1700.0))
 
 func _sample_hero() -> Dictionary:
 	return {
@@ -74,8 +75,7 @@ func _header_world() -> RefCounted:
 	w.start_countdown = 0.0
 	w.wanted_slot = 3
 	w.mode = "full"
-	w.ARENA_SIZE = Vector2(7840.0, 4760.0)
-	w.ARENA_CENTER = Vector2(3920.0, 2380.0)
+	w.play_map = preload("res://games/dagul/sim/play_map.gd").island_2x2()
 	return w
 
 class HeaderWorld extends RefCounted:
@@ -90,5 +90,4 @@ class HeaderWorld extends RefCounted:
 	var start_countdown: float = 0.0
 	var wanted_slot: int = -1
 	var mode: String = "classic"
-	var ARENA_SIZE: Vector2 = Vector2(7840.0, 4760.0)
-	var ARENA_CENTER: Vector2 = Vector2(3920.0, 2380.0)
+	var play_map = null

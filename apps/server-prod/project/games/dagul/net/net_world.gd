@@ -2,13 +2,21 @@ extends RefCounted
 
 const EventLogScript = preload("res://games/dagul/sim/event_log.gd")
 const ArenaGeo = preload("res://games/dagul/sim/arena_geometry.gd")
+const PlayMapScript = preload("res://games/dagul/sim/play_map.gd")
 const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 
 const PLAYER_COUNT := 8
-const ARENA_SIZE := ArenaGeo.ARENA_SIZE
-const ARENA_CENTER := ArenaGeo.ARENA_CENTER
-const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
+var play_map = PlayMapScript.island_2x2()
+var ARENA_SIZE: Vector2:
+    get:
+        return play_map.world_size()
+var ARENA_CENTER: Vector2:
+    get:
+        return play_map.world_center()
+var ARENA_MARGIN: float:
+    get:
+        return play_map.margin
 const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
@@ -244,7 +252,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
-        hero["pos"] = clamp_arena(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
+        hero["pos"] = _clamp_arena(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
     for shot in projectiles:
         shot["pos"] = Vector2(shot["pos"]) + Vector2(shot.get("vel", Vector2.ZERO)) * extra
 
@@ -275,15 +283,12 @@ func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> v
     var mlen := move.length()
     if mlen > 0.05:
         _pred_pos += move / maxf(1.0, mlen) * speed * dt
-    _pred_pos = clamp_arena(_pred_pos)
+    _pred_pos = _clamp_arena(_pred_pos)
     if aim.distance_squared_to(_pred_pos) > 1.0:
         _pred_aim = _pred_pos.direction_to(aim)
 
-static func clamp_arena(pos: Vector2) -> Vector2:
-    return Vector2(
-        clampf(pos.x, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS),
-        clampf(pos.y, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS)
-    )
+func _clamp_arena(pos: Vector2) -> Vector2:
+    return play_map.clamp_point(pos, HERO_RADIUS)
 
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():

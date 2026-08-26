@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dr88k6uw7yi2s"
-path="res://.godot/imported/Tex_FX_ZoneImpact_4x2.png-2f4b77918e852c44da7d76184c966c45.ctex"
+path="res://.godot/imported/Tex_FX_ZoneImpact_4x2.png-a6ad0b968025e1ef89f6a6dce3c6e52e.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/zone/Tex_FX_ZoneImpact_4x2.png"
-dest_files=["res://.godot/imported/Tex_FX_ZoneImpact_4x2.png-2f4b77918e852c44da7d76184c966c45.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_ZoneImpact_4x2.png-a6ad0b968025e1ef89f6a6dce3c6e52e.ctex"]
 
 [params]
 

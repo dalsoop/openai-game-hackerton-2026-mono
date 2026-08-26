@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwuclrlb8k20j"
-path="res://.godot/imported/projectile_chain.png-41b7294d1110bce095c4706c1df18b67.ctex"
+path="res://.godot/imported/projectile_chain.png-35eb960d079b57759f7d5971dbd36f9a.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/projectiles/projectile_chain.png"
-dest_files=["res://.godot/imported/projectile_chain.png-41b7294d1110bce095c4706c1df18b67.ctex"]
+dest_files=["res://.godot/imported/projectile_chain.png-35eb960d079b57759f7d5971dbd36f9a.ctex"]
 
 [params]
 

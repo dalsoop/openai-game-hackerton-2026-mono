@@ -173,6 +173,7 @@ func _return_to_hub() -> void:
 	var gs := _game_state()
 	if gs != null:
 		gs.request(GameStateScript.State.BOOT)
+	_ctx["net_active"] = false
 	_apply_playing_visuals(false)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('%s', {detail: {}}))" % WebContract.EVT_MATCH_END)

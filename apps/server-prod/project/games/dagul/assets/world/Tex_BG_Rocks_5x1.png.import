@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqn5nrnha6bvc"
-path="res://.godot/imported/Tex_BG_Rocks_5x1.png-0ac3ae3eb7f3c33db6e360120bc9eae1.ctex"
+path="res://.godot/imported/Tex_BG_Rocks_5x1.png-1476cc9b1209ccad4923f6489bc47f1f.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/world/Tex_BG_Rocks_5x1.png"
-dest_files=["res://.godot/imported/Tex_BG_Rocks_5x1.png-0ac3ae3eb7f3c33db6e360120bc9eae1.ctex"]
+dest_files=["res://.godot/imported/Tex_BG_Rocks_5x1.png-1476cc9b1209ccad4923f6489bc47f1f.ctex"]
 
 [params]
 
