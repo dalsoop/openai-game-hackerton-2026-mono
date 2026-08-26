@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { makeEquipment } from "@/lib/hub/match-equipment";
 import {
   BLAST_HOP_DAMAGE, BLAST_HOP_KB, BLADE_EVADE, BRACE_GUARD, BREAKER_GUARD, BURST_LEFT_DEFAULT,
+  ARC_BOMB_RADIUS, BOMB_ARC_BLAST, BOMB_ARC_DISTANCE, BOMB_ARC_FLIGHT,
   BRAWLER_HEAVY_DMG, BRAWLER_HEAVY_RADIUS, BRAWLER_KICK_MUL, BRAWLER_KICK_Y, LEECH_HEAL,
-  MORTAR_RADIUS_MIN, MORTAR_SPLASH, MUZZLE_FRAME, PASSIVE_MUL, RADIUS_FIRE_MUL, RAIL_PASSIVE_DIST,
+  MORTAR_SPLASH, MUZZLE_FRAME, PASSIVE_MUL, RADIUS_FIRE_MUL, RAIL_PASSIVE_DIST,
   RELOAD_MIN, SPEAR_PASSIVE_DIST, WEAVE_IMMUNITY, apply, applyEquipmentAttack, applyGunInput,
   applyGunLoot, applyMobility, attackDirection, equipmentSkillTable, gunReach, gunSeedFields,
   pelletOffset, projectileKind, rotateVec, seedGun, tick, tickGun, tryNormalAttack, tryStartReload,
@@ -54,16 +55,21 @@ describe("발사 모드·펠릿·스플래시·관통", () => {
     expect(mortar.projectiles).toHaveLength(1);
     expect(mortar.projectiles[0]?.kind).toBe("shell");
     expect(mortar.projectiles[0]?.splash).toBe(MORTAR_SPLASH);
-    expect(mortar.projectiles[0]?.radius).toBe(Math.max(9 * RADIUS_FIRE_MUL, MORTAR_RADIUS_MIN));
+    expect(mortar.projectiles[0]?.radius).toBe(ARC_BOMB_RADIUS);
     expect(mortar.projectiles[0]?.pierce).toBe(0);
+    expect(mortar.projectiles[0]?.arc).toBe(true);
   });
 
-  it("bomb mag_size>0 이라 burst 게이트는 건너뛰고 탄만 6발", () => {
+  it("bomb mag_size>0 이라 burst 게이트는 건너뛰고 포물선 유탄 1발", () => {
     const h = hero("bomb");
     expect(h.equipment.burstShots).toBe(2);
     expect(h.equipment.magSize).toBe(2);
     const r = tryNormalAttack(h, { x: 1, y: 0 });
-    expect(r.projectiles).toHaveLength(6);
+    expect(r.projectiles).toHaveLength(1);
+    expect(r.projectiles[0]?.arc).toBe(true);
+    expect(r.projectiles[0]?.ttl).toBe(BOMB_ARC_FLIGHT);
+    expect(r.projectiles[0]?.splash).toBe(BOMB_ARC_BLAST);
+    expect(r.projectiles[0]?.landingX).toBeCloseTo(h.x + BOMB_ARC_DISTANCE, 8);
     expect(h.mag).toBe(1);
     expect(h.fireCd).toBe(0.22);
   });
@@ -126,6 +132,7 @@ describe("무기 패시브", () => {
     expect(r.projectiles[0]?.damage).toBeCloseTo(46.8 * BRAWLER_HEAVY_DMG, 10);
     expect(r.projectiles[0]?.radius).toBeCloseTo(5 * RADIUS_FIRE_MUL * BRAWLER_HEAVY_RADIUS, 10);
     expect(r.projectiles[0]?.heavy).toBe(true);
+    expect(r.projectiles[0]?.comboFinisher).toBe(true);
     expect(third.sprayIndex).toBe(3);
     expect(r.mouseKick.y).toBeCloseTo(sprayYHeavy(), 8);
   });

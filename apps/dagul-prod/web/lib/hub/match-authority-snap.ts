@@ -90,6 +90,15 @@ function packBullet(b: SimBullet): Record<string, unknown> {
   putOmit(row, "radius", b.radius);
   putOmit(row, "heavy", b.heavy);
   putOmit(row, "src", b.source);
+  putOmit(row, "arc", b.arc);
+  if (b.arc) {
+    // 클라 arc 렌더러가 직접 인덱싱하는 키 — arc 탄에만 싣는다.
+    row.ttl = b.ttl;
+    row.maxTtl = b.maxTtl;
+    row.lx = b.landingX;
+    row.ly = b.landingY;
+    row.splash = b.splash;
+  }
   return row;
 }
 

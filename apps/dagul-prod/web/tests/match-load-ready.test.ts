@@ -3,6 +3,7 @@ import {
   allSeatsMatchReady, lobbyReadySig, matchWaitNames, pendingLoadNames, shouldHoldCountdown,
 } from "@/lib/domain/match-load-ready";
 import { lobbyFieldsOf } from "@/lib/hub/waiting-room-roster";
+import type { RosterSnapshot } from "@/lib/domain/roster";
 import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 import { START_COUNTDOWN, MatchSim } from "@/lib/hub/match-sim";
 import { HUB_CONFIG } from "@/lib/hub/config";
@@ -99,6 +100,19 @@ describe("lobbyReadySig", () => {
     expect(snap.readySig).toBe(lobbyReadySig(snap.players, true));
     expect(snap.readySig).toContain("0:0");
     expect(snap.readySig).toContain("1:1");
+  });
+
+  it("lobbyFieldsOf 는 ArraySchema 이터러블도 좌석으로 본다", () => {
+    const row = { slot: 0, sessionId: "h", name: "호스트", connected: true, matchReady: true };
+    const players = { *[Symbol.iterator](): Generator<typeof row> { yield row; } };
+    const snap = lobbyFieldsOf({
+      phase: "lobby",
+      hostSessionId: "h",
+      players: players as unknown as RosterSnapshot["players"],
+    });
+    expect(Array.isArray(players)).toBe(false);
+    expect(snap.players).toEqual([row]);
+    expect(snap.readySig).toContain("0:1");
   });
 });
 

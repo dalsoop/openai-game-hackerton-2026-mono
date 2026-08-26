@@ -47,7 +47,7 @@ const PLAYER_COPY := [
 	"woolT", "woolHp", "woolMax", "rouT", "rouRank", "rouPhase", "rouSpin", "rouLabel",
 	"rlTimed", "ultClones",
 ]
-const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src"]
+const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src", "ttl", "maxTtl", "lx", "ly", "splash"]
 const EFFECT_COPY := ["k", "x", "y", "r", "t", "maxT", "color", "label", "dx", "dy", "follow", "sx", "sy", "dep"]
 const COVER_COPY := ["x", "y", "w", "h"]
 const LOOT_COPY := ["id", "kind", "x", "y", "n"]
@@ -110,9 +110,11 @@ func _flush_events_and_tick(src: Dictionary) -> bool:
 
 func _new_event_rows(raw: Variant) -> Array:
 	var rows: Array = []
-	if not raw is Array:
-		return rows
-	for item in raw:
+	var items := _event_items(raw)
+	items.sort_custom(func(a, b) -> bool:
+		return int(_as_dict(a).get("seq", 0)) < int(_as_dict(b).get("seq", 0))
+	)
+	for item in items:
 		var src := _as_dict(item)
 		var seq := int(src.get("seq", 0))
 		if seq <= _last_event_seq:
@@ -120,6 +122,13 @@ func _new_event_rows(raw: Variant) -> Array:
 		_last_event_seq = seq
 		rows.append(_event_row(src))
 	return rows
+
+func _event_items(raw: Variant) -> Array:
+	if raw is Array:
+		return raw
+	if raw is Dictionary:
+		return (raw as Dictionary).values()
+	return []
 
 func _event_row(src: Dictionary) -> Dictionary:
 	return {

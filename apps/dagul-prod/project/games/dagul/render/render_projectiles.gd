@@ -342,7 +342,7 @@ func _followed_hero_pos(follow_slot: int, fallback: Vector2) -> Vector2:
 	return fallback
 
 func _draw_effect_kind(effect: Dictionary, effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
-	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"explosion", &"drain", &"shockwave"]:
+	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"local_tracer", &"explosion", &"drain", &"shockwave"]:
 		_draw_beam_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
 	elif effect_kind in [&"wall_impact", &"hit_spark", &"impact", &"speed_streak", &"slashwave", &"slash_dash", &"fist_burst", &"hammer_slam", &"spear_line", &"chain_arc", &"chain_bind"]:
 		_draw_impact_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
@@ -353,7 +353,7 @@ func _draw_effect_kind(effect: Dictionary, effect_color: Color, ratio: float, pr
 
 func _draw_beam_family(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
 	match effect_kind:
-		&"line", &"beam_hit", &"beam_step":
+		&"line", &"beam_hit", &"beam_step", &"local_tracer":
 			var line_start := effect_pos - direction * effect_radius * (0.75 if effect_kind == &"beam_hit" else 1.0)
 			var line_end := effect_pos + direction * effect_radius * (0.65 if effect_kind == &"beam_hit" else 0.05)
 			r.draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)

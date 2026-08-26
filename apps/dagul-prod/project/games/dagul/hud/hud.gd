@@ -392,6 +392,7 @@ func _draw_critical(me: Dictionary) -> void:
         var streak_color := Color("#ff4f68") if world.streak_callout_shutdown else Color("#ffd166")
         draw_rect(Rect2(520.0, 52.0, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
         _text(Vector2(530.0, 78.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 106.0), world.streak_subtitle, 15, Color(Color.WHITE, streak_alpha), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.start_countdown > 0.0:
         _pjh.draw_countdown()
     elif not bool(me["alive"]) and world.result == &"playing":

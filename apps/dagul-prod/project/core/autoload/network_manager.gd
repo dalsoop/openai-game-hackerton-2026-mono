@@ -37,6 +37,7 @@ var load_held := false  # lint-gd: public-api
 
 var _last_phase := ""
 var _to_engine_cb = null
+var _page_window = null
 var _ready_repeat := false
 var _ready_sent := false
 var _ready_acc := 0.0
@@ -59,10 +60,22 @@ func _bind_page_bridge() -> void:
     if _to_engine_cb != null:
         return
     _to_engine_cb = JavaScriptBridge.create_callback(_on_to_engine)
-    var win = JavaScriptBridge.get_interface("window")
-    if win == null:
+    _page_window = JavaScriptBridge.get_interface("window")
+    if _page_window == null:
         return
-    win.addEventListener(WebContract.EVT_TO_ENGINE, _to_engine_cb)
+    _page_window.addEventListener(WebContract.EVT_TO_ENGINE, _to_engine_cb)
+    _install_to_page_helper()
+
+func _install_to_page_helper() -> void:
+    JavaScriptBridge.eval(
+        "window.__dagulToPage = window.__dagulToPage || function(s){ window.dispatchEvent(new CustomEvent('%s', {detail: s})) }" % WebContract.EVT_FROM_ENGINE,
+        true)
+
+func _cached_page_window():
+    if _page_window != null:
+        return _page_window
+    _page_window = JavaScriptBridge.get_interface("window")
+    return _page_window
 
 func _on_to_engine(args: Array) -> void:
     if args.is_empty():
@@ -229,6 +242,15 @@ func _send(type: String, msg: Dictionary) -> void:
     if not OS.has_feature("web"):
         return
     var packet := JSON.stringify({"type": type, "payload": msg})
+    var win = _cached_page_window()
+    if win == null:
+        return
+    if win.__dagulToPage != null:
+        win.__dagulToPage(packet)
+        return
+    _send_eval_fallback(packet)
+
+func _send_eval_fallback(packet: String) -> void:
     var escaped := packet.replace("\\", "\\\\").replace("'", "\\'")
     JavaScriptBridge.eval(
         "window.dispatchEvent(new CustomEvent('%s',{detail:'%s'}))" % [

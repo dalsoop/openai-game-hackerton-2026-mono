@@ -124,6 +124,9 @@ const pageFocusEvents = await page.evaluate(() => {
 });
 ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas);
 
+const schemaNoise = consoleErrors.filter((line) => /refId["']? not found/i.test(line));
+ok("11. 스키마 refId 누락 없음", schemaNoise.length === 0, schemaNoise[0] ?? "");
+
 console.log("\n— 콘솔 에러 —");
 console.log(consoleErrors.length ? consoleErrors.slice(0, 10).join("\n") : "(없음)");
 console.log(`\nE2E: ${results.filter((r) => r.pass).length}/${results.length} 통과`);

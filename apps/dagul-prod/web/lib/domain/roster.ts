@@ -29,6 +29,16 @@ export interface RosterSnapshot {
   readonly players: readonly SeatSnapshot[];
 }
 
+/** ArraySchema 는 Array 가 아니다. 이터러블이면 펼친다. */
+export function seatListOf(raw: unknown): SeatSnapshot[] {
+  if (raw == null) {return [];}
+  if (Array.isArray(raw)) {return raw as SeatSnapshot[];}
+  if (typeof (raw as Iterable<unknown>)[Symbol.iterator] === "function") {
+    return [...(raw as Iterable<SeatSnapshot>)];
+  }
+  return [];
+}
+
 export class Seat {
   constructor(
     readonly slot: number,
@@ -50,7 +60,7 @@ export class Roster {
   ) {}
 
   static fromSnapshot(snap: RosterSnapshot, mySessionId: string): Roster {
-    const raw = Array.isArray(snap.players) ? snap.players : [];
+    const raw = seatListOf(snap.players);
     const seats = [...raw]
       .sort((a, b) => a.slot - b.slot)
       .map((p) => new Seat(

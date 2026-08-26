@@ -264,7 +264,8 @@ function injectBullet(sim: MatchSim, over: Partial<SimBullet> & Pick<SimBullet, 
   const b: SimBullet = {
     id, vx: 0, vy: 0, ttl: 1, kind: "bolt", damage: 10, radius: 40, splash: 0, pierce: 0,
     knockback: 8, source: "normal", heavy: false, leech: false, ccTime: 0, hitSlots: [],
-    homing: 0,
+    homing: 0, arc: false, landingX: 0, landingY: 0, maxTtl: 1, comboFinisher: false,
+    label: "", controlKind: "slow",
     ...over,
   };
   sim.bullets.set(id, b);

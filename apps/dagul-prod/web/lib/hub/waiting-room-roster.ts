@@ -1,6 +1,6 @@
 import type { Room } from "@colyseus/sdk";
 import { lobbyReadySig } from "../domain/match-load-ready";
-import { Roster, type RosterSnapshot, type Seat } from "../domain/roster";
+import { Roster, seatListOf, type RosterSnapshot, type Seat } from "../domain/roster";
 import type { HubStatus } from "../../types";
 
 export interface WaitingRoomRoster {
@@ -18,7 +18,7 @@ export interface WaitingRoomRoster {
 
 /** 전투 스키마를 빼고 로비 필드만. readySig 로 중첩 matchReady 변이를 드러낸다. */
 export function lobbyFieldsOf(s: RosterSnapshot): RosterSnapshot {
-  const players = Array.isArray(s.players) ? s.players : [];
+  const players = seatListOf(s.players);
   return {
     gameId: s.gameId,
     open: s.open,

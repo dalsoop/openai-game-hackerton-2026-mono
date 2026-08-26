@@ -185,6 +185,13 @@ export type SimBullet = {
   ccTime: number;
   hitSlots: number[];
   homing: number;
+  arc: boolean;
+  landingX: number;
+  landingY: number;
+  maxTtl: number;
+  comboFinisher: boolean;
+  label: string;
+  controlKind: "slow" | "root" | "stun";
 };
 
 export type SimZone = {
@@ -725,7 +732,10 @@ export class MatchSim {
         id, x: p.x, y: p.y, vx: p.vx, vy: p.vy, owner: p.owner, ttl: p.ttl, kind: p.kind,
         damage: p.damage, radius: p.radius, splash: p.splash, pierce: p.pierce,
         knockback: p.knockback, source: p.source, heavy: p.heavy, leech: p.leech, ccTime: p.ccTime,
-        hitSlots: [], homing: p.homing ?? 0,
+        hitSlots: [], homing: p.homing ?? 0, arc: Boolean(p.arc),
+        landingX: p.landingX ?? 0, landingY: p.landingY ?? 0, maxTtl: p.maxTtl ?? p.ttl,
+        comboFinisher: Boolean(p.comboFinisher), label: p.label ?? "",
+        controlKind: p.controlKind ?? "slow",
       });
     }
   }
@@ -737,7 +747,9 @@ export class MatchSim {
       id, x: shell.x, y: shell.y, vx: shell.vx, vy: shell.vy, owner: shell.owner, ttl: shell.ttl,
       kind: shell.kind, damage: shell.damage, radius: shell.radius, splash: shell.splash,
       pierce: shell.pierce, knockback: shell.knockback, source: shell.source, heavy: false,
-      leech: shell.leech, ccTime: shell.ccTime, hitSlots: [], homing: 0,
+      leech: shell.leech, ccTime: shell.ccTime, hitSlots: [], homing: 0, arc: false,
+      landingX: 0, landingY: 0, maxTtl: shell.ttl, comboFinisher: false, label: "",
+      controlKind: "slow",
     });
   }
 
@@ -748,6 +760,7 @@ export class MatchSim {
   }
 
   private expireOrHit(b: SimBullet, dt: number): boolean {
+    if (b.arc) {return this.expireArcBomb(b, dt);}
     b.ttl -= dt;
     this.steerHoming(b, dt);
     b.x += b.vx * dt;
@@ -772,6 +785,18 @@ export class MatchSim {
     return true;
   }
 
+  /** projectile_hit.gd:92-108 — 비행 중 무충돌, ttl 소진 시 landing 스플래시. */
+  private expireArcBomb(b: SimBullet, dt: number): boolean {
+    b.ttl -= dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.ttl > 0) {return false;}
+    b.x = b.landingX;
+    b.y = b.landingY;
+    this.splashAround(b, -1);
+    return true;
+  }
+
   private applyBulletHeroHit(b: SimBullet, victim: SimHero): void {
     const attacker = this.heroes.get(b.owner);
     this.hurtHero(b.owner, victim, b.damage, b.source, {
@@ -781,6 +806,9 @@ export class MatchSim {
       heavy: b.heavy,
       effectKind: projectileImpactKind(b.kind),
       ccTime: b.ccTime,
+      attackFinisher: b.comboFinisher,
+      label: b.label,
+      controlKind: b.controlKind,
     });
     if (b.splash > 0) {this.splashAround(b, victim.slot);}
     if (b.leech && attacker?.alive) {

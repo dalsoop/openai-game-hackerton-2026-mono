@@ -9,6 +9,7 @@ func run(t) -> void:
 	_tick_flush_and_resident(t)
 	_schema_rename(t)
 	_events_new_seq_only(t)
+	_events_map_new_seq_only(t)
 	_v2_effects_callout(t)
 
 func _builds_contract_snap(t) -> void:
@@ -85,6 +86,22 @@ func _events_new_seq_only(t) -> void:
 	adapter.reset()
 	t.check("reset 후 같은 seq 다시 전달", adapter.ingest(first) == true)
 	t.check("reset 전달 1건", (adapter.snap()[SnapContract.EVENTS] as Array).size() == 1)
+
+func _events_map_new_seq_only(t) -> void:
+	var adapter = AdapterScript.new()
+	var first := _sample_match(3)
+	first["events"] = {"1": _schema_event(1, 3, 0, "{\"equipment\":\"glock\"}")}
+	t.check("맵 첫 seq 는 넘긴다", adapter.ingest(first) == true)
+	t.check("맵 events 1건", (adapter.snap()[SnapContract.EVENTS] as Array).size() == 1)
+	var next := _sample_match(4)
+	next["events"] = {
+		"1": _schema_event(1, 3, 0, "{\"equipment\":\"glock\"}"),
+		"2": _schema_event(2, 4, 1, {"equipment": "rifle"}),
+	}
+	t.check("맵 새 seq 만 넘긴다", adapter.ingest(next) == true)
+	var fresh: Array = adapter.snap()[SnapContract.EVENTS]
+	t.check("맵 새 seq 1건", fresh.size() == 1)
+	t.check("맵 새 seq actor", int((fresh[0] as Dictionary).get("a", -1)) == 1)
 
 func _v2_effects_callout(t) -> void:
 	var adapter = AdapterScript.new()

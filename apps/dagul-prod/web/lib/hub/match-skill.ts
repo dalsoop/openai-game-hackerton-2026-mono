@@ -33,6 +33,7 @@ export type SkillProjectile = {
   owner: number; x: number; y: number; vx: number; vy: number; damage: number; radius: number;
   ttl: number; splash: number; pierce: number; knockback: number; kind: string;
   source: "equipment"; heavy: boolean; leech: boolean; ccTime: number; homing: number;
+  comboFinisher?: boolean; label?: string; controlKind?: "slow" | "root" | "stun";
 };
 
 export type SkillZoneSpec = {

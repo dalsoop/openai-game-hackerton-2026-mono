@@ -33,6 +33,12 @@ export const BRAWLER_KICK_MUL = 2.7;
 export const BRAWLER_KICK_Y = -7.0;
 export const MORTAR_SPLASH = 120.0;
 export const MORTAR_RADIUS_MIN = 12.0;
+/** projectile_hit.gd spawn_arc_bomb radius. */
+export const ARC_BOMB_RADIUS = 11.0;
+/** game_world.gd:1251-1254 bomb 스폰 기본값. */
+export const BOMB_ARC_DISTANCE = 330.0;
+export const BOMB_ARC_FLIGHT = 0.50;
+export const BOMB_ARC_BLAST = 76.0;
 export const PASSIVE_MUL = 1.12;
 export const BRAWLER_HP_RATIO = 0.5;
 export const RAIL_PASSIVE_DIST = 430.0;
@@ -78,6 +84,8 @@ export type GunProjectile = {
   ttl: number; splash: number; pierce: number; knockback: number; kind: string;
   source: "normal" | "equipment";
   heavy: boolean; leech: boolean; ccTime: number; homing?: number;
+  arc?: boolean; landingX?: number; landingY?: number; maxTtl?: number;
+  comboFinisher?: boolean; label?: string; controlKind?: "slow" | "root" | "stun";
 };
 export type MobilityHit = {
   targetSlot: number; damage: number; source: "mobility"; ccTime: number; knockback: number;
@@ -229,15 +237,52 @@ function spawnShot(
   return {
     owner: h.slot, x: muzzle.x, y: muzzle.y, vx: dir.x * eq.speed, vy: dir.y * eq.speed,
     damage, radius, ttl, splash, pierce, knockback: eq.knockback, kind, source: "normal",
-    heavy, leech: eq.leech, ccTime: eq.cc,
+    heavy, leech: eq.leech, ccTime: eq.cc, comboFinisher: heavy, label: "", controlKind: "slow",
   };
 }
+
+/** projectile_hit.gd spawn_arc_bomb — 착탄점=히어로+조준×사거리, vel=거리/비행시간, ttl=비행시간. */
+export function spawnArcBomb(
+  h: GunHero, direction: Vec2, distance: number, flightTime: number, damage: number,
+  blastRadius: number, ccTime: number, knockback: number, comboFinisher: boolean,
+): GunProjectile {
+  const dir = attackDirection(direction.x, direction.y);
+  const look = lookAim(h);
+  const start = muzzleWorldPos(h.x, h.y - hopLift(h), look.x, look.y, h.equipment.id);
+  const landingX = h.x + dir.x * distance;
+  const landingY = h.y + dir.y * distance;
+  const flight = Math.max(0.01, flightTime);
+  const dx = landingX - start.x;
+  const dy = landingY - start.y;
+  return {
+    owner: h.slot, x: start.x, y: start.y, vx: dx / flight, vy: dy / flight,
+    damage, radius: ARC_BOMB_RADIUS, ttl: flightTime, splash: blastRadius, pierce: 0,
+    knockback, kind: "shell", source: "normal", heavy: comboFinisher, leech: false,
+    ccTime, homing: 0, arc: true, landingX, landingY, maxTtl: flightTime,
+    comboFinisher, label: "", controlKind: "slow",
+  };
+}
+
+function wantsArcBomb(eq: Equipment): boolean {
+  return eq.fireMode === "gl" || eq.id === "mortar" || eq.id === "bomb";
+}
+
+function spawnArcForEquipment(h: GunHero, dir: Vec2, damage: number, ttl: number, heavy: boolean): GunProjectile {
+  const eq = h.equipment;
+  if (eq.id === "bomb") {
+    return spawnArcBomb(
+      h, dir, BOMB_ARC_DISTANCE, BOMB_ARC_FLIGHT, damage, BOMB_ARC_BLAST, eq.cc, eq.knockback, heavy,
+    );
+  }
+  const splash = eq.splash > 1.0 ? eq.splash : MORTAR_SPLASH;
+  return spawnArcBomb(
+    h, dir, equipmentReach(eq, h.rouletteRange), Math.max(0.01, ttl), damage, splash, eq.cc, eq.knockback, heavy,
+  );
+}
+
 function spawnVolley(h: GunHero, dir: Vec2, damage: number, radius: number, ttl: number, heavy: boolean): GunProjectile[] {
   const eq = h.equipment;
-  if (eq.id === "mortar") {
-    const splash = eq.splash > 1.0 ? eq.splash : MORTAR_SPLASH;
-    return [spawnShot(h, dir, damage, Math.max(radius, MORTAR_RADIUS_MIN), ttl, splash, 0, "shell", heavy)];
-  }
+  if (wantsArcBomb(eq)) {return [spawnArcForEquipment(h, dir, damage, ttl, heavy)];}
   const count = Math.max(1, eq.projectiles);
   const kind = projectileKind(eq.id, eq.kind);
   const shots: GunProjectile[] = [];

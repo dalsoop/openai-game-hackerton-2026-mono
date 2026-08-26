@@ -1,6 +1,7 @@
 // React ↔ Godot 인게임 수송 — 허브 소켓은 React 만 연다.
 // 정본 이벤트 이름: lib/contract DOM_EVT.TO_ENGINE / FROM_ENGINE
 import { DOM_EVT, MSG } from "../contract";
+import { seatListOf } from "../domain/roster";
 
 export type BridgePacket = { readonly type: string; readonly payload: unknown };
 
@@ -82,15 +83,13 @@ export function encodeHubState(
   rttMs = 0,
 ): Record<string, unknown> | null {
   if (sessionId === "") {return null;}
-  const players = Array.isArray(snap.players)
-    ? snap.players.map((p) => ({
-      slot: p.slot,
-      sessionId: p.sessionId,
-      name: p.name,
-      connected: p.connected,
-      matchReady: Boolean(p.matchReady),
-    }))
-    : [];
+  const players = seatListOf(snap.players).map((p) => ({
+    slot: p.slot,
+    sessionId: p.sessionId,
+    name: p.name,
+    connected: p.connected,
+    matchReady: Boolean(p.matchReady),
+  }));
   return {
     phase: snap.phase ?? "",
     hostSessionId: snap.hostSessionId ?? "",

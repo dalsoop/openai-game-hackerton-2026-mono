@@ -27,6 +27,9 @@ func run(t) -> void:
 	_effects_missing_key_keeps_existing(t)
 	_effects_empty_array_clears_non_local(t)
 	_slot_not_array_index(t)
+	_dash_pred_moves_then_cools(t)
+	_pred_fire_skips_empty_mag(t)
+	_launch_trail_accumulates_and_fades(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -389,6 +392,75 @@ func _prediction_freezes_in_countdown(t) -> void:
 	for i in range(30):
 		nw.predict_local(Vector2.RIGHT, false, before + Vector2(400, 0), 1.0 / 60.0)
 	t.check("카운트다운 해제 후 예측이 움직인다", Vector2(nw.heroes[0]["pos"]).x > before.x + 10.0)
+
+func _kind_count(nw, kind: StringName) -> int:
+	var n := 0
+	for fx in nw.effects:
+		if StringName(fx.get("kind", &"")) == kind:
+			n += 1
+	return n
+
+func _dash_pred_moves_then_cools(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	nw.push_snap(_center_snap(3920.0, 2380.0, 176.0, 7, 18))
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		t.check("대시 예측 히어로가 있다", false)
+		return
+	var before: Vector2 = nw.heroes[0]["pos"]
+	var aim := before + Vector2(200.0, 0.0)
+	nw.predict_local(Vector2.RIGHT, true, aim, 1.0 / 60.0)
+	var after_dash: Vector2 = nw.heroes[0]["pos"]
+	var first := after_dash.x - before.x
+	t.check("대시 예측이 위치를 즉시 바꾼다", first > NetWorldScript.DASH_DISTANCE * 0.8)
+	nw.predict_local(Vector2.RIGHT, true, aim, 1.0 / 60.0)
+	var after_cd: Vector2 = nw.heroes[0]["pos"]
+	t.check("대시 쿨다운 중엔 두 번째 점프가 없다", after_cd.x - after_dash.x < 20.0)
+
+func _pred_fire_skips_empty_mag(t) -> void:
+	var loaded = NetWorldScript.new()
+	loaded.local_slot = 0
+	loaded.start_countdown = 0.0
+	loaded.push_snap(_center_snap(3920.0, 2380.0, 176.0, 7, 18))
+	t.check("탄창이 있으면 발사 예측 이펙트가 나간다", loaded.predict_local_fire())
+	t.check("발사 예측이 local_tracer 를 남긴다", _kind_count(loaded, &"local_tracer") == 1)
+	var empty = NetWorldScript.new()
+	empty.local_slot = 0
+	empty.start_countdown = 0.0
+	empty.push_snap(_center_snap(3920.0, 2380.0, 176.0, 0, 18))
+	t.check("탄창 0이면 발사 예측이 거부된다", not empty.predict_local_fire())
+	t.check("탄창 0이면 발사 예측 이펙트가 안 나간다", _kind_count(empty, &"local_tracer") == 0)
+
+func _launch_trail_accumulates_and_fades(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var dt := 1.0 / 60.0
+	var x0 := 3920.0
+	var y0 := 2380.0
+	for i in range(16):
+		nw.push_snap(_launch_snap(12 + i * 2, x0 + float(i) * 12.0, y0, 0.8))
+		nw.present(dt)
+	if nw.heroes.is_empty():
+		t.check("launch_trail 합성 히어로", false)
+		return
+	var trail: Array = nw.heroes[0].get("launch_trail", [])
+	t.check("launch_trail 이 누적되고 cap 14 를 지킨다", trail.size() == 14)
+	t.check("launch 중 fade 가 0.34 다", is_equal_approx(float(nw.heroes[0].get("launch_trail_fade", 0.0)), 0.34))
+	nw.heroes[0]["launch_time"] = 0.0
+	nw.present(0.17)
+	t.check("launch 종료 후 궤적이 감쇠한다", not (nw.heroes[0].get("launch_trail", []) as Array).is_empty() and absf(float(nw.heroes[0].get("launch_trail_fade", 0.0)) - 0.17) < 0.01)
+	nw.present(0.18)
+	t.check("fade 가 끝나면 launch_trail 이 비다", (nw.heroes[0].get("launch_trail", []) as Array).is_empty())
+
+func _launch_snap(tick_i: int, x: float, y: float, launch_t: float) -> Dictionary:
+	var snap := _center_snap(x, y, 176.0, 7, 18)
+	snap[SnapContract.TICK] = tick_i
+	var player: Dictionary = snap[SnapContract.PLAYERS][0]
+	player[SnapContract.P_LAUNCH_T] = launch_t
+	player[SnapContract.P_LAUNCH_VX] = 400.0
+	return snap
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

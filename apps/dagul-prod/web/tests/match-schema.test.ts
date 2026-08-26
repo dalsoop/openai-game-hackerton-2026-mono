@@ -112,7 +112,7 @@ describe("writeMatchState", () => {
     }
     const fire = packed.find((ev) => ev.k === "gun_fire");
     expect(fire).toBeDefined();
-    const row = [...state.match.events].find((ev) => ev.k === "gun_fire");
+    const row = [...state.match.events.values()].find((ev) => ev.k === "gun_fire");
     expect(row).toBeDefined();
     expect(row?.t).toBe(fire?.t);
     expect(row?.a).toBe(fire?.a);
@@ -133,11 +133,14 @@ describe("writeMatchState", () => {
       batch.push({ t: i, k: "gun_fire", a: 0, b: -1, d: { i } });
     }
     writeMatchState(match, sim, names, "full", batch);
-    expect(match.events.length).toBe(EVENT_RING);
+    expect(match.events.size).toBe(EVENT_RING);
     expect(match.eventSeq).toBe(EVENT_RING + 8);
-    expect(match.events[0].seq).toBe(9);
-    expect(JSON.parse(match.events[0].d)).toEqual({ i: 8 });
-    expect(match.events[EVENT_RING - 1].seq).toBe(EVENT_RING + 8);
+    const rows = [...match.events.values()].sort((a, b) => a.seq - b.seq);
+    expect(rows[0].seq).toBe(9);
+    expect(JSON.parse(rows[0].d)).toEqual({ i: 8 });
+    expect(rows[EVENT_RING - 1].seq).toBe(EVENT_RING + 8);
+    expect(match.events.has("8")).toBe(false);
+    expect(match.events.has(String(EVENT_RING + 8))).toBe(true);
   });
 
   it("v2 연출·weaponId·스트릭이 JSON 스냅과 같다", () => {

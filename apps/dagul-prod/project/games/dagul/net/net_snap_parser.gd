@@ -167,7 +167,7 @@ static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> A
 		var vel := packed_vel
 		if vel.length_squared() < 0.01:
 			vel = _vel_by_id(bullet_id, pos, prev_bullets, snap_hz)
-		result.append({
+		var entry := {
 			"id": bullet_id,
 			"pos": pos,
 			"vel": vel,
@@ -177,8 +177,19 @@ static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> A
 			"arc": bool(b.get("arc", false)),
 			"heavy": bool(b.get("heavy", false)),
 			"radius": _f(b, "radius", 5.0)
-		})
+		}
+		if bool(entry["arc"]):
+			_fill_arc_fields(entry, b, pos)
+		result.append(entry)
 	return result
+
+## arc 탄 렌더러는 ttl·max_ttl·landing_pos·splash·trail 을 직접 인덱싱한다 — 키 부재 = 크래시.
+static func _fill_arc_fields(entry: Dictionary, b: Dictionary, pos: Vector2) -> void:
+	entry["ttl"] = _f(b, "ttl", 0.0)
+	entry["max_ttl"] = maxf(0.01, _f(b, "maxTtl", 0.01))
+	entry["landing_pos"] = Vector2(_f(b, "lx", pos.x), _f(b, "ly", pos.y))
+	entry["splash"] = _f(b, "splash", 0.0)
+	entry["trail"] = []
 
 static func parse_effects(list: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

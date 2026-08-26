@@ -5,6 +5,8 @@ const ArenaGeo = preload("res://games/dagul/sim/arena_geometry.gd")
 const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 const SfxDerive = preload("res://games/dagul/net/net_sfx_derive.gd")
+const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
+const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
 
 const PLAYER_COUNT := 8
 const ARENA_SIZE := ArenaGeo.ARENA_SIZE
@@ -15,13 +17,19 @@ const FIXED_DT := 1.0 / 60.0
 const TICK_RATE := 60.0  # 서버 고정 시뮬 틱레이트 (FIXED_DT 의 역수)
 const INTERP_SEC := 0.06
 const MOVE_SPEED := 419.0
-const DASH_SPEED := 520.0
-const DASH_COOLDOWN := 1.6
+# match-equipment.ts FALLBACK_MOBILITY. applyMobility 는 한 틱에 이 거리를 더한다.
+const DASH_DISTANCE := 138.0
+const DASH_COOLDOWN := 5.0
+# 예측 gun_fire 후 서버 이벤트를 건너뛰는 창. 스냅 1~2장.
+const PRED_FIRE_SKIP := 0.18
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
 const SAFE_ZONE_INITIAL_RADIUS := 3304.0
 const SAFE_ZONE_PHASES: Array = []
+# 원본 sim: tick%2 샘플, cap 14, fade 0.34 (hero_movement / match_lifecycle).
+const LAUNCH_TRAIL_CAP := 14
+const LAUNCH_TRAIL_FADE := 0.34
 
 var is_net := true
 var local_slot: int = 0
@@ -83,12 +91,15 @@ var _acked: int = 0
 var _pred_pos: Vector2 = ARENA_CENTER
 var _pred_aim: Vector2 = Vector2.RIGHT
 var _pred_dash_cd: float = 0.0
+var _pred_fire_skip_left: float = 0.0
+var _equip_reg = EquipRegScript.new()
 var _has_pred: bool = false
 var _bullets_ready: bool = false
 var _fight_countdown_fired: bool = false
 var _applied_tick: int = -1
 var _server_events_active: bool = false
 var _snap_had_gun_fire: bool = false
+var _launch_trails: Dictionary = {}
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -137,12 +148,14 @@ func _reset_net_session() -> void:
     _pred_pos = ARENA_CENTER
     _pred_aim = Vector2.RIGHT
     _pred_dash_cd = 0.0
+    _pred_fire_skip_left = 0.0
     _has_pred = false
     _bullets_ready = false
     _fight_countdown_fired = false
     _applied_tick = -1
     _server_events_active = false
     _snap_had_gun_fire = false
+    _launch_trails.clear()
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
     var v: Variant = source.get(key)
@@ -185,13 +198,46 @@ func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
     _overlay_prediction()
     return _input_seq
 
+func predict_local_fire() -> bool:
+    if start_countdown > 0.0 or result != &"playing":
+        return false
+    if _pred_fire_skip_left > 0.0:
+        return false
+    var me := hero_at_slot(local_slot)
+    if me.is_empty() or not bool(me.get("alive", true)):
+        return false
+    if int(me.get("mag", 0)) <= 0:
+        return false
+    if float(me.get("reload_left", 0.0)) > 0.0:
+        return false
+    _spawn_pred_fire_fx(me)
+    _pred_fire_skip_left = PRED_FIRE_SKIP
+    return true
+
+func _spawn_pred_fire_fx(me: Dictionary) -> void:
+    var eq: Dictionary = me.get("equipment", {})
+    var eq_id := str(eq.get("id", ""))
+    var aim: Vector2 = me.get("aim", _pred_aim)
+    if aim.length_squared() < 0.0001:
+        aim = Vector2.RIGHT
+    else:
+        aim = aim.normalized()
+    var muzzle: Vector2 = GunSigScript.muzzle_world_pos(Vector2(me.get("pos", _pred_pos)), aim, eq_id)
+    me["muzzle_time"] = maxf(float(me.get("muzzle_time", 0.0)), 0.12)
+    _add_effect(&"local_tracer", muzzle, 120.0, 0.12, Color(1.0, 0.95, 0.75, 1.0), aim)
+    event_log.emit(tick, &"gun_fire", local_slot, -1, {"equipment": eq_id, "predicted": true})
+
 func present(_dt: float) -> void:
-    if local_fire_shake > 0:
-        local_fire_shake -= 1
-    if local_hit_shake > 0:
-        local_hit_shake -= 1
-    if _snaps.is_empty():
-        return
+    var step := maxf(_dt, FIXED_DT)
+    if _pred_fire_skip_left > 0.0:
+        _pred_fire_skip_left = maxf(0.0, _pred_fire_skip_left - step)
+    local_fire_shake = maxi(0, local_fire_shake - 1)
+    local_hit_shake = maxi(0, local_hit_shake - 1)
+    if not _snaps.is_empty():
+        _present_from_snaps()
+    _synth_launch_trails(step)
+
+func _present_from_snaps() -> void:
     if _snaps.size() == 1:
         _apply_if_new(_snaps[0])
         _seed_prediction(_snaps[0])
@@ -222,6 +268,42 @@ func present(_dt: float) -> void:
     _overlay_prediction()
     while _snaps.size() > 2 and float(int(_snaps[1].get(SnapContract.TICK, 0))) < render_tick:
         _snaps.pop_front()
+
+func _synth_launch_trails(dt: float) -> void:
+    var live := {}
+    for hero in heroes:
+        var slot := int(hero["slot"])
+        var st: Dictionary = _launch_trails.get(slot, {"pts": [], "fade": 0.0, "tick": -1})
+        _advance_launch_trail(hero, st, dt)
+        hero["launch_trail"] = st["pts"]
+        hero["launch_trail_fade"] = st["fade"]
+        live[slot] = st
+    _launch_trails = live
+
+func _advance_launch_trail(hero: Dictionary, st: Dictionary, dt: float) -> void:
+    if float(hero.get("launch_time", 0.0)) > 0.0:
+        st["fade"] = LAUNCH_TRAIL_FADE
+        _sample_launch_trail(hero, st)
+        return
+    st["fade"] = maxf(0.0, float(st["fade"]) - dt)
+    if float(st["fade"]) <= 0.0:
+        st["pts"] = []
+        st["tick"] = -1
+
+func _sample_launch_trail(hero: Dictionary, st: Dictionary) -> void:
+    var pts: Array = st["pts"]
+    var pos := Vector2(hero["pos"])
+    if pts.is_empty():
+        st["pts"] = [pos]
+        st["tick"] = tick
+        return
+    if tick % 2 != 0 or tick == int(st["tick"]):
+        return
+    pts.append(pos)
+    if pts.size() > LAUNCH_TRAIL_CAP:
+        pts.pop_front()
+    st["pts"] = pts
+    st["tick"] = tick
 
 func _apply_if_new(snap: Dictionary) -> void:
     var next_tick := int(snap.get(SnapContract.TICK, -1))
@@ -326,19 +408,54 @@ func _reconcile(snap: Dictionary) -> void:
     _pending = keep
     _pred_pos = Vector2(_f(me, SnapContract.P_X, _pred_pos.x), _f(me, SnapContract.P_Y, _pred_pos.y))
     _has_pred = true
+    # 스냅에 mobilityCd 가 없어 미확정 입력만 다시 적용한다. 확정분 CD 는 서버가 막는다.
+    _pred_dash_cd = 0.0
     for item in _pending:
         _step_pred(_f(item, "mx", 0.0), _f(item, "my", 0.0), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), _f(item, "dt", 1.0 / 60.0))
 
-func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> void:
+func _step_pred(mx: float, my: float, dash: bool, aim: Vector2, dt: float) -> void:
     _pred_dash_cd = maxf(0.0, _pred_dash_cd - dt)
-    var speed := MOVE_SPEED
     var move := Vector2(mx, my)
-    var mlen := move.length()
-    if mlen > 0.05:
-        _pred_pos += move / maxf(1.0, mlen) * speed * dt
+    _apply_pred_move(move, dt)
+    if dash:
+        _apply_pred_dash(move)
     _pred_pos = clamp_arena(_pred_pos)
     if aim.distance_squared_to(_pred_pos) > 1.0:
         _pred_aim = _pred_pos.direction_to(aim)
+
+func _apply_pred_move(move: Vector2, dt: float) -> void:
+    var mlen := move.length()
+    if mlen > 0.05:
+        _pred_pos += move / maxf(1.0, mlen) * MOVE_SPEED * dt
+
+func _apply_pred_dash(move: Vector2) -> void:
+    if _pred_dash_cd > 0.0:
+        return
+    var dir := _pred_dash_dir(move)
+    var stats := _pred_dash_stats()
+    _pred_pos += dir * stats.x
+    _pred_dash_cd = stats.y
+
+func _pred_dash_dir(move: Vector2) -> Vector2:
+    var dir := move
+    if dir.length_squared() <= 0.1:
+        dir = _pred_aim
+    var dlen := dir.length()
+    if dlen <= 0.0001:
+        return Vector2.RIGHT
+    return dir / dlen
+
+func _pred_dash_stats() -> Vector2:
+    var me := hero_at_slot(local_slot)
+    var eq_id := ""
+    if not me.is_empty():
+        var eq: Variant = me.get("equipment", {})
+        if eq is Dictionary:
+            eq_id = str(eq.get("id", ""))
+    if eq_id == "" or eq_id == "net":
+        return Vector2(DASH_DISTANCE, DASH_COOLDOWN)
+    var mob: Dictionary = _equip_reg.mobility_for(eq_id)
+    return Vector2(float(mob.get("mobility_distance", DASH_DISTANCE)), float(mob.get("mobility_cooldown", DASH_COOLDOWN)))
 
 static func clamp_arena(pos: Vector2) -> Vector2:
     return Vector2(
@@ -477,7 +594,10 @@ func _emit_inferred_gun_fire(next: Array) -> void:
         var bid := int(bullet.get("id", -1))
         if seen.has(bid):
             continue
-        event_log.emit(tick, &"gun_fire", int(bullet.get("owner", -1)), -1, {"equipment": ""})
+        var owner := int(bullet.get("owner", -1))
+        if _skip_local_pred_gun_fire(owner):
+            continue
+        event_log.emit(tick, &"gun_fire", owner, -1, {"equipment": ""})
 
 func _ingest_events(snap: Dictionary) -> void:
     _snap_had_gun_fire = false
@@ -485,10 +605,19 @@ func _ingest_events(snap: Dictionary) -> void:
         return
     _server_events_active = true
     for ev in NetSnapParser.parse_events(snap.get(SnapContract.EVENTS, [])):
-        var kind := StringName(ev["kind"])
-        if kind == &"gun_fire":
-            _snap_had_gun_fire = true
-        event_log.emit(int(ev["tick"]), kind, int(ev["a"]), int(ev["b"]), ev["data"])
+        _ingest_one_event(ev)
+
+func _ingest_one_event(ev: Dictionary) -> void:
+    var kind := StringName(ev["kind"])
+    var actor := int(ev["a"])
+    if kind == &"gun_fire":
+        _snap_had_gun_fire = true
+        if _skip_local_pred_gun_fire(actor):
+            return
+    event_log.emit(int(ev["tick"]), kind, actor, int(ev["b"]), ev["data"])
+
+func _skip_local_pred_gun_fire(slot: int) -> bool:
+    return slot == local_slot and _pred_fire_skip_left > 0.0
 
 func _replace_server_effects(snap: Dictionary) -> void:
     if not snap.has(SnapContract.EFFECTS):
@@ -510,7 +639,7 @@ func _apply_loot(list: Array) -> void:
     SfxDerive.loot_events(self, health_pickups, next)
     health_pickups = next
 
-func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color) -> void:
+func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, direction: Vector2 = Vector2.RIGHT) -> void:
     effects.append({
         "kind":kind,
         "pos":pos,
@@ -518,7 +647,7 @@ func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float,
         "time":duration,
         "max_time":duration,
         "color":color,
-        "direction":Vector2.RIGHT,
+        "direction":direction,
         "label":""
     })
 

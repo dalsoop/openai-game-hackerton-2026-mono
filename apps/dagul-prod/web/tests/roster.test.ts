@@ -1,6 +1,6 @@
 // Roster 도메인 값객체 단위 테스트 — 좌석 배정의 핵심 파생 규칙을 검증한다.
 import { describe, expect, it } from "vitest";
-import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
+import { Roster, seatListOf, type RosterSnapshot } from "@/lib/domain/roster";
 
 function snap(partial: Partial<RosterSnapshot>): RosterSnapshot {
   return {
@@ -10,6 +10,22 @@ function snap(partial: Partial<RosterSnapshot>): RosterSnapshot {
     ...partial,
   };
 }
+
+describe("seatListOf", () => {
+  it("ArraySchema 처럼 Array 가 아닌 이터러블도 펼친다", () => {
+    const row = { slot: 0, sessionId: "a", name: "호스트", connected: true };
+    const fakeSchema = {
+      *[Symbol.iterator](): Generator<typeof row> { yield row; },
+    };
+    expect(Array.isArray(fakeSchema)).toBe(false);
+    expect(seatListOf(fakeSchema)).toEqual([row]);
+  });
+
+  it("null·undefined 는 빈 목록이다", () => {
+    expect(seatListOf(null)).toEqual([]);
+    expect(seatListOf(undefined)).toEqual([]);
+  });
+});
 
 describe("Roster.fromSnapshot", () => {
   it("부분 스냅샷(players 미동기)을 빈 명단으로 소화한다", () => {

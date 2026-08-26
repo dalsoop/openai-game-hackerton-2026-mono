@@ -72,6 +72,11 @@ export class MatchBulletSchema extends Schema {
   @type("boolean") arc = false;
   @type("boolean") heavy = false;
   @type("string") src = "";
+  @type("float32") ttl = 0;
+  @type("float32") maxTtl = 0;
+  @type("float32") lx = 0;
+  @type("float32") ly = 0;
+  @type("float32") splash = 0;
 }
 
 export class MatchCoverSchema extends Schema {
@@ -239,7 +244,8 @@ export class MatchStateSchema extends Schema {
   @type(MatchFinishCineSchema) finishCine = new MatchFinishCineSchema();
   @type([MatchCoreSchema]) cores = new ArraySchema<MatchCoreSchema>();
   @type("uint32") eventSeq = 0;
-  @type([MatchEventSchema]) events = new ArraySchema<MatchEventSchema>();
+  /** seq 문자열 키. ArraySchema.shift 는 클라 refId 를 깨뜨린다. */
+  @type({ map: MatchEventSchema }) events = new MapSchema<MatchEventSchema>();
   @type("string") streakCallout = "";
   @type("string") streakSubtitle = "";
   @type("uint32") streakCalloutTicks = 0;

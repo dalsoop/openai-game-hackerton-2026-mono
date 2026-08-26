@@ -120,6 +120,11 @@ class MatchBullet extends Colyseus.Schema:
 			LobbyColyseus.f("arc", Colyseus.Schema.BOOLEAN),
 			LobbyColyseus.f("heavy", Colyseus.Schema.BOOLEAN),
 			LobbyColyseus.f("src", Colyseus.Schema.STRING),
+			LobbyColyseus.f("ttl", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxTtl", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("lx", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("ly", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("splash", Colyseus.Schema.FLOAT32),
 		]
 
 class MatchCover extends Colyseus.Schema:
@@ -310,7 +315,7 @@ class MatchState extends Colyseus.Schema:
 			LobbyColyseus.f("finishCine", Colyseus.Schema.REF, LobbyColyseus.MatchFinishCine),
 			LobbyColyseus.f("cores", Colyseus.Schema.ARRAY, LobbyColyseus.MatchCore),
 			LobbyColyseus.f("eventSeq", Colyseus.Schema.UINT32),
-			LobbyColyseus.f("events", Colyseus.Schema.ARRAY, LobbyColyseus.MatchEvent),
+			LobbyColyseus.f("events", Colyseus.Schema.MAP, LobbyColyseus.MatchEvent),
 			LobbyColyseus.f("streakCallout", Colyseus.Schema.STRING),
 			LobbyColyseus.f("streakSubtitle", Colyseus.Schema.STRING),
 			LobbyColyseus.f("streakCalloutTicks", Colyseus.Schema.UINT32),

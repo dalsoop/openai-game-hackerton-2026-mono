@@ -210,8 +210,7 @@ func _ensure_input() -> void:
 func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2D) -> void:
 	hud.net_rtt_ms = int(hub.rtt_ms)
 	hud.net_connected = bool(hub.is_open())
-	if bool(command.get("primary_pressed", false)) and world.get("local_fire_shake") != null:
-		world.local_fire_shake = maxi(int(world.local_fire_shake), 4)
+	_try_local_fire_conceal(command)
 	world.present(TICK)
 	var move: Vector2 = command.get("move", Vector2.ZERO)
 	var aim_world: Vector2 = command.get("aim", Vector2.ZERO)
@@ -219,6 +218,16 @@ func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2
 	var packet := _peer_input_packet(command, seq)
 	hub.send_input(packet)
 	_apply_recoil_mouse(world_view)
+
+func _try_local_fire_conceal(command: Dictionary) -> void:
+	if not bool(command.get("primary_pressed", false)):
+		return
+	if world == null or not world.has_method("predict_local_fire"):
+		return
+	if not bool(world.predict_local_fire()):
+		return
+	if world.get("local_fire_shake") != null:
+		world.local_fire_shake = maxi(int(world.local_fire_shake), 4)
 
 func _peer_input_packet(command: Dictionary, seq: int) -> Dictionary:
 	var move: Vector2 = command.get("move", Vector2.ZERO)

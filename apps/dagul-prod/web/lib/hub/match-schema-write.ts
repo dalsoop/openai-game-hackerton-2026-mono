@@ -111,9 +111,14 @@ function writeBullets(bullets: MapSchema<MatchBulletSchema>, sim: MatchSim): voi
     row.owner = b.owner;
     row.kind = b.kind;
     row.radius = b.radius;
-    row.arc = Boolean((b as { arc?: boolean }).arc);
+    row.arc = Boolean(b.arc);
     row.heavy = b.heavy;
     row.src = b.source;
+    row.ttl = b.ttl;
+    row.maxTtl = b.maxTtl;
+    row.lx = b.landingX;
+    row.ly = b.landingY;
+    row.splash = b.splash;
   }
   for (const key of [...bullets.keys()]) {
     if (!live.has(key)) {bullets.delete(key);}
@@ -152,9 +157,18 @@ function writeEvents(match: MatchStateSchema, events: readonly SnapEvent[]): voi
     row.a = ev.a;
     row.b = ev.b;
     row.d = JSON.stringify(ev.d);
-    match.events.push(row);
+    match.events.set(String(match.eventSeq), row);
   }
-  while (match.events.length > EVENT_RING) {match.events.shift();}
+  trimEventRing(match);
+}
+
+function trimEventRing(match: MatchStateSchema): void {
+  if (match.events.size <= EVENT_RING) {return;}
+  const keys = [...match.events.keys()].sort((a, b) => Number(a) - Number(b));
+  const drop = keys.length - EVENT_RING;
+  for (let i = 0; i < drop; i += 1) {
+    match.events.delete(keys[i]);
+  }
 }
 
 /** packAuthoritySnap 과 같은 값을 Schema 에 대입한다. 매 틱 호출해도 dirty 만 패치된다. */

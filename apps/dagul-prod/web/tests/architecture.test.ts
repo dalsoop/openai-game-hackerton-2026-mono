@@ -391,6 +391,20 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
   });
 });
 
+describe("계약: 매치 events 는 Map 이다", () => {
+  it("TS·GD 스키마가 ARRAY+shift 가 아니라 MAP 이다", () => {
+    const ts = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
+    const write = sourceOf(join(ROOT, "lib/hub/match-schema-write.ts"));
+    const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+    expect(ts).toContain("@type({ map: MatchEventSchema }) events");
+    expect(ts).not.toContain("@type([MatchEventSchema]) events");
+    expect(write).toContain("match.events.set(String(match.eventSeq)");
+    expect(write).toContain("match.events.delete");
+    expect(write).not.toContain("match.events.shift()");
+    expect(gd).toContain('LobbyColyseus.f("events", Colyseus.Schema.MAP, LobbyColyseus.MatchEvent)');
+  });
+});
+
 describe("계약: 빈 events 스냅도 탄으로 gun_fire 를 추정한다", () => {
   it("NetWorld 는 이번 틱 gun_fire 가 없을 때만 탄 역추정을 한다", () => {
     const src = sourceOf(join(ROOT, "..", "project/games/dagul/net/net_world.gd"));
