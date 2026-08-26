@@ -8,6 +8,7 @@ import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
 import { useWaitingRoomPack } from "@/hooks/useWaitingRoomPack";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount } from "@/lib/game-flow-state";
+import { holdLobbyBgmOff } from "@/hooks/useLobbyAudio";
 import type { GamePhase, MatchInfo } from "@/types";
 
 /** useGameFlow 반환 계약 — page.tsx 가 이 필드들만 소비한다. */
@@ -87,14 +88,15 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   const { ownPackPct } = useWaitingRoomPack(phase, loader, hub.sendPackPct);
 
   const findRoom = useCallback(() => {
+    holdLobbyBgmOff();
     saveNickname(displayName);
     hub.connect(displayName);
     setPhase("lobby");
-     
   }, [displayName, hub, saveNickname]);
 
   const start = useCallback(() => {
     if (loader.state !== "ready") {return;}
+    holdLobbyBgmOff();
     hub.startMatch();
   }, [hub, loader.state]);
 

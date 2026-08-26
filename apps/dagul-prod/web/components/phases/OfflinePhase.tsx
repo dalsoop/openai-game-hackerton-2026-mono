@@ -5,6 +5,7 @@
 import type { JSX } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
+import { playOkButton } from "@/lib/ui-sfx";
 
 interface OfflinePhaseProps {
   nickname: string;
@@ -47,7 +48,11 @@ export function OfflinePhase({
             onChange={(e) => onNameChange(e.target.value)}
             placeholder={t("intro.namePlaceholder")}
             maxLength={12}
-            onKeyDown={(e) => e.key === "Enter" && onConnect()}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") {return;}
+              playOkButton();
+              onConnect();
+            }}
             suppressHydrationWarning
           />
           {hasSavedName && (
@@ -56,7 +61,14 @@ export function OfflinePhase({
             </button>
           )}
         </div>
-        <Button className="cta block" onClick={onConnect}>
+        <Button
+          className="cta block"
+          data-sfx="ok"
+          onClick={() => {
+            playOkButton();
+            onConnect();
+          }}
+        >
           {t("intro.startButton")}
         </Button>
       </div>
