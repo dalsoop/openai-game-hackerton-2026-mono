@@ -192,7 +192,10 @@ def build_hub(folder: str) -> None:
     context = APPS / folder
     staged = stage_hub_kernel(context)
     try:
-        subprocess.run(["docker", "build", "-t", ref, "-f", str(docker), str(context)], check=True)
+        subprocess.run(
+            ["docker", "build", "--no-cache", "-t", ref, "-f", str(docker), str(context)],
+            check=True,
+        )
     finally:
         if staged.exists():
             shutil.rmtree(staged, ignore_errors=True)
