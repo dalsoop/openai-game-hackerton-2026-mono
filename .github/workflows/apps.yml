@@ -76,7 +76,13 @@ jobs:
           fi
       - name: Helm planted values
         if: ${{ !cancelled() }}
-        run: python3 deploy/scripts/apply-apps.py helm
+        run: |
+          set -eu
+          if [ -n "${{ needs.plan.outputs.folders }}" ]; then
+            python3 deploy/scripts/apply-apps.py helm
+          else
+            python3 deploy/scripts/apply-apps.py helm --no-rebuild
+          fi
 
   purge:
     needs: [plan, ship]
