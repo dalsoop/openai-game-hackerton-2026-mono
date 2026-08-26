@@ -63,7 +63,7 @@ def replace_unshipped_hub_tags(text: str, live: dict[str, str], shipped: set[str
             if folder not in shipped and folder in live:
                 nl = "\n" if line.endswith("\n") else ""
                 indent = line[: len(line) - len(line.lstrip())]
-                line = f"{indent}tag: {live[folder]}{nl}"
+                line = f"{indent}tag: \"{live[folder]}\"{nl}"
             folder = ""
         lines.append(line)
     return "".join(lines)
@@ -78,7 +78,7 @@ def planted_hub_tags(text: str) -> dict[str, str]:
         if stripped.startswith("- folder:"):
             folder = stripped.split(":", 1)[1].strip()
         elif folder and stripped.startswith("tag:"):
-            tags[folder] = stripped.split(":", 1)[1].strip()
+            tags[folder] = stripped.split(":", 1)[1].strip().strip('"')
             folder = ""
     return tags
 

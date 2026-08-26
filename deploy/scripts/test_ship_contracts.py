@@ -240,6 +240,15 @@ class HelmContract(unittest.TestCase):
             {"server-prod": "abc", "server-yjh-dev1": "liveyjh"},
         )
 
+    def test_all_digit_tag_stays_quoted_string(self) -> None:
+        # 실사고 2026-08-26: 숫자로만 된 해시 태그가 YAML 숫자로 읽혀
+        # helm 렌더에서 4.53e+11 로 깨졌다(InvalidImageName). 항상 따옴표 유지.
+        seeded = replace_unshipped_hub_tags(
+            self.GAMES, {"server-yjh-dev1": "453357620456"}, {"server-prod"},
+        )
+        self.assertIn('tag: "453357620456"', seeded)
+        self.assertEqual(planted_hub_tags(seeded)["server-yjh-dev1"], "453357620456")
+
     def test_planted_maps(self) -> None:
         self.assertEqual(planted_hub_tags(self.GAMES), {"server-prod": "abc", "server-yjh-dev1": "def"})
         self.assertEqual(planted_hub_ids(self.GAMES), {"server-prod": "prod", "server-yjh-dev1": "yjh-dev1"})
