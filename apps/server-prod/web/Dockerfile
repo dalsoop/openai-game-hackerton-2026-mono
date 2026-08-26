@@ -1,4 +1,5 @@
-# 빌드 컨텍스트는 슬롯 루트(apps/server-yjh-dev1). Next+허브가 한 프로세스다.
+# 빌드 컨텍스트는 슬롯 루트(apps/server-prod). Next+허브가 한 프로세스다.
+# ship 이 같은 태그를 건너뛰지 않게 한다. 2026-08-26 rebuild.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY web/package.json ./

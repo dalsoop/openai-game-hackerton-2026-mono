@@ -6,7 +6,7 @@ import json
 
 RELEASE = "hackertone-games"
 NAMESPACE = "hackertone-games-dev1"
-HELM_WAIT_TIMEOUT = "10m"
+HELM_APPLY_TIMEOUT = "5m"
 SMOKE_FOLDERS = ("server-prod", "server-yjh-dev1")
 
 
@@ -27,9 +27,8 @@ def helm_upgrade_cmd(chart: str, values: str, games: str, env: str) -> list[str]
         NAMESPACE,
         "--create-namespace",
         "--reset-values",
-        "--wait",
         "--timeout",
-        HELM_WAIT_TIMEOUT,
+        HELM_APPLY_TIMEOUT,
         *helm_value_flags(values, games, env),
     ]
 
