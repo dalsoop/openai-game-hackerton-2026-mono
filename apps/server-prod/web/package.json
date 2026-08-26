@@ -24,7 +24,6 @@
     "load:ccu": "node scripts/load-ccu.mjs"
   },
   "dependencies": {
-    "@dalsoop/hub-kernel": "file:../../../packages/hub-kernel",
     "@colyseus/react": "^0.1.19",
     "@colyseus/redis-driver": "^0.17.7",
     "@colyseus/redis-presence": "^0.17.8",

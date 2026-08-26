@@ -1,5 +1,5 @@
 import type { Room } from "@colyseus/sdk";
-import { Roster, type RosterSnapshot, type Seat } from "@dalsoop/hub-kernel";
+import { Roster, type RosterSnapshot, type Seat } from "@/lib/domain/roster";
 import type { HubStatus } from "@/types";
 
 export interface WaitingRoomRoster {

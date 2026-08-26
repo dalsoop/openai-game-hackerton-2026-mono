@@ -5,7 +5,6 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@dalsoop/hub-kernel"],
   env: {
     SLOT_FOLDER: process.env.SLOT_FOLDER ?? "server-yjh-dev1",
   },

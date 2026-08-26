@@ -1,4 +1,4 @@
-export { HANDOFF, DOM_EVT, HUB_MSG, PLAY_MSG, PAGE_MSG, MSG, CLOSE_CODE, ROOM_LEAVE } from "../contract/wire";
+export { HANDOFF, DOM_EVT, MSG, CLOSE_CODE, ROOM_LEAVE } from "../contract/wire";
 
 export const HUB_CONFIG = {
   graceLobbyMs: 60_000,

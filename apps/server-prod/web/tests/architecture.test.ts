@@ -167,12 +167,12 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
   });
 });
 
-describe("계약: 좌석·팩 정본은 커널", () => {
-  it("앱 lib/domain 에 roster·waiting-room-pack 복제가 없다", () => {
+describe("계약: 좌석·팩 정본은 web/lib/domain", () => {
+  it("roster·waiting-room-pack 이 앱 안에 있다", () => {
     const dir = join(ROOT, "lib", "domain");
     const domain = existsSync(dir) ? walk(dir, (n) => n.endsWith(".ts")).map(rel) : [];
-    expect(domain.some((p) => p.endsWith("roster.ts"))).toBe(false);
-    expect(domain.some((p) => p.endsWith("waiting-room-pack.ts"))).toBe(false);
+    expect(domain.some((p) => p.endsWith("roster.ts"))).toBe(true);
+    expect(domain.some((p) => p.endsWith("waiting-room-pack.ts"))).toBe(true);
   });
 });
 

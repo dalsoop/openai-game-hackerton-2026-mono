@@ -2,12 +2,12 @@
 // Colyseus 허브 훅(조합 루트) — 세부는 각 훅·모듈이 소유한다.
 //   방 목록: useRoomList (GET /rooms 폴링)
 //   방 연결: useGameRoom (핸드오프·matchInfo)
-//   파생 명단: @dalsoop/hub-kernel · 내 방 멤버십: useMyRoom
+//   파생 명단: lib/domain/roster · 내 방 멤버십: useMyRoom
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
 import { MSG } from "@/lib/contract";
-import { type RosterSnapshot } from "@dalsoop/hub-kernel";
+import { type RosterSnapshot } from "@/lib/domain/roster";
 import { waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";

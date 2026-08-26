@@ -4,7 +4,8 @@
 import type { JSX } from "react";
 import Room from "@/components/Room";
 import WaitingRoomPackList from "@/components/WaitingRoomPackList";
-import { overlayOwnPackPct, type Seat } from "@dalsoop/hub-kernel";
+import { overlayOwnPackPct } from "@/lib/domain/waiting-room-pack";
+import type { Seat } from "@/lib/domain/roster";
 
 interface InRoomPhaseProps {
   players: Seat[];

@@ -1,7 +1,7 @@
 "use client";
 // 대기실 화면 — 좌석 표시는 SlotCard, 여기선 배치·호스트 액션만.
 import type { JSX } from "react";
-import type { Seat } from "@dalsoop/hub-kernel";
+import type { Seat } from "@/lib/domain/roster";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { GAME_CATALOG, findGame } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";

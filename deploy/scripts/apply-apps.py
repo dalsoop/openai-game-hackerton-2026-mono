@@ -157,21 +157,6 @@ def push_web(folder: str) -> None:
 
 
 
-HUB_KERNEL = ROOT / "packages" / "hub-kernel"
-DOCKER_HUB_KERNEL = ".docker-hub-kernel"
-
-
-def stage_hub_kernel(context: Path) -> Path:
-    """file:../../../packages/hub-kernel 가 이미지 /packages/hub-kernel 로 맞게 컨텍스트에 심는다."""
-    dest = context / DOCKER_HUB_KERNEL
-    if dest.exists():
-        shutil.rmtree(dest)
-    if not HUB_KERNEL.is_dir():
-        raise SystemExit(f"hub-kernel 없음: {HUB_KERNEL}")
-    shutil.copytree(HUB_KERNEL, dest, ignore=shutil.ignore_patterns("node_modules"))
-    return dest
-
-
 def build_hub(folder: str) -> None:
     mod = plant_mod()
     data = parse_folder(mod, folder)
@@ -190,15 +175,10 @@ def build_hub(folder: str) -> None:
         print(f"skip hub {folder} ({ref})")
         return
     context = APPS / folder
-    staged = stage_hub_kernel(context)
-    try:
-        subprocess.run(
-            ["docker", "build", "--no-cache", "-t", ref, "-f", str(docker), str(context)],
-            check=True,
-        )
-    finally:
-        if staged.exists():
-            shutil.rmtree(staged, ignore_errors=True)
+    subprocess.run(
+        ["docker", "build", "--no-cache", "-t", ref, "-f", str(docker), str(context)],
+        check=True,
+    )
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
     load = subprocess.run(k3s_argv("k3s ctr images import -"), stdin=save.stdout, check=False)
     save.wait()

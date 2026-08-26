@@ -1,7 +1,7 @@
 import type { MatchInfo } from "./game";
 import type { MyRoomIdentity } from "@/lib/room-membership";
 import type { DropReason } from "@/lib/game-flow-state";
-import type { Seat } from "@dalsoop/hub-kernel";
+import type { Seat } from "@/lib/domain/roster";
 /**
  * 허브/방 관련 타입 정의
  * Colyseus WebSocket 통합 타입

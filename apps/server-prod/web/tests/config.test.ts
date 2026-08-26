@@ -2,7 +2,7 @@
 // GD 거울(web_contract.gd)과의 정합은 check-contract.mjs 가 담당한다.
 import { describe, expect, it } from "vitest";
 import { CloseCode } from "@colyseus/sdk";
-import { MSG, HUB_MSG, PLAY_MSG, PAGE_MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE, DEFAULT_SLOT, slotId, slotRoomName, ROOM_NAME } from "@/lib/hub/config";
+import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE, DEFAULT_SLOT, slotId, slotRoomName, ROOM_NAME } from "@/lib/hub/config";
 
 describe("MSG 메시지 계약", () => {
   it("메시지 타입은 중복 없고 비어 있지 않다", () => {
@@ -24,13 +24,6 @@ describe("MSG 메시지 계약", () => {
     expect(MSG.PONG).toBe("pong");
     expect(MSG.SET_GAME).toBe("set_game");
     expect(HUB_CONFIG.idleStartMs).toBe(5 * 60 * 1000);
-  });
-
-  it("MSG 는 HUB·PLAY·PAGE 묶음과 같은 문자열이다", () => {
-    expect(MSG.PACK_PCT).toBe(HUB_MSG.PACK_PCT);
-    expect(MSG.INPUT).toBe(PLAY_MSG.INPUT);
-    expect(MSG.LEAVE).toBe(PAGE_MSG.LEAVE);
-    expect(MSG.ERROR).toBe(HUB_MSG.ERROR);
   });
 });
 

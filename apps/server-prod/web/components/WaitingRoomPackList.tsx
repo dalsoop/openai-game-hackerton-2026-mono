@@ -1,7 +1,8 @@
 "use client";
 import type { JSX } from "react";
 import { useTranslations } from "next-intl";
-import { connectedSeatsPacked, packKind, type Seat } from "@dalsoop/hub-kernel";
+import { connectedSeatsPacked, packKind } from "@/lib/domain/waiting-room-pack";
+import type { Seat } from "@/lib/domain/roster";
 
 interface Props {
   seats: Seat[];
