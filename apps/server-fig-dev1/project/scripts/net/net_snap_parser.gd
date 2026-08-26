@@ -129,7 +129,7 @@ static func parse_crate_orbs(snap: Dictionary) -> Array[Dictionary]:
 		})
 	return result
 
-static func make_equipment(weapon_name: String, player_name: String) -> Dictionary:
+static func make_equipment(weapon_name: String, player_name: String, mag_size: int = 0) -> Dictionary:
 	return {
 		"id":"net",
 		"name":weapon_name if weapon_name != "" else "권총",
@@ -141,7 +141,8 @@ static func make_equipment(weapon_name: String, player_name: String) -> Dictiona
 		"normal_name":"",
 		"skill_name":"",
 		"skill_desc":"",
-		"ultimate_desc":""
+		"ultimate_desc":"",
+		"mag_size":mag_size
 	}
 
 static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> Array[Dictionary]:

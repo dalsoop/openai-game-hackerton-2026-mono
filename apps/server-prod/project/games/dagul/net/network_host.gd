@@ -1,6 +1,7 @@
 class_name NetworkHost
 extends RefCounted
 
+const SnapContract := preload("res://games/dagul/net/snap_contract.gd")
 const SNAP_SEND_HZ := 20.0
 
 var hub  # HubClient reference
@@ -75,49 +76,26 @@ func _snap_hex(c: Variant) -> String:
 	return s if s.begins_with("#") else "#ffffff"
 
 func build_snapshot() -> Dictionary:
-	return {
-		"tick": world.tick,
-		"time": world.match_time,
-		"result": str(world.result),
-		"winner": world.winner_slot,
-		"zoneR": world.safe_zone_radius,
-		"shrinking": world.safe_zone_shrinking,
-		"zoneCX": Vector2(world.safe_zone_center).x,
-		"zoneCY": Vector2(world.safe_zone_center).y,
-		"zonePhase": world.safe_zone_phase,
-		"startCountdown": world.start_countdown,
-		"wantedSlot": world.wanted_slot,
-		"mode": world.mode,
-		"players": _snap_players(),
-		"bullets": _snap_bullets(),
-		"loot": _snap_loot(),
-		"zones": _snap_zones(),
-		"deployables": _snap_deployables(),
-		"cores": _snap_cores(),
-		"covers": _snap_covers(),
-		"knockouts": _snap_knockouts(),
-		"crates": _snap_crates(),
-		"crate_orbs": _snap_orbs(),
-		"mid_tower": _snap_tower()
-	}
+	var snap := SnapContract.pack_header(world)
+	snap[SnapContract.PLAYERS] = _snap_players()
+	snap[SnapContract.BULLETS] = _snap_bullets()
+	snap[SnapContract.LOOT] = _snap_loot()
+	snap[SnapContract.ZONES] = _snap_zones()
+	snap[SnapContract.DEPLOYABLES] = _snap_deployables()
+	snap[SnapContract.CORES] = _snap_cores()
+	snap[SnapContract.COVERS] = _snap_covers()
+	snap[SnapContract.KNOCKOUTS] = _snap_knockouts()
+	snap[SnapContract.CRATES] = _snap_crates()
+	snap[SnapContract.CRATE_ORBS] = _snap_orbs()
+	snap[SnapContract.MID_TOWER] = _snap_tower()
+	return snap
 
 func _snap_players() -> Array:
 	var arr: Array = []
 	for h in world.heroes:
-		arr.append({
-			"slot": int(h["slot"]),
-			"name": str(h.get("display_name", str(h.get("equipment", {}).get("character_name", "P%d" % (int(h["slot"]) + 1))))),
-			"cpu": not world.human_slots.has(int(h["slot"])) and int(h["slot"]) != world.local_slot,
-			"parked": false,
-			"x": Vector2(h["pos"]).x, "y": Vector2(h["pos"]).y,
-			"aimX": Vector2(h["pos"]).x + Vector2(h["aim"]).x * 100.0,
-			"aimY": Vector2(h["pos"]).y + Vector2(h["aim"]).y * 100.0,
-			"hp": float(h["hp"]), "alive": bool(h["alive"]),
-			"weapon": str(h.get("equipment", {}).get("name", "")),
-			"item": "medkit" if int(h.get("medkits", 0)) > 0 else "",
-			"kills": int(h["kills"]),
-			"ack": _peer_seq.get(int(h["slot"]), 0)
-		})
+		var slot := int(h["slot"])
+		var cpu := not world.human_slots.has(slot) and slot != world.local_slot
+		arr.append(SnapContract.pack_player(h, cpu, _peer_seq.get(slot, 0)))
 	return arr
 
 func _snap_bullets() -> Array:

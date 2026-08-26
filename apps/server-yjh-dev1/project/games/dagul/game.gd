@@ -248,28 +248,41 @@ func _read_aim(world_view: Node2D, touch: CanvasLayer) -> Vector2:
 
 func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_held: bool,
 		touch: CanvasLayer, hub: Node, hud: Control, world_view: Node2D) -> void:
+	var command := _build_command(move, aim_world, primary, equipment_held, touch)
+	previous_right_mouse = equipment_held
+	previous_left_mouse = primary
+	hud.net_rtt_ms = int(hub.rtt_ms)
+	hud.net_connected = bool(hub.is_open())
 	if _is_host:
-		var command := _build_command(move, aim_world, primary, equipment_held, touch)
-		previous_right_mouse = equipment_held
-		previous_left_mouse = primary
 		world.step_tick(command, TICK)
 		if _host_ctrl != null:
 			_host_ctrl.tick(TICK)
-		hud.net_rtt_ms = int(hub.rtt_ms)
-		hud.net_connected = bool(hub.is_open())
 		_apply_recoil_mouse(world_view)
 		return
-	var dash_held: bool = LayoutKeysScript.held(KEY_SHIFT) or (touch != null and touch.dash_held)
-	var use_held: bool = LayoutKeysScript.held(KEY_E) or (touch != null and touch.medkit_held)
 	world.present(TICK)
-	hud.net_rtt_ms = int(hub.rtt_ms)
-	hud.net_connected = bool(hub.is_open())
-	var seq: int = int(world.predict_local(move, dash_held, aim_world, TICK))
+	var seq: int = int(world.predict_local(move, bool(command.get("mobility", false)), aim_world, TICK))
+	var packet := _peer_input_packet(command, seq)
 	if _game_client != null and _game_client.is_connected_to_server():
-		_game_client.send_input({"mx": move.x, "my": move.y, "fire": primary, "dash": dash_held, "use": use_held, "aimX": aim_world.x, "aimY": aim_world.y, "seq": seq})
+		_game_client.send_input(packet)
 	else:
-		hub.send_input({"mx": move.x, "my": move.y, "fire": primary, "dash": dash_held, "use": use_held, "aimX": aim_world.x, "aimY": aim_world.y, "seq": seq})
-	previous_right_mouse = equipment_held
+		hub.send_input(packet)
+
+func _peer_input_packet(command: Dictionary, seq: int) -> Dictionary:
+	var move: Vector2 = command.get("move", Vector2.ZERO)
+	var aim: Vector2 = command.get("aim", Vector2.ZERO)
+	return {
+		"mx": move.x, "my": move.y,
+		"aimX": aim.x, "aimY": aim.y,
+		"fire": bool(command.get("primary", false)),
+		"firePressed": bool(command.get("primary_pressed", false)),
+		"dash": bool(command.get("mobility", false)),
+		"use": bool(command.get("medkit", false)),
+		"reload": bool(command.get("reload", false)),
+		"ultimate": bool(command.get("ultimate", false)),
+		"hop": bool(command.get("hop", false)),
+		"finish": bool(command.get("finish", false)),
+		"seq": seq,
+	}
 
 func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool, touch: CanvasLayer) -> Dictionary:
 	var ultimate_edge := _edge(KEY_Q)

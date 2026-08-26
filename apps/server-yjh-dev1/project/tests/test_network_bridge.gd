@@ -1,6 +1,8 @@
 extends RefCounted
 ## 허브 소켓 주인은 React. NetworkManager 는 reconnect 하지 않는다.
 
+const WebContract := preload("res://core/contract/web_contract.gd")
+
 func run(t) -> void:
 	_scan_source(t)
 	_runtime_bridge(t)
