@@ -1,5 +1,5 @@
 import { MSG } from "../contract/wire.js";
-import type { SeatStart, StartPayload } from "./start-payload.js";
+import type { EngineJoin, SeatStart, StartPayload } from "./start-payload.js";
 
 export function matchJustEnded(
   data: Record<string, unknown>,
@@ -15,16 +15,26 @@ export function startBodies(
   seed: number,
   mode: string,
   seats: SeatStart[],
+  engineJoin?: EngineJoin,
 ): Array<{ sessionId: string; type: typeof MSG.START; payload: StartPayload }> {
   return players.map((p) => ({
     sessionId: p.sessionId,
     type: MSG.START,
-    payload: {
-      you: p.slot,
-      host: p.sessionId === hostSessionId,
-      seed,
-      mode,
-      seats,
-    },
+    payload: engineJoin
+      ? {
+        you: p.slot,
+        host: p.sessionId === hostSessionId,
+        seed,
+        mode,
+        seats,
+        engineJoin,
+      }
+      : {
+        you: p.slot,
+        host: p.sessionId === hostSessionId,
+        seed,
+        mode,
+        seats,
+      },
   }));
 }

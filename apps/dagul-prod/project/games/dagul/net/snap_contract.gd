@@ -162,6 +162,7 @@ static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 		P_STREAK: int(h.get("kill_streak", 0)),
 	}
 
+## snap_hz 는 스냅 간격의 역수(초당 스냅 수). 상수 Hz가 아니라 틱 차이에서 유도한다.
 static func unpack_player(p: Dictionary, old: Dictionary, slot: int, snap_hz: float) -> Dictionary:
 	var pos := Vector2(_f(p, P_X, 0.0), _f(p, P_Y, 0.0))
 	var old_pos: Vector2 = old.get("pos", pos)

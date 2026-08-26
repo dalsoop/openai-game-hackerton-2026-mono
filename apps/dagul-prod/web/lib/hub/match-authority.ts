@@ -218,9 +218,11 @@ export function acceptPlayInput(
   sessionId: string,
   data: Record<string, unknown>,
   authority: MatchAuthority | null,
+  mappedSlot = -1,
 ): boolean {
   if (phase !== "playing" || !authority) {return false;}
-  const slot = players.find((p) => p.sessionId === sessionId)?.slot ?? -1;
+  const seated = players.find((p) => p.sessionId === sessionId)?.slot ?? -1;
+  const slot = seated >= 0 ? seated : mappedSlot;
   if (slot < 0) {return false;}
   authority.pushInput(slot, data);
   return true;

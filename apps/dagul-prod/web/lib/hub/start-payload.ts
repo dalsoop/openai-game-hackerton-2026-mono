@@ -10,12 +10,27 @@ export interface SeatStart {
   readonly characterId: string;
 }
 
+export interface EngineJoin {
+  readonly roomId: string;
+  readonly endpoint?: string;
+}
+
 export interface StartPayload {
   readonly you: number;
   readonly host: boolean;
   readonly seed: number;
   readonly mode: string;
   readonly seats: readonly SeatStart[];
+  readonly engineJoin?: EngineJoin;
+}
+
+function asEngineJoin(raw: unknown): EngineJoin | undefined {
+  if (!raw || typeof raw !== "object") {return undefined;}
+  const o = raw as Record<string, unknown>;
+  if (typeof o.roomId !== "string" || o.roomId.length === 0) {return undefined;}
+  const hasEndpoint = typeof o.endpoint === "string" && o.endpoint.length > 0;
+  if (!hasEndpoint) {return { roomId: o.roomId };}
+  return { roomId: o.roomId, endpoint: o.endpoint as string };
 }
 
 function asSeat(raw: unknown): SeatStart | null {
@@ -41,12 +56,14 @@ export function parseStartPayload(raw: unknown): StartPayload | null {
   const seats = Array.isArray(o.seats)
     ? o.seats.map(asSeat).filter((s): s is SeatStart => s !== null)
     : [];
+  const engineJoin = asEngineJoin(o.engineJoin);
   return {
     you,
     host: Boolean(o.host),
     seed,
     mode: typeof o.mode === "string" ? o.mode : "",
     seats,
+    ...(engineJoin ? { engineJoin } : {}),
   };
 }
 

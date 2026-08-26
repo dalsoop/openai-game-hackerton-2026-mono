@@ -10,6 +10,14 @@ func _init(renderer: Node2D) -> void:
 const GRASS_PLAIN_TILES := [0, 1, 5, 6]
 const GRASS_FLOWER_TILES := [2, 3, 4, 7]
 const FLOWER_REGION_SIZE := 4
+const TREE_SPOTS: Array[Vector3] = [
+	Vector3(180, 180, 0), Vector3(7000, 200, 1), Vector3(860, 220, 1), Vector3(420, 280, 0), Vector3(7480, 300, 0),
+	Vector3(680, 420, 1), Vector3(7200, 480, 1), Vector3(320, 520, 2), Vector3(7620, 560, 2),
+	Vector3(7600, 1600, 1), Vector3(180, 1800, 1), Vector3(7720, 3000, 0), Vector3(280, 3200, 2),
+	Vector3(7380, 4100, 2), Vector3(140, 4200, 2), Vector3(640, 4320, 1), Vector3(7180, 4320, 1),
+	Vector3(7520, 4460, 0), Vector3(380, 4480, 0), Vector3(900, 4520, 1), Vector3(7000, 4520, 1),
+	Vector3(220, 4580, 2), Vector3(7680, 4580, 2),
+]
 
 func draw_island() -> void:
 	var arena := Rect2(Vector2.ZERO, world.ARENA_SIZE)
@@ -21,22 +29,35 @@ func draw_island() -> void:
 	_draw_grass_tiles(arena)
 	r.texture_filter = prev_filter
 
+func _visible_or_all() -> Rect2:
+	if r != null and r.has_method("visible_world_rect") and r.is_inside_tree():
+		return r.visible_world_rect()
+	return Rect2(-1.0e7, -1.0e7, 2.0e7, 2.0e7)
+
+static func tile_coord(world_pos: float, cell: float) -> int:
+	return floori(world_pos / cell)
+
 func _draw_grass_tiles(arena: Rect2) -> void:
 	var tex_size: Vector2 = r.grass_tile_textures[0].get_size()
 	var cell := tex_size.x * 6.0
-	var tile_y := 0
-	var y := 0.0
-	while y < arena.size.y - 0.5:
-		_draw_grass_row(arena, y, cell, tex_size, tile_y)
+	var vis := arena.intersection(_visible_or_all())
+	if vis.size.x <= 0.0 or vis.size.y <= 0.0:
+		return
+	var tile_y := tile_coord(vis.position.y, cell)
+	var y := float(tile_y) * cell
+	while y < vis.end.y:
+		_draw_grass_row(arena, vis, y, cell, tex_size, tile_y)
 		y += cell
 		tile_y += 1
 
-func _draw_grass_row(arena: Rect2, y: float, cell: float, tex_size: Vector2, tile_y: int) -> void:
-	var tile_x := 0
-	var x := 0.0
-	while x < arena.size.x - 0.5:
+func _draw_grass_row(arena: Rect2, vis: Rect2, y: float, cell: float, tex_size: Vector2, tile_y: int) -> void:
+	var tile_x := tile_coord(vis.position.x, cell)
+	var x := float(tile_x) * cell
+	while x < vis.end.x:
 		var dw := minf(cell, arena.size.x - x)
 		var dh := minf(cell, arena.size.y - y)
+		if dw <= 0.0 or dh <= 0.0:
+			break
 		var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * dw / cell, tex_size.y * dh / cell))
 		var tile_index := _grass_tile_index(tile_x, tile_y, r.grass_tile_textures.size())
 		r.draw_texture_rect_region(r.grass_tile_textures[tile_index], Rect2(Vector2(x, y), Vector2(dw, dh)), src)
@@ -77,25 +98,21 @@ func draw_trees() -> void:
 		return
 	var prev_filter := r.texture_filter
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var spots: Array[Vector3] = [
-		Vector3(420, 280, 0), Vector3(680, 420, 1), Vector3(320, 520, 2), Vector3(860, 220, 1), Vector3(180, 180, 0),
-		Vector3(7480, 300, 0), Vector3(7200, 480, 1), Vector3(7620, 560, 2), Vector3(7000, 200, 1),
-		Vector3(380, 4480, 0), Vector3(640, 4320, 1), Vector3(220, 4580, 2), Vector3(900, 4520, 1), Vector3(140, 4200, 2),
-		Vector3(7520, 4460, 0), Vector3(7180, 4320, 1), Vector3(7680, 4580, 2), Vector3(7000, 4520, 1), Vector3(7380, 4100, 2),
-		Vector3(180, 1800, 1), Vector3(280, 3200, 2), Vector3(7600, 1600, 1), Vector3(7720, 3000, 0)
-	]
-	spots.sort_custom(func(a, b): return a.y < b.y)
-	_draw_tree_spots(spots)
+	_draw_tree_spots(TREE_SPOTS)
 	r.texture_filter = prev_filter
 
 func _draw_tree_spots(spots: Array[Vector3]) -> void:
 	var dw := 48.0 * 3.2
 	var dh := 64.0 * 3.2
+	var vis := _visible_or_all()
 	for spot in spots:
 		var feet := Vector2(spot.x, spot.y)
+		var dest := Rect2(feet - Vector2(dw * 0.5, dh - 10.0), Vector2(dw, dh))
+		if not vis.intersects(dest.grow(22.0)):
+			continue
 		r.draw_circle(feet + Vector2(0, 4), 22.0, Color(0.05, 0.04, 0.03, 0.28))
 		var src := Rect2(Vector2(spot.z * 48.0, 0.0), Vector2(48, 64))
-		r.draw_texture_rect_region(r.tree_atlas, Rect2(feet - Vector2(dw * 0.5, dh - 10.0), Vector2(dw, dh)), src)
+		r.draw_texture_rect_region(r.tree_atlas, dest, src)
 
 func draw_safe_zone() -> void:
 	var center: Vector2 = world.safe_zone_center

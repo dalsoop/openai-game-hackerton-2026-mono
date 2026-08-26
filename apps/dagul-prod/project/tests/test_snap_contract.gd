@@ -16,7 +16,7 @@ func _pack_emits_every_player_key(t) -> void:
 
 func _player_roundtrip(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), true, 4)
-	var hero := SnapContract.unpack_player(packed, {}, 2, 20.0)
+	var hero := SnapContract.unpack_player(packed, {}, 2, 60.0)
 	t.check("hp 왕복", is_equal_approx(float(hero["hp"]), 204.0))
 	t.check("max_hp 왕복", is_equal_approx(float(hero["max_hp"]), 176.0))
 	t.check("mag 왕복", int(hero["mag"]) == 7)
@@ -36,12 +36,12 @@ func _player_roundtrip(t) -> void:
 		SnapContract.P_ANIMAL: 0,
 		SnapContract.P_MAG: 4,
 		SnapContract.P_MAG_MAX: 18,
-	}, {}, 3, 20.0)
+	}, {}, 3, 60.0)
 	t.check("characterId 가 animal 보다 우선", str(picked.get("character_id", "")) == "a5")
 	t.check("bind 는 id 에서 읽는다", int(picked.get("animal", -1)) == 5)
 	t.check("슬롯을 캐릭터로 쓰지 않는다", int(picked.get("animal", -1)) != 3)
 	var unknown := SnapContract.unpack_player(
-		SnapContract.pack_player(_unknown_hero(), false, 0), {}, 0, 20.0)
+		SnapContract.pack_player(_unknown_hero(), false, 0), {}, 0, 60.0)
 	t.check("animal -1 왕복", int(unknown["animal"]) == -1)
 	t.check("emote 왕복", int(hero["emote"]) == 2)
 	t.check("emoteTime 왕복", is_equal_approx(float(hero["emote_time"]), 1.5))

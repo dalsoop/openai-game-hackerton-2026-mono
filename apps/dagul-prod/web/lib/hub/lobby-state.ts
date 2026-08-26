@@ -1,6 +1,7 @@
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
 import { asCharacterId } from "../characters/index.js";
 import { asGameId, defaultModeOf } from "../games/catalog.js";
+import { MatchStateSchema } from "./match-schema.js";
 
 export class PlayerSchema extends Schema {
   @type("number") slot = -1;
@@ -53,4 +54,6 @@ export class LobbyState extends Schema {
   @type("uint32") matchTick = 0;
   @type({ map: HeroSchema }) heroes = new MapSchema<HeroSchema>();
   @type({ map: BulletSchema }) bullets = new MapSchema<BulletSchema>();
+  /** 엔진 세션용 매치 델타. 기존 heroes/bullets JSON SNAP 과 병행한다. */
+  @type(MatchStateSchema) match = new MatchStateSchema();
 }

@@ -58,6 +58,16 @@ describe("parseStartPayload", () => {
     expect(p?.seats).toEqual([{ slot: 2, name: "둘", connected: true, characterId: "unknown" }]);
   });
 
+  it("engineJoin 은 roomId 가 있을 때만 남긴다", () => {
+    expect(parseStartPayload({ ...valid, engineJoin: { roomId: "abc" } })?.engineJoin)
+      .toEqual({ roomId: "abc" });
+    expect(parseStartPayload({
+      ...valid, engineJoin: { roomId: "abc", endpoint: "https://play.example" },
+    })?.engineJoin).toEqual({ roomId: "abc", endpoint: "https://play.example" });
+    expect(parseStartPayload({ ...valid, engineJoin: { roomId: "" } })?.engineJoin)
+      .toBeUndefined();
+  });
+
   it("좌석 characterId 는 카탈로그만 통과하고 그 외는 기본값이다", () => {
     const p = parseStartPayload({
       ...valid,
