@@ -224,7 +224,7 @@ class HelmContract(unittest.TestCase):
     def test_upgrade_resets_and_waits_planted_files(self) -> None:
         cmd = helm_upgrade_cmd("/chart", "/v.yaml", "/g.yaml", "/e.yaml")
         self.assertIn("--reset-values", cmd)
-        self.assertIn("--wait", cmd)
+        self.assertNotIn("--wait", cmd)
         self.assertNotIn("--atomic", cmd)
         self.assertEqual(cmd[cmd.index("-f") : cmd.index("-f") + 6], ["-f", "/v.yaml", "-f", "/g.yaml", "-f", "/e.yaml"])
 
@@ -305,7 +305,11 @@ class HelmContract(unittest.TestCase):
         self.assertIn("assert_hub_images", helm_fn)
         self.assertIn("run_plant()", helm_fn)
         self.assertIn("purge_cloudflare()", helm_fn)
+        self.assertIn("dump_cluster()", helm_fn)
+        self.assertIn("wait_hub_workloads", helm_fn)
+        self.assertIn("restart_hub_workloads", helm_fn)
         self.assertNotIn("ensure_hub_images", helm_fn)
+        self.assertNotIn("skip hub {folder} ({ref})", apps_py)
         hub_fn = apps_py.split("def hub_refs", 1)[1].split("def assert_hub_images", 1)[0]
         self.assertIn("planted_hub_tags", hub_fn)
 
@@ -338,6 +342,7 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertIn("apply-apps.py helm", apps_yml)
         self.assertIn("ci-plan.py", apps_yml)
         self.assertIn("Ship then helm", apps_yml)
+        self.assertIn("HACKERTONE_SHIP_FOLDERS", apps_yml)
         self.assertIn("workflow_dispatch", apps_yml)
         self.assertIn("runs-on: [self-hosted, hackertone]", apps_yml)
         self.assertIn("group: apps-ship", apps_yml)

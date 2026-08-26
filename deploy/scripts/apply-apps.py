@@ -180,10 +180,6 @@ def build_hub(folder: str) -> None:
     image = f"harbor.50.internal.xz/library/{folder}"
     tag = mod.hub_image_tag(APPS / folder)
     ref = f"{image}:{tag}"
-    listed = remote(f"k3s ctr images ls -q | grep -F {ref} || true")
-    if listed.stdout.strip():
-        print(f"skip hub {folder} ({ref})")
-        return
     context = APPS / folder
     subprocess.run(
         ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
@@ -428,46 +424,114 @@ def assert_smoke_hubs() -> None:
     print("smoke create ok " + ",".join(SMOKE_FOLDERS))
 
 
+def kube(cmd: str) -> subprocess.CompletedProcess:
+    return remote(f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} {cmd}")
+
+
+def shipped_folders() -> list[str]:
+    return [name for name in os.environ.get("HACKERTONE_SHIP_FOLDERS", "").split() if name]
+
+
+def wait_folders() -> list[str]:
+    seen: list[str] = []
+    for folder in (*SMOKE_FOLDERS, *shipped_folders()):
+        if folder not in seen:
+            seen.append(folder)
+    return seen
+
+
+def dump_cluster() -> None:
+    print("kubectl dump")
+    for cmd in (
+        "get pods,sts,deploy,ing -o wide",
+        "get events --sort-by=.lastTimestamp | tail -n 40",
+        "describe sts/server-yjh-dev1-hub",
+        "logs --tail=80 -l hackertone-games/slot=server-yjh-dev1 --all-containers",
+        "logs --tail=40 -l hackertone-games/slot=server-prod --all-containers",
+    ):
+        print(f"$ kubectl {cmd}")
+        proc = kube(cmd)
+        text = (proc.stdout or "") + (proc.stderr or "")
+        print(text[-8000:] if text else f"exit {proc.returncode}")
+
+
+def restart_hub_workloads(folder: str) -> None:
+    print(f"restart sts/{folder}-hub")
+    remote_ok(
+        f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} "
+        f"rollout restart sts/{folder}-hub"
+    )
+    static = kube(f"get deploy {folder}-hub-static")
+    if static.returncode == 0:
+        print(f"restart deploy/{folder}-hub-static")
+        remote_ok(
+            f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} "
+            f"rollout restart deploy/{folder}-hub-static"
+        )
+
+
+def wait_hub_workloads(folder: str) -> None:
+    print(f"wait sts/{folder}-hub")
+    status = kube(f"rollout status sts/{folder}-hub --timeout=180s")
+    if status.returncode:
+        raise SystemExit(status.stderr or status.stdout or f"sts/{folder}-hub 대기 실패")
+    static = kube(f"get deploy {folder}-hub-static")
+    if static.returncode:
+        return
+    print(f"wait deploy/{folder}-hub-static")
+    ready = kube(f"rollout status deploy/{folder}-hub-static --timeout=180s")
+    if ready.returncode:
+        raise SystemExit(ready.stderr or ready.stdout or f"deploy/{folder}-hub-static 대기 실패")
+
+
 def helm_upgrade() -> None:
-    run_plant()
-    print("helm: 태그만 plant. 이미지는 ship 이 만든 것만 쓴다")
-    assert_hub_images(plant_mod())
-    if on_pve():
-        dest = Path(tempfile.mkdtemp(prefix="hackertone-chart-"))
-        env_copy = dest / "hackertone-env.yaml"
-        subprocess.run(["rsync", "-a", f"{CHART}/", f"{dest}/"], check=True)
-        shutil.copy2(ENV, env_copy)
-        chart, values, games, envf = (
-            str(dest),
-            str(dest / "values.yaml"),
-            str(dest / "values-games.yaml"),
-            str(env_copy),
-        )
-    else:
-        subprocess.run(
-            ["rsync", "-az", "--delete", f"{CHART}/", "pve-lan:/tmp/hackertone-chart/"],
-            check=True,
-        )
-        subprocess.run(["rsync", "-az", str(ENV), "pve-lan:/tmp/hackertone-env.yaml"], check=True)
-        chart, values, games, envf = (
-            "/tmp/hackertone-chart",
-            "/tmp/hackertone-chart/values.yaml",
-            "/tmp/hackertone-chart/values-games.yaml",
-            "/tmp/hackertone-env.yaml",
-        )
-    if helm_has_diff():
-        print("helm diff")
-        diffed = run_helm_argv(helm_diff_cmd(chart, values, games, envf), check=False)
-        if diffed.returncode >= 2:
-            raise SystemExit("helm diff 실패")
-    else:
-        print("helm diff skip (plugin 없음)")
-    drop_legacy_hub_deployments()
-    run_helm_argv(helm_upgrade_cmd(chart, values, games, envf))
-    assert_live_matches_plant()
-    assert_smoke_hubs()
-    purge_cloudflare()
-    print("helm ok")
+    try:
+        run_plant()
+        print("helm: 태그만 plant. 이미지는 ship 이 만든 것만 쓴다")
+        assert_hub_images(plant_mod())
+        if on_pve():
+            dest = Path(tempfile.mkdtemp(prefix="hackertone-chart-"))
+            env_copy = dest / "hackertone-env.yaml"
+            subprocess.run(["rsync", "-a", f"{CHART}/", f"{dest}/"], check=True)
+            shutil.copy2(ENV, env_copy)
+            chart, values, games, envf = (
+                str(dest),
+                str(dest / "values.yaml"),
+                str(dest / "values-games.yaml"),
+                str(env_copy),
+            )
+        else:
+            subprocess.run(
+                ["rsync", "-az", "--delete", f"{CHART}/", "pve-lan:/tmp/hackertone-chart/"],
+                check=True,
+            )
+            subprocess.run(["rsync", "-az", str(ENV), "pve-lan:/tmp/hackertone-env.yaml"], check=True)
+            chart, values, games, envf = (
+                "/tmp/hackertone-chart",
+                "/tmp/hackertone-chart/values.yaml",
+                "/tmp/hackertone-chart/values-games.yaml",
+                "/tmp/hackertone-env.yaml",
+            )
+        if helm_has_diff():
+            print("helm diff")
+            diffed = run_helm_argv(helm_diff_cmd(chart, values, games, envf), check=False)
+            if diffed.returncode >= 2:
+                raise SystemExit("helm diff 실패")
+        else:
+            print("helm diff skip (plugin 없음)")
+        drop_legacy_hub_deployments()
+        run_helm_argv(helm_upgrade_cmd(chart, values, games, envf))
+        for folder in shipped_folders():
+            restart_hub_workloads(folder)
+        for folder in wait_folders():
+            wait_hub_workloads(folder)
+        assert_live_matches_plant()
+        assert_smoke_hubs()
+        purge_cloudflare()
+        print("helm ok")
+    except SystemExit:
+        dump_cluster()
+        raise
 
 
 def purge_cloudflare() -> None:

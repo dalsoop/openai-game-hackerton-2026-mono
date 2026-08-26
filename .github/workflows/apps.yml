@@ -65,5 +65,6 @@ jobs:
           set -eu
           if [ -n "${FOLDERS:-}" ]; then
             python3 deploy/scripts/apply-apps.py ship $FOLDERS
+            export HACKERTONE_SHIP_FOLDERS="$FOLDERS"
           fi
           python3 deploy/scripts/apply-apps.py helm
