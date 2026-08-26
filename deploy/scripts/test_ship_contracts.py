@@ -296,7 +296,9 @@ class HelmContract(unittest.TestCase):
         self.assertNotIn("stage_hub_kernel", apps_py)
         self.assertIn("COPY web/package-lock.json ./", prod_df)
         self.assertIn("lockfileVersion", prod_df)
-        self.assertIn('"--no-cache"', apps_py)
+        self.assertNotIn('"--no-cache"', apps_py)
+        self.assertIn('["docker", "build"', apps_py)
+        self.assertIn('["docker", "push"', apps_py)
         self.assertIn("--no-rebuild", apps_py)
         self.assertIn('if "--rebuild" in args', apps_py)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
@@ -309,6 +311,9 @@ class PlatformGodotPipeline(unittest.TestCase):
         root = APPS.parent
         self.assertTrue((root / "deploy" / "scripts" / "build-godot.sh").is_file())
         self.assertTrue((root / "deploy" / "scripts" / "export_web.py").is_file())
+        export_web = (root / "deploy" / "scripts" / "export_web.py").read_text()
+        self.assertIn("should_skip_platform_export", export_web)
+        self.assertIn("skip platform export", export_web)
         self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
         build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
         self.assertIn("--import --quit", build)
@@ -346,6 +351,40 @@ class HubImages(unittest.TestCase):
         ]
         listed = "harbor.50.internal.xz/library/server-yjh-dev1:aaa\n"
         self.assertEqual(missing_hub_refs(refs, listed), [refs[1]])
+
+    def test_hub_tag_ignores_godot_pack(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("plant-apps.py")
+        spec = importlib.util.spec_from_file_location("plant_apps_tag", path)
+        plant = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plant)
+        folder = APPS / "server-prod"
+        before = plant.hub_image_tag(folder)
+        pack = folder / "web" / "public" / "godot" / "dagul" / "index.pck"
+        pack.parent.mkdir(parents=True, exist_ok=True)
+        existed = pack.is_file()
+        previous = pack.read_bytes() if existed else None
+        pack.write_bytes(b"not-a-real-pack")
+        try:
+            self.assertEqual(before, plant.hub_image_tag(folder))
+        finally:
+            if existed and previous is not None:
+                pack.write_bytes(previous)
+            elif pack.is_file() and not existed:
+                pack.unlink()
+
+    def test_plant_formula_change_ships_all_hubs(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("ci-plan.py")
+        spec = importlib.util.spec_from_file_location("ci_plan_all", path)
+        plan = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plan)
+        picked, helm = plan.analyze("a", "b", False, changed=["deploy/scripts/plant-apps.py"])
+        self.assertTrue(helm)
+        self.assertIn("server-prod", picked)
+        self.assertIn("server-yjh-dev1", picked)
 
 
 class HubHealth(unittest.TestCase):

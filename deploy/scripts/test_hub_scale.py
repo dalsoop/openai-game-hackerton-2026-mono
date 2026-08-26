@@ -37,6 +37,7 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("/rooms", WEB)
 
     def test_prod_scale_values(self) -> None:
+        self.assertIn("imagePullPolicy: IfNotPresent", VALUES)
         self.assertIn("staticSplit: true", VALUES)
         self.assertIn('publicPrefix: "%s.external.kr/hubp"', VALUES)
         self.assertIn("- server-prod", VALUES)

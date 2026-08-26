@@ -2,6 +2,7 @@
 """Godot 웹 익스포트. apply-apps 는 이 모듈만 부른다."""
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 import shutil
@@ -126,8 +127,43 @@ def platform_web_pipeline(folder: str) -> bool:
     return str(web.get("pipeline", "")) == "platform"
 
 
+_SKIP_EXPORT_PARTS = {".godot", "web", "__pycache__"}
+_STAMP = ".export-src-hash"
+
+
+def project_source_hash(folder: str) -> str:
+    root = APPS / folder / "project"
+    digest = hashlib.sha256()
+    if not root.exists():
+        return "missing"
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if any(part in _SKIP_EXPORT_PARTS for part in path.parts):
+            continue
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+def should_skip_platform_export(folder: str) -> bool:
+    if os.environ.get("FORCE_GODOT_EXPORT") == "1":
+        return False
+    packs = list((APPS / folder / "web" / "public" / "godot").glob("*/index.pck"))
+    if not packs:
+        return False
+    stamp = APPS / folder / "web" / "public" / "godot" / _STAMP
+    try:
+        have = stamp.read_text().strip()
+    except OSError:
+        return False
+    return have == project_source_hash(folder)
+
+
 def export_platform_web(folder: str) -> None:
     """Next 슬롯: deploy/scripts/build-godot.sh → public/godot 복사."""
+    digest = project_source_hash(folder)
+    if should_skip_platform_export(folder):
+        print(f"skip platform export {folder} ({digest})")
+        return
     ensure_templates()
     godot = godot_bin()
     web = APPS / folder / "web"
@@ -147,6 +183,8 @@ def export_platform_web(folder: str) -> None:
         shell_file = APPS / folder / "project" / "custom_shell.html"
         shell = shell_file.read_text(errors="ignore") if shell_file.is_file() else None
         assert_export_html(folder, html.read_text(errors="ignore"), shell)
+    stamp = web / "public" / "godot" / _STAMP
+    stamp.write_text(digest + "\n")
     print(f"platform pack {folder}: " + ", ".join(p.parent.name for p in packs))
 
 

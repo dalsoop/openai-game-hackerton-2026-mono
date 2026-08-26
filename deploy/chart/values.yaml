@@ -4,7 +4,7 @@ env: ""
 nameOverride: ""
 fullnameOverride: ""
 
-imagePullPolicy: Never
+imagePullPolicy: IfNotPresent
 nodeSelector:
   kubernetes.io/hostname: k3s-prod
 
