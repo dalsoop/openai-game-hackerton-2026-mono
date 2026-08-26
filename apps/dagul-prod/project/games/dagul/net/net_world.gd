@@ -88,6 +88,7 @@ var _bullets_ready: bool = false
 var _fight_countdown_fired: bool = false
 var _applied_tick: int = -1
 var _server_events_active: bool = false
+var _snap_had_gun_fire: bool = false
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -141,6 +142,7 @@ func _reset_net_session() -> void:
     _fight_countdown_fired = false
     _applied_tick = -1
     _server_events_active = false
+    _snap_had_gun_fire = false
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
     var v: Variant = source.get(key)
@@ -165,15 +167,20 @@ func push_snap(snap: Dictionary) -> void:
         _seed_prediction(snap)
 
 func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
+    # 대기(카운트다운)·종료 중엔 서버가 입력을 무시한다 — 예측도 얼려서 유령 이동을 막는다.
+    if start_countdown > 0.0 or result != &"playing":
+        return _input_seq
     _input_seq += 1
     var mx := move.x
     var my := move.y
     _pending.append({"seq":_input_seq, "mx":mx, "my":my, "dash":dash, "aim":aim, "dt":dt})
     while _pending.size() > 90:
         _pending.pop_front()
-    if not _has_pred and not heroes.is_empty() and local_slot >= 0 and local_slot < heroes.size():
-        _pred_pos = Vector2(heroes[local_slot]["pos"])
-        _has_pred = true
+    if not _has_pred:
+        var seed := hero_at_slot(local_slot)
+        if not seed.is_empty():
+            _pred_pos = Vector2(seed["pos"])
+            _has_pred = true
     _step_pred(mx, my, dash, aim, dt)
     _overlay_prediction()
     return _input_seq
@@ -339,17 +346,20 @@ static func clamp_arena(pos: Vector2) -> Vector2:
         clampf(pos.y, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS)
     )
 
+func hero_at_slot(slot: int) -> Dictionary:
+    for hero in heroes:
+        if int(hero.get("slot", -1)) == slot:
+            return hero
+    return {}
+
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():
         return
-    if local_slot < 0 or local_slot >= heroes.size():
-        return
-    var me: Dictionary = heroes[local_slot]
-    if not bool(me.get("alive", true)):
+    var me := hero_at_slot(local_slot)
+    if me.is_empty() or not bool(me.get("alive", true)):
         return
     me["pos"] = _pred_pos
     me["aim"] = _pred_aim
-    heroes[local_slot] = me
 
 func apply(snap: Dictionary) -> void:
     apply_snap(snap)
@@ -404,9 +414,10 @@ func _derive_zone_target() -> void:
         safe_zone_target_radius = safe_zone_radius
 
 func _on_match_ended() -> void:
-    if winner_slot >= 0 and winner_slot < heroes.size():
-        decision_hp_ratio = clampf(float(heroes[winner_slot]["hp"]) / 100.0, 0.0, 1.0)
-        impact_pos = heroes[winner_slot]["pos"]
+    var winner := hero_at_slot(winner_slot)
+    if not winner.is_empty():
+        decision_hp_ratio = clampf(float(winner["hp"]) / 100.0, 0.0, 1.0)
+        impact_pos = winner["pos"]
     impact_ticks = 26
     event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
 
@@ -452,7 +463,7 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int, snap_per_sec: float)
 
 func _apply_bullets(list: Array, snap_per_sec: float) -> void:
     var next := NetSnapParser.parse_bullets(list, _prev_bullets, snap_per_sec)
-    if _bullets_ready and not _server_events_active:
+    if _bullets_ready and not _snap_had_gun_fire:
         _emit_inferred_gun_fire(next)
     _bullets_ready = true
     _prev_bullets = next.duplicate()
@@ -469,11 +480,15 @@ func _emit_inferred_gun_fire(next: Array) -> void:
         event_log.emit(tick, &"gun_fire", int(bullet.get("owner", -1)), -1, {"equipment": ""})
 
 func _ingest_events(snap: Dictionary) -> void:
+    _snap_had_gun_fire = false
     if not snap.has(SnapContract.EVENTS):
         return
     _server_events_active = true
     for ev in NetSnapParser.parse_events(snap.get(SnapContract.EVENTS, [])):
-        event_log.emit(int(ev["tick"]), StringName(ev["kind"]), int(ev["a"]), int(ev["b"]), ev["data"])
+        var kind := StringName(ev["kind"])
+        if kind == &"gun_fire":
+            _snap_had_gun_fire = true
+        event_log.emit(int(ev["tick"]), kind, int(ev["a"]), int(ev["b"]), ev["data"])
 
 func _replace_server_effects(snap: Dictionary) -> void:
     if not snap.has(SnapContract.EFFECTS):
@@ -529,18 +544,17 @@ func summary() -> Dictionary:
 
 func leaderboard() -> Array[Dictionary]:
     var rows: Array[Dictionary] = []
-    for slot in range(heroes.size()):
-        var hero: Dictionary = heroes[slot]
+    for hero in heroes:
+        var slot := int(hero.get("slot", -1))
         rows.append({"slot":slot, "score":float(hero["score"]), "kills":int(hero["kills"]), "deaths":int(hero["deaths"]), "streak":int(hero.get("kill_streak", 0)), "best_streak":int(hero.get("best_kill_streak", 0)), "eliminations":int(hero["eliminations"]), "damage":0.0, "core_damage":0.0})
     rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) > float(b["score"]))
     return rows
 
 func final_standings() -> Array[Dictionary]:
     var rows: Array[Dictionary] = []
-    for slot in range(heroes.size()):
-        var hero: Dictionary = heroes[slot]
+    for hero in heroes:
         rows.append({
-            "slot":slot,
+            "slot":int(hero.get("slot", -1)),
             "hp_ratio":clampf(float(hero["hp"]) / 100.0, 0.0, 1.0),
             "core_ratio":0.0,
             "score":float(hero["score"]),

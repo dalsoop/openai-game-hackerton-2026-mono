@@ -119,6 +119,7 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 	}, _ctx)
 	gs.request(GameStateScript.State.PLAYING)
 	_apply_playing_visuals(true)
+	_notify_match_loaded()
 	if settings != null:
 		if settings.has_method("select_mode"):
 			settings.select_mode(SettingsStoreScript.load_control_mode())
@@ -156,6 +157,11 @@ func _emit_play_probe(delta: float) -> void:
 		x, y,
 	]
 	JavaScriptBridge.eval(js)
+
+func _notify_match_loaded() -> void:
+	if hub != null and hub.has_method("send_ready"):
+		hub.send_ready()
+
 
 func _leave_match() -> void:
 	var gs := _game_state()

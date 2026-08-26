@@ -4,7 +4,7 @@ import {
   packWantedSnap, packZonesSnap, snapDeployables,
   type MatchSim, type SimBullet, type SimHero,
 } from "./match-sim.js";
-import { packEffects, type EffectStore } from "./match-effects.js";
+import { packEffects } from "./match-effects.js";
 
 export type SnapEvent = {
   t: number;
@@ -65,6 +65,9 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "launchVY", h.launchVel.y);
   putOmit(out, "charging", h.chargingSkill);
   putOmit(out, "chargeT", h.chargeTime);
+  putOmit(out, "heldItem", h.heldItem);
+  putOmit(out, "springT", h.springTime);
+  putOmit(out, "slideT", h.slideTime);
   putOmit(out, "dmgOrbT", h.dmgOrbTime);
   putOmit(out, "downTaken", h.downTaken);
   putOmit(out, "woolT", h.woolTime);
@@ -73,7 +76,7 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "rouT", h.rouletteTime);
   putOmit(out, "rouRank", h.rouletteRank);
   putOmit(out, "rouPhase", h.roulettePhase);
-  putOmit(out, "rouSpin", h.rouletteSpinId);
+  putOmit(out, "rouSpin", String(h.rouletteSpinId));
   putOmit(out, "rouLabel", h.rouletteLabel);
   putOmit(out, "rlTimed", h.rlTimed);
   putOmit(out, "ultClones", h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
@@ -157,6 +160,10 @@ export function packAuthoritySnap(
     finish_cine: packFinishCine(sim.finishCine),
     callout: sim.callout,
     calloutTicks: sim.calloutTicks,
+    streakCallout: sim.streakState.streakCallout,
+    streakSubtitle: sim.streakState.streakSubtitle,
+    streakCalloutTicks: sim.streakState.streakCalloutTicks,
+    streakCalloutShutdown: sim.streakState.streakCalloutShutdown,
     wantedSlot: wanted.wantedSlot,
     cores: packCoresSnap(sim.cores),
     crates: packCratesSnap(sim.crates),
@@ -171,7 +178,7 @@ export function packAuthoritySnap(
     knockouts,
     loot,
     events,
+    effects: packEffects(sim.effects),
   };
-  putOmit(snap, "effects", packEffects((sim as MatchSim & { effects?: EffectStore }).effects));
   return snap;
 }

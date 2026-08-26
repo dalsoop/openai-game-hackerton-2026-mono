@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Server } from "colyseus";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
-import { MSG, KO } from "@/lib/hub/config";
+import { MSG, KO, HUB_CONFIG } from "@/lib/hub/config";
 import { parseStartPayload } from "@/lib/hub/start-payload";
 import { nowUnixSec } from "@/lib/hub/lobby-idle";
 
@@ -62,6 +62,10 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.hostSessionId).toBe(host.sessionId);
     expect(room.state.hostSessionId).not.toBe(guest.sessionId);
     // docs.colyseus.io/tools/unit-testing — 패치 이후 클라 상태는 서버와 같다.
+    // 게스트 첫 패치는 룸 waitForNextPatch 한 번으로 안 올 수 있다(스키마 패치가 큼).
+    for (let i = 0; i < 20 && guest.state.players.length < 2; i += 1) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     expect(host.state.toJSON()).toEqual(room.state.toJSON());
     expect(guest.state.toJSON()).toEqual(room.state.toJSON());
   });
@@ -89,6 +93,7 @@ describe("LobbyRoom 규칙", () => {
 
     expect(String(room.state.phase)).toBe("playing");
     expect(Number(room.state.seed)).toBeGreaterThan(0);
+    expect(room.state.loadHeld).toBe(true);
   });
 
   it("호스트 시작 — START 본문은 StartPayload 계약과 맞는다", async () => {
@@ -389,10 +394,29 @@ function lastAuthSnap(room: LobbyRoom): AuthSnap {
   return (room as unknown as { bag: { lastSnap: AuthSnap | null } }).bag.lastSnap ?? {};
 }
 
+function roomClock(room: LobbyRoom): { held: boolean; countdown: number } {
+  const bag = (room as unknown as {
+    bag: { authority: { sim: { countdownHeld: boolean; countdown: number } } | null };
+  }).bag;
+  return {
+    held: bag.authority?.sim.countdownHeld ?? false,
+    countdown: bag.authority?.sim.countdown ?? -1,
+  };
+}
+
 /** MAX_STEPS=4 라 dt 한 번에 카운트다운 3초를 못 깎는다. 권위 틱을 여러 번 돌린다. */
 function playOut(room: LobbyRoom): AuthSnap {
   for (let i = 0; i < 80; i += 1) {room.stepSim(50);}
   return lastAuthSnap(room);
+}
+
+async function waitMatchReady(
+  room: LobbyRoom,
+  ...clients: Array<{ send: (type: string, payload?: unknown) => void }>
+): Promise<void> {
+  for (const c of clients) {c.send(MSG.READY, {});}
+  await room.waitForNextPatch();
+  room.stepSim(16);
 }
 
 function snapPlayer(raw: AuthSnap, slot: number): { x: number; ack: number } | undefined {
@@ -419,11 +443,12 @@ describe("허브 권위 매치", () => {
   it("호스트 input 도 권위에 들어가고 스냅에 반영된다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
-    await colyseus.connectTo(room, { name: "게스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
     const boot = (await first) as AuthSnap;
     const x0 = snapPlayer(boot, 0)?.x ?? 0;
+    await waitMatchReady(room, host, guest);
     expect(room.pushTestInput(host.sessionId, {
       mx: 1, my: 0, seq: 11, aimX: x0 + 80, aimY: 2380,
     })).toBe(true);
@@ -439,6 +464,7 @@ describe("허브 권위 매치", () => {
     const bootSnap = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
     await bootSnap;
+    await waitMatchReady(room, host, guest);
     expect(room.pushTestInput(host.sessionId, { mx: 1, my: 0, seq: 1 })).toBe(true);
     playOut(room);
     expect(room.pushTestInput(guest.sessionId, {
@@ -459,10 +485,11 @@ describe("허브 권위 매치", () => {
   it("클라 INPUT 메시지가 권위 ack 에 남는다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
-    await colyseus.connectTo(room, { name: "게스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
     await first;
+    await waitMatchReady(room, host, guest);
     host.send(MSG.INPUT, { mx: 1, my: 0, seq: 5, aimX: 4000, aimY: 2380 });
     await new Promise((r) => setTimeout(r, 40));
     expect(snapPlayer(playOut(room), 0)?.ack).toBe(5);
@@ -478,6 +505,7 @@ describe("허브 권위 매치", () => {
     (room as unknown as { removeSeat: (id: string) => void }).removeSeat(host.sessionId);
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
+    await waitMatchReady(room, guest);
     expect(room.pushTestInput(guest.sessionId, { mx: 1, my: 0, seq: 8 })).toBe(true);
     expect(snapPlayer(playOut(room), 1)?.ack).toBe(8);
   });
@@ -569,11 +597,118 @@ describe("엔진 보조 세션", () => {
     const x0 = snapPlayer((await first) as AuthSnap, 0)?.x ?? 0;
     const engine = await colyseus.connectTo(room, { engine: true, guestId: 123456, guestKey: KEY_A });
     await room.waitForNextPatch();
+    await waitMatchReady(room, host);
     engine.send(MSG.INPUT, { mx: 1, my: 0, seq: 21, aimX: x0 + 80, aimY: 2380 });
     await new Promise((r) => setTimeout(r, 40));
     const me = snapPlayer(playOut(room), 0);
     expect(me?.ack).toBe(21);
     expect(me?.x ?? 0).toBeGreaterThan(x0 + 5);
+  });
+});
+
+describe("LobbyRoom 인게임 로딩 장벽", () => {
+  it("한 명만 ready 면 카운트다운을 깎지 않고, 입력이 와도 풀리지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(true);
+    expect(roomClock(room).countdown).toBe(3);
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    host.send(MSG.INPUT, { mx: 1, my: 0, seq: 1 });
+    room.stepSim(200);
+    expect(roomClock(room).held).toBe(true);
+    expect(roomClock(room).countdown).toBe(3);
+    expect(room.state.players.find((p) => p.sessionId === host.sessionId)?.matchReady).toBe(true);
+    expect(room.state.players.find((p) => p.sessionId === guest.sessionId)?.matchReady).toBe(false);
+  });
+
+  it("마지막 ready 직후 시뮬 틱 없이 장벽이 열린다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    guest.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(false);
+    expect(room.state.loadHeld).toBe(false);
+  });
+
+  it("같은 세션 재접속은 이미 보낸 ready 를 지우지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    expect(room.state.players.find((p) => p.sessionId === host.sessionId)?.matchReady).toBe(true);
+    const seated = room.clients.find((c) => c.sessionId === host.sessionId);
+    expect(seated).toBeDefined();
+    if (seated) {room.onReconnect(seated);}
+    expect(room.state.players.find((p) => p.sessionId === host.sessionId)?.matchReady).toBe(true);
+  });
+
+  it("접속 좌석이 모두 ready 면 카운트다운이 같이 깎인다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    await waitMatchReady(room, host, guest);
+    expect(roomClock(room).held).toBe(false);
+    expect(room.state.loadHeld).toBe(false);
+    room.stepSim(500);
+    expect(roomClock(room).countdown).toBeLessThan(3);
+  });
+
+  it("유예 중 단절만으로는 카운트다운을 풀지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    const parked = room.state.players.find((p) => p.sessionId === guest.sessionId);
+    expect(parked).toBeDefined();
+    if (parked) {parked.connected = false;}
+    room.stepSim(16);
+    expect(roomClock(room).held).toBe(true);
+    expect(room.state.players).toHaveLength(2);
+  });
+
+  it("ready 안 된 좌석이 빠지면 남은 접속자만으로 푼다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    (room as unknown as { removeSeat: (id: string) => void }).removeSeat(guest.sessionId);
+    await room.waitForNextPatch();
+    room.stepSim(16);
+    expect(roomClock(room).held).toBe(false);
+  });
+
+  it("로비 단계 ready 는 버리고, 타임아웃이면 강제 해제한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.READY, {});
+    await new Promise((r) => setTimeout(r, 30));
+    expect(room.state.players[0].matchReady).toBe(false);
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(true);
+    room.stepSim(HUB_CONFIG.loadReadyTimeoutMs);
+    expect(roomClock(room).held).toBe(false);
+    expect(room.state.loadHeld).toBe(false);
   });
 });
 

@@ -4,7 +4,9 @@ import {
   ARENA_SIZE,
   CPU_RANGE_SLACK,
   CPU_TARGET_RANGE,
+  DOWN_FINISH_HP,
   FIRE_INTERVAL,
+  KILL_ULT_GAIN,
   MATCH_DMG_TIME_CAP,
   MATCH_DMG_TIME_SPAN,
   MATCH_DMG_TIME_START,
@@ -18,6 +20,7 @@ import {
   spawnPoint,
 } from "@/lib/hub/match-sim";
 import { hopLift, muzzleWorldPos, RADIUS_FIRE_MUL } from "@/lib/hub/match-gun";
+import { makeEquipment } from "@/lib/hub/match-equipment";
 import { SHOVE_BASE, SHOVE_KB_MUL, SHOVE_MAX } from "@/lib/hub/match-launch";
 import { idForBind, matchBindKey } from "@/lib/characters";
 import type { SimBullet } from "@/lib/hub/match-sim";
@@ -353,5 +356,102 @@ describe("총알 정합 W9", () => {
     expect(b.hp).toBeCloseTo(hpB - 20, 5);
     expect(near.hp).toBeCloseTo(hpN - 20 * PROJECTILE_SPLASH_MUL, 5);
     expect(a.hp).toBeCloseTo(40 + 20 * PROJECTILE_LEECH_MUL, 5);
+  });
+
+  it("피격은 hit_spark, 회피는 afterimage 이펙트를 남긴다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    sim.countdownHeld = false;
+    const victim = sim.heroes.get(1);
+    expect(victim).toBeTruthy();
+    if (!victim) {return;}
+    victim.spawnProtect = 0;
+    const hitter = sim as unknown as {
+      hurtHero(owner: number, v: typeof victim, amount: number): void;
+    };
+    hitter.hurtHero(0, victim, 10);
+    expect(sim.effects.items.some((e) => e.kind === "hit_spark")).toBe(true);
+    victim.evadeTime = 0.2;
+    hitter.hurtHero(0, victim, 10);
+    expect(sim.effects.items.some((e) => e.kind === "afterimage")).toBe(true);
+  });
+
+});
+
+describe("W14 전투 파이프라인", () => {
+  it("장비 존 피해도 시간 스케일·콤보 파이프라인을 탄다", () => {
+    const { sim, a, b } = openPair();
+    sim.matchTime = 100;
+    const hp = b.hp;
+    sim.zones.push({
+      x: b.x, y: b.y, radius: 80, owner: a.slot, delay: 0.01,
+      damage: 10, effectKind: "shockwave", label: "CRASH ENTRY",
+    });
+    sim.step(1 / 60);
+    expect(b.hp).toBeCloseTo(hp - 10 * matchTimeDamageScale(sim.matchTime), 5);
+    expect(b.comboHits).toBe(1);
+  });
+
+  it("탄 ccTime 은 root/stun 을 걸고 이펙트를 남긴다", () => {
+    const { sim, a, b } = openPair();
+    injectBullet(sim, {
+      x: b.x, y: b.y, owner: a.slot, damage: 1, radius: 80, ccTime: 0.4,
+    });
+    sim.step(1 / 60);
+    expect(b.ccTime).toBeGreaterThanOrEqual(0.4 - 1 / 60);
+    sim.zones.push({
+      x: b.x, y: b.y, radius: 80, owner: a.slot, delay: 0.01,
+      damage: 1, effectKind: "chain_arc", label: "CHAIN LOCK",
+      ccTime: 0.5, controlKind: "root",
+    });
+    sim.step(1 / 60);
+    expect(b.rootTime).toBeGreaterThan(0);
+    expect(sim.effects.items.some((e) => e.kind === "chain_bind")).toBe(true);
+  });
+
+  it("킬 보상은 ult+35·bounty+12·eliminations 와 룰렛을 실제로 호출한다", () => {
+    const { sim, a, b } = openPair();
+    b.alive = true;
+    b.downed = true;
+    b.downLeft = 5;
+    b.hp = 0;
+    b.downTaken = DOWN_FINISH_HP - 1;
+    b.spawnProtect = 0;
+    const beforeUlt = a.ultimateCharge;
+    const beforeBounty = a.bounty;
+    injectBullet(sim, { x: b.x, y: b.y, owner: a.slot, damage: 20, radius: 80 });
+    sim.step(1 / 60);
+    expect(b.alive).toBe(false);
+    expect(a.ultimateCharge).toBeGreaterThanOrEqual(beforeUlt + KILL_ULT_GAIN);
+    expect(a.bounty).toBeCloseTo(beforeBounty + 12, 1);
+    expect(a.eliminations).toBe(1);
+    expect(a.roulettePhase !== "" || a.rouletteQueue.length > 0).toBe(true);
+  });
+
+  it("세미는 fire 홀드만으로 연사하지 않고, 서버 fireHeld 엣지로 한 발만 나간다", () => {
+    const { sim, a } = openPair();
+    a.equipment = makeEquipment("brawler");
+    a.mag = a.equipment.magSize;
+    sim.pushInput(0, { fire: true, aimX: a.x + 200, aimY: a.y, seq: 1 });
+    sim.step(1 / 60);
+    expect(sim.bullets.size).toBe(1);
+    a.fireCd = 0;
+    sim.step(1 / 60);
+    expect(sim.bullets.size).toBe(1);
+  });
+
+  it("다운에서만 넉아웃 1회, 확인사살에서 중복하지 않는다", () => {
+    const { sim, a, b } = openPair();
+    b.hp = 1;
+    injectBullet(sim, { x: b.x, y: b.y, owner: a.slot, damage: 50, radius: 80 });
+    sim.step(1 / 60);
+    expect(b.downed).toBe(true);
+    expect(sim.knockouts.length).toBe(1);
+    b.downTaken = DOWN_FINISH_HP - 1;
+    b.downLeft = 5;
+    injectBullet(sim, { x: b.x, y: b.y, owner: a.slot, damage: 20, radius: 80 });
+    sim.step(1 / 60);
+    expect(b.alive).toBe(false);
+    expect(sim.knockouts.length).toBe(1);
   });
 });

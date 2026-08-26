@@ -56,6 +56,8 @@ export interface UseHubResult {
   rooms: HubRoom[];
   players: Seat[];
   you: number;
+  /** 인게임 로딩 장벽. 전원 ready 또는 타임아웃이면 false. */
+  loadHeld: boolean;
   roomId: string;
   isHost: boolean;
   /** 방장의 문 — 닫힌 방은 입장 불가 (닫는 순간 재실자 강퇴) */

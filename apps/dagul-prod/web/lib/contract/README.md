@@ -4,6 +4,8 @@
 
 동접 상한은 허브 WebSocket 개수이다. 방은 최대 8명이고, 시뮬은 허브 룸이 둔다. 모든 Godot 클라가 입력을 보내고 스냅을 보간한다.
 
+멀티 시작은 Colyseus Lobby `ready` 패턴이다. 호스트 `start` 뒤에도 카운트다운을 깎지 않고, 접속 중인 좌석이 전부 `ready`(인게임 모듈 로드 완료)를 보낸 뒤에만 같이 3초를 센다.
+
 동접 숫자의 정본은 [`HUB_CONFIG`](../hub/config.ts)이다. 차트 `hub.scale.maxReplicas`는 `ceil(targetCcu / perProcessCcu)`와 같고, 평소 복제는 1대이며 HPA가 그 상한까지만 올린다. 차트에 목표 동접을 다시 적지 않는다.
 
 자리 예약은 Redis Presence와 Driver가 한다. 스냅 본문은 Redis에 넣지 않는다. WASM과 pck는 `hub-static`이 맡고, 게임 프로세스는 소켓만 맡는다. `/hubp` 핀은 이 계약 밖이다.

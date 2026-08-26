@@ -8,7 +8,9 @@ export function overlayOwnPackPct(seats: readonly Seat[], you: number, ownPackPc
     if (s.slot !== you) {return s;}
     const pct = Math.max(s.packPct, mine);
     if (pct === s.packPct) {return s;}
-    return new Seat(s.slot, s.playerId, s.name, s.isHost, s.connected, pct, s.characterId);
+    return new Seat(
+      s.slot, s.playerId, s.name, s.isHost, s.connected, pct, s.characterId, s.matchReady,
+    );
   });
 }
 

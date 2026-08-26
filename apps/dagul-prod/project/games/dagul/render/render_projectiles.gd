@@ -318,9 +318,7 @@ func _draw_mobility_effect(effect: Dictionary, effect_color: Color, ratio: float
 		r.draw_set_transform(start_pos, 0.0, Vector2.ONE)
 		r.draw_texture_rect_region(r.dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size),r._horizontal_fx_src_rect(r.dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha))
 		r.draw_texture_rect_region(r.dash_departure_atlas, Rect2(-departure_size * 0.5, departure_size),r._horizontal_fx_src_rect(r.dash_departure_atlas, 4, mobility_frame), Color(effect_color, mobility_alpha * 0.65))
-	var follow_slot := int(effect.get("follow_slot", -1))
-	if follow_slot >= 0 and follow_slot < world.heroes.size():
-		effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+	effect_pos = _followed_hero_pos(int(effect.get("follow_slot", -1)), effect_pos)
 	if effect_label_str == "SIGHTLINE STEP":
 		effect_pos += direction * 58.0
 	var mobility_angle := direction.angle() + (PI if effect_label_str == "SHADOW SHEATH" else 0.0)
@@ -328,6 +326,20 @@ func _draw_mobility_effect(effect: Dictionary, effect_color: Color, ratio: float
 	r.draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size),r._horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha))
 	r.draw_texture_rect_region(mobility_texture, Rect2(-mobility_size * 0.5, mobility_size),r._horizontal_fx_src_rect(mobility_texture, 4, mobility_frame), Color(1.0, 1.0, 1.0, mobility_alpha * 0.65))
 	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _followed_hero_pos(follow_slot: int, fallback: Vector2) -> Vector2:
+	if follow_slot < 0:
+		return fallback
+	if world.has_method("hero_at_slot"):
+		var followed: Dictionary = world.hero_at_slot(follow_slot)
+		if not followed.is_empty():
+			return Vector2(followed.get("pos", fallback))
+		return fallback
+	for hero in world.heroes:
+		if int(hero.get("slot", -1)) != follow_slot:
+			continue
+		return Vector2(hero.get("pos", fallback))
+	return fallback
 
 func _draw_effect_kind(effect: Dictionary, effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
 	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"explosion", &"drain", &"shockwave"]:

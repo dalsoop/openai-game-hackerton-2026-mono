@@ -8,7 +8,7 @@ import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
 import { HANDOFF, MSG } from "@/lib/contract";
 import { type RosterSnapshot } from "@/lib/domain/roster";
-import { waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
+import { lobbyFieldsOf, waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useRoomIdle } from "@/hooks/useRoomIdle";
@@ -35,15 +35,7 @@ function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): 
 
 /** 로비 UI 가 쓰는 필드만. heroes·bullets·matchTick 은 구독하지 않는다. */
 function lobbyRosterFields(s: RosterSnapshot): RosterSnapshot {
-  return {
-    gameId: s.gameId,
-    open: s.open,
-    createdAtMs: s.createdAtMs,
-    idleUntilSec: s.idleUntilSec,
-    phase: s.phase,
-    hostSessionId: s.hostSessionId,
-    players: s.players,
-  };
+  return lobbyFieldsOf(s);
 }
 
 function useHubExternalErrors(
@@ -156,6 +148,7 @@ export function useHub(): UseHubResult {
     gameId: derived?.gameId ?? "",
     players: derived?.players ?? [],
     you: derived?.you ?? -1,
+    loadHeld: derived?.loadHeld ?? false,
     roomId: derived?.roomId ?? "",
     isHost: derived?.isHost ?? false,
     roomOpen: derived?.open ?? true,

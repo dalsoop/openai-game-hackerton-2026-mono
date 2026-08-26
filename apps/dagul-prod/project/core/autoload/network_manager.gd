@@ -32,9 +32,15 @@ var match_running := false  # lint-gd: public-api
 var is_host := false  # lint-gd: public-api
 var rtt_ms: int = 0  # lint-gd: public-api
 var resume_token := ""  # lint-gd: public-api
+var match_ready := false  # lint-gd: public-api
+var load_held := false  # lint-gd: public-api
 
 var _last_phase := ""
 var _to_engine_cb = null
+var _ready_repeat := false
+var _ready_sent := false
+var _ready_acc := 0.0
+const READY_RETRY_SEC := 0.5  # lint-gd: public-api
 
 func _ready() -> void:
     var hub_name := get_hub_name()
@@ -101,6 +107,10 @@ func consume_pending_match() -> void:  # lint-gd: public-api
 
 func _apply_start(msg: Dictionary) -> void:
     match_running = true
+    match_ready = false
+    load_held = true
+    _ready_sent = false
+    _ready_repeat = false
     in_room = true
     you = int(msg.get("you", you))
     is_host = bool(msg.get("host", false))
@@ -133,6 +143,13 @@ func _sync_state(state: Variant) -> void:
         else:
             is_host = next_host
     var raw_players: Array = state.get("players") if state.get("players") is Array else []
+    match_ready = _own_match_ready(raw_players, my_sid)
+    if phase == "playing" and state.has("loadHeld"):
+        load_held = bool(state.get("loadHeld", false))
+    if match_running and load_held and not match_ready and _ready_sent:
+        _ready_repeat = true
+    elif match_ready or (phase == "playing" and not load_held):
+        _ready_repeat = false
     var next_players: Array = SeatCodec.from_state(raw_players)
     for ev in SeatCodec.diff_dropped(players, next_players):
         if ev.get("kind") == "parked":
@@ -142,8 +159,23 @@ func _sync_state(state: Variant) -> void:
     players = next_players
     if HubStateSync.match_ended(_last_phase, phase):
         match_running = false
+        _ready_repeat = false
+        _ready_sent = false
+        match_ready = false
+        load_held = false
         joined_room.emit(room, players, you)
     _last_phase = HubStateSync.next_phase(_last_phase, phase)
+
+func _own_match_ready(raw_players: Array, my_sid: String) -> bool:
+    if my_sid == "":
+        return false
+    for p in raw_players:
+        if not p is Dictionary:
+            continue
+        if str(p.get("sessionId", "")) != my_sid:
+            continue
+        return bool(p.get("matchReady", false))
+    return false
 
 ## 오토로드는 바 식별자 파스가 안 된다(파스 게이트) — /root 조회가 정본.
 func _engine_socket() -> Node:
@@ -162,7 +194,32 @@ func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
         return
     _send(WebContract.MSG_INPUT, msg)
 
+## 인게임 모듈 로드가 끝난 뒤에만 보낸다. 엔진 소켓이 살아도 좌석은 React 세션이라 브릿지로 간다.
+func send_ready() -> void:  # lint-gd: public-api
+    match_ready = false
+    load_held = true
+    _ready_sent = true
+    _ready_repeat = true
+    _ready_acc = 0.0
+    _send(WebContract.MSG_READY, {})
+
+func _process(delta: float) -> void:
+    if not _ready_repeat:
+        return
+    if match_ready or not match_running or not load_held:
+        _ready_repeat = false
+        return
+    _ready_acc += delta
+    if _ready_acc < READY_RETRY_SEC:
+        return
+    _ready_acc = 0.0
+    _send(WebContract.MSG_READY, {})
+
 func leave_room() -> void:  # lint-gd: public-api
+    _ready_repeat = false
+    _ready_sent = false
+    match_ready = false
+    load_held = false
     _send(WebContract.MSG_LEAVE, {})
     in_room = false
     match_running = false

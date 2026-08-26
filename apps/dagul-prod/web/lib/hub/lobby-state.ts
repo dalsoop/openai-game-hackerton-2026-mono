@@ -10,6 +10,7 @@ export class PlayerSchema extends Schema {
   @type("boolean") connected = true;
   @type("uint8") packPct = 0;
   @type("string") characterId = asCharacterId(undefined);
+  @type("boolean") matchReady = false;
 }
 
 /** 인게임 히어로 — id 는 Map 키(slot 문자열). 서버만 변이한다. */
@@ -56,4 +57,6 @@ export class LobbyState extends Schema {
   @type({ map: BulletSchema }) bullets = new MapSchema<BulletSchema>();
   /** 엔진 세션용 매치 델타. 기존 heroes/bullets JSON SNAP 과 병행한다. */
   @type(MatchStateSchema) match = new MatchStateSchema();
+  /** 인게임 로딩 장벽. 전원 ready 또는 타임아웃이면 false. */
+  @type("boolean") loadHeld = false;
 }

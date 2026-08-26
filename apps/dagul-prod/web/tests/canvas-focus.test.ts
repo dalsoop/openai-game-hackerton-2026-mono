@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bindCanvasKeyboardFocus, grabCanvasKeyboard } from "@/lib/godot/canvas-focus";
+import { bindCanvasKeyboardFocus, grabCanvasKeyboard, lockPlayViewport } from "@/lib/godot/canvas-focus";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -56,5 +56,18 @@ describe("bindCanvasKeyboardFocus", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(canvas.focus).not.toHaveBeenCalled();
     stop();
+  });
+});
+
+describe("lockPlayViewport", () => {
+  it("html·body overflow 를 hidden 으로 잠그고 해제 시 되돌린다", () => {
+    document.documentElement.style.overflow = "auto";
+    document.body.style.overflow = "scroll";
+    const unlock = lockPlayViewport();
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.body.style.overflow).toBe("hidden");
+    unlock();
+    expect(document.documentElement.style.overflow).toBe("auto");
+    expect(document.body.style.overflow).toBe("scroll");
   });
 });

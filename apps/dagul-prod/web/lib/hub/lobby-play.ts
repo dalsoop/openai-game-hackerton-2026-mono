@@ -1,6 +1,7 @@
 import type { Client } from "colyseus";
 import { HUB_CONFIG } from "./config.js";
 import { MSG } from "../contract/wire.js";
+import { shouldHoldCountdown } from "../domain/match-load-ready.js";
 import { matchJustEnded } from "./lobby-relay.js";
 import { resetToLobby, type LobbyBag, type LobbyHandle } from "./lobby-waiting.js";
 import {
@@ -45,6 +46,7 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   if (room.state.phase !== "playing" || !bag.authority) {return;}
+  releaseLoadBarrier(room, bag, dtMs);
   const { snap, events } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
   writeMatchState(
     room.state.match, bag.authority.sim, bag.authority.names, room.state.mode, events,
@@ -76,6 +78,21 @@ function sendTickSnap(room: LobbyHandle, snap: Record<string, unknown>): void {
   for (const client of targets) {
     client.send(MSG.SNAP, snap);
   }
+}
+
+/** READY 직후 틱을 기다리지 않고 장벽을 연다. dtMs=0 이면 대기 시각은 늘리지 않는다. */
+export function tryReleaseLoadBarrier(room: LobbyHandle, bag: LobbyBag): void {
+  releaseLoadBarrier(room, bag, 0);
+}
+
+function releaseLoadBarrier(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
+  const sim = bag.authority?.sim;
+  if (!sim || !sim.countdownHeld) {return;}
+  bag.loadWaitMs += Math.max(0, dtMs);
+  const seats = [...room.state.players].map((p) => ({ matchReady: p.matchReady }));
+  if (shouldHoldCountdown(seats, bag.loadWaitMs, HUB_CONFIG.loadReadyTimeoutMs)) {return;}
+  sim.countdownHeld = false;
+  room.state.loadHeld = false;
 }
 
 /** 결과 스냅을 먼저 뿌리고, 전원 같은 시각에 대기실로 돌린다. */

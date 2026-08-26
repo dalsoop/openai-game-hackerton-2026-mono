@@ -3,6 +3,7 @@ import {
   DOWN_BLEED_TIME, DOWN_MOVE_MULT, MAX_REVIVES, RESPAWN_BASE, RESPAWN_MAX, RESPAWN_RANK_STEP,
   SPAWN_PROTECT_RESPAWN, SPAWN_PROTECT_STAND_UP, STAND_UP_HP_RATIO,
   applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns,
+  type DownCombatHero,
 } from "@/lib/hub/match-life";
 import type { LifeHero } from "@/lib/hub/match-life";
 import { ARENA_CENTER, buildTiledCovers } from "@/lib/hub/match-covers";
@@ -78,6 +79,35 @@ describe("다운·확인사살", () => {
 });
 
 describe("부활 소진·eliminated", () => {
+  it("downHero 는 룰렛·차지·런치·분신을 지운다", () => {
+    const h = hero(0) as DownCombatHero;
+    h.chargingSkill = true;
+    h.chargeTime = 0.8;
+    h.launchTime = 0.4;
+    h.launchVel = { x: 12, y: 3 };
+    h.ultClones = [{ x: 1 }];
+    h.ultCloneTime = 1.2;
+    h.baseMaxHp = 176;
+    h.rlUntil = { atk: 4, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
+    h.rlTimed = [];
+    h.rouletteTime = 0.5;
+    h.rouletteLabel = "KILL BONUS!";
+    h.rouletteRank = "kill";
+    h.roulettePhase = "spin";
+    h.roulettePending = {};
+    h.rouletteQueue = [];
+    h.rouletteFaces = [];
+    downHero(new Map([[0, h]]), -1, h);
+    expect(h.chargingSkill).toBe(false);
+    expect(h.chargeTime).toBe(0);
+    expect(h.launchTime).toBe(0);
+    expect(h.launchVel).toEqual({ x: 0, y: 0 });
+    expect(h.ultClones).toEqual([]);
+    expect(h.ultCloneTime).toBe(0);
+    expect(h.rlUntil.atk).toBe(0);
+    expect(h.roulettePhase).toBe("");
+  });
+
   it("리바이브 3회 소진 뒤 네 번째 사망에서 영구 탈락", () => {
     const h = hero(0);
     const map = new Map([[0, h]]);

@@ -17,11 +17,16 @@ func run(t) -> void:
 	_local_fire_shake_decays(t)
 	_new_snap_bullet_emits_gun_fire(t)
 	_interp_velocity_matches_tick_span(t)
+	_prediction_freezes_in_countdown(t)
 	_same_snap_present_skips_reapply(t)
 	_events_snap_gun_fire_once(t)
-	_events_snap_skips_bullet_infer(t)
+	_empty_events_still_infer_gun_fire(t)
+	_events_and_bullet_do_not_double(t)
 	_legacy_snap_still_infers_gun_fire(t)
 	_effects_keep_local_prefix(t)
+	_effects_missing_key_keeps_existing(t)
+	_effects_empty_array_clears_non_local(t)
+	_slot_not_array_index(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -160,6 +165,30 @@ func _same_snap_present_skips_reapply(t) -> void:
 	t.check("같은 스냅 재present 는 이벤트 로그를 늘리지 않는다", nw.event_log.events.size() == events_after_apply)
 
 
+func _wire_bullet(id: int) -> Dictionary:
+	return {
+		SnapContract.B_ID: id,
+		SnapContract.B_X: 4000.0, SnapContract.B_Y: 2380.0,
+		SnapContract.B_VX: 900.0, SnapContract.B_VY: 0.0,
+		SnapContract.B_OWNER: 0,
+	}
+
+func _world_after_new_bullet(second_events: Array):
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var first := _center_snap(3920.0, 2380.0, 176.0, 18, 18)
+	first[SnapContract.EVENTS] = []
+	first[SnapContract.BULLETS] = []
+	nw.push_snap(first)
+	nw.present(1.0 / 60.0)
+	var second := first.duplicate(true)
+	second[SnapContract.TICK] = 13
+	second[SnapContract.EVENTS] = second_events
+	second[SnapContract.BULLETS] = [_wire_bullet(4)]
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	return nw
+
 func _gun_fire_count(nw) -> int:
 	var n := 0
 	for ev in nw.event_log.events:
@@ -201,26 +230,17 @@ func _events_snap_gun_fire_once(t) -> void:
 	t.check("events 스냅 gun_fire 는 1회", _gun_fire_count(nw) == 1)
 	t.check("서버 gun_fire equipment 를 유지한다", _gun_fire_equipment(nw) == "glock")
 
-func _events_snap_skips_bullet_infer(t) -> void:
-	var nw = NetWorldScript.new()
-	nw.local_slot = 0
-	var first := _center_snap(3920.0, 2380.0, 176.0, 18, 18)
-	first[SnapContract.EVENTS] = []
-	first[SnapContract.BULLETS] = []
-	nw.push_snap(first)
-	nw.present(1.0 / 60.0)
-	var second := first.duplicate(true)
-	second[SnapContract.TICK] = 13
-	second[SnapContract.EVENTS] = []
-	second[SnapContract.BULLETS] = [{
-		SnapContract.B_ID: 4,
-		SnapContract.B_X: 4000.0, SnapContract.B_Y: 2380.0,
-		SnapContract.B_VX: 900.0, SnapContract.B_VY: 0.0,
-		SnapContract.B_OWNER: 0,
-	}]
-	nw.push_snap(second)
-	nw.present(1.0 / 60.0)
-	t.check("events 채널이면 신규 탄 역추정 gun_fire 가 없다", _gun_fire_count(nw) == 0)
+func _empty_events_still_infer_gun_fire(t) -> void:
+	var nw = _world_after_new_bullet([])
+	t.check("events 가 비면 신규 탄으로 gun_fire 를 역추정한다", _gun_fire_count(nw) == 1)
+
+func _events_and_bullet_do_not_double(t) -> void:
+	var nw = _world_after_new_bullet([{
+		"t": 13, "k": "gun_fire", "a": 0, "b": -1,
+		"d": {"equipment": "burst"},
+	}])
+	t.check("서버 gun_fire 가 있으면 탄 역추정을 더하지 않는다", _gun_fire_count(nw) == 1)
+	t.check("서버 equipment 를 유지한다", _gun_fire_equipment(nw) == "burst")
 
 func _legacy_snap_still_infers_gun_fire(t) -> void:
 	var nw = NetWorldScript.new()
@@ -232,12 +252,7 @@ func _legacy_snap_still_infers_gun_fire(t) -> void:
 	nw.present(1.0 / 60.0)
 	var second := first.duplicate(true)
 	second[SnapContract.TICK] = 14
-	second[SnapContract.BULLETS] = [{
-		SnapContract.B_ID: 8,
-		SnapContract.B_X: 4000.0, SnapContract.B_Y: 2380.0,
-		SnapContract.B_VX: 900.0, SnapContract.B_VY: 0.0,
-		SnapContract.B_OWNER: 0,
-	}]
+	second[SnapContract.BULLETS] = [_wire_bullet(8)]
 	nw.push_snap(second)
 	nw.present(1.0 / 60.0)
 	t.check("구 스냅은 신규 탄 역추정 gun_fire 를 유지한다", _gun_fire_count(nw) == 1)
@@ -258,6 +273,60 @@ func _effects_keep_local_prefix(t) -> void:
 	t.check("서버 이펙트가 들어간다", kinds.has("hit"))
 	t.check("local_ 접두 이펙트는 산다", kinds.has("local_muzzle"))
 	t.check("서버 교체 시 비로컬 클라 이펙트는 빠진다", not kinds.has("death_burst"))
+
+func _effect_kinds(nw) -> Array[String]:
+	var kinds: Array[String] = []
+	for fx in nw.effects:
+		kinds.append(str(fx.get("kind", "")))
+	return kinds
+
+func _effects_missing_key_keeps_existing(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.effects.append(_local_fx(&"local_muzzle"))
+	nw.effects.append(_local_fx(&"death_burst"))
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	t.check("스냅에 effects 키가 없다", not snap.has(SnapContract.EFFECTS))
+	nw.push_snap(snap)
+	var kinds := _effect_kinds(nw)
+	t.check("키 부재면 서버 교체를 건너뛴다", kinds.has("death_burst"))
+	t.check("키 부재면 local_ 도 남는다", kinds.has("local_muzzle"))
+
+func _effects_empty_array_clears_non_local(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.effects.append(_local_fx(&"local_muzzle"))
+	nw.effects.append(_local_fx(&"death_burst"))
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.EFFECTS] = []
+	nw.push_snap(snap)
+	var kinds := _effect_kinds(nw)
+	t.check("빈 effects 배열은 서버 권위로 비운다", not kinds.has("death_burst"))
+	t.check("빈 배열이어도 local_ 접두는 산다", kinds.has("local_muzzle"))
+
+func _slot_not_array_index(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 3
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	var player: Dictionary = snap[SnapContract.PLAYERS][0]
+	player[SnapContract.P_SLOT] = 3
+	player[SnapContract.P_SCORE] = 12.0
+	player[SnapContract.P_KILLS] = 2
+	nw.push_snap(snap)
+	t.check("히어로 1명", nw.heroes.size() == 1)
+	if nw.heroes.is_empty():
+		return
+	t.check("배열[0] 의 slot 은 3", int(nw.heroes[0]["slot"]) == 3)
+	var found: Dictionary = nw.hero_at_slot(3)
+	t.check("hero_at_slot(3) 이 그 히어로다", int(found.get("slot", -1)) == 3)
+	t.check("hero_at_slot(0) 은 비다", nw.hero_at_slot(0).is_empty())
+	var board: Array = nw.leaderboard()
+	t.check("leaderboard slot 은 3", int(board[0]["slot"]) == 3)
+	var standings: Array = nw.final_standings()
+	t.check("final_standings slot 은 3", int(standings[0]["slot"]) == 3)
+	nw.present(1.0 / 60.0)
+	nw.predict_local(Vector2.RIGHT, false, Vector2(4100.0, 2380.0), 1.0 / 60.0)
+	t.check("예측이 slot 3 히어로를 움직인다", Vector2(nw.heroes[0]["pos"]).x > 3920.0 + 2.0)
 
 func _interp_velocity_matches_tick_span(t) -> void:
 	var phys := 300.0
@@ -301,6 +370,25 @@ func _remote_lerp_vel_x(tick_span: int, phys_speed: float) -> float:
 	if nw.heroes.is_empty():
 		return -1.0
 	return Vector2(nw.heroes[0]["vel"]).x
+
+func _prediction_freezes_in_countdown(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var snap := _center_snap(2000.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.START_COUNTDOWN] = 2.0
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		t.check("카운트다운 스냅이 히어로를 만든다", false)
+		return
+	var before: Vector2 = nw.heroes[0]["pos"]
+	for i in range(30):
+		nw.predict_local(Vector2.RIGHT, false, before + Vector2(100, 0), 1.0 / 60.0)
+	t.check("카운트다운 중 예측 이동이 얼어 있다", Vector2(nw.heroes[0]["pos"]).distance_to(before) < 1.0)
+	nw.start_countdown = 0.0
+	for i in range(30):
+		nw.predict_local(Vector2.RIGHT, false, before + Vector2(400, 0), 1.0 / 60.0)
+	t.check("카운트다운 해제 후 예측이 움직인다", Vector2(nw.heroes[0]["pos"]).x > before.x + 10.0)
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

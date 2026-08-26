@@ -189,9 +189,10 @@ static func parse_effects(list: Array) -> Array[Dictionary]:
 	return result
 
 static func _parse_effect(e: Dictionary) -> Dictionary:
+	var pos := Vector2(_f(e, "x", 0.0), _f(e, "y", 0.0))
 	return {
 		"kind": StringName(str(e.get("k", ""))),
-		"pos": Vector2(_f(e, "x", 0.0), _f(e, "y", 0.0)),
+		"pos": pos,
 		"radius": _f(e, "r", 0.0),
 		"time": _f(e, "t", 0.0),
 		"max_time": _f(e, "maxT", _f(e, "t", 0.0)),
@@ -199,6 +200,8 @@ static func _parse_effect(e: Dictionary) -> Dictionary:
 		"label": str(e.get("label", "")),
 		"direction": Vector2(_f(e, "dx", 1.0), _f(e, "dy", 0.0)),
 		"follow_slot": int(e.get("follow", -1)),
+		"start_pos": Vector2(_f(e, "sx", pos.x), _f(e, "sy", pos.y)),
+		"draw_departure": bool(e.get("dep", true)),
 	}
 
 static func parse_events(list: Array) -> Array[Dictionary]:

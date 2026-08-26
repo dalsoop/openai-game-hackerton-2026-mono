@@ -4,7 +4,7 @@
  * RNG·시계 없음: 순수 함수와 상태 객체만. 피해 파이프라인 배선은 통합 단계 몫.
  */
 import {
-  addChargeBreakEffect, addControlEffect, type EffectStore,
+  addControlEffect, type EffectStore,
 } from "./match-effects.js";
 
 /** 콤보 히트당 증폭 스텝(+6%) — damage_system.gd:251. */
@@ -184,47 +184,6 @@ export function applyGuard(
   return { amount: amount * GUARD_DAMAGE_MULT, knockback: knockback * GUARD_KNOCKBACK_MULT };
 }
 
-export type ApplyCcHitInput = {
-  owner: number;
-  amount: number;
-  knockback: number;
-  source: string;
-  ccTime: number;
-  controlKind: CcControlKind;
-  attackFinisher: boolean;
-  chainWeapon: boolean;
-  downed?: boolean;
-  chargingSkill?: boolean;
-  fx?: CcFx;
-};
-
-/**
- * damage_hero 콤보·가드·CC·히트스턴 경로 (런치 제외).
- * 순서: 콤보 등록/증폭 → 가드 → 슈퍼아머 캡처 해제 → 콤보 피해 적립 → CC → 히트스턴.
- */
-export function applyCcHit(h: CcHeroState, input: ApplyCcHitInput): {
-  amount: number; knockback: number; comboHit: number;
-} {
-  let comboHit = 0;
-  let amount = input.amount;
-  let knockback = input.knockback;
-  if (input.chargingSkill && input.fx) {
-    addChargeBreakEffect(input.fx.store, input.fx.x, input.fx.y);
-  }
-  if (input.source !== "mobility") {
-    comboHit = registerComboHit(h, input.owner, input.attackFinisher);
-    amount *= comboAmplifier(comboHit);
-  }
-  const guarded = applyGuard(h, amount, knockback);
-  amount = guarded.amount;
-  knockback = guarded.knockback;
-  if (superArmorActive(h)) {h.comboCaptureTime = 0;}
-  if (input.source !== "mobility" && !input.downed) {accumulateComboDamage(h, amount);}
-  applyControl(h, input.ccTime, input.controlKind, input.fx);
-  if (comboHit > 0 && input.source !== "normal") {applyHitstun(h, comboHit, input.chainWeapon);}
-  return { amount, knockback, comboHit };
-}
-
 /**
  * 슈퍼아머 넉백 감쇄 — damage_system.gd:317-320.
  * 강도만큼 감쇄 후 절대값 55 미만이면 0. 비활성이면 원값 통과.
@@ -369,5 +328,5 @@ export function tickCc(heroes: Iterable<CcHeroState>, dt: number): void {
 }
 
 export const seed = ccSeedFields;
-export const apply = applyCcHit;
+export const apply = applyControl;
 export const tick = tickCc;

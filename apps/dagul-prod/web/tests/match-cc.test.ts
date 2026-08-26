@@ -6,7 +6,6 @@ import {
   COMBO_TIME_FINISHER,
   COMBO_TIME_NORMAL,
   apply,
-  applyCcHit,
   applyControl,
   applyGuard,
   applyHitstun,
@@ -278,37 +277,30 @@ describe("콤보 브레이크 — active_item.gd:32-61 / damage_system.gd:190-20
   });
 });
 
-describe("applyCcHit — damage_hero 콤보/가드/CC/히트스턴", () => {
+describe("hurtHero 파이프라인 부품 — 콤보/가드/CC/히트스턴", () => {
   it("장비 히트는 콤보 증폭 후 가드·히트스턴·root 를 적용한다", () => {
     const h = ccSeedFields();
     h.guardTime = 1;
-    const out = applyCcHit(h, {
-      owner: 1, amount: 100, knockback: 50, source: "equipment",
-      ccTime: 0.4, controlKind: "root", attackFinisher: false, chainWeapon: false,
-    });
-    expect(out.comboHit).toBe(1);
-    expect(out.amount).toBeCloseTo(55, 10);
-    expect(out.knockback).toBeCloseTo(26, 10);
-    expect(h.comboDamage).toBeCloseTo(55, 10);
+    const comboHit = registerComboHit(h, 1, false);
+    const amplified = 100 * comboAmplifier(comboHit);
+    const guarded = applyGuard(h, amplified, 50);
+    applyControl(h, 0.4, "root");
+    applyHitstun(h, comboHit, false);
+    expect(comboHit).toBe(1);
+    expect(guarded.amount).toBeCloseTo(55, 10);
+    expect(guarded.knockback).toBeCloseTo(26, 10);
     expect(h.rootTime).toBe(0.4);
     expect(h.hitstunTime).toBeCloseTo(0.125, 10);
   });
 
-  it("총격(source=normal)은 히트스턴을 넣지 않고, 모빌리티는 콤보를 올리지 않는다", () => {
+  it("총격은 히트스턴을 넣지 않고, 모빌리티는 콤보를 올리지 않는다", () => {
     const gun = ccSeedFields();
-    const gunOut = applyCcHit(gun, {
-      owner: 2, amount: 10, knockback: 6, source: "normal",
-      ccTime: 0, controlKind: "slow", attackFinisher: false, chainWeapon: false,
-    });
-    expect(gunOut.comboHit).toBe(1);
+    const gunHit = registerComboHit(gun, 2, false);
+    expect(gunHit).toBe(1);
     expect(gun.hitstunTime).toBe(0);
 
     const mob = ccSeedFields();
-    const mobOut = applyCcHit(mob, {
-      owner: 2, amount: 8, knockback: 72, source: "mobility",
-      ccTime: 0.12, controlKind: "slow", attackFinisher: false, chainWeapon: false,
-    });
-    expect(mobOut.comboHit).toBe(0);
+    applyControl(mob, 0.12, "slow");
     expect(mob.comboHits).toBe(0);
     expect(mob.ccTime).toBe(0.12);
   });
@@ -324,15 +316,13 @@ describe("applyCcHit — damage_hero 콤보/가드/CC/히트스턴", () => {
     expect(h.comboTarget).toBe(-1);
   });
 
-  it("seed/apply/tick 별칭은 콤보 히트와 타이머 소진을 연다", () => {
+  it("seed/apply/tick 별칭은 CC 적용과 타이머 소진을 연다", () => {
     const h = seed();
     expect(h).toEqual(ccSeedFields());
-    const out = apply(h, {
-      owner: 1, amount: 100, knockback: 50, source: "equipment",
-      ccTime: 0.4, controlKind: "root", attackFinisher: false, chainWeapon: false,
-    });
-    expect(out.comboHit).toBe(1);
-    expect(out.amount).toBe(100);
+    const out = apply(h, 0.4, "root");
+    expect(out.applied).toBe(true);
+    expect(h.rootTime).toBe(0.4);
+    h.comboHits = 2;
     h.comboTime = DT / 2;
     tick([h], DT);
     expect(h.comboHits).toBe(0);

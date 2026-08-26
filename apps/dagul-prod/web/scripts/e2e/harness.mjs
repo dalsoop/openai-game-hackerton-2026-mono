@@ -17,7 +17,12 @@ export async function launchPage() {
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || CHROME,
     headless: true,
-    args: ["--enable-webgl", "--ignore-gpu-blocklist", "--use-angle=metal"],
+    args: [
+      "--enable-webgl",
+      "--ignore-gpu-blocklist",
+      "--use-angle=metal",
+      "--autoplay-policy=no-user-gesture-required",
+    ],
   });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await ctx.newPage();

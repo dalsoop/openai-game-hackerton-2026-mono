@@ -11,6 +11,7 @@ import {
   KILL_MOBILITY_CD_STEP,
   KILL_SCORE,
   KILL_THREAT_GAIN,
+  KILL_ULT_GAIN,
   MatchSim,
   SHUTDOWN_BASE,
   SHUTDOWN_CD_MUL,
@@ -152,7 +153,29 @@ describe("match-score", () => {
     const mobAfterKill = 2 - (KILL_MOBILITY_CD_BASE + 1 * KILL_MOBILITY_CD_STEP);
     expect(killer.equipmentCd).toBeCloseTo(equipAfterKill * SHUTDOWN_CD_MUL);
     expect(killer.mobilityCd).toBeCloseTo(mobAfterKill * SHUTDOWN_CD_MUL);
-    expect(killer.ultimateCharge).toBeCloseTo(10 + SHUTDOWN_ULT_GAIN);
+    expect(killer.ultimateCharge).toBeCloseTo(10 + KILL_ULT_GAIN + SHUTDOWN_ULT_GAIN);
+  });
+
+  it("킬 시 threat +18, bounty +12, ult +35, eliminations++", () => {
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    const beforeThreat = killer.threat;
+    const beforeBounty = killer.bounty;
+    const beforeUlt = killer.ultimateCharge;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    expect(killer.threat).toBeCloseTo(beforeThreat + KILL_THREAT_GAIN);
+    expect(killer.bounty).toBeCloseTo(beforeBounty + 12);
+    expect(killer.ultimateCharge).toBeCloseTo(beforeUlt + KILL_ULT_GAIN);
+    expect(killer.eliminations).toBe(1);
+  });
+
+  it("셧다운이면 bounty -20", () => {
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    victim.killStreak = 3;
+    killer.bounty = 40;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    expect(killer.bounty).toBeCloseTo(40 + 12 - 20);
   });
 
   it("킬 시 threat +18", () => {

@@ -5,6 +5,7 @@
 import { ELIMINATE_SCORE } from "./match-core.js";
 import { applyHeroDamage } from "./match-life.js";
 import type { LifeEvent, LifeHero } from "./match-life.js";
+import { applyShutdownBountyDrop, awardKillBounty } from "./match-wanted.js";
 
 /** 킬 확정 점수 — attacker["score"] += 120.0. */
 export const KILL_SCORE = 120;
@@ -18,6 +19,8 @@ export const SHUTDOWN_STEP = 35;
 export const SHUTDOWN_MAX = 230;
 /** 킬 threat 가산 — match_lifecycle.gd:472. */
 export const KILL_THREAT_GAIN = 18;
+/** 킬 궁극기 충전 — match_lifecycle.gd:481. */
+export const KILL_ULT_GAIN = 35;
 /** 모멘텀 힐 — max_hp * min(0.10, 0.055 + streak*0.01). */
 export const KILL_HEAL_BASE = 0.055;
 export const KILL_HEAL_STEP = 0.01;
@@ -53,6 +56,7 @@ export type KillCombatFields = {
   equipmentCd: number;
   mobilityCd: number;
   ultimateCharge: number;
+  eliminations: number;
   equipment?: { characterName?: string };
 };
 
@@ -201,8 +205,9 @@ function fillKillCallout(
 /* eslint-enable no-restricted-syntax */
 
 /**
- * 킬 보상 — kill 120 + threat 18 + 생존 시 스트릭·힐·CD + 셧다운 전투 보상.
- * 자해(owner === target)·환경(owner<0)은 미지급 — _reward_attacker 첫 가드 그대로.
+ * 킬 보상 — match_lifecycle.gd:462-503.
+ * 120점 + bounty +12 + threat 18 + eliminations++ + 생존 시 스트릭·힐·CD·ult+35.
+ * 셧다운이면 bounty -20 과 전투 보상. 자해·환경은 미지급.
  */
 export function awardKillScore(
   heroes: ReadonlyMap<number, ScoreHero>,
@@ -216,11 +221,21 @@ export function awardKillScore(
   if (!attacker) {return;}
   attacker.score += KILL_SCORE;
   if (attacker.threat !== undefined) {attacker.threat += KILL_THREAT_GAIN;}
+  if (attacker.bounty !== undefined) {awardKillBounty(attacker as { bounty: number });}
+  if (attacker.eliminations !== undefined) {attacker.eliminations += 1;}
   let streakAfter = 0;
-  if (attacker.alive) {streakAfter = applyAliveKillRewards(attacker);}
+  if (attacker.alive) {
+    streakAfter = applyAliveKillRewards(attacker);
+    if (attacker.ultimateCharge !== undefined) {
+      attacker.ultimateCharge = Math.min(ULT_CAP, attacker.ultimateCharge + KILL_ULT_GAIN);
+    }
+  }
   const bonus = shutdownBonus(defeatedStreak);
   attacker.score += bonus;
-  if (bonus > 0) {applyShutdownCombat(attacker);}
+  if (bonus > 0) {
+    applyShutdownCombat(attacker);
+    if (attacker.bounty !== undefined) {applyShutdownBountyDrop(attacker as { bounty: number });}
+  }
   fillKillCallout(
     callout, attacker, heroes.get(targetSlot), owner, targetSlot, streakAfter, defeatedStreak, bonus > 0,
   );

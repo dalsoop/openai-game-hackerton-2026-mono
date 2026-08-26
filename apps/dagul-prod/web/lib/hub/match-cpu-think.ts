@@ -13,9 +13,27 @@ import {
   cpuDirTo, cpuFind, cpuHypot2, cpuNormalReach, cpuOrthogonal, cpuPreferredRange,
   cpuSeedFields, cpuTargetValid, cpuWantCrateFire, cpuWantMedkit, cpuWantTowerFire,
   hazardEscapeVector, nearestAlive, nearestOrb,
-  type CpuBody, type CpuCommand, type CpuFields, type CpuMark, type CpuMatchInput,
+  type CpuBody, type CpuFields, type CpuMark, type CpuMatchInput,
   type CpuOrb, type CpuWorld, type CpuZone,
 } from "./match-cpu.js";
+
+/** game_world.gd:600 — 사거리 안·시야 확보·쿨 0 이면 4.5% 로 스킬 차지 시작. */
+export const CPU_EQUIP_CHANCE = 0.045;
+export const CPU_CHARGE_MIN = 0.34;
+export const CPU_CHARGE_MAX = 1.15;
+
+export type CpuDriveInput = CpuMatchInput & {
+  firePressed: boolean;
+  equipment: boolean;
+  equipmentPressed: boolean;
+  equipmentReleased: boolean;
+};
+
+type CpuSkillBody = CpuBody & {
+  equipmentCd?: number;
+  chargingSkill?: boolean;
+  chargeTime?: number;
+};
 
 const CPU_FIXED_DT = 1 / 60;
 const DEFAULT_PREFERRED_RANGE = CPU_TARGET_RANGE;
@@ -99,6 +117,9 @@ export type CpuMind = CpuFields & {
   aimX: number;
   aimY: number;
   ready: boolean;
+  fireHeld: boolean;
+  equipmentHeld: boolean;
+  cpuChargeTarget: number;
 };
 
 /** 방 시드 직후 CPU 두뇌 — think 는 원본 슬롯 오프셋. */
@@ -110,6 +131,9 @@ export function seedCpu(slot: number, x = 0, y = 0): CpuMind {
     aimX: x + 1,
     aimY: y,
     ready: false,
+    fireHeld: false,
+    equipmentHeld: false,
+    cpuChargeTarget: CPU_CHARGE_MIN,
   };
 }
 
@@ -261,10 +285,13 @@ function refreshThink(
   dodgeHazard(hero, mind, bodies, world);
 }
 
-function idleUse(mind: CpuMind, use: boolean): CpuMatchInput {
+function idleUse(mind: CpuMind, use: boolean): CpuDriveInput {
+  mind.fireHeld = false;
+  mind.equipmentHeld = false;
   return {
     mx: mind.mx, my: mind.my, aimX: mind.aimX, aimY: mind.aimY,
     fire: false, ultimate: false, mobility: false, use,
+    firePressed: false, equipment: false, equipmentPressed: false, equipmentReleased: false,
   };
 }
 
@@ -275,7 +302,7 @@ export function tickCpu(
   rng: MatchRng,
   dt: number,
   world?: CpuWorld,
-): CpuMatchInput | null {
+): CpuDriveInput | null {
   if (!hero.alive || hero.eliminated || hero.downed) {return null;}
   if ((hero.stunTime ?? 0) > 0) {return null;}
   const bodies = bySlot(heroes).map((h) => (
@@ -305,39 +332,86 @@ function objectFireAim(
   return { fire: false, aimX: mind.aimX, aimY: mind.aimY };
 }
 
-/** 매 틱 버튼 — 직전 think 의 이동/조준 위에 fire/ultimate/mobility. */
+export function cpuWantEquipment(
+  hero: CpuSkillBody, prey: CpuBody, world?: CpuWorld,
+): boolean {
+  if ((hero.equipmentCd ?? 0) > 0) {return false;}
+  const dist = Math.hypot(prey.x - hero.x, prey.y - hero.y);
+  if (dist >= cpuNormalReach(hero)) {return false;}
+  if (world?.lineBlocked?.(hero.x, hero.y, prey.x, prey.y)) {return false;}
+  return true;
+}
+
+function stampFireEdge(mind: CpuMind, fire: boolean): boolean {
+  const pressed = fire && !mind.fireHeld;
+  mind.fireHeld = fire;
+  return pressed;
+}
+
+function stampEquipment(
+  mind: CpuMind, hero: CpuSkillBody, wantStart: boolean, rng: MatchRng,
+): { held: boolean; pressed: boolean; released: boolean } {
+  if (hero.chargingSkill) {
+    const done = (hero.chargeTime ?? 0) >= mind.cpuChargeTarget;
+    mind.equipmentHeld = !done;
+    return { held: !done, pressed: false, released: done };
+  }
+  if (wantStart) {
+    mind.cpuChargeTarget = rng.rangef(CPU_CHARGE_MIN, CPU_CHARGE_MAX);
+    mind.equipmentHeld = true;
+    return { held: true, pressed: true, released: false };
+  }
+  mind.equipmentHeld = false;
+  return { held: false, pressed: false, released: false };
+}
+
+function wantUltimate(hero: CpuBody, prey: CpuBody | null, rng: MatchRng): boolean {
+  if ((hero.ultimateCharge ?? 0) < CPU_ULTIMATE_READY || hero.turtle) {return false;}
+  return cpuWantUltimate(hero, prey) && rng.chance(CPU_ULTIMATE_CHANCE);
+}
+
+function preyCombat(
+  mind: CpuMind, hero: CpuBody, prey: CpuBody, rng: MatchRng, world?: CpuWorld,
+): { fire: boolean; mobility: boolean; wantEquip: boolean } {
+  return {
+    mobility: cpuWantMobility(hero, prey, mind.action) && rng.chance(CPU_MOBILITY_CHANCE),
+    fire: cpuWantFire(hero, prey, world) && (hero.fireCd ?? 0) <= 0,
+    wantEquip: cpuWantEquipment(hero, prey, world) && rng.chance(CPU_EQUIP_CHANCE),
+  };
+}
+
+/** 매 틱 버튼 — 직전 think 의 이동/조준 위에 fire/ultimate/mobility/equipment. */
 export function applyCpu(
   mind: CpuMind,
   hero: CpuBody,
   heroes: Iterable<CpuBody>,
   rng: MatchRng,
   world?: CpuWorld,
-): CpuMatchInput | null {
+): CpuDriveInput | null {
   if (!mind.ready) {return null;}
   const prey = cpuFind(bySlot(heroes), mind.target);
   const validPrey = cpuTargetValid(prey) ? prey : null;
-  let fire = false;
-  let mobility = false;
-  let ultimate = false;
+  const combat = validPrey
+    ? preyCombat(mind, hero, validPrey, rng, world)
+    : { fire: false, mobility: false, wantEquip: false };
+  let fire = combat.fire;
   let aimX = mind.aimX;
   let aimY = mind.aimY;
-  if ((hero.ultimateCharge ?? 0) >= CPU_ULTIMATE_READY && !hero.turtle) {
-    if (cpuWantUltimate(hero, validPrey) && rng.chance(CPU_ULTIMATE_CHANCE)) {ultimate = true;}
-  }
-  if (validPrey) {
-    if (cpuWantMobility(hero, validPrey, mind.action) && rng.chance(CPU_MOBILITY_CHANCE)) {
-      mobility = true;
-    }
-    if (cpuWantFire(hero, validPrey, world) && (hero.fireCd ?? 0) <= 0) {fire = true;}
-  }
   if (!fire) {
     const obj = objectFireAim(mind, hero, world);
     fire = obj.fire;
     aimX = obj.aimX;
     aimY = obj.aimY;
   }
+  const skillHero = hero as CpuSkillBody;
+  if (skillHero.chargingSkill) {fire = false;}
+  const firePressed = stampFireEdge(mind, fire);
+  const eq = stampEquipment(mind, skillHero, combat.wantEquip, rng);
   return {
-    mx: mind.mx, my: mind.my, aimX, aimY, fire, ultimate, mobility, use: false,
+    mx: mind.mx, my: mind.my, aimX, aimY, fire,
+    ultimate: wantUltimate(hero, validPrey, rng),
+    mobility: combat.mobility, use: false,
+    firePressed, equipment: eq.held, equipmentPressed: eq.pressed, equipmentReleased: eq.released,
   };
 }
 
@@ -353,7 +427,7 @@ export class CpuFleet {
   /** 이번 틱의 CPU 입력. 표적이 없으면 null. think 사이에는 직전 이동을 유지한다. */
   command(
     hero: CpuBody, heroes: Iterable<CpuBody>, _tick: number, zoneOrWorld?: CpuZone | CpuWorld,
-  ): CpuCommand | null {
+  ): CpuDriveInput | null {
     let mind = this.minds.get(hero.slot);
     if (!mind) {
       mind = seedCpu(hero.slot, hero.x, hero.y);

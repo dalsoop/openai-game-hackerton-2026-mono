@@ -12,10 +12,10 @@ import {
 } from "./match-engine.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
-  handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
+  handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { applyPlayInput, bootAuthority, tickAuthority } from "./lobby-play.js";
+import { applyPlayInput, bootAuthority, tickAuthority, tryReleaseLoadBarrier } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -24,7 +24,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null,
+    hostLossTimer: null, loadWaitMs: 0,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -52,6 +52,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       open: this.state.open,
     });
     armIdleTimer(this, this.bag);
+    this.patchRate = 1000 / HUB_CONFIG.patchHz;
     this.setSimulationInterval((dt) => {tickAuthority(this, this.bag, dt);}, 1000 / 60);
   }
 
@@ -72,6 +73,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
     [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
+    [MSG.READY]: (client: Client): void => {
+      handleMatchReady(this, client);
+      tryReleaseLoadBarrier(this, this.bag);
+    },
     [MSG.SNAP_OFF]: (client: Client): void => {
       this.snapOptOut.add(client.sessionId);
     },
@@ -116,6 +121,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const oldClient = this.clients.find((c) => c.sessionId === oldId);
     player.sessionId = client.sessionId;
     player.connected = true;
+    player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();

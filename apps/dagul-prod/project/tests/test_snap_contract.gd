@@ -65,6 +65,8 @@ func _v2_roundtrip(t) -> void:
 	t.check("heldItem 왕복", str(hero["held_item"]) == "spring")
 	t.check("woolHp 왕복", int(hero["wool_hp"]) == 5)
 	t.check("rouPhase 왕복", str(hero["roulette_phase"]) == "spin")
+	t.check("rouSpin 문자열 왕복", str(hero["roulette_spin_id"]) == "atk")
+	t.check("rouSpin 와이어가 문자열이다", typeof(packed.get(SnapContract.P_ROU_SPIN, 0)) == TYPE_STRING)
 	t.check("rlTimed 왕복", (hero["rl_timed"] as Array).size() == 1)
 	t.check("ultClones 왕복", (hero["ult_clones"] as Array).size() == 1)
 	var clone: Dictionary = hero["ult_clones"][0]
@@ -104,9 +106,17 @@ func _parse_v2_wire(t) -> void:
 	var fx: Array = Parser.parse_effects([{
 		"k": "hit", "x": 3.0, "y": 4.0, "r": 12.0, "t": 0.2, "maxT": 0.4,
 		"label": "BANG", "dx": 0.0, "dy": -1.0, "follow": 2,
+		"sx": 8.0, "sy": 9.0, "dep": false,
 	}])
 	t.check("이펙트 kind", str(fx[0]["kind"]) == "hit")
 	t.check("이펙트 follow", int(fx[0]["follow_slot"]) == 2)
+	t.check("이펙트 start_pos sx/sy", Vector2(fx[0]["start_pos"]).is_equal_approx(Vector2(8.0, 9.0)))
+	t.check("이펙트 draw_departure dep", bool(fx[0]["draw_departure"]) == false)
+	var fx_legacy: Array = Parser.parse_effects([{
+		"k": "hit", "x": 3.0, "y": 4.0, "r": 12.0, "t": 0.2,
+	}])
+	t.check("구 이펙트 start_pos 는 pos", Vector2(fx_legacy[0]["start_pos"]).is_equal_approx(Vector2(3.0, 4.0)))
+	t.check("구 이펙트 draw_departure 기본 true", bool(fx_legacy[0]["draw_departure"]) == true)
 	var evs: Array = Parser.parse_events([{"t": 9, "k": "gun_fire", "a": 1, "b": -1, "d": {"eq": "glock"}}])
 	t.check("이벤트 tick", int(evs[0]["tick"]) == 9)
 	t.check("이벤트 kind", str(evs[0]["kind"]) == "gun_fire")
@@ -138,7 +148,7 @@ func _v2_hero() -> Dictionary:
 	h["roulette_time"] = 1.1
 	h["roulette_rank"] = "A"
 	h["roulette_phase"] = "spin"
-	h["roulette_spin_id"] = 7
+	h["roulette_spin_id"] = "atk"
 	h["roulette_label"] = "BER"
 	h["rl_timed"] = [{"id": "berserk", "time": 2.5, "name": "BER"}]
 	h["ult_clones"] = [{"pos": Vector2(10.0, 20.0)}]

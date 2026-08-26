@@ -65,7 +65,10 @@ static func _pack_v2_floats(out: Dictionary, h: Dictionary) -> void:
 
 static func _pack_v2_ints(out: Dictionary, h: Dictionary) -> void:
 	for i in K.V2_INT_WIRE.size():
+		if K.V2_INT_WIRE[i] == K.P_ROU_SPIN:
+			continue
 		_put_nonzero_i(out, K.V2_INT_WIRE[i], int(h.get(K.V2_INT_SIM[i], 0)))
+	_put_nonempty_s(out, K.P_ROU_SPIN, str(h.get("roulette_spin_id", "")))
 
 static func _pack_v2_strs(out: Dictionary, h: Dictionary) -> void:
 	for i in K.V2_STR_WIRE.size():
@@ -121,9 +124,12 @@ static func _apply_player_v2(hero: Dictionary, p: Dictionary) -> void:
 	for i in K.V2_FLOAT_WIRE.size():
 		hero[K.V2_FLOAT_SIM[i]] = _f(p, K.V2_FLOAT_WIRE[i], 0.0)
 	for i in K.V2_INT_WIRE.size():
+		if K.V2_INT_WIRE[i] == K.P_ROU_SPIN:
+			continue
 		hero[K.V2_INT_SIM[i]] = int(p.get(K.V2_INT_WIRE[i], 0))
 	for i in K.V2_STR_WIRE.size():
 		hero[K.V2_STR_SIM[i]] = str(p.get(K.V2_STR_WIRE[i], ""))
+	hero["roulette_spin_id"] = str(p.get(K.P_ROU_SPIN, ""))
 	hero["action"] = StringName(str(p.get(K.P_ACTION, "READY")))
 	hero["charging_skill"] = bool(p.get(K.P_CHARGING, false))
 	hero["launch_vel"] = Vector2(_f(p, K.P_LAUNCH_VX, 0.0), _f(p, K.P_LAUNCH_VY, 0.0))
@@ -149,7 +155,7 @@ static func _player_view_defaults() -> Dictionary:
 		"dmg_orb_time": 0.0, "down_taken": 0.0,
 		"wool_time": 0.0, "wool_hp": 0, "wool_max": 0,
 		"roulette_time": 0.0, "roulette_rank": "", "roulette_phase": "",
-		"roulette_spin_id": 0, "roulette_label": "",
+		"roulette_spin_id": "", "roulette_label": "",
 		"rl_timed": [], "ult_clones": [],
 	}
 

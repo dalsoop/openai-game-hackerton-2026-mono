@@ -50,11 +50,12 @@ describe("parseBridgePacket", () => {
 });
 
 describe("수송 방향", () => {
-  it("엔진→허브는 input·leave·snap_off·snap_on", () => {
+  it("엔진→허브는 input·leave·snap_off·snap_on·ready", () => {
     expect(isEngineOutbound(MSG.INPUT)).toBe(true);
     expect(isEngineOutbound(MSG.LEAVE)).toBe(true);
     expect(isEngineOutbound(MSG.SNAP_OFF)).toBe(true);
     expect(isEngineOutbound(MSG.SNAP_ON)).toBe(true);
+    expect(isEngineOutbound(MSG.READY)).toBe(true);
   });
 
   it("반전: snap 을 엔진이 허브로 보내면 안 된다", () => {
@@ -104,6 +105,8 @@ describe("attachPageBridge", () => {
     expect(send).toHaveBeenCalledWith(MSG.SNAP_OFF, {});
     bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.SNAP_ON, {}));
     expect(send).toHaveBeenCalledWith(MSG.SNAP_ON, {});
+    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.READY, {}));
+    expect(send).toHaveBeenCalledWith(MSG.READY, {});
     off();
   });
 
@@ -149,12 +152,13 @@ describe("encodeHubState", () => {
     expect(encodeHubState({
       phase: "playing",
       hostSessionId: "h1",
-      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true }],
+      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true, matchReady: true }],
     }, "h1")).toEqual({
       phase: "playing",
       hostSessionId: "h1",
       sessionId: "h1",
-      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true }],
+      loadHeld: false,
+      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true, matchReady: true }],
     });
   });
 

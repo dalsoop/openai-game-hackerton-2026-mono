@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 원장·룰렛 페이즈가 한 파일 */
 /**
  * WANTED + 킬 룰렛 — match_lifecycle.gd update_threat/_reward_attacker bounty
  * 와 roulette_buff.gd 결정론 포팅. 시계 없음. 면 선택은 RouletteRng.
@@ -213,15 +214,55 @@ export function queueRoulette(hero: RouletteHero, rank: string, rng: RouletteRng
   if (hero.roulettePhase === "") {beginNextRoulette(hero);}
 }
 
+export type LifeHitRec = { dmg: number; tick: number };
+
+/** damage_system.gd:267-274. */
+export function recordLifeHit(
+  hits: Record<string, LifeHitRec>, owner: number, amount: number, tick: number,
+): void {
+  if (owner < 0) {return;}
+  const key = String(owner);
+  const rec = hits[key] ?? { dmg: 0, tick: 0 };
+  rec.dmg += amount;
+  rec.tick = tick;
+  hits[key] = rec;
+}
+
+/** match_lifecycle.gd:128-148. 최근 8초·피해 하한(max(28, maxHp*0.25)). */
+export const ASSIST_WINDOW_SEC = 8;
+export const ASSIST_DMG_FLOOR = 28;
+export const ASSIST_HP_RATIO = 0.25;
+
+export function assistSlots(
+  owner: number, target: number, hits: Record<string, LifeHitRec>,
+  heroes: ReadonlyMap<number, { alive: boolean; maxHp: number }>,
+  tick: number, dt = 1 / 60,
+): number[] {
+  const victim = heroes.get(target);
+  const need = Math.max(ASSIST_DMG_FLOOR, (victim?.maxHp ?? 0) * ASSIST_HP_RATIO);
+  const window = Math.floor(ASSIST_WINDOW_SEC / dt);
+  const out: number[] = [];
+  for (const [key, rec] of Object.entries(hits)) {
+    const slot = Number(key);
+    if (slot === owner || slot === target || slot < 0) {continue;}
+    const hero = heroes.get(slot);
+    if (!hero?.alive) {continue;}
+    if (rec.dmg + 0.001 < need) {continue;}
+    if (tick - rec.tick > window) {continue;}
+    out.push(slot);
+  }
+  return out;
+}
+
 export function grantKillRoulettes(
   heroes: ReadonlyMap<number, RouletteHero>,
-  owner: number, target: number, bountyKill: boolean, assistSlots: readonly number[], rng: RouletteRng,
+  owner: number, target: number, bountyKill: boolean, assistList: readonly number[], rng: RouletteRng,
 ): void {
   const killer = heroes.get(owner);
   if (killer && owner !== target && killer.alive) {
     queueRoulette(killer, bountyKill ? "wanted" : "kill", rng);
   }
-  for (const slot of assistSlots) {
+  for (const slot of assistList) {
     const assist = heroes.get(slot);
     if (assist) {queueRoulette(assist, "assist", rng);}
   }

@@ -25,6 +25,7 @@ const MSG_ERROR := "error"
 const MSG_SET_CHARACTER := "set_character"
 const MSG_STATE := "state"
 const MSG_LEAVE := "leave"
+const MSG_READY := "ready"
 
 const EVT_MATCH_START := "godot-match-start"
 const EVT_MATCH_END := "godot-match-end"
