@@ -59,6 +59,7 @@
     "emptyRooms": "아직 열린 방이 없습니다.",
     "room": "방",
     "createButton": "방 만들기",
+    "joining": "방에 들어가는 중입니다...",
     "join": "입장",
     "modeFull": "합본",
     "mineHost": "내 방 · 방장",
@@ -88,6 +89,7 @@
     "sizeKb": "{amount}KB",
     "sizeMb": "{amount}MB",
     "submit": "방 만들기",
+    "pending": "방을 만드는 중입니다...",
     "cancel": "로비로"
   },
   "room": {

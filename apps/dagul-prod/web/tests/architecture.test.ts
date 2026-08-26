@@ -127,6 +127,17 @@ describe("계약: 오토로드는 /root 노드", () => {
   });
 });
 
+describe("계약: 방 만들기 네비게이션", () => {
+  it("제출 직후 홈으로 보내지 않는다 — 방이 생길 때까지 /create 에 머문다", () => {
+    const src = sourceOf(join(ROOT, "hooks/useCreateRoomPage.ts"));
+    const submit = src.slice(src.indexOf("const onSubmit"), src.indexOf("const onBack"));
+    expect(src).toContain("matchmakePending");
+    expect(submit).toContain("createRoom");
+    expect(submit).not.toContain("router.push");
+    expect(submit).not.toContain("router.replace");
+  });
+});
+
 describe("계약: 웹 캔버스 키 포커스", () => {
   it("런타임은 알탭 복귀용 bindCanvasKeyboardFocus 를 붙인다", () => {
     const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));

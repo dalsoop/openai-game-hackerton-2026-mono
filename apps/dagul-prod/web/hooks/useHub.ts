@@ -167,6 +167,10 @@ export function useHub(): UseHubResult {
     tryResume: commands.tryResume,
     resuming: joinRequest?.kind === "resume",
     resumeFailed,
+    joiningKind: roomError
+      && (joinRequest?.kind === "create" || joinRequest?.kind === "join")
+      ? null
+      : (joinRequest?.kind ?? null),
     dropReason,
     lastRoomId,
     reconnectAfterDrop: commands.reconnectAfterDrop,

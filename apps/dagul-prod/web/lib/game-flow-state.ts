@@ -16,6 +16,15 @@ export function lobbyBgmOn(phase: GamePhase): boolean {
   return phase === "intro";
 }
 
+/** 방 생성·입장 matchmake 중에는 로비 목록을 그리지 않는다. */
+export function matchmakePending(
+  kind: "create" | "join" | "resume" | null | undefined,
+  status: HubStatus,
+): boolean {
+  if (kind !== "create" && kind !== "join") {return false;}
+  return status === "lobby" || status === "connecting";
+}
+
 /** 허브 상태가 화면 페이즈를 몰아간다 — 아니면 현재 유지. */
 export function phaseFromHubStatus(status: HubStatus, current: GamePhase): GamePhase {
   if (status === "in-room") {return "room";}

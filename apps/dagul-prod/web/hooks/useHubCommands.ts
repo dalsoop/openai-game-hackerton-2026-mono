@@ -34,12 +34,14 @@ export function useHubCommands(
   }, [nameRef, setConnected, setError]);
 
   const createRoom = useCallback((raw?: { game?: string; title?: string }) => {
+    setError(null);
     setJoinRequest({ kind: "create", game: raw?.game, title: raw?.title });
-  }, [setJoinRequest]);
+  }, [setError, setJoinRequest]);
 
   const joinRoom = useCallback((id: string) => {
+    setError(null);
     setJoinRequest({ kind: "join", id });
-  }, [setJoinRequest]);
+  }, [setError, setJoinRequest]);
 
   const leaveRoom = useCallback(() => {
     clearDrop();

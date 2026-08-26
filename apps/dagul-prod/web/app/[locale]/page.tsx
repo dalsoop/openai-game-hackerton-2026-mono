@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
-import { shouldShowReconnect } from "@/lib/game-flow-state";
+import { matchmakePending, shouldShowReconnect } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
   ConnectingPhase,
@@ -26,6 +26,49 @@ function connLabel(status: HubStatus, t: Translate): string {
   return t("connection.connected");
 }
 
+
+function LobbyGate({
+  hub,
+  entering,
+  onBackToIntro,
+}: {
+  hub: ReturnType<typeof useGameFlowContext>["hub"];
+  entering: boolean;
+  onBackToIntro: () => void;
+}): JSX.Element {
+  const t = useTranslations();
+  if (hub.resuming) {
+    return (
+      <>
+        <ConnectingPhase message={t("game.resuming")} />
+        <div className="center-row">
+          <button className="btn-text" onClick={onBackToIntro}>
+            {t("game.startFresh")}
+          </button>
+        </div>
+      </>
+    );
+  }
+  if (entering) {
+    const pending = hub.joiningKind === "create" ? t("create.pending") : t("lobby.joining");
+    return <ConnectingPhase message={pending} />;
+  }
+  return (
+    <LobbyPhase
+      rooms={hub.rooms}
+      status={hub.status}
+      myRoom={hub.myRoom}
+      onJoinRoom={hub.joinRoom}
+      onRefresh={hub.refreshRooms}
+      refreshing={hub.refreshingRooms}
+      onBackToIntro={onBackToIntro}
+      connClass={CONNECTION_CLASS[hub.status]}
+      connText={connLabel(hub.status, t)}
+      rttMs={hub.rttMs}
+      rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
+    />
+  );
+}
 
 function LocaleSwitch(): JSX.Element {
   const t = useTranslations("locale");
@@ -69,6 +112,8 @@ export default function Home(): JSX.Element {
     deployStale,
     reloadDeploy,
   } = useGameFlowContext();
+
+  const entering = matchmakePending(hub.joiningKind, hub.status);
 
   // 튕김·강퇴는 회색 캔버스 대신 재접속 모달만 보여 준다.
   const bounced = shouldShowReconnect(hub.status, phase, hub.dropReason);
@@ -118,35 +163,7 @@ export default function Home(): JSX.Element {
 
       {phase === "lobby" && hub.status !== "in-room" && (
         <div className="fade-in">
-          {hub.resuming ? (
-            <>
-              <ConnectingPhase message={t("game.resuming")} />
-              <div className="center-row">
-                <button
-                  className="btn-text"
-                  onClick={() => {
-                    backToIntro();
-                  }}
-                >
-                  {t("game.startFresh")}
-                </button>
-              </div>
-            </>
-          ) : (
-            <LobbyPhase
-              rooms={hub.rooms}
-              status={hub.status}
-              myRoom={hub.myRoom}
-              onJoinRoom={hub.joinRoom}
-              onRefresh={hub.refreshRooms}
-              refreshing={hub.refreshingRooms}
-              onBackToIntro={backToIntro}
-              connClass={CONNECTION_CLASS[hub.status]}
-              connText={connLabel(hub.status, t)}
-              rttMs={hub.rttMs}
-              rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
-            />
-          )}
+          <LobbyGate hub={hub} entering={entering} onBackToIntro={backToIntro} />
         </div>
       )}
 

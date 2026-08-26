@@ -87,6 +87,8 @@ export interface UseHubResult {
   tryResume: () => boolean;
   resuming: boolean;
   resumeFailed: boolean;
+  /** 진행 중인 matchmake. 방 안이면 유지되지만 로비 깜빡임 판정은 matchmakePending 이 가른다. */
+  joiningKind: JoinRequest["kind"] | null;
 
   /** 강퇴·강제 퇴장 — 회색 화면 대신 재접속 모달. */
   dropReason: DropReason | null;

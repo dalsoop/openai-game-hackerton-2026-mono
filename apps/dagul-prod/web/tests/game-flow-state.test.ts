@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, lobbyBgmOn, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { displayNameOf, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -39,6 +39,17 @@ describe("lobbyBgmOn", () => {
     expect(lobbyBgmOn("lobby")).toBe(false);
     expect(lobbyBgmOn("room")).toBe(false);
     expect(lobbyBgmOn("playing")).toBe(false);
+  });
+});
+
+describe("matchmakePending", () => {
+  it("생성·입장 요청이 로비에 남아 있는 동안만 참", () => {
+    expect(matchmakePending("create", "lobby")).toBe(true);
+    expect(matchmakePending("join", "connecting")).toBe(true);
+    expect(matchmakePending("create", "in-room")).toBe(false);
+    expect(matchmakePending("join", "playing")).toBe(false);
+    expect(matchmakePending("resume", "lobby")).toBe(false);
+    expect(matchmakePending(null, "lobby")).toBe(false);
   });
 });
 
