@@ -12,6 +12,7 @@ interface FakeRoom {
   roomId: string;
   sessionId: string;
   reconnectionToken: string;
+  connection: { url: string };
   state: { gameId: string };
   leave: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
@@ -29,6 +30,7 @@ function makeRoom(): FakeRoom {
     roomId: "r1",
     sessionId: "s1",
     reconnectionToken: "tok",
+    connection: { url: "" },
     state: { gameId: "dagul" },
     leave,
     send: vi.fn(),
@@ -71,6 +73,7 @@ const startBody = {
 
 afterEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -90,7 +93,7 @@ describe("useGameRoom START", () => {
     act(() => {room.emit(MSG.START, startBody);});
     expect(room.leave).not.toHaveBeenCalled();
     expect(result.current.matchInfo?.slot).toBe(0);
-    expect(localStorage.getItem(HANDOFF.FROM_HUB)).toBe("1");
+    expect(sessionStorage.getItem(HANDOFF.FROM_HUB)).toBe("1");
     expect(onEnded).not.toHaveBeenCalled();
   });
 
@@ -111,7 +114,7 @@ describe("useGameRoom START", () => {
   });
 
   it("저장된 MATCH 로 브릿지용 matchInfo 를 복원한다", async () => {
-    localStorage.setItem(HANDOFF.MATCH, JSON.stringify(startBody));
+    sessionStorage.setItem(HANDOFF.MATCH, JSON.stringify(startBody));
     const room = makeRoom();
     const joinRequest = { kind: "resume" as const };
     const { result } = renderHook(() => useGameRoom(

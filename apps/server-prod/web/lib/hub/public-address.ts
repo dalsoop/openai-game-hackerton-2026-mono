@@ -66,15 +66,15 @@ export function pinForMatchmake(
 export function rememberHubPin(wsUrl?: string, roomId?: string): void {
   const pin = hubPinFromWsUrl(wsUrl);
   if (!pin || !roomId) {return;}
-  try {localStorage.setItem(HUB_PIN_KEY, JSON.stringify({ roomId, pin }));} catch { /* quota */ }
+  try {sessionStorage.setItem(HUB_PIN_KEY, JSON.stringify({ roomId, pin }));} catch { /* quota */ }
 }
 
 export function forgetHubPin(): void {
-  try {localStorage.removeItem(HUB_PIN_KEY);} catch { /* */ }
+  try {sessionStorage.removeItem(HUB_PIN_KEY);} catch { /* */ }
 }
 
 export function storedHubPinRecord(): HubPinRecord | null {
-  try {return parseHubPinRecord(localStorage.getItem(HUB_PIN_KEY));} catch {return null;}
+  try {return parseHubPinRecord(sessionStorage.getItem(HUB_PIN_KEY));} catch {return null;}
 }
 
 export function storedHubPin(): string | null {

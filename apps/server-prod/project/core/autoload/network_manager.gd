@@ -1,6 +1,6 @@
 extends Node
 ## 인게임 I/O — 허브 소켓은 React 만 연다.
-## START 시 페이지가 MATCH/FROM_HUB 를 localStorage 에 남기고 좌석을 유지한다.
+## START 시 페이지가 MATCH/FROM_HUB 를 sessionStorage 에 남기고 좌석을 유지한다.
 ## 이 노드는 Colyseus.Client 를 만들지 않고, DOM 이벤트(EVT_TO_ENGINE / FROM_ENGINE)로만 말한다.
 
 signal status_changed(status: String)  # lint-gd: public-api
@@ -180,7 +180,7 @@ func consume_hub_launch() -> bool:  # lint-gd: public-api
     if not OS.has_feature("web"):
         return false
     return JavaScriptBridge.eval(
-        "try{localStorage.getItem('%s')}catch(e){''}" % WebContract.KEY_FROM_HUB, true) != null
+        "try{sessionStorage.getItem('%s')}catch(e){''}" % WebContract.KEY_FROM_HUB, true) != null
 
 func get_hub_name() -> String:  # lint-gd: public-api
     return _read_ls(WebContract.KEY_NAME)
@@ -189,7 +189,7 @@ func _read_ls(key: String) -> String:
     if not OS.has_feature("web"):
         return ""
     var text := str(JavaScriptBridge.eval(
-        "try{localStorage.getItem('%s')||''}catch(e){''}" % key, true)).strip_edges()
+        "try{sessionStorage.getItem('%s')||''}catch(e){''}" % key, true)).strip_edges()
     if text == "<null>" or text == "null" or text == "undefined":
         return ""
     return text
