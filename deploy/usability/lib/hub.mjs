@@ -9,7 +9,7 @@ export function defaultWsUrl() {
 }
 
 export function isProdUrl(url) {
-  return /server-prod(\.|\/|$)/i.test(url) || /\/\/prod\./i.test(url);
+  return /dagul-prod(\.|\/|$)/i.test(url) || /\/\/prod\./i.test(url);
 }
 
 export async function fetchHealth(wsUrl, timeoutMs = 8000) {

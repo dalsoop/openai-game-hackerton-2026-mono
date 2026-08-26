@@ -25,7 +25,7 @@ def env_name() -> str:
 def folders() -> list[tuple[str, str]]:
     out = []
     for path in sorted(APPS.glob("*/hackertone.yaml")):
-        if not path.parent.name.startswith("server-"):
+        if not path.parent.name.startswith(("server-", "dagul-")):
             continue
         text = path.read_text().replace("\r\n", "\n")
         web_on = "web:\n  enabled: true" in text

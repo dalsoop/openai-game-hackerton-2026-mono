@@ -16,7 +16,7 @@ def folders() -> list[str]:
     return sorted(
         p.parent.name
         for p in APPS.glob("*/hackertone.yaml")
-        if p.parent.name.startswith("server-")
+        if p.parent.name.startswith(("server-", "dagul-"))
     )
 
 
@@ -53,7 +53,7 @@ def analyze(
         parts = Path(line).parts
         if not parts:
             continue
-        if parts[0] == "apps" and len(parts) >= 2 and parts[1].startswith("server-"):
+        if parts[0] == "apps" and len(parts) >= 2 and parts[1].startswith(("server-", "dagul-")):
             picked.add(parts[1])
             # 이미지 태그는 plant → values-games.yaml → helm 만 정본이다.
             helm = True

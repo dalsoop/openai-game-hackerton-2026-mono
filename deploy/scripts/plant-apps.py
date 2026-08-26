@@ -207,7 +207,7 @@ def main() -> None:
     existing_tags = planted_hub_tags(OUT_VALUES.read_text()) if OUT_VALUES.is_file() else {}
     for path in sorted(APPS.glob("*/hackertone.yaml")):
         folder = path.parent.name
-        if not folder.startswith("server-"):
+        if not folder.startswith(("server-", "dagul-")):
             continue
         data = parse_yaml(path.read_text())
         kind = data.get("kind")

@@ -88,7 +88,7 @@ class SlotShells(unittest.TestCase):
             self.assertIn('html/custom_html_shell="custom_shell.html"', slot_preset(folder))
 
     def test_yjh_and_prod_shells_have_official_placeholders(self) -> None:
-        for folder in ("server-yjh-dev1", "server-prod"):
+        for folder in ("server-yjh-dev1", "dagul-prod"):
             shell = slot_shell(folder)
             for token in REQUIRED_PLACEHOLDERS:
                 self.assertIn(token, shell)
@@ -294,7 +294,7 @@ class HelmContract(unittest.TestCase):
         apply = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(apply)
         self.assertTrue(apply.platform_web_pipeline("server-yjh-dev1"))
-        self.assertTrue(apply.platform_web_pipeline("server-prod"))
+        self.assertTrue(apply.platform_web_pipeline("dagul-prod"))
         self.assertFalse(apply.platform_web_pipeline("server-pjh-dev1"))
         self.assertEqual(
             apply.legacy_hub_deploy_names(
@@ -310,7 +310,7 @@ class HelmContract(unittest.TestCase):
         apps_py = path.read_text()
         self.assertIn("drop_legacy_hub_deployments", apps_py)
         self.assertIn("delete deploy", apps_py)
-        prod_df = (APPS / "server-prod" / "web" / "Dockerfile").read_text()
+        prod_df = (APPS / "dagul-prod" / "web" / "Dockerfile").read_text()
         yjh_df = (APPS / "server-yjh-dev1" / "web" / "Dockerfile").read_text()
         self.assertNotIn("hub-kernel", prod_df)
         self.assertNotIn("hub-kernel", yjh_df)
@@ -352,12 +352,12 @@ class HelmContract(unittest.TestCase):
         import os
 
         plant = plant_mod()
-        existing = {"server-prod": "aaaaaaaaaaaa"}
+        existing = {"dagul-prod": "aaaaaaaaaaaa"}
         os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
-        self.assertEqual(plant._hub_tag_for_plant(APPS / "server-prod", existing), "aaaaaaaaaaaa")
-        os.environ["HACKERTONE_SHIP_FOLDERS"] = "server-prod"
+        self.assertEqual(plant._hub_tag_for_plant(APPS / "dagul-prod", existing), "aaaaaaaaaaaa")
+        os.environ["HACKERTONE_SHIP_FOLDERS"] = "dagul-prod"
         try:
-            self.assertNotEqual(plant._hub_tag_for_plant(APPS / "server-prod", existing), "aaaaaaaaaaaa")
+            self.assertNotEqual(plant._hub_tag_for_plant(APPS / "dagul-prod", existing), "aaaaaaaaaaaa")
         finally:
             os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
 
@@ -369,10 +369,10 @@ class HelmContract(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("apply_smoke", path)
         apply = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(apply)
-        os.environ["HACKERTONE_SHIP_FOLDERS"] = "server-prod"
+        os.environ["HACKERTONE_SHIP_FOLDERS"] = "dagul-prod"
         try:
-            self.assertEqual(apply.smoke_folders(), ["server-prod"])
-            self.assertEqual(apply.wait_folders(), ["server-prod"])
+            self.assertEqual(apply.smoke_folders(), ["dagul-prod"])
+            self.assertEqual(apply.wait_folders(), ["dagul-prod"])
         finally:
             os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
 
@@ -413,7 +413,7 @@ class PlatformGodotPipeline(unittest.TestCase):
         apps_py = (root / "deploy" / "scripts" / "apply-apps.py").read_text()
         self.assertIn('if cmd == "ship":', apps_py)
         self.assertIn("helm_upgrade()", apps_py)
-        for folder in ("server-yjh-dev1", "server-prod"):
+        for folder in ("server-yjh-dev1", "dagul-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)
             self.assertIn("pipeline: platform", text)
@@ -448,7 +448,7 @@ class HubImages(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("plant_apps_tag", path)
         plant = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(plant)
-        folder = APPS / "server-prod"
+        folder = APPS / "dagul-prod"
         before = plant.hub_image_tag(folder)
         pack = folder / "web" / "public" / "godot" / "dagul" / "index.pck"
         pack.parent.mkdir(parents=True, exist_ok=True)

@@ -20,6 +20,6 @@ wasm·pck는 브라우저가 들고 있다. 퍼지는 배포 흐름에서 자동
 허브 스모크·부하는 `deploy/usability/` 이다. `node cli.mjs smoke`, 부하는 먼저 `--dry-run`.
 
 ```bash
-python3 deploy/scripts/apply-apps.py ship server-prod
+python3 deploy/scripts/apply-apps.py ship dagul-prod
 python3 deploy/scripts/apply-apps.py helm
 ```

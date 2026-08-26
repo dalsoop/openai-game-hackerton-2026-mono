@@ -204,7 +204,7 @@ def hub_refs(mod) -> list[str]:
     refs = []
     for path in sorted(APPS.glob("*/hackertone.yaml")):
         folder = path.parent.name
-        if not folder.startswith("server-"):
+        if not folder.startswith(("server-", "dagul-")):
             continue
         data = mod.parse_yaml(path.read_text())
         if not (data.get("hub") or {}).get("enabled"):
@@ -462,7 +462,7 @@ def dump_cluster() -> None:
         "get events --sort-by=.lastTimestamp | tail -n 40",
         "describe sts/server-yjh-dev1-hub",
         "logs --tail=80 -l hackertone-games/slot=server-yjh-dev1 --all-containers",
-        "logs --tail=40 -l hackertone-games/slot=server-prod --all-containers",
+        "logs --tail=40 -l hackertone-games/slot=dagul-prod --all-containers",
     ):
         print(f"$ kubectl {cmd}")
         proc = kube(cmd)

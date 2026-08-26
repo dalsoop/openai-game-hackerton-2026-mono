@@ -36,7 +36,7 @@ jobs:
         run: |
           set -eu
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_FOLDERS:-}" ]; then
-            json=$(python3 -c 'import json,os,re,sys; fs=[f for f in os.environ.get("INPUT_FOLDERS","").split() if f]; bad=next((f for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)), ""); sys.exit("bad folder "+bad) if bad else print(json.dumps({"folder":fs,"helm":True}))')
+            json=$(python3 -c 'import json,os,re,sys; fs=[f for f in os.environ.get("INPUT_FOLDERS","").split() if f]; bad=next((f for f in fs if not re.fullmatch(r"(server|dagul)-[a-z0-9-]+", f)), ""); sys.exit("bad folder "+bad) if bad else print(json.dumps({"folder":fs,"helm":True}))')
           else
             json=$(python3 deploy/scripts/ci-plan.py --changed "${BEFORE:-}" "${SHA}")
           fi
