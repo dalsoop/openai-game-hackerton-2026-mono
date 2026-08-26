@@ -3,6 +3,8 @@ extends RefCounted
 ## 호스트 패킹과 게스트 언팩이 같은 키만 쓴다. 필드 추가는 여기 한곳.
 
 const NetSnapParser := preload("res://games/dagul/net/net_snap_parser.gd")
+const Catalog := preload("res://core/contract/character_catalog.gd")
+const View := preload("res://core/contract/character_view.gd")
 
 const TICK := "tick"
 const TIME := "time"
@@ -51,6 +53,7 @@ const P_MAG_MAX := "magMax"
 const P_RELOAD := "reloadLeft"
 const P_ULT := "ult"
 const P_ANIMAL := "animal"
+const P_CHARACTER_ID := "characterId"
 const P_ITEM := "item"
 const P_KILLS := "kills"
 const P_EMOTE := "emote"
@@ -60,7 +63,7 @@ const P_ACK := "ack"
 const PLAYER_KEYS: Array[String] = [
 	P_SLOT, P_NAME, P_CPU, P_PARKED, P_X, P_Y, P_AIM_X, P_AIM_Y,
 	P_HP, P_MAX_HP, P_ALIVE, P_WEAPON, P_MAG, P_MAG_MAX, P_RELOAD,
-	P_ULT, P_ANIMAL, P_ITEM, P_KILLS, P_EMOTE, P_EMOTE_TIME, P_ACK,
+	P_ULT, P_ANIMAL, P_CHARACTER_ID, P_ITEM, P_KILLS, P_EMOTE, P_EMOTE_TIME, P_ACK,
 ]
 
 static func pack_header(world) -> Dictionary:
@@ -103,6 +106,7 @@ static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 		P_RELOAD: float(h.get("reload_left", 0.0)),
 		P_ULT: float(h.get("ultimate_charge", 0.0)),
 		P_ANIMAL: int(h.get("animal", slot)),
+		P_CHARACTER_ID: str(h.get("character_id", "")),
 		P_ITEM: "medkit" if int(h.get("medkits", 0)) > 0 else "",
 		P_KILLS: int(h["kills"]),
 		P_EMOTE: int(h.get("emote", -1)),
@@ -134,7 +138,12 @@ static func _apply_player_vitals(hero: Dictionary, p: Dictionary, player_name: S
 	hero["mag"] = int(p.get(P_MAG, 0))
 	hero["reload_left"] = _f(p, P_RELOAD, 0.0)
 	hero["ultimate_charge"] = _f(p, P_ULT, 0.0)
-	hero["animal"] = int(p.get(P_ANIMAL, slot))
+	hero["animal"] = int(p.get(P_ANIMAL, -1))
+	var character_id := str(p.get(P_CHARACTER_ID, ""))
+	if character_id == "":
+		character_id = Catalog.id_for_bind(Catalog.bind_key(), int(hero["animal"]))
+	if character_id != "":
+		View.apply_id(hero, character_id)
 	hero["kills"] = int(p.get(P_KILLS, 0))
 	hero["equipment"] = NetSnapParser.make_equipment(str(p.get(P_WEAPON, "")), player_name, int(p.get(P_MAG_MAX, 0)))
 	hero["display_name"] = player_name

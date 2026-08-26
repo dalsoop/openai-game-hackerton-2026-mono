@@ -1,4 +1,4 @@
-import { characterBindNumber, resolveMatchCharacterId } from "../characters/index.js";
+import { assignSeatIdentity } from "../characters/index.js";
 
 /** 허브 권위 시뮬 — 방장 Godot 이 아니라 방이 월드의 원본이다. */
 
@@ -13,7 +13,10 @@ export const FIRE_INTERVAL = 0.105;
 export const BULLET_RADIUS = 5;
 export const HERO_MAX_HP = 176;
 export const MAG_SIZE = 18;
+export const RELOAD_TIME = 1.15;
 export const FIXED_DT = 1 / 60;
+/** burst 권총 normal_range 와 같다. 이보다 멀리서 쏘면 탄이 만료된다. */
+export const EFFECTIVE_RANGE = FIRE_SPEED * FIRE_TTL;
 
 export type MatchInput = {
   mx?: unknown;
@@ -22,6 +25,7 @@ export type MatchInput = {
   aimY?: unknown;
   fire?: unknown;
   firePressed?: unknown;
+  reload?: unknown;
   seq?: unknown;
 };
 
@@ -36,9 +40,11 @@ export type SimHero = {
   alive: boolean;
   mag: number;
   magMax: number;
+  reloadLeft: number;
   fireCd: number;
   ack: number;
   animal: number;
+  characterId: string;
   cpu: boolean;
 };
 
@@ -62,6 +68,10 @@ export type GunFireFx = {
 };
 
 export type SeatSeed = { slot: number; name?: string; characterId?: string; cpu?: boolean };
+
+function seedHeroIdentity(seat: SeatSeed): { characterId: string; animal: number } {
+  return assignSeatIdentity(seat.characterId, { cpu: seat.cpu, slot: seat.slot });
+}
 
 function num(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
@@ -96,6 +106,7 @@ export class MatchSim {
       const slot = seat.slot;
       if (slot < 0) {continue;}
       const pos = spawnPoint(slot, count);
+      const seeded = seedHeroIdentity(seat);
       this.heroes.set(slot, {
         slot,
         x: pos.x,
@@ -107,12 +118,11 @@ export class MatchSim {
         alive: true,
         mag: MAG_SIZE,
         magMax: MAG_SIZE,
+        reloadLeft: 0,
         fireCd: 0,
         ack: 0,
-        animal: characterBindNumber(
-          seat.cpu ? (seat.characterId ?? "") : resolveMatchCharacterId(seat.characterId),
-          "animal",
-        ) ?? (seat.cpu ? slot % 12 : 0),
+        characterId: seeded.characterId,
+        animal: seeded.animal,
         cpu: Boolean(seat.cpu),
       });
     }
@@ -134,7 +144,10 @@ export class MatchSim {
       }
       const cmd = this.inputs.get(slot);
       if (cmd) {this.applyHero(hero, cmd, dt);}
-      else {hero.fireCd = Math.max(0, hero.fireCd - dt);}
+      else {
+        hero.fireCd = Math.max(0, hero.fireCd - dt);
+        this.tickReload(hero, dt, false);
+      }
     }
     this.advanceBullets(dt);
     this.resolveWinner();
@@ -158,6 +171,7 @@ export class MatchSim {
     const prey = this.nearestPrey(hero);
     if (!prey) {
       hero.fireCd = Math.max(0, hero.fireCd - dt);
+      this.tickReload(hero, dt, false);
       return;
     }
     const dx = prey.x - hero.x;
@@ -168,7 +182,7 @@ export class MatchSim {
       my: dy / dist,
       aimX: prey.x,
       aimY: prey.y,
-      fire: dist < 980,
+      fire: dist < EFFECTIVE_RANGE - 40,
     }, dt);
   }
 
@@ -206,12 +220,26 @@ export class MatchSim {
       hero.aimY = aimY;
     }
     hero.fireCd = Math.max(0, hero.fireCd - dt);
+    this.tickReload(hero, dt, Boolean(cmd.reload));
     const wantFire = Boolean(cmd.fire) || Boolean(cmd.firePressed);
     if (wantFire) {this.tryFire(hero);}
   }
 
+  private tickReload(hero: SimHero, dt: number, wantReload: boolean): void {
+    if (hero.reloadLeft > 0) {
+      hero.reloadLeft = Math.max(0, hero.reloadLeft - dt);
+      if (hero.reloadLeft === 0) {
+        hero.mag = hero.magMax;
+      }
+      return;
+    }
+    if ((wantReload && hero.mag < hero.magMax) || hero.mag <= 0) {
+      hero.reloadLeft = RELOAD_TIME;
+    }
+  }
+
   private tryFire(hero: SimHero): void {
-    if (hero.fireCd > 0 || hero.mag <= 0) {return;}
+    if (hero.reloadLeft > 0 || hero.fireCd > 0 || hero.mag <= 0) {return;}
     const dx = hero.aimX - hero.x;
     const dy = hero.aimY - hero.y;
     const len = Math.hypot(dx, dy) || 1;

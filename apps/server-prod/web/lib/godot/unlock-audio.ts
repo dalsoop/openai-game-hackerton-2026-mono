@@ -9,15 +9,14 @@ type AudioWindow = Window & {
 };
 
 function wrapCtor(Orig: typeof AudioContext): typeof AudioContext {
-  const Wrapped = function AudioContextWrapped(
-    this: AudioContext,
-    opts?: AudioContextOptions,
-  ): AudioContext {
-    const ctx = new Orig(opts);
-    captured.push(ctx);
-    return ctx;
-  };
-  Wrapped.prototype = Orig.prototype;
+  // Godot 은 `ctx instanceof AudioContext` 를 본다. 새 인스턴스를 다른
+  // 생성자로 바꿔 주면 그 검사가 깨져 웹에서 소리가 전부 죽는다.
+  class Wrapped extends Orig {
+    constructor(opts?: AudioContextOptions) {
+      super(opts);
+      captured.push(this);
+    }
+  }
   return Wrapped as unknown as typeof AudioContext;
 }
 

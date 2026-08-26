@@ -196,6 +196,13 @@ const config = [
     rules: { "complexity": ["error", 18] },
   },
 
+  {
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: {
+      "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
+    },
+  },
+
   // 에러 경계 — 프로바이더/CSS 를 신뢰할 수 없는 최후 폴백이므로
   // console.error 와 인라인 스타일이 정당하다 (Next 공식 패턴).
   {

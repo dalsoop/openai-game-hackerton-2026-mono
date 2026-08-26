@@ -34,6 +34,16 @@ describe("unlockGodotAudio", () => {
   });
 });
 
+describe("captureAudioContexts", () => {
+  it("감싼 뒤에도 instanceof AudioContext 가 유지된다", () => {
+    stubAudioContext();
+    captureAudioContexts();
+    const Ctx = window.AudioContext as unknown as new () => AudioContext;
+    const ctx = new Ctx();
+    expect(ctx instanceof window.AudioContext).toBe(true);
+  });
+});
+
 describe("bindAudioUnlock", () => {
   it("pointerdown · keydown 에서 unlock 한다", () => {
     stubAudioContext();

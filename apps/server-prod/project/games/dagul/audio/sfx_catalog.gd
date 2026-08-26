@@ -43,7 +43,7 @@ const SOUNDS := {
 	"eliminate": PREFIX + "sfx/down_kill.wav",
 	"pickup": PREFIX + "sfx/potion.wav",
 	"ui_click": PREFIX + "sfx/ui_click.wav",
-	"match_start": PREFIX + "sfx/ready_to_fight.wav",
+	"match_start": PREFIX + "sfx/match_start.wav",
 	"match_end": PREFIX + "sfx/victory.wav",
 	"dash": PREFIX + "sfx/dash_1.wav",
 	"dash_1": PREFIX + "sfx/dash_1.wav",

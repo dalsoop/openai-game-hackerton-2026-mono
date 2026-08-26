@@ -3,7 +3,6 @@
  */
 import type { JSX } from "react";
 import Room from "@/components/Room";
-import WaitingRoomPackList from "@/components/WaitingRoomPackList";
 import { overlayOwnPackPct } from "@/lib/domain/waiting-room-pack";
 import type { Seat } from "@/lib/domain/roster";
 
@@ -49,26 +48,23 @@ export function InRoomPhase({
   const seats = overlayOwnPackPct(players, you, ownPackPct);
 
   return (
-    <>
-      <Room
-        players={seats}
-        you={you}
-        isHost={isHost}
-        gameId={gameId}
-        roomOpen={roomOpen}
-        idleLeftSec={idleLeftSec}
-        onStart={onStartGame}
-        onLeave={onLeaveRoom}
-        onSetGame={onSetGame}
-        onSetCharacter={onSetCharacter}
-        onToggleRoom={onToggleRoom}
-        canStart={canStart}
-        connClass={connClass}
-        connText={connText}
-        rttMs={rttMs}
-        rttText={rttText}
-      />
-      <WaitingRoomPackList seats={seats} you={you} />
-    </>
+    <Room
+      players={seats}
+      you={you}
+      isHost={isHost}
+      gameId={gameId}
+      roomOpen={roomOpen}
+      idleLeftSec={idleLeftSec}
+      onStart={onStartGame}
+      onLeave={onLeaveRoom}
+      onSetGame={onSetGame}
+      onSetCharacter={onSetCharacter}
+      onToggleRoom={onToggleRoom}
+      canStart={canStart}
+      connClass={connClass}
+      connText={connText}
+      rttMs={rttMs}
+      rttText={rttText}
+    />
   );
 }

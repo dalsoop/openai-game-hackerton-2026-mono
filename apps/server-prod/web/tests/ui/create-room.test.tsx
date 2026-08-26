@@ -37,7 +37,13 @@ function setup(): { onSubmit: ReturnType<typeof vi.fn>; onBack: ReturnType<typeo
   const onBack = vi.fn();
   render(
     <NextIntlClientProvider locale="ko" messages={ko}>
-      <CreateRoom listings={listings} onSubmit={onSubmit} onBack={onBack} />
+      <CreateRoom
+        listings={listings}
+        onSubmit={onSubmit}
+        onBack={onBack}
+        connClass="conn-ok"
+        connText=""
+      />
     </NextIntlClientProvider>,
   );
   return { onSubmit, onBack };
@@ -88,7 +94,7 @@ describe("방 만들기 폼", () => {
 
   it("로비로 — onBack", () => {
     const { onBack } = setup();
-    fireEvent.click(screen.getByRole("button", { name: `← ${ko.create.cancel}` }));
+    fireEvent.click(screen.getByRole("button", { name: ko.create.cancel }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

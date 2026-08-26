@@ -3,8 +3,10 @@ import {
   ARENA_CENTER,
   ARENA_SIZE,
   FIRE_INTERVAL,
+  MAG_SIZE,
   MatchSim,
   MOVE_SPEED,
+  RELOAD_TIME,
   clampArena,
   spawnPoint,
 } from "@/lib/hub/match-sim";
@@ -83,6 +85,34 @@ describe("MatchSim", () => {
     sim.pushInput(0, { fire: true, aimX: b.x, aimY: b.y, seq: 1 });
     sim.step(1 / 60);
     expect(b.hp).toBeLessThan(b.maxHp);
+    expect(sim.bullets.size).toBe(0);
+  });
+
+  it("탄창이 비면 재장전 후 다시 발사한다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    const hero = sim.heroes.get(0);
+    expect(hero).toBeDefined();
+    if (!hero) {return;}
+    hero.mag = 0;
+    for (let i = 0; i < Math.ceil(RELOAD_TIME * 60) + 1; i++) {
+      sim.pushInput(0, { fire: true, aimX: hero.x + 80, aimY: hero.y, seq: i + 1 });
+      sim.step(1 / 60);
+    }
+    expect(hero.mag).toBeLessThan(hero.magMax);
+    expect(hero.mag).toBeGreaterThan(0);
+    expect(sim.bullets.size).toBe(1);
+  });
+
+  it("CPU 는 탄이 닿지 않는 거리에서 탄창을 비우지 않는다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1, cpu: true }]);
+    const human = sim.heroes.get(0);
+    const cpu = sim.heroes.get(1);
+    expect(human && cpu).toBeTruthy();
+    if (!human || !cpu) {return;}
+    cpu.x = human.x + 900;
+    cpu.y = human.y;
+    sim.step(1 / 60);
+    expect(cpu.mag).toBe(MAG_SIZE);
     expect(sim.bullets.size).toBe(0);
   });
 });

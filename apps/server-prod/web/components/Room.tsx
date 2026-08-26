@@ -47,11 +47,6 @@ export default function Room({
           <MaterialIcon name="undo" />
         </button>
         <div className="wait-line">
-          {idleLeftSec > 0 && (
-            <span className="wait-idle-inline">
-              {isHost ? t("idleHost", { sec: idleLeftSec }) : t("idleGuest", { sec: idleLeftSec })}.
-            </span>
-          )}
           <span className="wait-title-inline">{t("title")}</span>
         </div>
       </div>
@@ -98,6 +93,11 @@ export default function Room({
           <div className="host-wait">{t("waitingForHost")}</div>
         )}
       </div>
+      {idleLeftSec > 0 && (
+        <p className="wait-idle-inline">
+          {isHost ? t("idleHost", { sec: idleLeftSec }) : t("idleGuest", { sec: idleLeftSec })}.
+        </p>
+      )}
     </div>
   );
 }

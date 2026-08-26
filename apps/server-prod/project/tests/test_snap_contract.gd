@@ -23,6 +23,23 @@ func _player_roundtrip(t) -> void:
 	t.check("magMax → equipment.mag_size", int(hero["equipment"].get("mag_size", 0)) == 18)
 	t.check("ult 왕복", is_equal_approx(float(hero["ultimate_charge"]), 55.0))
 	t.check("animal 왕복", int(hero["animal"]) == 2)
+	t.check("animal 만 있어도 id 를 복원한다", str(hero.get("character_id", "")) != "")
+	var picked := SnapContract.unpack_player({
+		SnapContract.P_SLOT: 3,
+		SnapContract.P_NAME: "고른이",
+		SnapContract.P_X: 10.0,
+		SnapContract.P_Y: 20.0,
+		SnapContract.P_HP: 80.0,
+		SnapContract.P_MAX_HP: 176.0,
+		SnapContract.P_ALIVE: true,
+		SnapContract.P_CHARACTER_ID: "a5",
+		SnapContract.P_ANIMAL: 0,
+		SnapContract.P_MAG: 4,
+		SnapContract.P_MAG_MAX: 18,
+	}, {}, 3, 20.0)
+	t.check("characterId 가 animal 보다 우선", str(picked.get("character_id", "")) == "a5")
+	t.check("bind 는 id 에서 읽는다", int(picked.get("animal", -1)) == 5)
+	t.check("슬롯을 캐릭터로 쓰지 않는다", int(picked.get("animal", -1)) != 3)
 	var unknown := SnapContract.unpack_player(
 		SnapContract.pack_player(_unknown_hero(), false, 0), {}, 0, 20.0)
 	t.check("animal -1 왕복", int(unknown["animal"]) == -1)
