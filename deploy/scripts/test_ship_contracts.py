@@ -16,6 +16,7 @@ from helm_contract import (
     planted_hub_ids,
     planted_hub_tags,
     planted_redis_slots,
+    replace_unshipped_hub_tags,
     redis_url_ok,
     rooms_listed,
     rooms_stayed,
@@ -228,6 +229,17 @@ class HelmContract(unittest.TestCase):
         self.assertNotIn("--atomic", cmd)
         self.assertEqual(cmd[cmd.index("-f") : cmd.index("-f") + 6], ["-f", "/v.yaml", "-f", "/g.yaml", "-f", "/e.yaml"])
 
+    def test_unshipped_tags_follow_live(self) -> None:
+        seeded = replace_unshipped_hub_tags(
+            self.GAMES,
+            {"server-yjh-dev1": "liveyjh", "server-prod": "ignored"},
+            {"server-prod"},
+        )
+        self.assertEqual(
+            planted_hub_tags(seeded),
+            {"server-prod": "abc", "server-yjh-dev1": "liveyjh"},
+        )
+
     def test_planted_maps(self) -> None:
         self.assertEqual(planted_hub_tags(self.GAMES), {"server-prod": "abc", "server-yjh-dev1": "def"})
         self.assertEqual(planted_hub_ids(self.GAMES), {"server-prod": "prod", "server-yjh-dev1": "yjh-dev1"})
@@ -310,6 +322,7 @@ class HelmContract(unittest.TestCase):
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
         self.assertIn("assert_hub_images", helm_fn)
         self.assertIn("run_plant()", helm_fn)
+        self.assertIn("seed_unshipped_tags_from_live", helm_fn)
         self.assertIn("purge_cloudflare()", helm_fn)
         self.assertIn("dump_cluster()", helm_fn)
         self.assertIn("wait_hub_workloads", helm_fn)

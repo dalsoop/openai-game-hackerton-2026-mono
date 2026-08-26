@@ -43,6 +43,7 @@ from helm_contract import (  # noqa: E402
     planted_hub_ids,
     planted_hub_tags,
     planted_redis_slots,
+    replace_unshipped_hub_tags,
     redis_url_ok,
     rooms_listed,
     rooms_stayed,
@@ -500,8 +501,18 @@ def wait_hub_workloads(folder: str) -> None:
         raise SystemExit(ready.stderr or ready.stdout or f"deploy/{folder}-hub-static 대기 실패")
 
 
+def seed_unshipped_tags_from_live() -> None:
+    live = deploy_image_tags(live_hub_image_lines(live_hub_workloads()))
+    path = CHART / "values-games.yaml"
+    updated = replace_unshipped_hub_tags(path.read_text(), live, set(shipped_folders()))
+    if updated != path.read_text():
+        path.write_text(updated)
+        print("seeded unshipped hub tags from live")
+
+
 def helm_upgrade() -> None:
     try:
+        seed_unshipped_tags_from_live()
         run_plant()
         print("helm: 태그만 plant. 이미지는 ship 이 만든 것만 쓴다")
         assert_hub_images(plant_mod())
