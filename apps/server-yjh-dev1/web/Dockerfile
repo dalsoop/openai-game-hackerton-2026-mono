@@ -13,6 +13,7 @@ RUN cp ./public/addons/colyseus/bin/libcolyseus_godot.web.wasm32.release.wasm \
   ./public/libcolyseus_godot.web.wasm32.release.wasm
 RUN test -n "$(find public/godot -name index.pck -print -quit)" \
   || (echo "godot pack missing — Apps ship 이 godot:build+publish 뒤에 이 이미지를 굽는다" && exit 1)
+ENV HACKERTONE_IMAGE_BUILD=1
 RUN npx next build
 RUN npx tsc --project tsconfig.server.json
 RUN npx --yes tsc-alias@1.8.16 -p tsconfig.server.json

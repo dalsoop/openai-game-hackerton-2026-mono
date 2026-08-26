@@ -314,6 +314,8 @@ class HelmContract(unittest.TestCase):
         self.assertIn("rewrite-dist-aliases.mjs", yjh_df)
         self.assertIn("alias-register.js", prod_df)
         self.assertIn("alias-register.js", yjh_df)
+        self.assertIn("HACKERTONE_IMAGE_BUILD", prod_df)
+        self.assertIn("HACKERTONE_IMAGE_BUILD", yjh_df)
         self.assertNotIn('"--no-cache"', apps_py)
         self.assertIn('["docker", "build"', apps_py)
         self.assertIn('["docker", "push"', apps_py)
@@ -329,6 +331,9 @@ class HelmContract(unittest.TestCase):
         self.assertIn("restart_hub_workloads", helm_fn)
         self.assertIn("skip restart", apps_py)
         self.assertIn("hub_enabled", apps_py)
+        self.assertIn("smoke_folders", apps_py)
+        self.assertIn("lint-web.py", (APPS.parent / ".github" / "workflows" / "apps.yml").read_text())
+        self.assertTrue((APPS.parent / "deploy" / "scripts" / "lint-web.py").is_file())
         self.assertNotIn("ensure_hub_images", helm_fn)
         self.assertNotIn("skip hub {folder} ({ref})", apps_py)
         hub_fn = apps_py.split("def hub_refs", 1)[1].split("def assert_hub_images", 1)[0]
@@ -347,6 +352,28 @@ class HelmContract(unittest.TestCase):
         finally:
             os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
 
+    def test_smoke_follows_shipped_folders_only(self) -> None:
+        import importlib.util
+        import os
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location("apply_smoke", path)
+        apply = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(apply)
+        os.environ["HACKERTONE_SHIP_FOLDERS"] = "server-prod"
+        try:
+            self.assertEqual(apply.smoke_folders(), ["server-prod"])
+            self.assertEqual(apply.wait_folders(), ["server-prod"])
+        finally:
+            os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
+
+    def test_hub_tag_hashes_ui_tree(self) -> None:
+        plant = Path(__file__).with_name("plant-apps.py").read_text()
+        fn = plant.split("def hub_image_tag", 1)[1].split("def parse_yaml", 1)[0]
+        self.assertIn('ctx / "components"', fn)
+        self.assertIn('ctx / "hooks"', fn)
+        self.assertIn("alias-register.ts", fn)
+
 class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:
         root = APPS.parent
@@ -364,6 +391,7 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertIn("ci-plan.py", apps_yml)
         self.assertIn("Ship then helm", apps_yml)
         self.assertIn("HACKERTONE_SHIP_FOLDERS", apps_yml)
+        self.assertIn("lint-web.py", apps_yml)
         self.assertIn("workflow_dispatch", apps_yml)
         self.assertIn("runs-on: [self-hosted, hackertone]", apps_yml)
         self.assertIn("group: apps-ship", apps_yml)

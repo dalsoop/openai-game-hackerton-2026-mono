@@ -1,6 +1,6 @@
 import type { Room } from "@colyseus/sdk";
-import { Roster, type RosterSnapshot, type Seat } from "@/lib/domain/roster";
-import type { HubStatus } from "@/types";
+import { Roster, type RosterSnapshot, type Seat } from "../domain/roster";
+import type { HubStatus } from "../../types";
 
 export interface WaitingRoomRoster {
   gameId: string;

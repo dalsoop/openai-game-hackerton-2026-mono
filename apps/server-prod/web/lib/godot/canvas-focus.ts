@@ -1,5 +1,5 @@
 // 페이지는 캔버스 포커스와 IME 가드만 한다. 키 해제는 엔진 window.blur 가 맡는다.
-import { bindPlayKeyGuard } from "@/lib/godot/play-keys";
+import { bindPlayKeyGuard } from "./play-keys";
 
 export function grabCanvasKeyboard(canvas: HTMLCanvasElement): void {
   if (typeof document !== "undefined" && document.visibilityState === "hidden") {return;}

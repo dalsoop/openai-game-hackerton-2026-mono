@@ -1,6 +1,6 @@
 // 핸드오프 퇴장 — React 소켓을 비동의로 한 번만 넘긴다 (onDrop + 유예).
 // useRoom 언마운트의 두 번째 leave 는 무시한다.
-import { ROOM_LEAVE } from "@/lib/contract";
+import { ROOM_LEAVE } from "../contract";
 
 export interface LeaveOnceRoom {
   reconnection: { enabled: boolean };

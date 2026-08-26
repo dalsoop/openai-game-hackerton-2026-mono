@@ -1,7 +1,7 @@
 // 방 멤버십 순수 모듈 — 로비 목록에서 "내 방"을 식별·정렬한다.
 // 저장소는 좁은 인터페이스로 주입(localStorage 대체 가능 → 테스트 용이).
-import type { HubRoom } from "@/types";
-import { WEB_STORE } from "@/lib/contract";
+import type { HubRoom } from "../types";
+import { WEB_STORE } from "./contract";
 
 export type RoomMembership = "host" | "member" | "none";
 

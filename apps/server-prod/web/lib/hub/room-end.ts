@@ -2,7 +2,7 @@
 // React 의존 없음. 동의 퇴장과 튕김을 코드·메시지로 나눈다.
 
 import { CLOSE_CODE } from "../contract/wire";
-import type { GamePhase, HubStatus } from "@/types";
+import type { GamePhase, HubStatus } from "../../types";
 
 /** 모달 문구·재접속 가능 여부. 자발적 퇴장은 여기에 넣지 않는다. */
 export type DropReason = "offline" | "kicked" | "dropped" | "idle";

@@ -1,6 +1,6 @@
 // 리스트 룸 → 로비 방 목록 매핑·델타 적용 — 순수 함수 (tests 대상).
 import type { RoomAvailable } from "@colyseus/sdk";
-import type { HubRoom } from "@/types";
+import type { HubRoom } from "../../types";
 
 /** RoomAvailable 1건 → HubRoom 뷰 모델. */
 export function toHubRoom(r: RoomAvailable): HubRoom {

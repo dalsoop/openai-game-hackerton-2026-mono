@@ -1,5 +1,5 @@
 // 로더 상태 → i18n 키 매핑 — 순수 함수 (tests 대상).
-import type { LoaderState } from "@/hooks/useGodotLoader";
+import type { LoaderState } from "../../hooks/useGodotLoader";
 
 /** 다운로드 키는 {pct} 치환을 쓴다. */
 export function loaderLabelKey(state: LoaderState): string {

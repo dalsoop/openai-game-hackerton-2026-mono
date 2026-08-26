@@ -199,6 +199,23 @@ const config = [
   // 에러 경계 — 프로바이더/CSS 를 신뢰할 수 없는 최후 폴백이므로
   // console.error 와 인라인 스타일이 정당하다 (Next 공식 패턴).
   {
+    files: ["lib/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*"],
+              message: "lib/ 는 상대 경로만 쓴다. @/ 는 컴포넌트·훅 전용이다.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     files: ["app/**/error.tsx", "app/global-error.tsx"],
     rules: {
       "no-console": "off",
