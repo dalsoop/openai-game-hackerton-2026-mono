@@ -6,11 +6,13 @@ import {
 import {
   attachReconnectWatch, godotOwnedReconnects, installMatchProbe, waitMatchStart, waitStartEnabled,
 } from "./e2e/godot-probe.mjs";
+import { audioSnapshot, installAudioProbe, stripNextOverlay } from "./e2e/audio-probe.mjs";
 
 const { browser, page } = await launchPage();
 const consoleErrors = attachConsole(page);
 const reconnectHits = attachReconnectWatch(page);
 await installMatchProbe(page);
+await installAudioProbe(page);
 
 const versionResp = await fetch(`${ORIGIN}/api/version`, { cache: "no-store" });
 let versionBody = {};
@@ -89,6 +91,8 @@ const combatOk = await page
   .then(() => true)
   .catch(() => false);
 ok("7. 카운트다운 종료", combatOk);
+await stripNextOverlay(page);
+const audioBefore = await audioSnapshot(page);
 await page.locator("#canvas.gc-canvas").click({ position: { x: 640, y: 360 } });
 const before = await page.evaluate(() => window.__dagulPlay);
 await page.keyboard.down("KeyW");
@@ -98,6 +102,17 @@ const after = await page.evaluate(() => window.__dagulPlay);
 const moved = before && after && Math.hypot(after.x - before.x, after.y - before.y) > 8;
 await page.screenshot({ path: `${SHOT}-6-moved.png` });
 ok("8. WASD 이동", moved, before && after ? `${before.x.toFixed(0)},${before.y.toFixed(0)} → ${after.x.toFixed(0)},${after.y.toFixed(0)}` : "probe 없음");
+
+await page.mouse.down();
+await page.waitForTimeout(2800);
+await page.mouse.up();
+const audioAfter = await audioSnapshot(page);
+const gunStarts = audioAfter.starts - audioBefore.starts;
+ok(
+  "8b. 인게임 Sample 총성",
+  audioAfter.running && gunStarts >= 3 && audioAfter.maxPeak >= 8,
+  `deltaStarts=${gunStarts} maxPeak=${audioAfter.maxPeak} ctxs=${audioAfter.ctxs}`,
+);
 
 const autoloadLeak = consoleErrors.some((line) => /non-existent singleton '(GameState|Audio)'/.test(line));
 ok("9. 오토로드는 엔진 싱글톤이 아님", !autoloadLeak);

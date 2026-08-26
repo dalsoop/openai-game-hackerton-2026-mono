@@ -8,6 +8,7 @@ import { DEFAULT_GAME_ID, packOf, type GameId } from "../games/catalog";
 import { AssetStore, assetPlanOf } from "./asset-store";
 import { bindCanvasKeyboardFocus } from "./canvas-focus";
 import { bindAudioUnlock, captureAudioContexts } from "./unlock-audio";
+import { applyDevicePixelRatioCap, restoreDevicePixelRatio } from "./dpr-cap";
 import { isWebGL2Available, type GodotEngineApi } from "./webgl";
 import type { StartPayload } from "../hub/start-payload";
 
@@ -188,6 +189,26 @@ export class GodotRuntime {
       createCanvas: () => document.createElement("canvas"),
     })) {throw new Error("webgl2-missing");}
 
+    applyDevicePixelRatioCap();
+    try {
+      await this.launchEngine(EngineCtor, canvas, pckBuffer, extBuffer);
+    } catch (e: unknown) {
+      restoreDevicePixelRatio();
+      throw e;
+    }
+  }
+
+  private async launchEngine(
+    EngineCtor: new (cfg: unknown) => {
+      init: (basePath: string) => Promise<unknown>;
+      copyToFS: (path: string, buffer: ArrayBuffer) => void;
+      start: (override: Record<string, unknown>) => Promise<void>;
+      requestQuit?: () => void;
+    },
+    canvas: HTMLCanvasElement,
+    pckBuffer: ArrayBuffer,
+    extBuffer: ArrayBuffer,
+  ): Promise<void> {
     const config: Record<string, unknown> = {
       canvas,
       canvasResizePolicy: 2,
@@ -283,6 +304,7 @@ export class GodotRuntime {
     this.unbindAudioUnlock = null;
     this.engine = null;
     this.boundCanvas = null;
+    restoreDevicePixelRatio();
     if (this.snap.state === "running") {this.update({ state: "ready" });}
   }
 

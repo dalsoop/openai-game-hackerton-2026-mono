@@ -6,6 +6,7 @@ const CharacterCatalogScript = preload("res://core/contract/character_catalog.gd
 const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
 const KillFanfareScript = preload("res://games/dagul/render/kill_fanfare.gd")
+const PerfOverlayScript = preload("res://games/dagul/render/perf_overlay.gd")
 const MODE := "full"
 const TICK := 1.0 / 60.0
 
@@ -14,6 +15,7 @@ var seed_value: int = 2222
 var _sfx: SfxManager = null
 var _tutorial: TutorialOverlay = null
 var _fanfare = null
+var _perf = null
 var _last_local_kills: int = -1
 var _is_host := false
 var _input: PlayerInput
@@ -117,6 +119,8 @@ func _start_as_guest(you: int, mode: String) -> void:
 	net_world.local_slot = you
 	net_world.set_mode(mode)
 	net_world.reset()
+	# 첫 SNAP 전까지 로컬 예측이 풀리지 않게 서버 START_COUNTDOWN(3) 과 맞춘다.
+	net_world.start_countdown = 3.0
 	world = net_world
 
 func _ensure_overlays(ctx: Dictionary) -> void:
@@ -131,6 +135,11 @@ func _ensure_overlays(ctx: Dictionary) -> void:
 		_tutorial.z_index = 30
 	if _fanfare == null:
 		_attach_kill_fanfare(hud_layer)
+	if _perf == null:
+		_perf = PerfOverlayScript.new()
+		_perf.name = "PerfOverlay"
+		hud_layer.add_child(_perf)
+		_perf.z_index = 100
 
 # --- 게임 루프 ---
 
@@ -147,12 +156,7 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	if hud != null and touch != null and touch.has_method("is_enabled"):
 		hud.touch_hints = bool(touch.is_enabled()) and not bool(ctx.get("settings_open", false))
 
-	if _input.edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
-		world.finish_cine = {}
-	if _input.edge(KEY_F1):
-		hud_mode = (hud_mode + 1) % 3
-		hud.hud_mode = hud_mode
-		hud.queue_redraw()
+	_poll_debug_keys(hud)
 	_update_spectator()
 	if hit_pause_frames > 0:
 		hit_pause_frames -= 1
@@ -171,6 +175,18 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	hud.spectate_slot = spectate_slot
 	world_view.queue_redraw()
 	hud.queue_redraw()
+
+
+func _poll_debug_keys(hud: Control) -> void:
+	if _input.edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
+		world.finish_cine = {}
+	if _input.edge(KEY_F1):
+		hud_mode = (hud_mode + 1) % 3
+		hud.hud_mode = hud_mode
+		hud.queue_redraw()
+	if _input.edge(KEY_F3) and _perf != null:
+		_perf.toggle()
+
 
 func _tick_match_audio(ctx: Dictionary) -> void:
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")), last_event_id)

@@ -27,6 +27,7 @@ const SUITES := [
 	"res://tests/test_engine_socket_fallback.gd",
 	"res://tests/test_settings_store.gd",
 	"res://tests/test_play_chrome.gd",
+	"res://tests/test_perf_overlay.gd",
 ]
 
 var pass_count := 0

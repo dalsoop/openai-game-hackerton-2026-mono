@@ -193,6 +193,7 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
     "scripts/e2e-dagul.mjs",
     "scripts/e2e/harness.mjs",
     "scripts/e2e/godot-probe.mjs",
+    "scripts/e2e/audio-probe.mjs",
   ].map((p) => sourceOf(join(ROOT, p))).join("\n");
 
   it("e2e-dagul 은 Engine.isWebGLAvailable(2) 를 쓰고 게임 캔버스에 getContext 하지 않는다", () => {
@@ -200,6 +201,16 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
     expect(e2e).not.toMatch(/getElementById\(['"]godot-canvas['"]\)[\s\S]{0,80}getContext\(['"]webgl2['"]\)/);
     expect(e2e).not.toMatch(/const URL\s*=/);
     expect(e2e).toContain("new URL(PAGE_URL)");
+  });
+
+  it("e2e 는 인게임 Sample 총성을 AudioBufferSourceNode.start 로 잰다", () => {
+    const probe = sourceOf(join(ROOT, "scripts/e2e/audio-probe.mjs"));
+    const dagul = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
+    expect(probe).toContain("AudioBufferSourceNode.prototype");
+    expect(probe).toContain("proto.start");
+    expect(dagul).toContain("installAudioProbe");
+    expect(dagul).toContain("인게임 Sample 총성");
+    expect(sourceOf(join(ROOT, "scripts/e2e/harness.mjs"))).toContain("autoplay-policy=no-user-gesture-required");
   });
 
   it("e2e 는 Godot 의 matchmake/reconnect 를 감시한다", () => {
@@ -232,6 +243,14 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("EVT_TO_ENGINE");
     expect(src).toContain("send_ready");
     expect(src).toContain("MSG_READY");
+    expect(src).toContain("_ready_repeat");
+    expect(src).toContain("_ready_sent");
+    expect(src).toContain("READY_RETRY_SEC");
+  });
+
+  it("LobbyRoom 본체에 테스트 시계 API 가 없다", () => {
+    const src = sourceOf(join(ROOT, "lib/hub/LobbyRoom.ts"));
+    expect(src).not.toContain("testClock");
   });
 
   it("매치 셸은 모듈 start 뒤에 ready 를 보낸다", () => {
@@ -241,6 +260,18 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(startAt).toBeGreaterThanOrEqual(0);
     expect(readyAt).toBeGreaterThan(startAt);
     expect(src).toContain("send_ready");
+  });
+
+  it("게임 모듈은 첫 SNAP 전까지 카운트다운을 3 으로 둔다", () => {
+    const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
+    expect(src).toMatch(/start_countdown\s*=\s*3\.0/);
+  });
+
+  it("READY 는 시뮬 틱을 기다리지 않고 장벽을 연다", () => {
+    const src = sourceOf(join(ROOT, "lib/hub/LobbyRoom.ts"));
+    expect(src).toContain("tryReleaseLoadBarrier");
+    const reconn = src.slice(src.indexOf("onReconnect"), src.indexOf("onLeave"));
+    expect(reconn).not.toContain("matchReady = false");
   });
 
   it("반전: START 경로가 leaveOnceForHandoff 로 좌석을 넘기면 실패한다", () => {
@@ -329,24 +360,46 @@ describe("계약: 배포 신원은 /health 와 분리한다", () => {
 });
 
 describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
-  it("웹에서 Stream 강제와 add_bus 우회가 없다", () => {
-    const audio = sourceOf(join(ROOT, "..", "project/core/autoload/game_audio.gd"));
-    expect(audio).toContain("OS.has_feature(\"web\")");
-    expect(audio).toContain("_ensure_impact");
-    expect(audio).toContain("_pool_bus");
-    expect(audio).not.toContain("PLAYBACK_TYPE_STREAM");
-    expect(audio).toContain("PLAYBACK_TYPE_SAMPLE");
-    expect(audio).toContain("OS.has_feature(\"web\") or _world_players.is_empty()");
-    expect(audio).not.toContain("_web_stream");
-    const godot = sourceOf(join(ROOT, "..", "project/project.godot"));
-    expect(godot).toContain("default_playback_type.web=1");
-    const unlock = audio.slice(audio.indexOf("_on_web_audio_unlock"), audio.indexOf("func _stream_for"));
+  const audio = (): string => sourceOf(join(ROOT, "..", "project/core/autoload/game_audio.gd"));
+
+  it("웹은 Stream 강제와 add_bus 우회가 없다", () => {
+    const src = audio();
+    expect(src).toContain("OS.has_feature(\"web\")");
+    expect(src).toContain("_ensure_impact");
+    expect(src).toContain("_pool_bus");
+    expect(src).not.toContain("PLAYBACK_TYPE_STREAM");
+    expect(src).not.toContain("_web_stream");
+    expect(src).toContain("_play_stream(stream, volume_db, pitch_variance, _pool_bus())");
+    expect(sourceOf(join(ROOT, "..", "project/project.godot"))).toContain("default_playback_type.web=1");
+  });
+
+  it("웹 플레이어는 Sample 이고 위치 2D 풀을 만들지 않는다", () => {
+    const src = audio();
+    expect(src).toContain("PLAYBACK_TYPE_SAMPLE");
+    expect(src).toContain("if not OS.has_feature(\"web\"):\n\t\t_build_world_pool()");
+    expect(src).toContain("OS.has_feature(\"web\") or _world_players.is_empty()");
+  });
+
+  it("제스처 unlock 은 트랙을 비우지 않는다", () => {
+    const src = audio();
+    const unlock = src.slice(src.indexOf("_on_web_audio_unlock"), src.indexOf("func _stream_for"));
     expect(unlock).toContain("_music_a.playing");
     expect(unlock).not.toContain("_current_track = \"\"");
-    expect(audio).toContain("_play_stream(stream, volume_db, pitch_variance, _pool_bus())");
     const js = sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"));
     expect(js).toContain("resumeIssued");
     expect(js).toContain("if (!firstResume) {return;}");
+  });
+});
+
+describe("계약: 빈 events 스냅도 탄으로 gun_fire 를 추정한다", () => {
+  it("NetWorld 는 이번 틱 gun_fire 가 없을 때만 탄 역추정을 한다", () => {
+    const src = sourceOf(join(ROOT, "..", "project/games/dagul/net/net_world.gd"));
+    expect(src).toContain("var _snap_had_gun_fire");
+    expect(src).toContain("if _bullets_ready and not _snap_had_gun_fire:");
+    expect(src).not.toContain("if _bullets_ready and not _server_events_active:");
+    const tests = sourceOf(join(ROOT, "..", "project/tests/test_net_world.gd"));
+    expect(tests).toContain("_empty_events_still_infer_gun_fire");
+    expect(tests).toContain("_events_and_bullet_do_not_double");
   });
 });
 
