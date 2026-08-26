@@ -69,7 +69,7 @@ export function useHub(): UseHubResult {
   } = useDropSession();
 
   // 게임 방에 들어가 있는 동안엔 리스트 연결을 내려 자원을 아낀다.
-  const { rooms, lobbyErr, lobbyConnecting, refresh } = useRoomList(connected && !joinRequest);
+  const { rooms, lobbyErr, lobbyConnecting, refresh, refreshing } = useRoomList(connected && !joinRequest);
   const handleResumeFailed = useCallback((message: string) => {
     setError(message);
     setJoinRequest(null);
@@ -151,6 +151,7 @@ export function useHub(): UseHubResult {
     idleLeftSec,
     toggleRoom: sends.toggleRoom,
     refreshRooms: refresh,
+    refreshingRooms: refreshing,
     tryResume: commands.tryResume,
     resuming: joinRequest?.kind === "resume",
     resumeFailed,

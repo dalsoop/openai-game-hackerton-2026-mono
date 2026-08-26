@@ -11,6 +11,7 @@ interface SlotCardProps {
   player: Seat | null;
   you: number;
   onSetCharacter?: (characterId: string) => void;
+  pingMs?: number;
 }
 
 const TAG_CLASS: Record<SlotBadge, string> = {
@@ -65,7 +66,7 @@ function SlotCharacterPicker({
   );
 }
 
-export default function SlotCard({ index, player, you, onSetCharacter }: SlotCardProps): JSX.Element {
+export default function SlotCard({ index, player, you, onSetCharacter, pingMs = 0 }: SlotCardProps): JSX.Element {
   const t = useTranslations("room");
   const tx = useTranslations();
   const isMe = index === you;
@@ -83,6 +84,7 @@ export default function SlotCard({ index, player, you, onSetCharacter }: SlotCar
 
   return (
     <div className={classes}>
+      {isMe && pingMs > 0 && <span className="slot-ping">{pingMs}ms</span>}
       {player && badge ? (
         <>
           {character ? (

@@ -21,6 +21,10 @@ interface InRoomPhaseProps {
   onSetGame: (game: string) => void;
   onSetCharacter: (characterId: string) => void;
   onToggleRoom: () => void;
+  connClass: string;
+  connText: string;
+  rttMs: number;
+  rttText: string | null;
 }
 
 export function InRoomPhase({
@@ -37,6 +41,10 @@ export function InRoomPhase({
   onSetGame,
   onSetCharacter,
   onToggleRoom,
+  connClass,
+  connText,
+  rttMs,
+  rttText,
 }: InRoomPhaseProps): JSX.Element {
   const seats = overlayOwnPackPct(players, you, ownPackPct);
 
@@ -55,6 +63,10 @@ export function InRoomPhase({
         onSetCharacter={onSetCharacter}
         onToggleRoom={onToggleRoom}
         canStart={canStart}
+        connClass={connClass}
+        connText={connText}
+        rttMs={rttMs}
+        rttText={rttText}
       />
       <WaitingRoomPackList seats={seats} you={you} />
     </>

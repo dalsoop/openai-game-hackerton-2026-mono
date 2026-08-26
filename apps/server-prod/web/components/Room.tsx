@@ -3,7 +3,7 @@
 import type { JSX } from "react";
 import type { Seat } from "@/lib/domain/roster";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { GAME_CATALOG, findGame } from "@/lib/games/catalog";
+import { findGame, visibleCatalog } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
 import { useTranslations } from "next-intl";
 
@@ -20,11 +20,16 @@ interface Props {
   onToggleRoom: () => void;
   onSetCharacter: (characterId: string) => void;
   canStart: boolean;
+  connClass: string;
+  connText: string;
+  rttMs: number;
+  rttText: string | null;
 }
 
 export default function Room({
-  players, you, isHost, gameId, roomOpen, idleLeftSec,
-  onStart, onLeave, onSetGame, onToggleRoom, onSetCharacter, canStart,
+  players, you, isHost, gameId, idleLeftSec,
+  onStart, onLeave, onSetGame, onSetCharacter, canStart,
+  rttMs,
 }: Props): JSX.Element {
   const t = useTranslations("room");
   const games = useTranslations();
@@ -36,30 +41,25 @@ export default function Room({
 
   return (
     <div className="fade-in wait-panel">
-      <header className="wait-head">
-        <span className="wait-mode">{current ? games(current.titleKey) : t("title")}</span>
-        <h1>{t("title")}</h1>
-        {isHost && (
-          <button type="button" className="ghost btn-sm" onClick={onToggleRoom}>
-            {roomOpen ? t("close") : t("open")}
-          </button>
-        )}
-        <button type="button" className="ghost danger" onClick={onLeave}>
-          {t("leaveButton")}
+      <div className="back-row">
+        <button type="button" className="ghost btn-icon" onClick={onLeave} aria-label={t("leaveButton")}>
+          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
         </button>
-      </header>
-
-      {idleLeftSec > 0 && (
-        <p className="wait-idle">
-          {isHost ? t("idleHost", { sec: idleLeftSec }) : t("idleGuest", { sec: idleLeftSec })}
-        </p>
-      )}
+        <div className="wait-line">
+          {idleLeftSec > 0 && (
+            <span className="wait-idle-inline">
+              {isHost ? t("idleHost", { sec: idleLeftSec }) : t("idleGuest", { sec: idleLeftSec })}.
+            </span>
+          )}
+          <span className="wait-title-inline">{t("title")}</span>
+        </div>
+      </div>
 
       {isHost ? (
         <fieldset className="wait-games">
           <legend className="sec-title">{t("changeGame")}</legend>
           <div className="wait-game-list">
-            {GAME_CATALOG.map((g) => (
+            {visibleCatalog().map((g) => (
               <label key={g.id} className={`wait-game${g.id === gameId ? " on" : ""}`}>
                 <input
                   type="radio"
@@ -80,7 +80,7 @@ export default function Room({
       <div className="slots">
         {slots.map((player, i) => (
           // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
-          <SlotCard key={i} index={i} player={player} you={you} onSetCharacter={onSetCharacter} />
+          <SlotCard key={i} index={i} player={player} you={you} onSetCharacter={onSetCharacter} pingMs={i === you ? rttMs : 0} />
         ))}
       </div>
 

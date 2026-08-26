@@ -81,6 +81,7 @@ export interface UseHubResult {
   idleLeftSec: number;
   toggleRoom: () => void;
   refreshRooms: () => void;
+  refreshingRooms: boolean;
 
   // 세션 재개 — 세션이 살아있는(유예 안) 동안 재접근하면 그 세션으로 복귀한다.
   tryResume: () => boolean;

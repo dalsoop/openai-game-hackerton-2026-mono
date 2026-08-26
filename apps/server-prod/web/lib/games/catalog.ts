@@ -17,6 +17,8 @@ export interface GameDescriptor {
   readonly defaultMode: string;
   /** 웹 산출물 폴더명 — `/godot/${pack}/`. GameId 가 아니다. 지금은 통합 export 하나. */
   readonly pack: string;
+  /** Player-facing picker hide. Catalog lookup and existing rooms stay valid. */
+  readonly hidden?: boolean;
 }
 
 export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
@@ -24,7 +26,7 @@ export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
     id: "dagul" as GameId,
     titleKey: "games.dagul.title",
     blurbKey: "games.dagul.blurb",
-    thumbSrc: "/games/dagul.webp",
+    thumbSrc: "/games/dagul.webp?v=2",
     defaultMode: "full",
     pack: "dagul",
   },
@@ -35,8 +37,14 @@ export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
     thumbSrc: "/games/sparring.webp",
     defaultMode: "default",
     pack: "dagul",
+    hidden: true,
   },
 ];
+
+/** Create Room / Waiting Room pickers. Hidden catalog entries stay resolvable. */
+export function visibleCatalog(): ReadonlyArray<GameDescriptor> {
+  return GAME_CATALOG.filter((g) => !g.hidden);
+}
 
 export const DEFAULT_GAME_ID: GameId = GAME_CATALOG[0]?.id ?? ("dagul" as GameId);
 

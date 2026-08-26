@@ -19,12 +19,17 @@ export function useRoomList(active: boolean): {
   lobbyErr: Error | undefined;
   lobbyConnecting: boolean;
   refresh: () => void;
+  refreshing: boolean;
 } {
   const [roomList, setRoomList] = useState<RoomAvailable[]>([]);
   const [lobbyErr, setLobbyErr] = useState<Error | undefined>();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
-  const refresh = useCallback((): void => {setTick((n) => n + 1);}, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback((): void => {
+    setRefreshing(true);
+    setTick((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!active) {return;}
@@ -36,11 +41,13 @@ export function useRoomList(active: boolean): {
           setRoomList(next);
           setLobbyErr(undefined);
           setReady(true);
+          setRefreshing(false);
         })
         .catch((err: unknown) => {
           if (!alive) {return;}
           setLobbyErr(err instanceof Error ? err : new Error(String(err)));
           setReady(true);
+          setRefreshing(false);
         });
     };
     pull();
@@ -52,5 +59,5 @@ export function useRoomList(active: boolean): {
     () => (active ? roomList.map(toHubRoom) : []),
     [active, roomList],
   );
-  return { rooms, lobbyErr: active ? lobbyErr : undefined, lobbyConnecting: active && !ready, refresh };
+  return { rooms, lobbyErr: active ? lobbyErr : undefined, lobbyConnecting: active && !ready, refresh, refreshing };
 }
