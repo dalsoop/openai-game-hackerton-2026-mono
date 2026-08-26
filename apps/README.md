@@ -11,7 +11,7 @@ server-pjh-dev1/    크리엘 개발환경 1. 지금 다굴이 여기
 server-pig-dev1/    Figix 개발환경 1. 지금 다굴이 여기
 server-*-dev2/      그 사람의 개발환경 2
 server-*-dev3/      그 사람의 개발환경 3
-server-prod/        제출·운영 슬롯
+dagul-prod/         제출·운영 슬롯
 server-board/       배포 보드. https://server-board.external.kr/
 ```
 

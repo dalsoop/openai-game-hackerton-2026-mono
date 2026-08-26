@@ -9,7 +9,7 @@ description: >-
 
 에이전트는 루트 `AGENTS.md` 다음 이 파일을 읽는다.
 
-`apps/server-<이름>/` → `https://server-<이름>.external.kr/`
+`apps/<폴더>/` → `https://<폴더>.external.kr/` (server-* · dagul-*)
 
 `game-*` 는 올리지 않는다. 방 서버는 `hub.enabled` 폴더마다 Dockerfile 이미지와 프로세스가 따로다. `dev1`/`dev2`/`dev3`/`prod`는 웹과 허브가 켜져 있다.
 

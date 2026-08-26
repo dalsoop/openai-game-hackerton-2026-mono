@@ -11,7 +11,7 @@ APPS = ROOT / "apps"
 
 
 def main() -> int:
-    folders = [name for name in sys.argv[1:] if name.startswith("server-")]
+    folders = [name for name in sys.argv[1:] if name.startswith(("server-", "dagul-"))]
     if not folders:
         print("lint-web skip (folder 없음)")
         return 0

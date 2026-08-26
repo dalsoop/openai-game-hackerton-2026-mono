@@ -5,7 +5,7 @@
   "hubFolders": [
     "server-fig-dev1",
     "server-pjh-dev1",
-    "server-prod",
+    "dagul-prod",
     "server-yjh-dev1",
     "server-yjh-hexclash",
     "server-yjh-snake"
@@ -43,14 +43,14 @@
       "url": "https://server-pjh-dev1.external.kr/"
     },
     {
-      "folder": "server-prod",
+      "folder": "dagul-prod",
       "id": "prod",
       "title": "다굴",
       "blurb": "8인 로비 · 풀 모드 · 서버 권위 시뮬",
       "web": true,
       "hub": true,
       "hasExport": true,
-      "url": "https://server-prod.external.kr/"
+      "url": "https://dagul-prod.external.kr/"
     },
     {
       "folder": "server-yjh-dev1",

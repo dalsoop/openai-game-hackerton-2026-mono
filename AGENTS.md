@@ -21,7 +21,7 @@
 | `apps/server-pig-dev1/` | Figix 개발환경 1. 지금 다굴 |
 | `apps/server-board/` | 배포 보드. `https://server-board.external.kr/` |
 | `apps/server-*-dev2/` · `*-dev3/` | 그 사람의 개발환경 2·3 |
-| `apps/server-prod/` | 제출·운영 |
+| `apps/dagul-prod/` | 제출·운영 |
 | `apps/game-pjh-gang-up/` | 원본. 읽기만 |
 | `docs/` | 제품 설계 (`DESIGN.md`, `FEEL-TUNING.md`) |
 | `deploy/` | Helm·`apply-apps.py`. 클러스터 YAML은 `apps/`에 두지 않는다 |

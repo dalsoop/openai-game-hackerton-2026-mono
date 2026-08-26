@@ -57,7 +57,7 @@ hub:
   staticSplit: true
   scale:
     folders:
-      - server-prod
+      - dagul-prod
     # 평소 1대. 상한만 HUB_CONFIG ceil(targetCcu / perProcessCcu). 개발 슬롯은 HPA 없음.
     replicaCount: 1
     maxReplicas: 2

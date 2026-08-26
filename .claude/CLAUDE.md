@@ -11,7 +11,7 @@
 | `server-fig-dev1` | Figix 본 슬롯 | `godot --path apps/server-fig-dev1/project` |
 | `server-board` | 배포 보드 | `https://server-board.external.kr/` |
 | `*-dev2` · `*-dev3` | 그 사람의 개발환경 2·3 | `https://<폴더>.external.kr/` |
-| `server-prod` | 제출·운영 | `https://server-prod.external.kr/` |
+| `dagul-prod` | 제출·운영 | `https://dagul-prod.external.kr/` |
 | `game-pjh-gang-up` | 크리엘 원본. 수정 금지 | 읽기만 |
 
 `apps/server-*` → `https://<폴더>.external.kr/`  

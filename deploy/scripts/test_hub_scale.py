@@ -40,7 +40,7 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("imagePullPolicy: IfNotPresent", VALUES)
         self.assertIn("staticSplit: true", VALUES)
         self.assertIn('publicPrefix: "%s.external.kr/hubp"', VALUES)
-        self.assertIn("- server-prod", VALUES)
+        self.assertIn("- dagul-prod", VALUES)
         self.assertIn("maxReplicas: 2", VALUES)
         self.assertIn("autoscaling:", VALUES)
         self.assertIn("kind: HorizontalPodAutoscaler", HUB)
