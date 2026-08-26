@@ -198,7 +198,7 @@ func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
     _overlay_prediction()
     return _input_seq
 
-func predict_local_fire() -> bool:
+func predict_local_fire(aim_point: Vector2 = Vector2.ZERO) -> bool:
     if start_countdown > 0.0 or result != &"playing":
         return false
     if _pred_fire_skip_left > 0.0:
@@ -210,19 +210,24 @@ func predict_local_fire() -> bool:
         return false
     if float(me.get("reload_left", 0.0)) > 0.0:
         return false
-    _spawn_pred_fire_fx(me)
+    _spawn_pred_fire_fx(me, aim_point)
     _pred_fire_skip_left = PRED_FIRE_SKIP
     return true
 
-func _spawn_pred_fire_fx(me: Dictionary) -> void:
+## 클릭 프레임의 실제 조준점(aim_point, 월드 좌표)으로 방향을 잡는다 — 직전 스냅의
+## 낡은 aim 을 쓰면 방향 전환 직후 트레이서가 옛 방향으로 나가 실탄과 어긋난다.
+func _spawn_pred_fire_fx(me: Dictionary, aim_point: Vector2 = Vector2.ZERO) -> void:
     var eq: Dictionary = me.get("equipment", {})
     var eq_id := str(eq.get("id", ""))
+    var origin: Vector2 = _pred_pos if _has_pred else Vector2(me.get("pos", _pred_pos))
     var aim: Vector2 = me.get("aim", _pred_aim)
+    if aim_point != Vector2.ZERO and aim_point.distance_squared_to(origin) > 1.0:
+        aim = origin.direction_to(aim_point)
     if aim.length_squared() < 0.0001:
         aim = Vector2.RIGHT
     else:
         aim = aim.normalized()
-    var muzzle: Vector2 = GunSigScript.muzzle_world_pos(Vector2(me.get("pos", _pred_pos)), aim, eq_id)
+    var muzzle: Vector2 = GunSigScript.muzzle_world_pos(origin, aim, eq_id)
     me["muzzle_time"] = maxf(float(me.get("muzzle_time", 0.0)), 0.12)
     _add_effect(&"local_tracer", muzzle, 120.0, 0.12, Color(1.0, 0.95, 0.75, 1.0), aim)
     event_log.emit(tick, &"gun_fire", local_slot, -1, {"equipment": eq_id, "predicted": true})

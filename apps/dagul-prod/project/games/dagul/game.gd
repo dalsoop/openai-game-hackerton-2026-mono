@@ -224,7 +224,7 @@ func _try_local_fire_conceal(command: Dictionary) -> void:
 		return
 	if world == null or not world.has_method("predict_local_fire"):
 		return
-	if not bool(world.predict_local_fire()):
+	if not bool(world.predict_local_fire(Vector2(command.get("aim", Vector2.ZERO)))):
 		return
 	if world.get("local_fire_shake") != null:
 		world.local_fire_shake = maxi(int(world.local_fire_shake), 4)
