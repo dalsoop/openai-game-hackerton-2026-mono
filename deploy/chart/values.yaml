@@ -58,8 +58,13 @@ hub:
   scale:
     folders:
       - server-prod
-    # HUB_CONFIG: ceil(targetCcu / perProcessCcu). 개발 슬롯은 위 replicaCount 1.
-    replicaCount: 20
+    # 평소 1대. 상한만 HUB_CONFIG ceil(targetCcu / perProcessCcu). 개발 슬롯은 HPA 없음.
+    replicaCount: 1
+    maxReplicas: 2
+    autoscaling:
+      enabled: true
+      targetCPUUtilizationPercentage: 70
+      scaleDownStabilizationSeconds: 600
     resources:
       requests:
         cpu: 250m

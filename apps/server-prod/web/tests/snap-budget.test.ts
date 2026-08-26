@@ -75,13 +75,14 @@ describe("snap budget", () => {
     expect(shouldRelaySnap(null, snap, HUB_CONFIG.maxSnapBytes)).toBe(true);
   });
 
-  it("차트 복제 수는 HUB_CONFIG 공식과 같다", () => {
+  it("차트 HPA 상한은 HUB_CONFIG 공식과 같다", () => {
     const yaml = readFileSync(
       path.resolve(__dirname, "../../../../deploy/chart/values.yaml"),
       "utf8",
     );
     const scale = yaml.match(/scale:\n([\s\S]*?)(?:\n  [a-z]|\n[a-z]|$)/)?.[1] ?? "";
-    const n = Number(scale.match(/replicaCount:\s*(\d+)/)?.[1]);
+    const n = Number(scale.match(/maxReplicas:\s*(\d+)/)?.[1]);
     expect(n).toBe(hubReplicaCount(HUB_CONFIG.targetCcu, HUB_CONFIG.perProcessCcu));
+    expect(Number(scale.match(/replicaCount:\s*(\d+)/)?.[1])).toBe(1);
   });
 });

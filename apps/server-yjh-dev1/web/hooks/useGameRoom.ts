@@ -7,6 +7,7 @@ import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF } from "@/lib/contract";
 import { ROOM_NAME } from "@/lib/hub/config";
+import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-address";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
 import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
@@ -36,7 +37,7 @@ function persistMatchForEngine(
 export function useGameRoom(
   joinRequest: JoinRequest | null,
   playerName: () => string,
-  getClient: () => Client,
+  getClient: (pin?: string | null) => Client,
   onRoomEnded: (kind: RoomEndKind) => void,
   onResumeFailed: (message: string) => void,
 ): {
@@ -55,11 +56,15 @@ export function useGameRoom(
             game: joinRequest.kind === "create" ? joinRequest.game : undefined,
             title: joinRequest.kind === "create" ? joinRequest.title : undefined,
           }, hubLimits(""));
+          const client = getClient(
+            matchmakePin(joinRequest.kind, joinRequest.kind === "join" ? joinRequest.id : undefined),
+          );
           const r = joinRequest.kind === "create"
-            ? await getClient().create(ROOM_NAME, { name: settings.name, game: settings.game, title: settings.title })
+            ? await client.create(ROOM_NAME, { name: settings.name, game: settings.game, title: settings.title })
             : joinRequest.kind === "resume"
-              ? await getClient().reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
-              : await getClient().joinById(joinRequest.id, { name: settings.name });
+              ? await client.reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
+              : await client.joinById(joinRequest.id, { name: settings.name });
+          rememberHubPin(r.connection.url, r.roomId);
           persistMatchForEngine(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({
               roomId: r.roomId,
@@ -97,6 +102,7 @@ export function useGameRoom(
     localStorage.removeItem(HANDOFF.RESUME);
     localStorage.removeItem(HANDOFF.FROM_HUB);
     localStorage.removeItem(HANDOFF.MATCH);
+    forgetHubPin();
     onResumeFailed(roomError.message);
   }, [roomError, joinRequest, onResumeFailed]);
 

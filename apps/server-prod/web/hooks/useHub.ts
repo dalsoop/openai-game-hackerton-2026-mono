@@ -16,6 +16,7 @@ import { useHubCommands } from "@/hooks/useHubCommands";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import { useRoomRtt } from "@/hooks/useRoomRtt";
+import { hubHttpEndpoint } from "@/lib/hub/public-address";
 import { shouldMarkRoomDropped } from "@/lib/hub/room-end";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
@@ -40,9 +41,12 @@ function useHubExternalErrors(
 }
 
 let _client: Client | null = null;
-function getClient(): Client {
-  _client ??= new Client(location.origin);
-  return _client;
+function getClient(pin?: string | null): Client {
+  if (!pin) {
+    _client ??= new Client(location.origin);
+    return _client;
+  }
+  return new Client(hubHttpEndpoint(location.origin, pin));
 }
 
 

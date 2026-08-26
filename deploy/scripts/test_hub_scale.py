@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""차트 1만 CCU 값 — 복제·publicPrefix·스케일 폴더가 빠지면 실패."""
+"""차트 스케일 값 — 복제 상한·HPA·publicPrefix·스케일 폴더가 빠지면 실패."""
 from __future__ import annotations
 
 import unittest
@@ -22,7 +22,7 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("redis.slots", HELPERS)
 
     def test_templates_pin_ws_and_static(self) -> None:
-        self.assertEqual(HUB.count("kind: StatefulSet"), 1)
+        self.assertEqual(HUB.count("apiVersion: apps/v1\nkind: StatefulSet"), 1)
         self.assertIn("serviceName: {{ .folder }}-hub-pods", HUB)
         self.assertIn("podManagementPolicy: Parallel", HUB)
         self.assertIn("HUB_PUBLIC_PREFIX", HUB)
@@ -31,7 +31,7 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("hub-static", HUB)
         self.assertIn("HUB_STATIC_SPLIT", HUB)
         self.assertIn("hub-static:80", WEB)
-        self.assertIn("libcolyseus_godot.web.wasm32.release.wasm", WEB)
+        self.assertIn("libcolyseus_godot", WEB)
         self.assertIn("read_timeout 3600s", WEB)
         self.assertIn("/matchmake*", WEB)
         self.assertIn("/rooms", WEB)
@@ -40,7 +40,11 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("staticSplit: true", VALUES)
         self.assertIn('publicPrefix: "%s.external.kr/hubp"', VALUES)
         self.assertIn("- server-prod", VALUES)
-        self.assertIn("replicaCount: 20", VALUES)
+        self.assertIn("maxReplicas: 2", VALUES)
+        self.assertIn("autoscaling:", VALUES)
+        self.assertIn("kind: HorizontalPodAutoscaler", HUB)
+        self.assertIn("hackertone-games.hubApplyReplicas", HUB)
+        self.assertIn("hubApplyReplicas", HELPERS)
         self.assertIn("staticResources:", VALUES)
         self.assertIn("scale.resources", HUB)
 

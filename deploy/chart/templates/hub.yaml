@@ -12,7 +12,7 @@ metadata:
     hackertone-games/slot: {{ .folder }}
 spec:
   serviceName: {{ .folder }}-hub-pods
-  replicas: {{ include "hackertone-games.hubReplicas" $ctx }}
+  replicas: {{ include "hackertone-games.hubApplyReplicas" $ctx }}
   podManagementPolicy: Parallel
   updateStrategy:
     type: {{ $.Values.hub.strategy | default "RollingUpdate" }}
@@ -123,6 +123,47 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
+{{- end }}
+{{- $as := $.Values.hub.scale.autoscaling | default dict }}
+{{- if and $scaled $as.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .folder }}-hub
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ .folder }}-hub
+  minReplicas: {{ include "hackertone-games.hubReplicas" $ctx }}
+  maxReplicas: {{ required "hub.scale.maxReplicas 가 필요합니다" $.Values.hub.scale.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $as.targetCPUUtilizationPercentage | default 70 }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: {{ $as.scaleDownStabilizationSeconds | default 600 }}
+      selectPolicy: Min
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
 {{- end }}
 {{- if and $.Values.hub.staticSplit $scaled }}
 ---
