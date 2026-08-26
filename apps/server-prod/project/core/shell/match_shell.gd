@@ -27,9 +27,6 @@ var _js_visibility_cb = null
 
 func _ready() -> void:
 	hub = get_node_or_null("/root/NetworkManager")
-	if "--server" in OS.get_cmdline_user_args():
-		_start_dedicated_server()
-		return
 	_attach_touch()
 	_attach_settings()
 	_apply_sound(SettingsStoreScript.load_sound_on())
@@ -263,11 +260,3 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
 			or what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
 		HeldInputScript.release_all()
-
-
-func _start_dedicated_server() -> void:
-	world_view.visible = false
-	hud.visible = false
-	module = GameRegistry.load_game(_game_id())
-	if module != null:
-		module.start_dedicated(self)

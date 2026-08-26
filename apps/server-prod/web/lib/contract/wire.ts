@@ -18,6 +18,8 @@ export const WEB_STORE = {
   MY_ROOM: "gangup_my_room",
   NICKNAME: "gangup_nickname",
   GUEST_ID: "gangup_uid",
+  /** 좌석 이어받기 증명용 비공개 키 — 닉네임에 노출되는 GUEST_ID 와 달리 비밀이다. */
+  GUEST_KEY: "gangup_ukey",
 } as const;
 
 export const DOM_EVT = {
@@ -30,9 +32,7 @@ export const DOM_EVT = {
 export const MSG = {
   START: "start",
   INPUT: "input",
-  HOST_SNAP: "host_snap",
   SNAP: "snap",
-  PEER_INPUT: "peer_input",
   GUN_FIRE: "gun_fire",
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",

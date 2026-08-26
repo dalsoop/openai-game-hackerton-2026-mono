@@ -26,11 +26,6 @@ export function applyPlayInput(
   );
 }
 
-/** 구 클라이언트 host_snap 은 권위가 아니다. 버린다. */
-export function ignoreHostSnap(): void {
-  return;
-}
-
 export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
   const seats = fillMatchSeats([...room.state.players].map((p) => ({
     slot: p.slot, name: p.name, characterId: p.characterId,

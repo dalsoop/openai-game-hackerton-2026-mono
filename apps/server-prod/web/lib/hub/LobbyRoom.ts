@@ -1,16 +1,18 @@
 import { Room, type Client } from "colyseus";
 import { HUB_CONFIG, KO } from "./config.js";
-import { MSG } from "../contract/wire.js";
+import { CLOSE_CODE, MSG } from "../contract/wire.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
 import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
-import { firstFreeSlot, graceSeconds, pickHostSessionId } from "./lobby-seats.js";
+import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
+import { startBodies } from "./lobby-relay.js";
+import { parseSeatClaim, sameSeatClaim, type SeatClaim } from "../guest-identity.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
   handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { applyPlayInput, bootAuthority, ignoreHostSnap, tickAuthority } from "./lobby-play.js";
+import { applyPlayInput, bootAuthority, tickAuthority } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -21,6 +23,8 @@ export class LobbyRoom extends Room implements LobbyHandle {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
     hostLossTimer: null,
   };
+  /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
+  private claims = new Map<string, SeatClaim>();
 
   onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
     this.maxClients = HUB_CONFIG.maxPlayers;
@@ -52,7 +56,6 @@ export class LobbyRoom extends Room implements LobbyHandle {
     },
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void =>
       applyPlayInput(this, this.bag, client, data),
-    [MSG.HOST_SNAP]: (): void => {ignoreHostSnap();},
     [MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
     [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
       handleSetGame(this, client, data),
@@ -68,13 +71,42 @@ export class LobbyRoom extends Room implements LobbyHandle {
     return true;
   }
 
-  onJoin(client: Client, options: { name?: string }): void {
+  onJoin(client: Client, options: { name?: string; guestId?: unknown; guestKey?: unknown }): void {
+    const claim = parseSeatClaim(options);
+    if (claim && this.takeOverSeat(client, claim)) {return;}
     const p = new PlayerSchema();
     p.slot = firstFreeSlot(this.state.players.map((s) => s.slot));
     p.sessionId = client.sessionId;
     p.name = parsePlayerName(options.name, HUB_CONFIG.maxNameLength, HUB_CONFIG.defaultName);
     this.state.players.push(p);
+    if (claim) {this.claims.set(client.sessionId, claim);}
     this.syncHost();
+  }
+
+  /** 같은 브라우저(증명 일치)의 새 창이 좌석을 이어받는다 — 기존 창은 안내 후 종료. */
+  private takeOverSeat(client: Client, claim: SeatClaim): boolean {
+    const player = this.state.players.find((p) => sameSeatClaim(this.claims.get(p.sessionId), claim));
+    if (!player) {return false;}
+    const oldId = player.sessionId;
+    const oldClient = this.clients.find((c) => c.sessionId === oldId);
+    player.sessionId = client.sessionId;
+    player.connected = true;
+    this.claims.delete(oldId);
+    this.claims.set(client.sessionId, claim);
+    this.syncHost();
+    oldClient?.send(MSG.KICKED, { msg: KO.TAKEOVER_MSG, reason: "takeover" });
+    oldClient?.leave(CLOSE_CODE.KICKED);
+    if (this.state.phase === "playing") {this.resendStart(client, player);}
+    return true;
+  }
+
+  /** 플레이 중 이어받기 — 새 세션이 매치에 붙도록 START 본문을 다시 보낸다. */
+  private resendStart(client: Client, player: PlayerSchema): void {
+    const seats = seatsPayloadOf(this.state.players);
+    const body = startBodies(
+      [player], this.state.hostSessionId, this.state.seed, this.state.mode, seats,
+    )[0];
+    client.send(body.type, body.payload, { afterNextPatch: true });
   }
 
   async onDrop(client: Client, _code?: number): Promise<void> {
@@ -83,7 +115,13 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   onReconnect(client: Client): void {
     const player = this.state.players.find((p) => p.sessionId === client.sessionId);
-    if (player) {player.connected = true;}
+    if (!player) {
+      // 좌석이 이미 다른 창으로 넘어간 옛 세션의 재접속 — 유령 클라이언트로 두지 않는다.
+      client.send(MSG.KICKED, { msg: KO.TAKEOVER_MSG, reason: "takeover" });
+      client.leave(CLOSE_CODE.KICKED);
+      return;
+    }
+    player.connected = true;
     this.syncHost();
   }
 
@@ -103,6 +141,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   }
 
   private removeSeat(sessionId: string): void {
+    this.claims.delete(sessionId);
     const wasHost = sessionId === this.state.hostSessionId;
     const playing = this.state.phase === "playing";
     const idx = this.state.players.findIndex((p) => p.sessionId === sessionId);

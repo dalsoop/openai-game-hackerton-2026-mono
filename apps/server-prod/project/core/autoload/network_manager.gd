@@ -11,7 +11,6 @@ signal snapshot_received(snap: Dictionary)  # lint-gd: public-api
 signal gun_fire_received(fx: Dictionary)  # lint-gd: public-api
 signal left_room  # lint-gd: public-api
 signal hub_error(message: String)  # lint-gd: public-api
-signal peer_input_received(slot: int, input_data: Dictionary)  # lint-gd: public-api
 signal peer_parked_received(slot: int)  # lint-gd: public-api
 signal peer_reclaimed_received(slot: int, player_name: String)  # lint-gd: public-api
 signal host_changed(now_host: bool)  # lint-gd: public-api
@@ -78,8 +77,6 @@ func _on_bridge_packet(packet: Dictionary) -> void:
         WebContract.MSG_SNAP:
             if not msg.is_empty():
                 snapshot_received.emit(msg)
-        WebContract.MSG_PEER_INPUT:
-            peer_input_received.emit(int(msg.get("slot", -1)), msg)
         WebContract.MSG_GUN_FIRE:
             gun_fire_received.emit(msg)
         WebContract.MSG_ERROR:
@@ -148,9 +145,6 @@ func _sync_state(state: Variant) -> void:
 
 func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
     _send(WebContract.MSG_INPUT, msg)
-
-func send_snap(snap: Dictionary) -> void:  # lint-gd: public-api
-    _send(WebContract.MSG_HOST_SNAP, snap)
 
 func leave_room() -> void:  # lint-gd: public-api
     _send(WebContract.MSG_LEAVE, {})
