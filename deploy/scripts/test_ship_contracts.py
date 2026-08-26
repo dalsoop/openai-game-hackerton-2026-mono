@@ -289,6 +289,8 @@ class HelmContract(unittest.TestCase):
         apps_py = path.read_text()
         self.assertIn("drop_legacy_hub_deployments", apps_py)
         self.assertIn("delete deploy", apps_py)
+        self.assertIn("rebuild_images", apps_py)
+        self.assertIn("--no-rebuild", apps_py)
 
 class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:
@@ -301,6 +303,7 @@ class PlatformGodotPipeline(unittest.TestCase):
         apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
         self.assertIn("if: ${{ !cancelled() }}", apps_yml)
         self.assertIn("apply-apps.py helm", apps_yml)
+        self.assertIn("helm --no-rebuild", apps_yml)
         for folder in ("server-yjh-dev1", "server-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)

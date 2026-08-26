@@ -408,11 +408,15 @@ def assert_smoke_hubs() -> None:
     print("smoke create ok " + ",".join(SMOKE_FOLDERS))
 
 
-def helm_upgrade() -> None:
-    run_plant()
-    mod = plant_mod()
-    ensure_hub_images(mod)
-    assert_hub_images(mod)
+def helm_upgrade(*, rebuild_images: bool = True) -> None:
+    if rebuild_images:
+        run_plant()
+        mod = plant_mod()
+        ensure_hub_images(mod)
+        assert_hub_images(mod)
+    else:
+        print("helm only: plant·이미지 재빌드 생략")
+        assert_hub_images(plant_mod())
     if on_pve():
         dest = Path(tempfile.mkdtemp(prefix="hackertone-chart-"))
         env_copy = dest / "hackertone-env.yaml"
@@ -456,7 +460,7 @@ def main() -> int:
         print("개발자는 apps/ 를 푸시하면 됩니다. 로컬 전체 적용은 CI와 같습니다.", file=sys.stderr)
         print(
             "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"
-            "ship [folders...]|helm",
+            "ship [folders...]|helm [--no-rebuild]",
             file=sys.stderr,
         )
         return 2
@@ -489,11 +493,11 @@ def main() -> int:
         run_plant()
         return 0
     if cmd == "helm":
-        helm_upgrade()
+        helm_upgrade(rebuild_images="--no-rebuild" not in args)
         return 0
     print(
         "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"
-        "ship [folders...]|helm",
+        "ship [folders...]|helm [--no-rebuild]",
         file=sys.stderr,
     )
     return 2
