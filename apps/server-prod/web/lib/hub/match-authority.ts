@@ -14,6 +14,8 @@ export type SnapPlayer = {
   mag: number;
   magMax: number;
   ack: number;
+  animal: number;
+  cpu: boolean;
 };
 
 export function packAuthoritySnap(
@@ -36,6 +38,8 @@ export function packAuthoritySnap(
       mag: h.mag,
       magMax: h.magMax,
       ack: h.ack,
+      animal: h.animal,
+      cpu: h.cpu,
     });
   }
   const bullets = [...sim.bullets.values()].map((b) => ({
@@ -81,6 +85,7 @@ export function writeMatchSchema(state: LobbyState, sim: MatchSim): void {
     row.mag = h.mag;
     row.magMax = h.magMax;
     row.ack = h.ack;
+    row.animal = h.animal;
   }
   for (const key of [...state.heroes.keys()]) {
     if (!liveHero.has(key)) {state.heroes.delete(key);}

@@ -2,6 +2,7 @@ extends GameModule
 ## 다굴 게임 모듈 — 월드 생성·게임 루프·카메라·SFX·튜토리얼을 소유한다.
 ## 셸/네트워크/방 지식 없음: ctx 로 받은 자원만 쓴다.
 
+const CharacterCatalogScript = preload("res://core/contract/character_catalog.gd")
 const WorldScript = preload("res://games/dagul/sim/game_world.gd")
 const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const GameServerScript = preload("res://games/dagul/net/game_server.gd")
@@ -45,6 +46,8 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	var audio := hud_layer.get_node_or_null("/root/Audio")
 	if audio != null and audio.has_method("register_catalog"):
 		audio.register_catalog(SfxCatalogScript)
+	if audio != null and audio.has_method("play_music"):
+		audio.play_music("match")
 
 	# 로비 방장 여부는 payload.host 에 남는다. 시뮬 원본은 허브이므로 전원 NetWorld.
 	_start_as_guest(you, mode)
@@ -59,9 +62,6 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	hud.hud_mode = hud_mode
 	if hud.has_method("reset_match_visuals"):
 		hud.reset_match_visuals()
-	if hud.has_signal("to_waiting_pressed"):
-		if not hud.to_waiting_pressed.is_connected(_on_to_waiting_pressed):
-			hud.to_waiting_pressed.connect(_on_to_waiting_pressed.bind(ctx))
 	_last_local_kills = -1
 	last_event_id = 0
 	hit_pause_frames = 0
@@ -77,17 +77,12 @@ func _bind_match_camera(ctx: Dictionary, audio: Node, world_view: Node2D) -> voi
 	if _tutorial != null and TutorialOverlay.is_first_play():
 		_tutorial.start_tutorial()
 
-func _on_to_waiting_pressed(ctx: Dictionary) -> void:
-	_go_waiting(ctx)
-
-
-func _go_waiting(ctx: Dictionary) -> void:
-	var to_waiting: Callable = ctx.get("to_waiting", Callable())
-	if to_waiting.is_valid():
-		to_waiting.call()
-
-
 func stop() -> void:
+	var audio := Engine.get_main_loop()
+	if audio is SceneTree:
+		var node: Node = (audio as SceneTree).root.get_node_or_null("/root/Audio")
+		if node != null and node.has_method("stop_music"):
+			node.stop_music(0.2)
 	if _host_ctrl != null:
 		_host_ctrl.disconnect_signals()
 		_host_ctrl = null
@@ -99,6 +94,12 @@ func stop() -> void:
 func push_snap(snap: Dictionary) -> void:
 	if world != null and bool(world.get("is_net")):
 		world.push_snap(snap)
+
+func push_gun_fire(fx: Dictionary) -> void:
+	if world == null or world.event_log == null:
+		return
+	var slot := int(fx.get("slot", -1))
+	world.event_log.emit(int(world.tick), &"gun_fire", slot, -1, {"equipment": str(fx.get("equipment", ""))})
 
 func become_host(ctx: Dictionary) -> void:
 	_is_host = true
@@ -142,6 +143,11 @@ func _start_as_host(you: int, mode: String, seats: Array, ctx: Dictionary) -> vo
 		host_world.human_slots[s] = true
 		if s < host_world.heroes.size():
 			host_world.heroes[s]["display_name"] = str(p.get("name", ""))
+			var animal := CharacterCatalogScript.bind_int(str(p.get("character_id", "")), "animal")
+			if animal >= 0:
+				host_world.set_hero_animal(s, animal)
+			else:
+				host_world.heroes[s]["animal"] = -1
 	world = host_world
 	_host_ctrl = NetworkHost.new(ctx["hub"], world)
 	_host_ctrl.connect_signals()
@@ -198,8 +204,6 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 
 	if _input.edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
 		world.finish_cine = {}
-	elif _input.edge(KEY_ESCAPE) and world.result != &"playing":
-		_go_waiting(ctx)
 	if _input.edge(KEY_F1):
 		hud_mode = (hud_mode + 1) % 3
 		hud.hud_mode = hud_mode

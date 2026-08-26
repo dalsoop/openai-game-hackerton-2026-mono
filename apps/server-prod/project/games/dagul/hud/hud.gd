@@ -35,8 +35,7 @@ var _ammo_casing_serial: int = 0
 var _ammo_last_tick: int = -1
 var _ammo_world_instance_id: int = 0
 var _pjh
-signal to_waiting_pressed
-var _to_waiting_btn: Button
+var _result_hold_at_ms: int = -1
 
 func _ready() -> void:
     for icon_id in ["atk", "spd", "def", "hp", "rate", "range", "giant", "shield", "berserk", "turtle", "sniper", "double_giant"]:
@@ -56,24 +55,6 @@ func _ready() -> void:
     if ResourceLoader.exists("res://games/dagul/assets/lhj/Tex_Animal_4x3.png"):
         animal_texture = load("res://games/dagul/assets/lhj/Tex_Animal_4x3.png")
     _pjh = HudPjhScript.new(self)
-    _to_waiting_btn = Button.new()
-    _to_waiting_btn.text = "대기실로"
-    _to_waiting_btn.visible = false
-    _to_waiting_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-    _to_waiting_btn.offset_left = -220.0
-    _to_waiting_btn.offset_right = -32.0
-    _to_waiting_btn.offset_top = -88.0
-    _to_waiting_btn.offset_bottom = -28.0
-    _to_waiting_btn.add_theme_font_size_override("font_size", 22)
-    _to_waiting_btn.pressed.connect(func() -> void: to_waiting_pressed.emit())
-    add_child(_to_waiting_btn)
-
-
-func _process(_dt: float) -> void:
-    if _to_waiting_btn == null:
-        return
-    var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
-    _to_waiting_btn.visible = finished
 
 
 func reset_match_visuals() -> void:

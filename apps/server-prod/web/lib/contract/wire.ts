@@ -36,6 +36,7 @@ export const MSG = {
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",
   SET_GAME: "set_game",
+  SET_CHARACTER: "set_character",
   PACK_PCT: "pack_pct",
   KICKED: "kicked",
   STATE: "state",

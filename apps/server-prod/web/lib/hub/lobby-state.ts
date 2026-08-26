@@ -1,4 +1,5 @@
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
+import { asCharacterId } from "../characters/index.js";
 import { asGameId, defaultModeOf } from "../games/catalog.js";
 
 export class PlayerSchema extends Schema {
@@ -7,6 +8,7 @@ export class PlayerSchema extends Schema {
   @type("string") name = "";
   @type("boolean") connected = true;
   @type("uint8") packPct = 0;
+  @type("string") characterId = asCharacterId(undefined);
 }
 
 /** 인게임 히어로 — id 는 Map 키(slot 문자열). 서버만 변이한다. */
@@ -22,6 +24,7 @@ export class HeroSchema extends Schema {
   @type("uint8") mag = 0;
   @type("uint8") magMax = 0;
   @type("uint32") ack = 0;
+  @type("int8") animal = -1;
 }
 
 /** 인게임 탄 — id 는 Map 키. */

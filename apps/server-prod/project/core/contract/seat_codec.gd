@@ -2,9 +2,9 @@ class_name SeatCodec
 extends RefCounted
 ## 좌석 명단 직렬화의 단일 정본 — START payload 의 seats 와 방 state 의
 ## players 를 같은 좌석 형태로 통일한다. 어디서 파싱해도 이 객체 하나로.
-## 좌석 형태: { slot: int, name: String, dropped: bool, session_id: String }
+## 좌석 형태: { slot: int, name: String, dropped: bool, session_id: String, character_id: String }
 
-const FIELDS := ["slot", "name", "dropped", "session_id"]
+const FIELDS := ["slot", "name", "dropped", "session_id", "character_id"]
 
 ## 매치 시작(START) 좌석 확정본 — 서버가 시작 순간 박제한 스냅샷.
 static func from_start(seats: Array) -> Array:
@@ -15,6 +15,7 @@ static func from_start(seats: Array) -> Array:
 			str(seat.get("name", "")),
 			not bool(seat.get("connected", true)),
 			"",
+			_character_id(seat),
 		))
 	return out
 
@@ -27,6 +28,7 @@ static func from_state(players: Array) -> Array:
 			str(p.get("name", "")),
 			not bool(p.get("connected", true)),
 			str(p.get("sessionId", "")),
+			_character_id(p),
 		))
 	return out
 
@@ -50,10 +52,17 @@ static func diff_dropped(before: Array, after: Array) -> Array:
 			events.append({"slot": slot, "kind": "reclaimed", "name": str(p.get("name", ""))})
 	return events
 
-static func _seat(slot: int, player_name: String, dropped: bool, session_id: String) -> Dictionary:
+static func _character_id(raw: Dictionary) -> String:
+	if raw.has("characterId"):
+		return str(raw.get("characterId", ""))
+	return str(raw.get("character_id", ""))
+
+
+static func _seat(slot: int, player_name: String, dropped: bool, session_id: String, character_id: String) -> Dictionary:
 	return {
 		"slot": slot,
 		"name": player_name,
 		"dropped": dropped,
 		"session_id": session_id,
+		"character_id": character_id,
 	}

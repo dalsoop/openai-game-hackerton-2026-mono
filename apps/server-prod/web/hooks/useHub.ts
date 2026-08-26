@@ -119,6 +119,7 @@ export function useHub(): UseHubResult {
   const sends = useMemo(() => ({
     startMatch: (): void => {room?.send(MSG.START, {});},
     setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
+    setCharacter: (characterId: string): void => {room?.send(MSG.SET_CHARACTER, { characterId });},
     toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
   }), [room]);
   const sendPackPct = useSendPackPct(room, `${derived?.roomId ?? ""}:${derived?.gameId ?? ""}`);
@@ -146,6 +147,7 @@ export function useHub(): UseHubResult {
     startMatch: sends.startMatch,
     sendPackPct,
     setGame: sends.setGame,
+    setCharacter: sends.setCharacter,
     idleLeftSec,
     toggleRoom: sends.toggleRoom,
     refreshRooms: refresh,

@@ -23,6 +23,7 @@ describe("MSG 메시지 계약", () => {
     expect(MSG.PING).toBe("ping");
     expect(MSG.PONG).toBe("pong");
     expect(MSG.SET_GAME).toBe("set_game");
+    expect(MSG.SET_CHARACTER).toBe("set_character");
     expect(HUB_CONFIG.idleStartMs).toBe(5 * 60 * 1000);
   });
 });
@@ -68,6 +69,7 @@ describe("슬롯 룸 이름", () => {
 describe("HUB_CONFIG", () => {
   it("최대 인원은 8(다굴), 시드 상한이 양수다", () => {
     expect(HUB_CONFIG.maxPlayers).toBe(8);
+    expect(HUB_CONFIG.resetToLobbyDelayMs).toBe(10_000);
     expect(HUB_CONFIG.seedMax).toBeGreaterThan(0);
   });
 

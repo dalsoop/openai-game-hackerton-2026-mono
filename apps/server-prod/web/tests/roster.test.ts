@@ -94,6 +94,16 @@ describe("Roster.fromSnapshot", () => {
     expect(roster.seats[0]?.packPct).toBe(100);
     expect(roster.seats[1]?.packPct).toBe(0);
   });
+
+  it("캐릭터 id 가 없으면 카탈로그 기본값으로 정규화한다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({
+        players: [{ slot: 0, sessionId: "a", name: "하나", connected: true }],
+      }),
+      "a",
+    );
+    expect(roster.seats[0]?.characterId).toBe("unknown");
+  });
 });
 
 describe("Roster 엣지 케이스", () => {

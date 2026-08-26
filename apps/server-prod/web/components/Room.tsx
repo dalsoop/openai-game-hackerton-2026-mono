@@ -18,12 +18,13 @@ interface Props {
   onLeave: () => void;
   onSetGame: (game: string) => void;
   onToggleRoom: () => void;
+  onSetCharacter: (characterId: string) => void;
   canStart: boolean;
 }
 
 export default function Room({
   players, you, isHost, gameId, roomOpen, idleLeftSec,
-  onStart, onLeave, onSetGame, onToggleRoom, canStart,
+  onStart, onLeave, onSetGame, onToggleRoom, onSetCharacter, canStart,
 }: Props): JSX.Element {
   const t = useTranslations("room");
   const games = useTranslations();
@@ -79,7 +80,7 @@ export default function Room({
       <div className="slots">
         {slots.map((player, i) => (
           // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
-          <SlotCard key={i} index={i} player={player} you={you} />
+          <SlotCard key={i} index={i} player={player} you={you} onSetCharacter={onSetCharacter} />
         ))}
       </div>
 

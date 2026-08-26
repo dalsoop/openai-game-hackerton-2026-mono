@@ -8,6 +8,7 @@ signal joined_room(room: Dictionary, players: Array, you: int)  # lint-gd: publi
 signal match_started(you: int, room: Dictionary)  # lint-gd: public-api
 signal match_resumed(you: int, room: Dictionary, snap: Dictionary)  # lint-gd: public-api
 signal snapshot_received(snap: Dictionary)  # lint-gd: public-api
+signal gun_fire_received(fx: Dictionary)  # lint-gd: public-api
 signal left_room  # lint-gd: public-api
 signal hub_error(message: String)  # lint-gd: public-api
 signal peer_input_received(slot: int, input_data: Dictionary)  # lint-gd: public-api
@@ -80,7 +81,7 @@ func _on_bridge_packet(packet: Dictionary) -> void:
         WebContract.MSG_PEER_INPUT:
             peer_input_received.emit(int(msg.get("slot", -1)), msg)
         WebContract.MSG_GUN_FIRE:
-            pass
+            gun_fire_received.emit(msg)
         WebContract.MSG_ERROR:
             hub_error.emit(str(msg.get("msg", "")))
         WebContract.MSG_STATE:

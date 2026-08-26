@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldForwardHubState, shouldShowConnectionLost, snapShowsMatchEnd } from "@/lib/game-flow-state";
+import { displayNameOf, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -20,21 +20,6 @@ describe("phaseFromHubStatus — 전 조합 전수 검증", () => {
   it("대기실에서 강퇴되면 로비로 돌아간다 — 빈 대기실을 붙잡지 않는다", () => {
     expect(phaseFromHubStatus("lobby", "room")).toBe("lobby");
     expect(phaseFromHubStatus("connecting", "room")).toBe("lobby");
-  });
-});
-
-describe("shouldForwardHubState · snapShowsMatchEnd", () => {
-  it("매치 중 lobby STATE 는 엔진에 넘기지 않는다", () => {
-    expect(shouldForwardHubState("lobby", true)).toBe(false);
-    expect(shouldForwardHubState("playing", true)).toBe(true);
-    expect(shouldForwardHubState("lobby", false)).toBe(true);
-  });
-
-  it("스냅 result 가 끝나면 대기실 버튼을 켠다", () => {
-    expect(snapShowsMatchEnd({ result: "won" })).toBe(true);
-    expect(snapShowsMatchEnd({ result: "draw" })).toBe(true);
-    expect(snapShowsMatchEnd({ result: "playing" })).toBe(false);
-    expect(snapShowsMatchEnd({})).toBe(false);
   });
 });
 

@@ -20,6 +20,7 @@ const MSG_SNAP := "snap"
 const MSG_PEER_INPUT := "peer_input"
 const MSG_GUN_FIRE := "gun_fire"
 const MSG_ERROR := "error"
+const MSG_SET_CHARACTER := "set_character"
 const MSG_STATE := "state"
 const MSG_LEAVE := "leave"
 

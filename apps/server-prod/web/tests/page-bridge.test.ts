@@ -74,7 +74,7 @@ describe("수송 방향", () => {
   });
 
   it("허브 전용 키는 엔진 집합에 없다", () => {
-    for (const type of [MSG.PACK_PCT, MSG.SET_GAME, MSG.ROOM_TOGGLE, MSG.PING, MSG.PONG, MSG.KICKED]) {
+    for (const type of [MSG.PACK_PCT, MSG.SET_GAME, MSG.SET_CHARACTER, MSG.ROOM_TOGGLE, MSG.PING, MSG.PONG, MSG.KICKED]) {
       expect(isEngineOutbound(type)).toBe(false);
       expect(isEngineInbound(type)).toBe(false);
     }

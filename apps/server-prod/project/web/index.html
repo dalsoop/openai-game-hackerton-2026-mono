@@ -51,14 +51,8 @@ body {
 	const bar = document.getElementById('bar');
 	const pct = document.getElementById('pct');
 	const loading = document.getElementById('loading');
-	const engine = new Engine({
-		args: $GODOT_ARGS,
-		canvasResizePolicy: $GODOT_CANVAS_RESIZE_POLICY,
-		executable: "$GODOT_BASENAME",
-		experimentalVK: $GODOT_EXPERIMENTAL_VK,
-		fileSizes: $GODOT_FILE_SIZES,
-		focusCanvas: true,
-	});
+	const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":72145548,"index.wasm":1508095},"focusCanvas":true,"gdextensionLibs":["libcolyseus_godot.web.wasm32.release.wasm"],"godotPoolSize":4};
+	const engine = new Engine(GODOT_CONFIG);
 	engine.setProgressFunc(function(current, total) {
 		if (total > 0) {
 			var p = Math.round(current / total * 100);

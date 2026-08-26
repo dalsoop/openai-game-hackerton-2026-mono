@@ -77,6 +77,7 @@ export interface UseHubResult {
   startMatch: () => void;
   sendPackPct: (pct: number) => void;
   setGame: (game: string) => void;
+  setCharacter: (characterId: string) => void;
   idleLeftSec: number;
   toggleRoom: () => void;
   refreshRooms: () => void;

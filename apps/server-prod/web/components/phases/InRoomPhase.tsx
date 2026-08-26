@@ -19,6 +19,7 @@ interface InRoomPhaseProps {
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onSetGame: (game: string) => void;
+  onSetCharacter: (characterId: string) => void;
   onToggleRoom: () => void;
 }
 
@@ -34,6 +35,7 @@ export function InRoomPhase({
   onStartGame,
   onLeaveRoom,
   onSetGame,
+  onSetCharacter,
   onToggleRoom,
 }: InRoomPhaseProps): JSX.Element {
   const seats = overlayOwnPackPct(players, you, ownPackPct);
@@ -50,6 +52,7 @@ export function InRoomPhase({
         onStart={onStartGame}
         onLeave={onLeaveRoom}
         onSetGame={onSetGame}
+        onSetCharacter={onSetCharacter}
         onToggleRoom={onToggleRoom}
         canStart={canStart}
       />

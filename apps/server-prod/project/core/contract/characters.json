@@ -1,0 +1,20 @@
+{
+  "defaultId": "unknown",
+  "entries": [
+    {
+      "id": "unknown",
+      "titleKey": "characters.unknown",
+      "portrait": { "src": "/characters/unknown.png" }
+    }
+  ],
+  "sheets": [
+    {
+      "src": "/characters/animals.png",
+      "cols": 4,
+      "rows": 3,
+      "idPrefix": "a",
+      "titleKeyPrefix": "characters.a",
+      "indexBind": "animal"
+    }
+  ]
+}

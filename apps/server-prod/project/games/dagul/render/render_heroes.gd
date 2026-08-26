@@ -34,7 +34,11 @@ func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.
 	var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
 	var flip: float = -1.0 if aim.x < -0.05 else 1.0
 	var draw_scale: Vector2 = Vector2(flip * hop_scale.x, hop_scale.y)
-	if r.animal_atlas != null:
+	if slot < 0 and r.unknown_character_tex != null:
+		r.draw_set_transform(sprite_pos, lean, draw_scale)
+		r.draw_texture_rect(r.unknown_character_tex, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), false, hit_tint)
+		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	elif r.animal_atlas != null:
 		r.draw_set_transform(sprite_pos, lean, draw_scale)
 		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), r._animal_src_rect(slot), hit_tint)
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

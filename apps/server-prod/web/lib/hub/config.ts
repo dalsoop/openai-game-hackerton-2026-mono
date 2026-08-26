@@ -11,7 +11,7 @@ export const HUB_CONFIG = {
   maxTitleLength: 24,
   rateBudget: 60,
   rateRefillPerMs: 0.04,
-  resetToLobbyDelayMs: 5_000,
+  resetToLobbyDelayMs: 10_000,
   hostBootTimeoutMs: 180_000,
   idleStartMs: 5 * 60 * 1000,
   maxPlayers: 8,

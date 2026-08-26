@@ -13,6 +13,8 @@ func run(t) -> void:
 	t.check("from_start slot", int(seats[0]["slot"]) == 0)
 	t.check("from_start connected→dropped 반전", bool(seats[1]["dropped"]) == true)
 	t.check("from_start connected 유지", bool(seats[0]["dropped"]) == false)
+	var with_char := Codec.from_start([{"slot": 0, "name": "하나", "connected": true, "characterId": "a3"}])
+	t.check("from_start character_id", str(with_char[0]["character_id"]) == "a3")
 
 	# from_state — state players 를 같은 형태로 (session_id 보존)
 	var state_players := Codec.from_state([
