@@ -2,6 +2,9 @@ class_name RenderEnvironment
 extends RefCounted
 
 const CRATE_ORB_ATLAS: Texture2D = preload("res://assets/fx/pickups/Tex_FX_CrateEnergyOrb_4x2.png")
+const GRASS_PLAIN_TILES := [0, 1, 5, 6]
+const GRASS_FLOWER_TILES := [2, 3, 4, 7]
+const FLOWER_REGION_SIZE := 4
 
 var r: Node2D
 var world
@@ -12,150 +15,61 @@ func _init(renderer: Node2D) -> void:
 func draw_island() -> void:
 	var arena := Rect2(Vector2.ZERO, world.ARENA_SIZE)
 	r.draw_rect(arena.grow(900.0), Color("#17456f"))
-	if r.island_texture == null:
-		r.draw_rect(arena, Color("#cbb37a"))
-		r.draw_circle(Vector2(world.ARENA_CENTER), world.ARENA_SIZE.y * 0.48, Color("#d9c088"))
+	if r.grass_tile_textures.is_empty():
 		return
 	var prev_filter := r.texture_filter
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var tex_size: Vector2 = r.island_texture.get_size()
-	var cell := tex_size.x * 12.0
+	_draw_grass_tiles(arena)
+	r.texture_filter = prev_filter
+
+func _draw_grass_tiles(arena: Rect2) -> void:
+	var tex_size: Vector2 = r.grass_tile_textures[0].get_size()
+	var cell := tex_size.x * 6.0
+	var tile_y := 0
 	var y := 0.0
 	while y < arena.size.y - 0.5:
+		var tile_x := 0
 		var x := 0.0
 		while x < arena.size.x - 0.5:
 			var dw := minf(cell, arena.size.x - x)
 			var dh := minf(cell, arena.size.y - y)
 			var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * dw / cell, tex_size.y * dh / cell))
-			r.draw_texture_rect_region(r.island_texture, Rect2(Vector2(x, y), Vector2(dw, dh)), src)
+			var tile_index := _grass_tile_index(tile_x, tile_y, r.grass_tile_textures.size())
+			var texture: Texture2D = r.grass_tile_textures[tile_index]
+			r.draw_texture_rect_region(texture, Rect2(Vector2(x, y), Vector2(dw, dh)), src)
 			x += cell
+			tile_x += 1
 		y += cell
-	_stamp_flower_beds()
-	_draw_dirt_patches()
-	r.texture_filter = prev_filter
+		tile_y += 1
 
-const _DIRT_CIRCLES: Array[Vector3] = [
-	Vector3(1720.0, 1620.0, 170.0), Vector3(1960.0, 1760.0, 150.0), Vector3(1800.0, 1860.0, 130.0),
-	Vector3(6040.0, 3460.0, 140.0), Vector3(6220.0, 3580.0, 115.0),
-	Vector3(1380.0, 3680.0, 155.0), Vector3(1600.0, 3840.0, 130.0), Vector3(1480.0, 3960.0, 110.0),
-	Vector3(5480.0, 980.0, 125.0), Vector3(5680.0, 1120.0, 105.0),
-	Vector3(3100.0, 4120.0, 140.0), Vector3(3320.0, 4240.0, 115.0),
-	Vector3(6880.0, 2280.0, 150.0), Vector3(7080.0, 2460.0, 125.0), Vector3(6940.0, 2560.0, 100.0),
-	Vector3(780.0, 2680.0, 120.0), Vector3(960.0, 2820.0, 100.0)
-]
-const _MEADOW_SEEDS: Array[Vector2] = [
-	Vector2(3920.0, 1680.0),
-	Vector2(2680.0, 2600.0),
-	Vector2(4900.0, 3000.0),
-	Vector2(3200.0, 2200.0),
-	Vector2(4600.0, 2000.0),
-	Vector2(3920.0, 3000.0),
-	Vector2(2400.0, 2000.0),
-	Vector2(5400.0, 2400.0),
-	Vector2(1800.0, 3000.0),
-	Vector2(6200.0, 1800.0),
-	Vector2(3000.0, 3400.0),
-	Vector2(4800.0, 1400.0),
-	Vector2(3600.0, 1000.0),
-	Vector2(1200.0, 1600.0),
-	Vector2(4200.0, 4000.0),
-	Vector2(5600.0, 4000.0),
-	Vector2(7000.0, 3400.0),
-	Vector2(2500.0, 1400.0)
-]
-const _CLUMP_CORE: Array[Vector2] = [
-	Vector2(0.0, 0.0),
-	Vector2(28.0, -10.0),
-	Vector2(-26.0, 16.0),
-	Vector2(14.0, 28.0),
-	Vector2(-22.0, -24.0)
-]
-const _CLUMP_FALLOFF: Array[Vector2] = [
-	Vector2(44.0, 12.0),
-	Vector2(-40.0, 8.0)
-]
+func _grass_tile_index(tile_x: int, tile_y: int, tile_count: int) -> int:
+	if tile_count < 8:
+		return posmod(_tile_hash(tile_x, tile_y, 83492791), tile_count)
+	var flower_index := _flower_tile_index(tile_x, tile_y)
+	if flower_index >= 0:
+		return flower_index
+	var plain_hash := _tile_hash(tile_x, tile_y, 297121507)
+	return GRASS_PLAIN_TILES[posmod(plain_hash, GRASS_PLAIN_TILES.size())]
 
-func _stamp_deco(kind: int, pos: Vector2, size: float) -> void:
-	var atlas: Texture2D = r.deco_atlas
-	if atlas == null:
-		print("[gangup] deco atlas missing")
-		return
-	r.draw_texture_rect_region(atlas, Rect2(pos - Vector2(size, size) * 0.5, Vector2(size, size)), Rect2(float(kind % 6) * 16.0, 0.0, 16.0, 16.0))
+func _flower_tile_index(tile_x: int, tile_y: int) -> int:
+	var region_x := floori(float(tile_x) / float(FLOWER_REGION_SIZE))
+	var region_y := floori(float(tile_y) / float(FLOWER_REGION_SIZE))
+	var region_hash := _tile_hash(region_x, region_y, 433494437)
+	if posmod(region_hash, 100) >= 48:
+		return -1
+	var center_x := region_x * FLOWER_REGION_SIZE + posmod(region_hash, FLOWER_REGION_SIZE)
+	var center_hash := _tile_hash(region_x, region_y, 982451653)
+	var center_y := region_y * FLOWER_REGION_SIZE + posmod(center_hash, FLOWER_REGION_SIZE)
+	var radius := 1.2 + float(posmod(region_hash, 6)) * 0.1
+	if Vector2(tile_x, tile_y).distance_to(Vector2(center_x, center_y)) > radius:
+		return -1
+	var base_flower := posmod(region_hash, GRASS_FLOWER_TILES.size())
+	var mix_hash := _tile_hash(tile_x, tile_y, 15485863)
+	var flower_offset := 0 if posmod(mix_hash, 100) < 65 else 1
+	return GRASS_FLOWER_TILES[posmod(base_flower + flower_offset, GRASS_FLOWER_TILES.size())]
 
-func _rotate_off(off: Vector2, seed: int) -> Vector2:
-	var ang := float(seed) * 0.73
-	var ca := cos(ang)
-	var sa := sin(ang)
-	return Vector2(off.x * ca - off.y * sa, off.x * sa + off.y * ca)
-
-func _stamp_clump(origin: Vector2, seed: int) -> void:
-	var k0 := posmod(seed, 6)
-	var k1 := posmod(seed + 2, 6)
-	var k2 := posmod(seed + 4, 6)
-	for i in range(_CLUMP_CORE.size()):
-		var p := origin + _rotate_off(_CLUMP_CORE[i], seed)
-		if _dirt_here(p.x, p.y):
-			continue
-		var kind := k0 if i < 2 else (k1 if i < 4 else k2)
-		var sz := 54.0 if i == 0 else 46.0
-		_stamp_deco(kind, p, sz)
-	for i in range(_CLUMP_FALLOFF.size()):
-		var p := origin + _rotate_off(_CLUMP_FALLOFF[i], seed + 3)
-		if _dirt_here(p.x, p.y):
-			continue
-		_stamp_deco(k2, p, 38.0)
-
-func _stamp_flower_beds() -> void:
-	for ci in range(_DIRT_CIRCLES.size()):
-		var circle: Vector3 = _DIRT_CIRCLES[ci]
-		var c := Vector2(circle.x, circle.y)
-		var rad := circle.z
-		var seeds := 2 if rad < 125.0 else 3
-		for s in range(seeds):
-			var ang := TAU * float(s) / float(seeds) + circle.x * 0.013 + float(s) * 1.17 + circle.y * 0.007
-			var rim := c + Vector2(cos(ang), sin(ang)) * (rad + 52.0)
-			if _dirt_here(rim.x, rim.y):
-				rim = c + Vector2(cos(ang), sin(ang)) * (rad + 88.0)
-			if _dirt_here(rim.x, rim.y):
-				continue
-			if rim.x < 220.0 or rim.y < 220.0 or rim.x > 7620.0 or rim.y > 4540.0:
-				continue
-			_stamp_clump(rim, ci * 5 + s * 11 + int(circle.x))
-	for mi in range(_MEADOW_SEEDS.size()):
-		var m: Vector2 = _MEADOW_SEEDS[mi]
-		if _dirt_here(m.x, m.y):
-			continue
-		_stamp_clump(m, 40 + mi * 13)
-
-func _draw_dirt_patches() -> void:
-	if r.dirt_tile_texture == null:
-		return
-	var cell := 96.0
-	var atlas: Texture2D = r.dirt_tile_texture
-	var use_atlas := atlas.get_width() >= 128
-	var y := 480.0
-	while y < 4440.0:
-		var x := 360.0
-		while x < 7440.0:
-			if _dirt_here(x + cell * 0.5, y + cell * 0.5):
-				var n := 1 if _dirt_here(x + cell * 0.5, y - cell * 0.5) else 0
-				var e := 2 if _dirt_here(x + cell * 1.5, y + cell * 0.5) else 0
-				var s := 4 if _dirt_here(x + cell * 0.5, y + cell * 1.5) else 0
-				var w := 8 if _dirt_here(x - cell * 0.5, y + cell * 0.5) else 0
-				var mask := n + e + s + w
-				var src := Rect2(Vector2.ZERO, Vector2(32, 32))
-				if use_atlas:
-					src = Rect2(Vector2(float(mask % 4) * 32.0, float(int(mask / 4)) * 32.0), Vector2(32, 32))
-				r.draw_texture_rect_region(atlas, Rect2(Vector2(x, y), Vector2(cell, cell)), src)
-			x += cell
-		y += cell
-
-func _dirt_here(px: float, py: float) -> bool:
-	var p := Vector2(px, py)
-	for circle in _DIRT_CIRCLES:
-		if p.distance_to(Vector2(circle.x, circle.y)) <= circle.z:
-			return true
-	return false
+func _tile_hash(tile_x: int, tile_y: int, seed: int) -> int:
+	return tile_x * 73856093 ^ tile_y * 19349663 ^ seed
 
 func draw_trees() -> void:
 	if r.tree_atlas == null:
