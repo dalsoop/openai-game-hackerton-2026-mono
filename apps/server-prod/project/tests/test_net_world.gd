@@ -17,6 +17,7 @@ func run(t) -> void:
 	_peer_fire_follows_aim(t)
 	_guest_bullets_keep_own_velocity(t)
 	_local_fire_shake_decays(t)
+	_new_snap_bullet_emits_gun_fire(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -110,6 +111,31 @@ func _guest_bullets_keep_own_velocity(t) -> void:
 	var fresh: Dictionary = parsed[1]
 	t.check("새 탄이 이웃 속도를 훔치지 않는다", Vector2(fresh["vel"]).x > 0.0)
 	t.check("새 탄 id 가 유지된다", int(fresh.get("id", -1)) == 2)
+
+func _new_snap_bullet_emits_gun_fire(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var first := _center_snap(3920.0, 2380.0, 176.0, 18, 18)
+	first[SnapContract.BULLETS] = []
+	nw.push_snap(first)
+	nw.present(1.0 / 60.0)
+	var before: int = nw.event_log.events.size()
+	var second := first.duplicate(true)
+	second[SnapContract.TICK] = 13
+	second[SnapContract.BULLETS] = [{
+		SnapContract.B_ID: 4,
+		SnapContract.B_X: 4000.0, SnapContract.B_Y: 2380.0,
+		SnapContract.B_VX: 900.0, SnapContract.B_VY: 0.0,
+		SnapContract.B_OWNER: 0,
+	}]
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	var fired := false
+	for ev in nw.event_log.events:
+		if StringName(ev.get("type", &"")) == &"gun_fire" and int(ev.get("actor_id", -1)) == 0:
+			fired = true
+	t.check("첫 스냅 탄은 발사 이벤트가 없다", before == 0)
+	t.check("새 스냅 탄이 gun_fire 를 남긴다", fired)
 
 func _local_fire_shake_decays(t) -> void:
 	var nw = NetWorldScript.new()

@@ -8,8 +8,8 @@ const valid = {
   seed: 42,
   mode: "full",
   seats: [
-    { slot: 0, name: "호스트", connected: true },
-    { slot: 1, name: "게스트", connected: false },
+    { slot: 0, name: "호스트", connected: true, characterId: "unknown" },
+    { slot: 1, name: "게스트", connected: false, characterId: "unknown" },
   ],
 };
 
@@ -55,6 +55,6 @@ describe("parseStartPayload", () => {
       ...valid,
       seats: [{ slot: 2, name: "둘" }, { name: "번호없음" }, null],
     });
-    expect(p?.seats).toEqual([{ slot: 2, name: "둘", connected: true }]);
+    expect(p?.seats).toEqual([{ slot: 2, name: "둘", connected: true, characterId: "unknown" }]);
   });
 });

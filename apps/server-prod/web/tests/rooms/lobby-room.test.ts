@@ -105,6 +105,21 @@ describe("LobbyRoom 규칙", () => {
     expect(payload?.seed).toBeGreaterThan(0);
     expect(payload?.seats).toHaveLength(2);
     expect(payload?.seats.map((s) => s.name)).toEqual(["호스트", "게스트"]);
+    expect(payload?.seats.every((s) => s.characterId === "unknown")).toBe(true);
+  });
+
+  it("각 좌석이 자기 캐릭터만 고른다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.SET_CHARACTER, { characterId: "a2" });
+    guest.send(MSG.SET_CHARACTER, { characterId: "missing" });
+    await room.waitForNextPatch();
+    const bySid = Object.fromEntries(
+      [...room.state.players].map((p) => [p.sessionId, p.characterId]),
+    );
+    expect(bySid[host.sessionId]).toBe("a2");
+    expect(bySid[guest.sessionId]).toBe("unknown");
   });
 
   it("방장만 대기실에서 게임을 바꾼다", async () => {

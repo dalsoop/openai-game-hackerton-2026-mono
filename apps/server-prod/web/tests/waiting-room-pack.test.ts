@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultCharacterId } from "@/lib/characters";
 import { Seat, clampPackPct } from "@/lib/domain/roster";
 import {
   connectedSeatsPacked, overlayOwnPackPct, packKind, shouldSendPackPct, slotBadge,
@@ -8,7 +9,7 @@ import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 function seat(
   slot: number, name: string, connected: boolean, packPct: number, isHost = false,
 ): Seat {
-  return new Seat(slot, `p${slot}`, name, isHost, connected, packPct);
+  return new Seat(slot, `p${slot}`, name, isHost, connected, packPct, defaultCharacterId());
 }
 
 describe("대기실 팩 도메인", () => {

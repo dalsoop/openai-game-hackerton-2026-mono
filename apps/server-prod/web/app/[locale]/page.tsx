@@ -139,6 +139,7 @@ export default function Home(): JSX.Element {
           gameId={hub.gameId}
           idleLeftSec={hub.idleLeftSec}
           onSetGame={hub.setGame}
+          onSetCharacter={hub.setCharacter}
           players={hub.players}
           you={hub.you}
           isHost={hub.isHost}

@@ -1,3 +1,5 @@
+import { asCharacterId } from "@/lib/characters";
+
 export function clampPackPct(raw: unknown): number {
   const n = Math.round(Number(raw));
   if (!Number.isFinite(n)) {return 0;}
@@ -10,6 +12,7 @@ export interface SeatSnapshot {
   readonly name: string;
   readonly connected: boolean;
   readonly packPct?: number;
+  readonly characterId?: string;
 }
 
 export interface RosterSnapshot {
@@ -30,6 +33,7 @@ export class Seat {
     readonly isHost: boolean,
     readonly connected: boolean,
     readonly packPct: number,
+    readonly characterId: string,
   ) {}
 }
 
@@ -49,6 +53,7 @@ export class Roster {
         p.sessionId === snap.hostSessionId,
         p.connected,
         clampPackPct(p.packPct),
+        asCharacterId(p.characterId),
       ));
     const me = seats.find((s) => s.playerId === mySessionId) ?? null;
     return new Roster(seats, me, snap.phase === "playing");

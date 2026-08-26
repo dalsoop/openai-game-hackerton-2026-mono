@@ -2,6 +2,7 @@ import type { Client } from "colyseus";
 import { clampPackPct, shouldSendPackPct } from "@/lib/domain/waiting-room-pack";
 import { HUB_CONFIG, KO } from "./config.js";
 import { MSG, CLOSE_CODE } from "../contract/wire.js";
+import { asCharacterId } from "../characters/index.js";
 import { asGameId, defaultModeOf } from "../games/catalog.js";
 import type { LobbyState } from "./lobby-state.js";
 import { seatsPayloadOf } from "./lobby-seats.js";
@@ -54,6 +55,13 @@ export function handleSetGame(room: LobbyHandle, client: Client, data: Record<st
   room.state.mode = defaultModeOf(game);
   for (const p of room.state.players) {p.packPct = 0;}
   void room.setMetadata({ ...room.metadata, gameId: game, mode: room.state.mode });
+}
+
+export function handleSetCharacter(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
+  if (room.state.phase !== "lobby") {return;}
+  const player = room.state.players.find((p) => p.sessionId === client.sessionId);
+  if (!player) {return;}
+  player.characterId = asCharacterId(data.characterId);
 }
 
 export function handlePackPct(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {

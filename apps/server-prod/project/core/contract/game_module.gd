@@ -14,7 +14,6 @@ extends RefCounted
 ##   hud_layer: CanvasLayer
 ##   touch: CanvasLayer — 터치 컨트롤 (없으면 null)
 ##   leave: Callable    — 매치 이탈 요청 (셸이 처리)
-##   to_waiting: Callable — 결과 화면에서 대기실로 (방은 유지)
 ##   settings_open: bool — 인게임 설정이 열려 있으면 로컬 전투 입력을 버린다
 
 func id() -> String:
@@ -30,6 +29,10 @@ func tick(_delta: float, _ctx: Dictionary) -> void:
 
 ## 게스트 미러 월드에 스냅 반영.
 func push_snap(_snap: Dictionary) -> void:
+	pass
+
+## 허브가 보낸 발사 FX — 게스트 event_log / SFX 용.
+func push_gun_fire(_fx: Dictionary) -> void:
 	pass
 
 ## 플레이 중 방장 승계 — 게스트가 권위 시뮬을 이어받는다.

@@ -83,6 +83,7 @@ var _pred_pos: Vector2 = ARENA_CENTER
 var _pred_aim: Vector2 = Vector2.RIGHT
 var _pred_dash_cd: float = 0.0
 var _has_pred: bool = false
+var _bullets_ready: bool = false
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -114,6 +115,7 @@ func reset() -> void:
     _pred_aim = Vector2.RIGHT
     _pred_dash_cd = 0.0
     _has_pred = false
+    _bullets_ready = false
     last_down_slot = -1
     last_down_ticks = 0
     callout = ""
@@ -412,6 +414,16 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
 
 func _apply_bullets(list: Array) -> void:
     var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)
+    if _bullets_ready:
+        var seen := {}
+        for prev_b in _prev_bullets:
+            seen[int(prev_b.get("id", -1))] = true
+        for bullet in next:
+            var bid := int(bullet.get("id", -1))
+            if seen.has(bid):
+                continue
+            event_log.emit(tick, &"gun_fire", int(bullet.get("owner", -1)), -1, {"equipment": ""})
+    _bullets_ready = true
     _prev_bullets = next.duplicate()
     projectiles = next
 

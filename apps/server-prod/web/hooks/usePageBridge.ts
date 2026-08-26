@@ -5,7 +5,6 @@ import type { Room } from "@colyseus/sdk";
 import { useRoomMessage } from "@colyseus/react";
 import { MSG, ROOM_LEAVE } from "@/lib/contract";
 import type { RosterSnapshot } from "@/lib/domain/roster";
-import { shouldForwardHubState } from "@/lib/game-flow-state";
 import { attachPageBridge, encodeHubState, postToEngine } from "@/lib/hub/page-bridge";
 import type { MatchInfo } from "@/types";
 
@@ -32,6 +31,6 @@ export function usePageBridge(
   useEffect(() => {
     if (!room || !matchInfo || !snap) {return;}
     const encoded = encodeHubState(snap, room.sessionId, rttMs);
-    if (encoded && shouldForwardHubState(snap.phase, true)) {postToEngine(MSG.STATE, encoded);}
+    if (encoded) {postToEngine(MSG.STATE, encoded);}
   }, [room, matchInfo, snap, rttMs]);
 }

@@ -103,14 +103,31 @@
     "packProgress": "{pct}%",
     "changeGame": "Game",
     "idleHost": "Room closes in {sec}s if you do not start",
-    "idleGuest": "Room closes in {sec}s unless the host starts"
+    "idleGuest": "Room closes in {sec}s unless the host starts",
+    "pickCharacter": "Character",
+    "prevCharacter": "Previous character",
+    "nextCharacter": "Next character"
+  },
+  "characters": {
+    "unknown": "Random",
+    "a0": "Rat",
+    "a1": "Ox",
+    "a2": "Tiger",
+    "a3": "Rabbit",
+    "a4": "Dragon",
+    "a5": "Snake",
+    "a6": "Horse",
+    "a7": "Sheep",
+    "a8": "Monkey",
+    "a9": "Rooster",
+    "a10": "Dog",
+    "a11": "Pig"
   },
   "godot": {
     "starting": "Starting game...",
     "loadingEngine": "Loading Godot engine",
     "startError": "Cannot start game",
-    "backToLobby": "Back to lobby",
-    "toWaitingRoom": "To waiting room"
+    "backToLobby": "Back to lobby"
   },
   "error": {
     "title": "Something went wrong",

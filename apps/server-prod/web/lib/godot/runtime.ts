@@ -7,6 +7,7 @@ import { HUB_CONFIG } from "@/lib/hub/config";
 import { DEFAULT_GAME_ID, packOf, type GameId } from "@/lib/games/catalog";
 import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
 import { bindCanvasKeyboardFocus } from "@/lib/godot/canvas-focus";
+import { bindAudioUnlock, captureAudioContexts } from "@/lib/godot/unlock-audio";
 import { isWebGL2Available, type GodotEngineApi } from "@/lib/godot/webgl";
 import type { StartPayload } from "@/lib/hub/start-payload";
 
@@ -60,6 +61,7 @@ export class GodotRuntime {
   private engine: { requestQuit?: () => void } | null = null;
   private boundCanvas: HTMLCanvasElement | null = null;
   private unbindCanvasFocus: (() => void) | null = null;
+  private unbindAudioUnlock: (() => void) | null = null;
   private scriptPromise: Promise<void> | null = null;
   private bootPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -187,6 +189,7 @@ export class GodotRuntime {
       };
     }
 
+    captureAudioContexts();
     const engine = new EngineCtor(config);
     this.catchMatchStart();
     // side.wasm 도 캐시가 찬 뒤에 init — 엔진의 자체 fetch 가 304 로 떨어지게.
@@ -201,6 +204,8 @@ export class GodotRuntime {
     this.boundCanvas = canvas;
     this.unbindCanvasFocus?.();
     this.unbindCanvasFocus = bindCanvasKeyboardFocus(canvas);
+    this.unbindAudioUnlock?.();
+    this.unbindAudioUnlock = bindAudioUnlock(canvas);
     this.update({ state: "running" });
     this.armWatchdog();
   }
@@ -252,6 +257,8 @@ export class GodotRuntime {
     }
     this.unbindCanvasFocus?.();
     this.unbindCanvasFocus = null;
+    this.unbindAudioUnlock?.();
+    this.unbindAudioUnlock = null;
     this.engine = null;
     this.boundCanvas = null;
     if (this.snap.state === "running") {this.update({ state: "ready" });}

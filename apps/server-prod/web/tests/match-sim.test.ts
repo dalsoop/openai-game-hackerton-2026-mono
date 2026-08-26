@@ -59,6 +59,19 @@ describe("MatchSim", () => {
     expect(hero.fireCd).toBeGreaterThan(FIRE_INTERVAL - 0.03);
   });
 
+  it("CPU 는 살아있는 상대를 향해 움직인다", () => {
+    const sim = new MatchSim([{ slot: 0, name: "나" }, { slot: 1, name: "CPU2", cpu: true }]);
+    const human = sim.heroes.get(0);
+    const cpu = sim.heroes.get(1);
+    expect(human && cpu).toBeTruthy();
+    if (!human || !cpu) {return;}
+    expect(cpu.cpu).toBe(true);
+    const dist0 = Math.hypot(cpu.x - human.x, cpu.y - human.y);
+    sim.step(1 / 60);
+    const dist1 = Math.hypot(cpu.x - human.x, cpu.y - human.y);
+    expect(dist1).toBeLessThan(dist0);
+  });
+
   it("탄이 상대를 맞히면 HP 가 줄고 탄이 사라진다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     const a = sim.heroes.get(0);

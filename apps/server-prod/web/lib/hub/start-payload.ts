@@ -1,3 +1,5 @@
+import { asCharacterId } from "@/lib/characters";
+
 // START 메시지 계약 — 서버가 보내고 React 가 localStorage 에 남기며 Godot 가 읽는다.
 // 경계에서만 unknown 을 받고, 이후는 StartPayload 만 흐르게 한다.
 
@@ -5,6 +7,7 @@ export interface SeatStart {
   readonly slot: number;
   readonly name: string;
   readonly connected: boolean;
+  readonly characterId: string;
 }
 
 export interface StartPayload {
@@ -24,6 +27,7 @@ function asSeat(raw: unknown): SeatStart | null {
     slot,
     name: typeof o.name === "string" ? o.name : "",
     connected: o.connected !== false,
+    characterId: asCharacterId(o.characterId),
   };
 }
 

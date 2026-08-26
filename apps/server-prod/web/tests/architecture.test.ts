@@ -131,6 +131,8 @@ describe("계약: 웹 캔버스 키 포커스", () => {
   it("런타임은 알탭 복귀용 bindCanvasKeyboardFocus 를 붙인다", () => {
     const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));
     expect(runtime).toContain("bindCanvasKeyboardFocus");
+    expect(runtime).toContain("captureAudioContexts");
+    expect(runtime).toContain("bindAudioUnlock");
     expect(runtime).toContain("focusCanvas: true");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("visibilitychange");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("pointerdown");

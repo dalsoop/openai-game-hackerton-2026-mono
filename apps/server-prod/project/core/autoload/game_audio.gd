@@ -31,6 +31,7 @@ var _impact: AudioStreamPlayer
 var _muffle_t := 0.0
 var _muffle_dur := 0.0
 var _muffling := false
+var _unlock_cb = null
 
 func _ready() -> void:
 	_setup_world_bus()
@@ -39,6 +40,23 @@ func _ready() -> void:
 	_build_music_players()
 	get_tree().node_added.connect(_hook_button)
 	_hook_tree(get_tree().root)
+	_bind_web_unlock()
+
+func _bind_web_unlock() -> void:
+	if not OS.has_feature("web"):
+		return
+	_unlock_cb = JavaScriptBridge.create_callback(_on_web_audio_unlock)
+	var win = JavaScriptBridge.get_interface("window")
+	if win == null:
+		return
+	win.addEventListener("dagul-audio-unlock", _unlock_cb)
+
+func _on_web_audio_unlock(_args: Array) -> void:
+	if _current_track == "":
+		return
+	var track := _current_track
+	_current_track = ""
+	play_music(track, 0.0)
 
 func _stream_for(sound_id: String) -> AudioStream:
 	if Catalog == null:

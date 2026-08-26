@@ -7,7 +7,7 @@ import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId } from "./lobby-seats.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, clearIdleTimer, handlePackPct, handleRoomToggle,
-  handleSetGame, handleStart, resetToLobby, type LobbyBag, type LobbyHandle,
+  handleSetCharacter, handleSetGame, handleStart, resetToLobby, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import { applyPlayInput, bootAuthority, ignoreHostSnap, tickAuthority } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
@@ -54,6 +54,8 @@ export class LobbyRoom extends Room implements LobbyHandle {
     [MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
     [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
       handleSetGame(this, client, data),
+    [MSG.SET_CHARACTER]: (client: Client, data: Record<string, unknown>): void =>
+      handleSetCharacter(this, client, data),
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
     [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
@@ -114,6 +116,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   onDispose(): void {
     clearIdleTimer(this, this.bag);
+    if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
   }
 
   burstIdle(): void {

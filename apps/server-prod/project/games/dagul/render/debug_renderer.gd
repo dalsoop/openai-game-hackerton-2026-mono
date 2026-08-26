@@ -40,6 +40,7 @@ var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var animal_atlas: Texture2D = null
 var animal_down_atlas: Texture2D = null
+var unknown_character_tex: Texture2D = null
 var bullet_atlas: Texture2D = null
 var gun_atlas: Texture2D = null
 var muzzle_atlas: Texture2D = null
@@ -185,6 +186,7 @@ func _load_combat_textures() -> void:
     medkit_texture = _load_tex("res://games/dagul/assets/items/medkit.png")
     animal_atlas = _load_tex("res://games/dagul/assets/lhj/Tex_Animal_4x3.png")
     animal_down_atlas = _load_tex("res://games/dagul/assets/lhj/Tex_AnimalDown_4x3.png")
+    unknown_character_tex = _load_tex("res://core/assets/characters/unknown.png")
     bullet_atlas = _load_tex("res://games/dagul/assets/lhj/Tex_FX_Bullet_4x4_256x144.png")
     gun_atlas = _load_tex("res://games/dagul/assets/lhj/Tex_Gun_4x3.png")
     muzzle_atlas = _load_tex("res://games/dagul/assets/lhj/Tex_Fx_MuzzleFlash_4x3.png")

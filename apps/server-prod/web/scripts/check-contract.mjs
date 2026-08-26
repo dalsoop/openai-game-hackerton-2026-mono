@@ -59,7 +59,7 @@ for (const [label, tsVal, gdName] of pairs) {
   else if (tsVal !== gdVal) fail(`${label}: 정본 "${tsVal}" ≠ 거울 "${gdVal}"`);
 }
 
-const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "GUN_FIRE", "ERROR", "STATE", "LEAVE"];
+const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "GUN_FIRE", "ERROR", "SET_CHARACTER", "STATE", "LEAVE"];
 const msgBlock = ts.match(/export const MSG = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
 for (const key of MSG_KEYS) {
   const tsVal = msgBlock.match(new RegExp(`(?:^|[\\s,{])${key}: "([^"]+)"`))?.[1];
@@ -99,8 +99,20 @@ if (!existsSync(godotDir) || (!existsSync(manifestPath) && !hasArtifacts)) {
   }
 }
 
+const charCanon = path.join(here, "..", "lib", "characters", "characters.json");
+const charMirror = path.join(here, "..", "..", "project", "core", "contract", "characters.json");
+if (!existsSync(charCanon) || !existsSync(charMirror)) {
+  fail("characters.json 정본 또는 거울이 없습니다");
+} else if (readFileSync(charCanon, "utf8") !== readFileSync(charMirror, "utf8")) {
+  fail("characters.json 정본과 project/core/contract 거울이 다릅니다");
+}
+const catalogGd = readFileSync(path.join(here, "..", "..", "project", "core", "contract", "character_catalog.gd"), "utf8");
+if (!catalogGd.includes("res://core/contract/characters.json")) {
+  fail("character_catalog.gd DATA_PATH 가 거울 JSON 을 가리키지 않습니다");
+}
+
 if (errors > 0) {
   console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(lib/contract, catalog)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
 }
-console.log(`check-contract: 정본-거울 일치 (HANDOFF 7 + DOM_EVT 4 + MSG ${MSG_KEYS.length} + DEFAULT_GAME/MODE + pack ${packs.length}) · Godot 산출물 버전 무결`);
+console.log(`check-contract: 정본-거울 일치 (HANDOFF 7 + DOM_EVT 4 + MSG ${MSG_KEYS.length} + DEFAULT_GAME/MODE + pack ${packs.length} + characters) · Godot 산출물 버전 무결`);

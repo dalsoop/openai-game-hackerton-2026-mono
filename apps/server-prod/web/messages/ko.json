@@ -103,14 +103,31 @@
     "packProgress": "{pct}%",
     "changeGame": "게임",
     "idleHost": "시작하지 않으면 {sec}초 뒤 방이 닫힙니다",
-    "idleGuest": "방장이 {sec}초 안에 시작하지 않으면 방이 닫힙니다"
+    "idleGuest": "방장이 {sec}초 안에 시작하지 않으면 방이 닫힙니다",
+    "pickCharacter": "캐릭터",
+    "prevCharacter": "이전 캐릭터",
+    "nextCharacter": "다음 캐릭터"
+  },
+  "characters": {
+    "unknown": "랜덤",
+    "a0": "쥐",
+    "a1": "소",
+    "a2": "호랑이",
+    "a3": "토끼",
+    "a4": "용",
+    "a5": "뱀",
+    "a6": "말",
+    "a7": "양",
+    "a8": "원숭이",
+    "a9": "닭",
+    "a10": "개",
+    "a11": "돼지"
   },
   "godot": {
     "starting": "게임을 시작하는 중...",
     "loadingEngine": "Godot 엔진을 로딩하고 있습니다",
     "startError": "게임을 시작할 수 없습니다",
-    "backToLobby": "로비로 돌아가기",
-    "toWaitingRoom": "대기실로"
+    "backToLobby": "로비로 돌아가기"
   },
   "error": {
     "title": "문제가 발생했습니다",

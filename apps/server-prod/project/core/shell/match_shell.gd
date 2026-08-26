@@ -40,13 +40,14 @@ func _ready() -> void:
 		"hub": hub, "world_view": world_view, "camera": camera,
 		"hud": hud, "hud_layer": hud_layer, "touch": touch,
 		"leave": Callable(self, "_leave_match"),
-		"to_waiting": Callable(self, "_return_to_hub"),
 		"settings_open": false,
 	}
 	if hub != null:
 		hub.match_started.connect(_on_match_started)
 		hub.match_resumed.connect(_on_match_resumed)
 		hub.snapshot_received.connect(_on_snapshot_received)
+		if hub.has_signal("gun_fire_received"):
+			hub.gun_fire_received.connect(_on_gun_fire_received)
 		hub.host_changed.connect(_on_host_changed)
 		hub.left_room.connect(_return_to_hub)
 		hub.hub_error.connect(func(_msg: String): _return_to_hub())
@@ -67,6 +68,10 @@ func _on_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
 func _on_snapshot_received(snap: Dictionary) -> void:
 	if module != null:
 		module.push_snap(snap)
+
+func _on_gun_fire_received(fx: Dictionary) -> void:
+	if module != null and module.has_method("push_gun_fire"):
+		module.push_gun_fire(fx)
 
 func _game_state() -> Node:
 	# 오토로드는 엔진 싱글톤 API 대상이 아니다. 그 경로로 찾으면
@@ -126,8 +131,6 @@ func _physics_process(delta: float) -> void:
 	if gs == null or not gs.is_state(GameStateScript.State.PLAYING) or module == null:
 		return
 	module.tick(delta, _ctx)
-	_hide_settings_after_result()
-	_sync_play_chrome()
 	_emit_play_probe(delta)
 
 func _emit_play_probe(delta: float) -> void:
@@ -156,20 +159,6 @@ func _emit_play_probe(delta: float) -> void:
 		x, y,
 	]
 	JavaScriptBridge.eval(js)
-
-func _match_over() -> bool:
-	if module == null:
-		return false
-	var world = module.get("world")
-	return world != null and world.get("result") != null and world.result != &"playing"
-
-
-func _hide_settings_after_result() -> void:
-	if settings == null:
-		return
-	if _match_over():
-		settings.set_playing(false)
-
 
 func _leave_match() -> void:
 	var gs := _game_state()
@@ -205,12 +194,11 @@ func _apply_playing_visuals(playing: bool) -> void:
 func _sync_play_chrome() -> void:
 	var playing := world_view.visible
 	var menu_open := settings != null and bool(settings.get("is_open"))
-	var show_cursor := menu_open or _match_over()
 	_ctx["settings_open"] = menu_open
 	if touch != null:
-		touch.set_playing(PlayChromeScript.touch_playing(playing, show_cursor))
+		touch.set_playing(PlayChromeScript.touch_playing(playing, menu_open))
 	Input.set_mouse_mode(
-		Input.MOUSE_MODE_HIDDEN if PlayChromeScript.mouse_hidden(playing, show_cursor)
+		Input.MOUSE_MODE_HIDDEN if PlayChromeScript.mouse_hidden(playing, menu_open)
 		else Input.MOUSE_MODE_VISIBLE)
 
 func _attach_touch() -> void:
