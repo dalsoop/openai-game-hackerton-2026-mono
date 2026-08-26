@@ -61,12 +61,12 @@ func _on_web_audio_unlock(_args: Array) -> void:
 func _stream_for(sound_id: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.stream_for(sound_id)
+	return Catalog.call("stream_for", sound_id)
 
 func _music_for(track: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.music_for(track)
+	return Catalog.call("music_for", track)
 
 func _build_sfx_pool() -> void:
 	for i in POOL_SIZE:

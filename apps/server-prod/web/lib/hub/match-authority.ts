@@ -1,5 +1,6 @@
 import { BulletSchema, HeroSchema, type LobbyState } from "./lobby-state.js";
 import { ARENA_CENTER, MatchSim, type GunFireFx, type MatchInput, type SeatSeed } from "./match-sim.js";
+import { KO } from "./config.js";
 
 export type SnapPlayer = {
   slot: number;
@@ -13,8 +14,11 @@ export type SnapPlayer = {
   alive: boolean;
   mag: number;
   magMax: number;
+  reloadLeft: number;
+  weapon: string;
   ack: number;
   animal: number;
+  characterId: string;
   cpu: boolean;
 };
 
@@ -37,8 +41,11 @@ export function packAuthoritySnap(
       alive: h.alive,
       mag: h.mag,
       magMax: h.magMax,
+      reloadLeft: h.reloadLeft,
+      weapon: KO.WEAPON_PISTOL,
       ack: h.ack,
       animal: h.animal,
+      characterId: h.characterId,
       cpu: h.cpu,
     });
   }

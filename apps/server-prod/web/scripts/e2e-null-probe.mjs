@@ -19,7 +19,7 @@ page.on("response", (r) => {
 });
 
 await page.goto(URL, { waitUntil: "networkidle" });
-const nameBox = page.locator("input[name=player-name], input[placeholder='내 이름']").first();
+const nameBox = page.locator("input[name=player-name]").first();
 await nameBox.waitFor({ state: "visible", timeout: 45_000 });
 await nameBox.fill("널진단");
 await page.click("text=시작하기");

@@ -6,8 +6,9 @@ import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId } from "./lobby-seats.js";
 import {
-  armIdleTimer, burstIdle as fireIdleBurst, clearIdleTimer, handlePackPct, handleRoomToggle,
-  handleSetCharacter, handleSetGame, handleStart, resetToLobby, type LobbyBag, type LobbyHandle,
+  armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
+  handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
+  type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import { applyPlayInput, bootAuthority, ignoreHostSnap, tickAuthority } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
@@ -18,6 +19,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
+    hostLossTimer: null,
   };
 
   onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
@@ -107,7 +109,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     if (idx >= 0) {this.state.players.splice(idx, 1);}
     if (playing && wasHost) {
       this.syncHost();
-      if (this.state.hostSessionId === "") {resetToLobby(this, this.bag);}
+      if (this.state.hostSessionId === "") {scheduleHostLossReset(this, this.bag);}
     } else {
       this.syncHost();
     }
@@ -116,6 +118,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   onDispose(): void {
     clearIdleTimer(this, this.bag);
+    cancelHostLossReset(this.bag);
     if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
   }
 
@@ -139,6 +142,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   private syncHost(): void {
     this.state.hostSessionId = pickHostSessionId(this.state.players);
+    if (this.state.hostSessionId !== "") {cancelHostLossReset(this.bag);}
     void this.setMetadata({ ...this.metadata });
   }
 }

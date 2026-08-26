@@ -94,7 +94,7 @@ func _game_id() -> String:
 	if not OS.has_feature("web"):
 		return WebContract.DEFAULT_GAME
 	var raw := str(JavaScriptBridge.eval(
-		"try{localStorage.getItem('%s')||''}catch(e){''}" % WebContract.KEY_GAME, true)).strip_edges()
+		"try{sessionStorage.getItem('%s')||''}catch(e){''}" % WebContract.KEY_GAME, true)).strip_edges()
 	if raw == "" or raw == "null" or raw == "undefined":
 		return WebContract.DEFAULT_GAME
 	return raw

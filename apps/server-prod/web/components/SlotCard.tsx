@@ -85,8 +85,8 @@ function SlotFilledBody({
   const canPick = Boolean(isMe && character && onSetCharacter);
   const labels: Record<SlotBadge, string> = {
     reconnect: t("waitingReconnect"),
-    pending: t("packNotStarted"),
-    progress: t("packProgress", { pct: player.packPct }),
+    pending: t("packDownloading", { pct: player.packPct }),
+    progress: t("packDownloading", { pct: player.packPct }),
     host: t("host"),
     waiting: t("waiting"),
   };

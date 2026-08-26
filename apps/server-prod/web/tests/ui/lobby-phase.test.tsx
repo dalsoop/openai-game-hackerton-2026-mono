@@ -31,10 +31,14 @@ describe("LobbyPhase 뒤로가기", () => {
           onJoinRoom={vi.fn()}
           onRefresh={vi.fn()}
           onBackToIntro={onBack}
+          connClass="conn-ok"
+          connText=""
+          rttMs={0}
+          rttText={null}
         />
       </NextIntlClientProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: `← ${ko.game.back}` }));
+    fireEvent.click(screen.getByRole("button", { name: ko.game.back }));
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(ko.game.loading.preparing)).toBeNull();
   });
@@ -50,10 +54,14 @@ describe("LobbyPhase 뒤로가기", () => {
           onJoinRoom={vi.fn()}
           onRefresh={vi.fn()}
           onBackToIntro={onBack}
+          connClass="conn-ok"
+          connText=""
+          rttMs={0}
+          rttText={null}
         />
       </NextIntlClientProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: `← ${ko.game.back}` }));
+    fireEvent.click(screen.getByRole("button", { name: ko.game.back }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

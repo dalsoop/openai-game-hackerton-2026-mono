@@ -42,9 +42,10 @@ export default async function LocaleLayout({
     <NextIntlClientProvider messages={messages}>
       <html lang={locale} suppressHydrationWarning>
         <head>
+          {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router 에는 _document 가 없다 */}
           <link
             rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
           />
         </head>
         <body suppressHydrationWarning>

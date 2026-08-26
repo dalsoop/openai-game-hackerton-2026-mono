@@ -43,9 +43,9 @@ export function useHubCommands(
 
   const leaveRoom = useCallback(() => {
     clearDrop();
-    localStorage.removeItem(HANDOFF.RESUME);
-    localStorage.removeItem(HANDOFF.FROM_HUB);
-    localStorage.removeItem(HANDOFF.MATCH);
+    sessionStorage.removeItem(HANDOFF.RESUME);
+    sessionStorage.removeItem(HANDOFF.FROM_HUB);
+    sessionStorage.removeItem(HANDOFF.MATCH);
     forgetHubPin();
     clearMyRoom((k) => localStorage.removeItem(k));
     setMatchInfo(null);
@@ -60,8 +60,8 @@ export function useHubCommands(
 
   const returnToLobby = useCallback((_name: string) => {
     const roomId = matchInfo?.roomId;
-    localStorage.removeItem(HANDOFF.FROM_HUB);
-    localStorage.removeItem(HANDOFF.MATCH);
+    sessionStorage.removeItem(HANDOFF.FROM_HUB);
+    sessionStorage.removeItem(HANDOFF.MATCH);
     setMatchInfo(null);
     if (room) {return;}
     setJoinRequest(roomId ? { kind: "join", id: roomId } : null);
@@ -75,9 +75,9 @@ export function useHubCommands(
   }, [setConnected, setError, setJoinRequest, takeReconnectId]);
 
   const tryResume = useCallback((): boolean => {
-    const token = localStorage.getItem(HANDOFF.RESUME);
-    if (!reactOwnsResume(localStorage.getItem(HANDOFF.FROM_HUB), token)) {return false;}
-    nameRef.current = localStorage.getItem(HANDOFF.NAME) ?? "";
+    const token = sessionStorage.getItem(HANDOFF.RESUME);
+    if (!reactOwnsResume(sessionStorage.getItem(HANDOFF.FROM_HUB), token)) {return false;}
+    nameRef.current = sessionStorage.getItem(HANDOFF.NAME) ?? "";
     setResumeFailed(false);
     setConnected(true);
     setJoinRequest({ kind: "resume" });

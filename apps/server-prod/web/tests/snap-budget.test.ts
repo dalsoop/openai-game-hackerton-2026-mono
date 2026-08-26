@@ -31,7 +31,9 @@ function hostPackedSnap(): Record<string, unknown> {
     emoteTime: 0,
     ack: 12,
   }));
-  const xy = (n: number) =>
+  const xy = (n: number): Array<{
+    id: number; x: number; y: number; vx: number; vy: number; owner: number;
+  }> =>
     Array.from({ length: n }, (_, i) => ({
       id: i + 1,
       x: 2000 + i * 30,

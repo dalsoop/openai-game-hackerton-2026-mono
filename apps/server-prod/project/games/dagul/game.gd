@@ -3,6 +3,7 @@ extends GameModule
 ## 셸/네트워크/방 지식 없음: ctx 로 받은 자원만 쓴다.
 
 const CharacterCatalogScript = preload("res://core/contract/character_catalog.gd")
+const CharacterViewScript = preload("res://core/contract/character_view.gd")
 const WorldScript = preload("res://games/dagul/sim/game_world.gd")
 const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const GameServerScript = preload("res://games/dagul/net/game_server.gd")
@@ -147,10 +148,7 @@ func _start_as_host(you: int, mode: String, seats: Array, ctx: Dictionary) -> vo
 		host_world.human_slots[s] = true
 		if s < host_world.heroes.size():
 			host_world.heroes[s]["display_name"] = str(p.get("name", ""))
-			var cid := CharacterCatalogScript.resolve_playable(str(p.get("character_id", "")))
-			var animal := CharacterCatalogScript.bind_int(cid, "animal")
-			if animal >= 0:
-				host_world.set_hero_animal(s, animal)
+			CharacterViewScript.apply_id(host_world.heroes[s], str(p.get("character_id", "")))
 	world = host_world
 	_host_ctrl = NetworkHost.new(ctx["hub"], world)
 	_host_ctrl.connect_signals()

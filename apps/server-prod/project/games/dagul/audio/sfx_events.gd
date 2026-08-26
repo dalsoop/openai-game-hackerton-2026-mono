@@ -238,8 +238,15 @@ func _play_orb(world, actor: int, local_slot: int) -> void:
 		play_at("power_up", hero_pos(world, actor), -3.0, 0.0)
 
 func _handle_match(world, event_type: StringName, local_slot: int, hit_pause: int) -> int:
-	if event_type == &"safe_zone_shrink":
+	if event_type == &"match_started":
+		var audio := audio_node()
+		if audio != null and audio.has_method("play_music"):
+			audio.play_music("match")
+		play("match_start", -1.0, 0.0)
+	elif event_type == &"safe_zone_shrink":
 		play("zone_shrink", -2.0, 0.0)
+	elif event_type == &"combat_started":
+		play("ready_to_fight", -2.0, 0.0)
 	elif event_type == &"fight_countdown":
 		play("countdown", -3.0, 0.0)
 		hurry(1.3)

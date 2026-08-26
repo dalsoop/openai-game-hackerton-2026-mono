@@ -18,6 +18,7 @@ export type LobbyBag = {
   gameTimer: TimerHandle | null;
   idleTimer: TimerHandle | null;
   authority: MatchAuthority | null;
+  hostLossTimer: TimerHandle | null;
 };
 
 export type LobbyHandle = {
@@ -28,6 +29,22 @@ export type LobbyHandle = {
   clock: { setTimeout: (cb: () => void, ms: number) => TimerHandle };
   broadcast: (type: string, payload: unknown) => void;
 };
+
+/** 호스트가 순간적으로 사라져도 곧바로 리셋하지 않고, 유예 뒤 여전히 없을 때만 리셋한다.
+ * 재접속·새 join 으로 호스트가 다시 정해지면 cancelHostLossReset 이 취소한다. */
+export function scheduleHostLossReset(room: LobbyHandle, bag: LobbyBag): void {
+  if (bag.hostLossTimer) {return;} // 이미 예약됨 — 중복 예약 금지
+  bag.hostLossTimer = room.clock.setTimeout(() => {
+    bag.hostLossTimer = null;
+    if (room.state.phase === "playing" && room.state.hostSessionId === "") {
+      resetToLobby(room, bag);
+    }
+  }, HUB_CONFIG.hostLossGraceMs);
+}
+
+export function cancelHostLossReset(bag: LobbyBag): void {
+  if (bag.hostLossTimer) {bag.hostLossTimer.clear(); bag.hostLossTimer = null;}
+}
 
 export function handleRoomToggle(room: LobbyHandle, client: Client): void {
   if (client.sessionId !== room.state.hostSessionId) {
@@ -100,6 +117,7 @@ export function armIdleTimer(room: LobbyHandle, bag: LobbyBag): void {
 
 export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   if (bag.gameTimer) {bag.gameTimer.clear(); bag.gameTimer = null;}
+  cancelHostLossReset(bag);
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;

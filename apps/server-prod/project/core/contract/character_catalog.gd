@@ -36,6 +36,41 @@ static func resolve_playable(raw: String, key: String = "animal") -> String:
 	return str(pool[randi() % pool.size()])
 
 
+static func bind_key() -> String:
+	var sheets: Variant = _load_data().get("sheets", [])
+	if typeof(sheets) != TYPE_ARRAY or (sheets as Array).is_empty():
+		return "animal"
+	var first: Variant = (sheets as Array)[0]
+	if typeof(first) != TYPE_DICTIONARY:
+		return "animal"
+	var key := str((first as Dictionary).get("indexBind", ""))
+	return key if key != "" else "animal"
+
+
+static func match_bind() -> String:
+	return bind_key()
+
+
+static func portrait_index(raw: String) -> int:
+	var id := normalize(raw)
+	for item in all():
+		if str(item.get("id", "")) != id:
+			continue
+		var portrait: Dictionary = item.get("portrait", {})
+		if portrait.has("index"):
+			return int(portrait["index"])
+		return bind_int(id, bind_key())
+	return -1
+
+
+static func id_for_bind(key: String, value: int) -> String:
+	for item in all():
+		var binds: Dictionary = item.get("binds", {})
+		if binds.has(key) and int(binds[key]) == value:
+			return str(item.get("id", ""))
+	return ""
+
+
 static func bind_int(raw: String, key: String) -> int:
 	var id := normalize(raw)
 	for item in all():

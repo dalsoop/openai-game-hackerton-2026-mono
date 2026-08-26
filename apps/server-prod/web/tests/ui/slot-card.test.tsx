@@ -7,8 +7,8 @@ import { Seat } from "@/lib/domain/roster";
 import { defaultCharacterId, listCharacters, stepCharacterId } from "@/lib/characters";
 import ko from "../../messages/ko.json";
 
-function seat(characterId: string, connected = true): Seat {
-  return new Seat(0, "me", "플레이어", true, connected, 100, characterId);
+function seat(characterId: string, connected = true, packPct = 100): Seat {
+  return new Seat(0, "me", "플레이어", true, connected, packPct, characterId);
 }
 
 function renderMine(characterId: string, onSetCharacter = vi.fn()): ReturnType<typeof vi.fn> {
@@ -47,10 +47,18 @@ describe("SlotCard 캐릭터 순환", () => {
     ]);
   });
 
+  it("받는 중이면 카드에 다운로드중(n%) 을 단다", () => {
+    render(
+      <NextIntlClientProvider locale="ko" messages={ko}>
+        <SlotCard index={0} player={seat(defaultCharacterId(), true, 42)} you={0} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("다운로드중(42%)")).toBeTruthy();
+  });
+
   it("초상 img 는 카탈로그 src 를 쓴다", () => {
     const first = listCharacters()[0];
-    expect(first).toBeDefined();
-    if (!first) {return;}
+    expect(first).toEqual(expect.objectContaining({ id: expect.any(String) }));
     renderMine(first.id);
     const img = screen.getByRole("img", { name: ko.characters.unknown });
     expect(img.getAttribute("src")).toBe(first.portrait.src);

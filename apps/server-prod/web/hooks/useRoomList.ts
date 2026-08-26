@@ -8,7 +8,10 @@ import { toHubRoom } from "@/lib/hub/room-mapper";
 import type { HubRoom } from "@/types";
 
 export async function fetchJoinableRooms(fetchImpl: typeof fetch = fetch): Promise<RoomAvailable[]> {
-  const res = await fetchImpl("/rooms", { cache: "no-store" });
+  const res = await fetchImpl("/rooms", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(HUB_CONFIG.roomsFetchMs),
+  });
   if (!res.ok) {throw new Error("rooms");}
   const body = roomsHttpBody((await res.json() as { rooms?: RoomAvailable[] }).rooms ?? []);
   return body.rooms;

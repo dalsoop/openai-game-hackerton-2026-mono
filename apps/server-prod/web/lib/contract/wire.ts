@@ -17,6 +17,7 @@ export const HANDOFF = {
 export const WEB_STORE = {
   MY_ROOM: "gangup_my_room",
   NICKNAME: "gangup_nickname",
+  GUEST_ID: "gangup_uid",
 } as const;
 
 export const DOM_EVT = {

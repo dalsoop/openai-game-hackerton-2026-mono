@@ -12,6 +12,8 @@ export const HUB_CONFIG = {
   rateBudget: 60,
   rateRefillPerMs: 0.04,
   resetToLobbyDelayMs: 10_000,
+  // 호스트가 순간적으로 사라져도 곧바로 로비 리셋하지 않고, 재접속/재선정을 기다리는 유예.
+  hostLossGraceMs: 3_000,
   hostBootTimeoutMs: 180_000,
   idleStartMs: 5 * 60 * 1000,
   maxPlayers: 8,
@@ -20,6 +22,7 @@ export const HUB_CONFIG = {
   matchWatchdogMs: 30_000,
   rttIntervalMs: 2_000,
   listPollMs: 4_000,
+  roomsFetchMs: 3_000,
   lobbyHealthRttMs: 0,
   perProcessCcu: 500,
   targetCcu: 1_000,
@@ -43,8 +46,14 @@ export function slotRoomName(base: string, slot = slotId()): string {
 
 export const ROOM_NAME = slotRoomName("lobby");
 
+/** 게스트 기본 닉 — 십이지신. {이름}#{쿠키ID} 에 쓴다. */
+export const ZODIAC_NAMES = [
+  "쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지",
+] as const;
+
 export const KO = {
   DEFAULT_NAME: "손님",
+  WEAPON_PISTOL: "권총",
   ROOM_NOT_FOUND: "방을 찾을 수 없습니다",
   ROOM_FULL: `방이 가득 찼습니다 (${HUB_CONFIG.maxPlayers})`,
   HOST_ONLY_START: "호스트만 시작할 수 있습니다",

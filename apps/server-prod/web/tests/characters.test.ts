@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  asCharacterId, characterBindNumber, defaultCharacterId, findCharacter,
-  listCharacters, stepCharacterId,
+  asCharacterId, assignSeatIdentity, characterBindNumber, defaultCharacterId, findCharacter,
+  idForBind, listCharacters, matchBindKey, resolveMatchCharacterId, stepCharacterId,
 } from "@/lib/characters";
 import { CharacterRegistry } from "@/lib/characters/registry";
 import { CharacterSheetSource, type CharacterCatalogData } from "@/lib/characters/sheet-source";
@@ -113,6 +113,21 @@ describe("정본 카탈로그 공개 API", () => {
     expect(characterBindNumber(canon.defaultId, "animal")).toBeUndefined();
     expect(stepCharacterId(canon.defaultId, 1)).toBe(`${sheet.idPrefix}0`);
     expect(stepCharacterId(`${sheet.idPrefix}0`, -1)).toBe(canon.defaultId);
+  });
+
+  it("좌석 정체는 고른 id 를 중복 허용하고 랜덤만 한 번 푼다", () => {
+    const key = matchBindKey();
+    const a2 = `${canon.sheets?.[0]?.idPrefix}2`;
+    expect(assignSeatIdentity(a2).characterId).toBe(a2);
+    expect(assignSeatIdentity(a2).characterId).toBe(assignSeatIdentity(a2).characterId);
+    expect(assignSeatIdentity(a2).animal).toBe(2);
+    const rolled = assignSeatIdentity(defaultCharacterId());
+    expect(rolled.characterId).not.toBe(defaultCharacterId());
+    expect(characterBindNumber(rolled.characterId, key)).toBe(rolled.animal);
+    expect(resolveMatchCharacterId(a2)).toBe(a2);
+    const cpu = assignSeatIdentity(undefined, { cpu: true, slot: 5 });
+    expect(cpu.characterId).toBe(idForBind(key, 5));
+    expect(cpu.animal).toBe(5);
   });
 
   it("정본 길이는 entries + 시트 칸이다", () => {

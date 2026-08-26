@@ -7,7 +7,9 @@ describe("persistEngineHandoff", () => {
 
   beforeEach(() => {
     store.clear();
-    vi.stubGlobal("localStorage", {
+    // 핸드오프는 탭 스코프(sessionStorage)가 계약이다 — localStorage 로 되돌리면
+    // 다른 탭이 재접속 토큰을 주워 진행 중 게임이 리셋된다 (2026-08-26 버그).
+    vi.stubGlobal("sessionStorage", {
       setItem: (k: string, v: string): void => { store.set(k, v); },
       getItem: (k: string): string | null => store.get(k) ?? null,
       removeItem: (k: string): void => { store.delete(k); },

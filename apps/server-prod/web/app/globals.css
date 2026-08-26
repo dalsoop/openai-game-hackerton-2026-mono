@@ -19,10 +19,10 @@
   --shadow:0 8px 32px rgba(0,0,0,.45);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg-0); color: var(--tx-0); font-family: 'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',ui-sans-serif,system-ui,sans-serif; font-size: 14px; line-height: 1.5; }
+html, body { height: 100%; background: var(--bg-0); color: var(--tx-0); font-family: 'Galmuri11','Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',ui-sans-serif,system-ui,sans-serif; font-size: 14px; line-height: 1.5; }
 /* 폼 컨트롤은 color-scheme 를 상속하지 않는다. 비워 두면 크롬이 style="" 을
    붙이고 React 19 가 인트로 input 하이드레이션을 실패로 본다. */
-input, textarea, select, button { color-scheme: dark; }
+input, textarea, select, button { color-scheme: dark; font-family: inherit; }
 
 /* --- background pattern --- */
 body::before { content:""; position:fixed; inset:0; z-index:-2; background: linear-gradient(rgba(11,14,20,0.85), rgba(11,14,20,0.92)), url('/assets/lobby-bg.webp') center/cover no-repeat, var(--bg-0); }
@@ -73,7 +73,7 @@ body.wait #wait { display: block; }
 .conn-dot { width:8px; height:8px; border-radius:50%; background:var(--tx-2); flex-shrink:0; }
 .conn.ok .conn-dot { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
 .conn.bad .conn-dot { background:var(--red); }
-.conn-ping { font-family:ui-monospace,monospace; font-size:12px; color:var(--cyan); }
+.conn-ping { font-family:'Galmuri11',ui-monospace,monospace; font-size:12px; color:var(--cyan); }
 
 /* --- prefetch strip --- */
 .prefetch-strip { display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:8px 12px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius-s); }
@@ -107,7 +107,7 @@ body.wait #wait { display: block; }
 .wait-panel { display:flex; flex-direction:column; gap:14px; }
 .wait-idle { margin:0; font-size:13px; color:var(--tx-1); }
 .wait-line { display:flex; align-items:center; gap:6px; margin-left:auto; white-space:nowrap; min-width:0; }
-.wait-idle-inline { font-size:13px; color:var(--tx-1); }
+.wait-idle-inline { margin:0; font-size:13px; color:var(--tx-1); }
 .wait-title-inline { font-size:16px; font-weight:800; color:var(--tx-0); }
 .wait-games { border:1.5px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin:0; }
 .wait-game-list { display:flex; flex-wrap:wrap; gap:8px; }
@@ -166,7 +166,7 @@ body.wait #wait { display: block; }
 .slot-card.filled { border-style:solid; animation:slotIn .35s cubic-bezier(.2,1.4,.4,1); }
 .slot-card.me { box-shadow:0 0 0 2px var(--cyan) inset; }
 .slot-card:not(.filled) { opacity:.5; }
-.slot-ping { position:absolute; top:6px; right:8px; font-size:11px; line-height:1; color:var(--cyan); font-family:ui-monospace,monospace; }
+.slot-ping { position:absolute; top:6px; right:8px; font-size:11px; line-height:1; color:var(--cyan); font-family:'Galmuri11',ui-monospace,monospace; }
 .slot-name { font-size:14px; font-weight:600; margin-top:4px; }
 .slot-tag { font-size:11px; color:var(--tx-2); }
 .slot-crown { display:inline; }
@@ -206,7 +206,7 @@ body.wait #wait { display: block; }
 .scoreboard th { color:var(--tx-2); font-weight:600; font-size:11px; letter-spacing:.05em; text-transform:uppercase; padding:6px 8px; border-bottom:1px solid var(--line); }
 .scoreboard td { padding:6px 8px; border-bottom:1px solid var(--line); }
 .scoreboard tr.top { background:rgba(255,210,62,.07); }
-.scoreboard .rank { color:var(--tx-2); font-family:ui-monospace,monospace; }
+.scoreboard .rank { color:var(--tx-2); font-family:'Galmuri11',ui-monospace,monospace; }
 .scoreboard .dead { opacity:.45; }
 .result-actions { display:flex; gap:10px; justify-content:center; margin-top:8px; }
 

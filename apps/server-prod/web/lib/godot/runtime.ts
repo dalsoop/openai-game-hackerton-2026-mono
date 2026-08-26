@@ -218,7 +218,7 @@ export class GodotRuntime {
 
   private writeHandoff(info: HandoffInfo): void {
     try { persistEngineHandoff(info.game ?? DEFAULT_GAME_ID, info); }
-    catch { /* localStorage 불가 환경 — 엔진이 resume 없이 시도한다 */ }
+    catch { /* sessionStorage 불가 환경 — 엔진이 resume 없이 시도한다 */ }
   }
 
   private loadEngineScript(): Promise<void> {
@@ -275,12 +275,15 @@ export class GodotRuntime {
   }
 }
 
+// 핸드오프는 반드시 sessionStorage(탭 스코프) — localStorage 에 쓰면 다른 탭이
+// 재접속 토큰을 주워 자동 reconnect 를 시도하고, 그 실패 처리가 원래 탭의 토큰을
+// 지워 진행 중 게임이 로비로 리셋된다 (2026-08-26 재시작 버그의 근본 원인).
 export function persistEngineHandoff(game: string, info: HandoffInfo): void {
-  localStorage.setItem(HANDOFF.FROM_HUB, "1");
-  localStorage.setItem(HANDOFF.GAME, game);
-  localStorage.setItem(HANDOFF.NAME, info.name);
-  localStorage.setItem(HANDOFF.ROOM_ID, info.roomId);
-  localStorage.setItem(HANDOFF.SLOT, String(info.slot));
-  if (info.resumeToken) {localStorage.setItem(HANDOFF.RESUME, info.resumeToken);}
-  if (info.match) {localStorage.setItem(HANDOFF.MATCH, JSON.stringify(info.match));}
+  sessionStorage.setItem(HANDOFF.FROM_HUB, "1");
+  sessionStorage.setItem(HANDOFF.GAME, game);
+  sessionStorage.setItem(HANDOFF.NAME, info.name);
+  sessionStorage.setItem(HANDOFF.ROOM_ID, info.roomId);
+  sessionStorage.setItem(HANDOFF.SLOT, String(info.slot));
+  if (info.resumeToken) {sessionStorage.setItem(HANDOFF.RESUME, info.resumeToken);}
+  if (info.match) {sessionStorage.setItem(HANDOFF.MATCH, JSON.stringify(info.match));}
 }
