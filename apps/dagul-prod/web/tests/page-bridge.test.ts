@@ -50,9 +50,11 @@ describe("parseBridgePacket", () => {
 });
 
 describe("수송 방향", () => {
-  it("엔진→허브는 input·leave 만", () => {
+  it("엔진→허브는 input·leave·snap_off·snap_on", () => {
     expect(isEngineOutbound(MSG.INPUT)).toBe(true);
     expect(isEngineOutbound(MSG.LEAVE)).toBe(true);
+    expect(isEngineOutbound(MSG.SNAP_OFF)).toBe(true);
+    expect(isEngineOutbound(MSG.SNAP_ON)).toBe(true);
   });
 
   it("반전: snap 을 엔진이 허브로 보내면 안 된다", () => {
@@ -98,6 +100,10 @@ describe("attachPageBridge", () => {
     const off = attachPageBridge({ send }, { bus });
     bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.INPUT, { mx: 1 }));
     expect(send).toHaveBeenCalledWith(MSG.INPUT, { mx: 1 });
+    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.SNAP_OFF, {}));
+    expect(send).toHaveBeenCalledWith(MSG.SNAP_OFF, {});
+    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.SNAP_ON, {}));
+    expect(send).toHaveBeenCalledWith(MSG.SNAP_ON, {});
     off();
   });
 

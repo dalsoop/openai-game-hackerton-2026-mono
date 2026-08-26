@@ -75,7 +75,9 @@ func _on_bridge_packet(packet: Dictionary) -> void:
     var msg: Dictionary = data if data is Dictionary else {}
     match msg_type:
         WebContract.MSG_SNAP:
-            if not msg.is_empty():
+            if _engine_socket_active():
+                pass
+            elif not msg.is_empty():
                 snapshot_received.emit(msg)
         WebContract.MSG_GUN_FIRE:
             gun_fire_received.emit(msg)
@@ -143,7 +145,21 @@ func _sync_state(state: Variant) -> void:
         joined_room.emit(room, players, you)
     _last_phase = HubStateSync.next_phase(_last_phase, phase)
 
+## 오토로드는 바 식별자 파스가 안 된다(파스 게이트) — /root 조회가 정본.
+func _engine_socket() -> Node:
+    var ml := Engine.get_main_loop()
+    if not (ml is SceneTree):
+        return null
+    return (ml as SceneTree).root.get_node_or_null("EngineSocket")
+
+func _engine_socket_active() -> bool:
+    var sock := _engine_socket()
+    return sock != null and bool(sock.call("is_active"))
+
 func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
+    if _engine_socket_active():
+        _engine_socket().call("send_input", msg)
+        return
     _send(WebContract.MSG_INPUT, msg)
 
 func leave_room() -> void:  # lint-gd: public-api

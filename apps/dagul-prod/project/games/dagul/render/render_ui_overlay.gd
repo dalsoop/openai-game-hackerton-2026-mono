@@ -1,6 +1,8 @@
 class_name RenderUiOverlay
 extends RefCounted
 
+const TextCacheScript = preload("res://games/dagul/render/text_cache.gd")
+
 var r: Node2D
 var world
 
@@ -179,7 +181,7 @@ func draw_keycap(center: Vector2, letter: String) -> void:
 	r.draw_rect(box, Color("#f4efe4"))
 	r.draw_rect(Rect2(box.position + Vector2(2.0, 2.0), Vector2(box.size.x - 4.0, box.size.y - 5.0)), Color("#fffaf2"))
 	r.draw_rect(box, Color("#c8bba8"), false, 2.0)
-	r.draw_string(GameFont.get_font(), box.position + Vector2(0.0, 23.0), letter, HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 16, Color("#2a2218"))
+	TextCacheScript.draw(r, box.position + Vector2(0.0, 23.0), letter, GameFont.get_font(), 16, Color("#2a2218"), box.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 func draw_finish_prompts() -> void:
 	if world == null:

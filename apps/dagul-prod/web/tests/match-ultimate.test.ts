@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- 12지신 궁극기 + 차지 회귀 */
 import { describe, expect, it } from "vitest";
 import { ARENA_CENTER, HERO_RADIUS } from "@/lib/hub/match-covers";
 import { MATCH_TIME_LIMIT } from "@/lib/hub/match-zone";

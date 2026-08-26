@@ -5,6 +5,24 @@ import type { HomeSurface } from "@/lib/game-flow-state";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
 const PHASES: GamePhase[] = ["intro", "lobby", "room", "playing"];
+const CREATE_KINDS = [null, "create", "join", "resume"] as const;
+type CreateKind = (typeof CREATE_KINDS)[number];
+
+function createSurfaceRows(): Array<{ phase: GamePhase; status: HubStatus; kind: CreateKind }> {
+  const pairs: Array<{ phase: GamePhase; status: HubStatus }> = [];
+  for (const phase of PHASES) {
+    for (const status of HUB_STATUSES) {
+      pairs.push({ phase, status });
+    }
+  }
+  const rows: Array<{ phase: GamePhase; status: HubStatus; kind: CreateKind }> = [];
+  for (const pair of pairs) {
+    for (const kind of CREATE_KINDS) {
+      rows.push({ phase: pair.phase, status: pair.status, kind });
+    }
+  }
+  return rows;
+}
 
 describe("phaseFromHubStatus — 전 조합 전수 검증", () => {
   it.each(HUB_STATUSES)("status=%s → 전이 규칙", (status) => {
@@ -209,13 +227,9 @@ describe("createSurface — /create 빈 화면 금지", () => {
   });
 
   it("페이즈×상태 전수에 form|pending|redirect 만", () => {
-    const kinds = [null, "create", "join", "resume"] as const;
-    for (const phase of PHASES) {
-      for (const status of HUB_STATUSES) {
-        for (const kind of kinds) {
-          expect(["form", "pending", "redirect"]).toContain(createSurface(phase, status, kind));
-        }
-      }
+    const allowed = ["form", "pending", "redirect"];
+    for (const row of createSurfaceRows()) {
+      expect(allowed).toContain(createSurface(row.phase, row.status, row.kind));
     }
   });
 });

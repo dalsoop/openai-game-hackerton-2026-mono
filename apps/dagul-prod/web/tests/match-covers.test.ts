@@ -110,7 +110,9 @@ describe("match-covers", () => {
     const ko = sim.knockouts[0];
     expect(ko.slot).toBe(1);
     expect(ko.animal).toBe(animal);
-    expect(ko.x).toBeCloseTo(660, 5);
+    const kb = shooter.equipment.knockback;
+    const shove = Math.min(16, Math.max(5, 5 + Math.abs(kb) * 0.35));
+    expect(ko.x).toBeCloseTo(660 + shove, 5);
     expect(ko.y).toBeCloseTo(600, 5);
     expect(ko.time).toBeCloseTo(KNOCKOUT_TIME, 5);
     expect(ko.maxTime).toBeCloseTo(KNOCKOUT_TIME, 5);

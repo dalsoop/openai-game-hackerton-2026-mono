@@ -1,0 +1,145 @@
+import { describe, expect, it } from "vitest";
+import { makeEquipment } from "@/lib/hub/match-equipment";
+import { gunSeedFields, type GunHero } from "@/lib/hub/match-gun";
+import {
+  CHARGE_MAX, applyEquipmentAttack, applySkillInput, beginSkillCharge, lerp,
+  releaseSkillCharge, type SkillHero,
+} from "@/lib/hub/match-skill";
+import { SLIDE_ACCEL, SLIDE_DURATION, SPRING_BOOST, steerSlide } from "@/lib/hub/match-loot";
+import { MatchSim } from "@/lib/hub/match-sim";
+
+const DT = 1 / 60;
+
+function hero(id: string, over: Partial<GunHero> = {}): GunHero {
+  const eq = makeEquipment(id);
+  return {
+    slot: 0, x: 4000, y: 2400, hp: eq.maxHp, maxHp: eq.maxHp, alive: true,
+    stunTime: 0, launchTime: 0, rootTime: 0, facingX: 1, facingY: 0, aimX: 1, aimY: 0,
+    ...gunSeedFields(eq), ...over, equipment: over.equipment ?? eq,
+  };
+}
+
+describe("차지 릴리즈 발동", () => {
+  it("누르면 차지 시작, 떼면 charge_ratio 로 scatter 펠릿이 나간다", () => {
+    const h = hero("scatter");
+    const start = applySkillInput(h, true, true, false, DT, { x: 1, y: 0 }, []);
+    expect(start.fired).toBe(false);
+    expect(h.chargingSkill).toBe(true);
+    const charged: SkillHero = h;
+    expect(charged.action).toBe("CHARGING_SKILL");
+    applySkillInput(h, true, false, false, CHARGE_MAX, { x: 1, y: 0 }, []);
+    expect(h.chargeTime).toBeCloseTo(CHARGE_MAX, 8);
+    const shot = applySkillInput(h, false, false, true, DT, { x: 1, y: 0 }, []);
+    expect(shot.fired).toBe(true);
+    expect(h.chargingSkill).toBe(false);
+    expect(shot.projectiles).toHaveLength(7);
+    expect(shot.projectiles[0]?.source).toBe("equipment");
+    expect(shot.projectiles[0]?.kind).toBe("pellet");
+    const power = lerp(0.65, 1.25, 1);
+    expect(shot.projectiles[0]?.damage).toBeCloseTo(7.0 * power, 8);
+  });
+
+  it("MatchSim 우클릭 홀드→릴리즈가 장비 탄을 넣는다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    h.equipment = makeEquipment("rail");
+    sim.pushInput(0, { equipment: true, equipmentPressed: true, aimX: h.x + 100, aimY: h.y, seq: 1 });
+    sim.step(DT);
+    expect(h.chargingSkill).toBe(true);
+    sim.pushInput(0, { equipment: true, aimX: h.x + 100, aimY: h.y, seq: 2 });
+    for (let i = 0; i < 70; i += 1) {sim.step(DT);}
+    sim.pushInput(0, { equipment: false, equipmentReleased: true, aimX: h.x + 100, aimY: h.y, seq: 3 });
+    sim.step(DT);
+    expect(h.chargingSkill).toBe(false);
+    expect(h.equipmentCd).toBeCloseTo(3.50, 5);
+    const shots = [...sim.bullets.values()].filter((b) => b.source === "equipment");
+    expect(shots.length).toBeGreaterThanOrEqual(1);
+    expect(shots[0]?.kind).toBe("beam");
+    expect(shots[0]?.pierce).toBe(4);
+  });
+});
+
+describe("쿨다운 소모", () => {
+  it("풀차지 rail 은 cooldown 3.50 을 넣고 재발동을 막는다", () => {
+    const h = hero("rail");
+    const first = applyEquipmentAttack(h, { x: 1, y: 0 }, 1);
+    expect(first.fired).toBe(true);
+    expect(h.equipmentCd).toBe(3.50);
+    expect(first.projectiles[0]?.pierce).toBe(4);
+    expect(first.projectiles[0]?.ccTime).toBeCloseTo(1.20, 8);
+    const second = applyEquipmentAttack(h, { x: 1, y: 0 }, 1);
+    expect(second.fired).toBe(false);
+    expect(second.projectiles).toHaveLength(0);
+  });
+
+  it("bomb 은 마인을 놓고 shield 는 벽을 놓으며 cooldown 을 소모한다", () => {
+    const bomb = hero("bomb");
+    const mine = applyEquipmentAttack(bomb, { x: 1, y: 0 }, 0);
+    expect(mine.fired).toBe(true);
+    expect(mine.mine).not.toBeNull();
+    expect(mine.mine?.lifetime).toBe(8.0);
+    expect(mine.mine?.fuseTime).toBe(0.38);
+    expect(mine.mine?.armTime).toBeCloseTo(0.72, 8);
+    expect(bomb.equipmentCd).toBe(4.40);
+    const shield = hero("shield");
+    const wall = applyEquipmentAttack(shield, { x: 0, y: 1 }, 1);
+    expect(wall.wall).not.toBeNull();
+    expect(wall.wall?.speed).toBeCloseTo(720.0, 8);
+    expect(shield.equipmentCd).toBe(5.60);
+    expect(shield.guardTime).toBeCloseTo(0.90, 8);
+  });
+});
+
+describe("slide 물리", () => {
+  it("steer_slide 는 가속 520·마찰 180 을 쓴다", () => {
+    const body = { vx: 0, vy: 0, vel: { x: 0, y: 0 }, facingX: 1, facingY: 0, slideTime: SLIDE_DURATION, springTime: 0, evadeTime: 0, hopTime: 0, hopMax: 0, hopHeight: 0, heldItem: "slide" };
+    steerSlide(body, 1, 0, 400, DT);
+    expect(body.vx).toBeCloseTo(SLIDE_ACCEL * DT, 8);
+    expect(body.vy).toBe(0);
+    body.vx = 200;
+    steerSlide(body, 0, 0, 400, DT);
+    expect(body.vx).toBeCloseTo(200 - 180 * DT, 8);
+  });
+
+  it("MatchSim 에서 slideTime 중 입력이 속도를 쌓는다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    const x0 = h.x;
+    h.slideTime = SLIDE_DURATION;
+    h.vx = 0;
+    h.vy = 0;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
+    sim.step(DT);
+    expect(h.vx).toBeCloseTo(SLIDE_ACCEL * DT, 6);
+    expect(h.x).toBeGreaterThan(x0);
+    expect(h.slideTime).toBeCloseTo(SLIDE_DURATION - DT, 6);
+  });
+
+  it("spring_time 중 이동에 SPRING_BOOST 220 이 더해진다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    h.springTime = 0.45;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
+    sim.step(DT);
+    expect(h.vx).toBeCloseTo(h.equipment.moveSpeed + SPRING_BOOST, 5);
+  });
+});
+
+describe("차지 가드", () => {
+  it("begin 은 cd/런치/스턴에서 막고, 릴리즈는 charging 이 아니면 무동작", () => {
+    const blocked = hero("rail", { equipmentCd: 1 });
+    expect(beginSkillCharge(blocked, { x: 1, y: 0 })).toBe(false);
+    const idle = hero("rail");
+    const none = releaseSkillCharge(idle, { x: 1, y: 0 });
+    expect(none.fired).toBe(false);
+  });
+});

@@ -242,6 +242,8 @@ func _check_tutorial_hints() -> void:
 		_tutorial.show_hint("outside_zone")
 
 func _apply_recoil_mouse(world_view: Node2D) -> void:
+	if OS.has_feature("web"):
+		return
 	var kick: Vector2 = world.local_mouse_kick
 	world.local_mouse_kick = Vector2.ZERO
 	if kick.length_squared() < 0.01:

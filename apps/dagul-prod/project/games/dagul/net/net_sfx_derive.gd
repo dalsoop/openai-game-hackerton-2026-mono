@@ -13,8 +13,14 @@ static func _f(d: Dictionary, key: String, fallback: float) -> float:
 		return float(v)
 	return fallback
 
+static func _use_server_events(w) -> bool:
+	return bool(w._server_events_active)
+
 ## start_countdown 양수→0 = combat_started, shrinking false→true = safe_zone_shrink.
+## 서버 events 채널이 켜지면 전부 서버가 보내므로 파생하지 않는다.
 static func header_events(w, prev_countdown: float, prev_shrinking: bool) -> void:
+	if _use_server_events(w):
+		return
 	if prev_countdown > 0.0 and w.start_countdown <= 0.0:
 		w.event_log.emit(w.tick, &"combat_started", -1, -1, {})
 	if not prev_shrinking and w.safe_zone_shrinking:
@@ -22,7 +28,7 @@ static func header_events(w, prev_countdown: float, prev_shrinking: bool) -> voi
 
 ## 잔여 60초 최초 도달 1회 — countdown SFX + 음악 가속. 발동 여부를 되돌려준다.
 static func countdown_event(w, fired: bool) -> bool:
-	if fired or w.result != &"playing" or w.start_countdown > 0.0:
+	if _use_server_events(w) or fired or w.result != &"playing" or w.start_countdown > 0.0:
 		return fired
 	if w.MATCH_TIME_LIMIT - w.match_time > FIGHT_COUNTDOWN_LEFT:
 		return false
@@ -30,7 +36,7 @@ static func countdown_event(w, fired: bool) -> bool:
 	return true
 
 static func player_events(w, p: Dictionary, old: Dictionary, slot: int) -> void:
-	if old.is_empty():
+	if _use_server_events(w) or old.is_empty():
 		return
 	_reload_event(w, p, old, slot)
 	_hit_event(w, p, old, slot)
@@ -76,7 +82,7 @@ static func _medkit_event(w, p: Dictionary, old: Dictionary, slot: int) -> void:
 
 ## loot 항목 소멸 = health_pickup_collected. 수집자는 가장 가까운 생존 슬롯으로 근사.
 static func loot_events(w, prev_loot: Array, next_loot: Array) -> void:
-	if prev_loot.is_empty():
+	if _use_server_events(w) or prev_loot.is_empty():
 		return
 	var next_ids := {}
 	for item in next_loot:

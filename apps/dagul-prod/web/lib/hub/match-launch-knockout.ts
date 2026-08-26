@@ -12,6 +12,7 @@ import {
   type CoverRect,
 } from "./match-covers";
 import { WALL_BOUNCE_MAX, pushTrail, type Vec2 } from "./match-launch";
+import { addEffect, type EffectStore } from "./match-effects.js";
 
 // --- hero_movement.gd update_knockouts 원본 수치 ---
 export const KNOCKOUT_REFLECT = -0.82;
@@ -70,8 +71,17 @@ export function applyLaunchKnockout(
   pos: Vec2,
   launchVel: Vec2,
   fallbackDirection: Vec2,
+  fx?: EffectStore,
 ): LaunchKnockout {
-  return spawnLaunchKnockout(slot, pos, deathVelocity(launchVel, fallbackDirection));
+  const vel = deathVelocity(launchVel, fallbackDirection);
+  const len = Math.hypot(vel.x, vel.y);
+  const dx = len < 1e-9 ? 1 : vel.x / len;
+  const dy = len < 1e-9 ? 0 : vel.y / len;
+  addEffect(fx, {
+    kind: "death_burst", x: pos.x, y: pos.y, radius: 260, duration: 0.80,
+    color: "#ff3349", dx, dy,
+  });
+  return spawnLaunchKnockout(slot, pos, vel);
 }
 
 export type KnockoutBounce = { slot: number; x: number; y: number };
@@ -83,6 +93,7 @@ function stepKnockout(
   tick: number,
   covers: readonly CoverRect[],
   bounces: KnockoutBounce[],
+  fx?: EffectStore,
 ): void {
   const mx = k.vel.x * dt;
   const my = k.vel.y * dt;
@@ -97,6 +108,13 @@ function stepKnockout(
     if (hitY) {k.vel.y *= KNOCKOUT_REFLECT;} else {k.pos.y = ny;}
     k.bounces += 1;
     bounces.push({ slot: k.slot, x: k.pos.x, y: k.pos.y });
+    const len = Math.hypot(k.vel.x, k.vel.y);
+    const dx = len < 1e-9 ? -1 : -k.vel.x / len;
+    const dy = len < 1e-9 ? 0 : -k.vel.y / len;
+    addEffect(fx, {
+      kind: "wall_impact", x: k.pos.x, y: k.pos.y, radius: 58, duration: 0.24,
+      color: "#ff4f5e", dx, dy,
+    });
   } else {
     k.pos.x = nx;
     k.pos.y = ny;
@@ -118,12 +136,13 @@ export function tickLaunchKnockouts(
   dt: number,
   tickCount: number,
   covers: readonly CoverRect[],
+  fx?: EffectStore,
 ): KnockoutBounce[] {
   const bounces: KnockoutBounce[] = [];
   const kept: LaunchKnockout[] = [];
   for (const k of list) {
     k.time -= dt;
-    if (!k.finished) {stepKnockout(k, dt, tickCount, covers, bounces);}
+    if (!k.finished) {stepKnockout(k, dt, tickCount, covers, bounces, fx);}
     if (k.time > 0) {kept.push(k);}
   }
   list.length = 0;

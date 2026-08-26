@@ -63,6 +63,10 @@ func _bind_web_unlock() -> void:
 func _on_web_audio_unlock(_args: Array) -> void:
 	if _current_track == "":
 		return
+	if _music_a != null and _music_a.playing:
+		return
+	if _music_b != null and _music_b.playing:
+		return
 	var track := _current_track
 	_current_track = ""
 	play_music(track, 0.0)

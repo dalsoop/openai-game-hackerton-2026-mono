@@ -33,6 +33,9 @@ export type EquipmentDef = {
   reloadTime: number;
   preferredRange: number;
   cooldown: number;
+  skillDamage: number;
+  skillSpeed: number;
+  skillRange: number;
 };
 
 export type EquipmentIdentity = { characterName: string; role: string; badge: string };
@@ -52,22 +55,49 @@ export type EquipmentMobility = {
 };
 export type Equipment = EquipmentDef & EquipmentIdentity & EquipmentCombat & EquipmentMobility;
 
-const SKILL = { skillName: "", skillDesc: "", ultimateName: "", ultimateDesc: "" } as const;
+const ULT = { ultimateName: "", ultimateDesc: "" } as const;
 
-/** equipment_registry.gd defs 12행 — skill/ultimate 이름은 전부 빈 문자열. */
+/** game_world.gd equipment_defs 94-106행 — 스킬 이름·쿨다운·skill damage/speed/range. */
+export const EQUIPMENT_SKILL: Readonly<Record<string, {
+  skillName: string; skillDesc: string; cooldown: number;
+  skillDamage: number; skillSpeed: number; skillRange: number;
+}>> = {
+  scatter: { skillName: "BACKBLAST", skillDesc: "Cone knockback plus recoil escape", cooldown: 3.10, skillDamage: 7.0, skillSpeed: 720.0, skillRange: 0.72 },
+  rail: { skillName: "ANCHOR BREAK", skillDesc: "Pierce, stagger and launch in one line", cooldown: 3.50, skillDamage: 38.0, skillSpeed: 1120.0, skillRange: 1.42 },
+  mortar: { skillName: "SKYFALL", skillDesc: "Warned blast opens cores and launches groups", cooldown: 4.40, skillDamage: 24.0, skillSpeed: 560.0, skillRange: 1.08 },
+  leech: { skillName: "BLOOD HARPOON", skillDesc: "Hook pulls prey in and restores health", cooldown: 3.40, skillDamage: 18.0, skillSpeed: 820.0, skillRange: 1.08 },
+  breaker: { skillName: "CRASH ENTRY", skillDesc: "Armored dash ends in a heavy shockwave", cooldown: 3.60, skillDamage: 32.0, skillSpeed: 650.0, skillRange: 0.96 },
+  burst: { skillName: "SEEKER SALVO", skillDesc: "Three curving missiles chase evasive prey", cooldown: 3.35, skillDamage: 10.0, skillSpeed: 820.0, skillRange: 1.18 },
+  blade: { skillName: "CROSS STEP", skillDesc: "Pass through the target and cut the exit", cooldown: 3.10, skillDamage: 27.0, skillSpeed: 980.0, skillRange: 0.32 },
+  brawler: { skillName: "LIVER SHOT", skillDesc: "Shoulder in and pin the target in hitstun", cooldown: 3.20, skillDamage: 24.0, skillSpeed: 820.0, skillRange: 0.26 },
+  bomb: { skillName: "PROX MINE", skillDesc: "Install up to two visible proximity mines", cooldown: 4.40, skillDamage: 27.0, skillSpeed: 520.0, skillRange: 1.10 },
+  spear: { skillName: "VAULT IMPALE", skillDesc: "Vault forward and skewer a sightline", cooldown: 3.45, skillDamage: 29.0, skillSpeed: 1180.0, skillRange: 0.72 },
+  chain: { skillName: "CHAIN LOCK", skillDesc: "Pull and root one target; charge for a longer bind", cooldown: 4.60, skillDamage: 21.0, skillSpeed: 900.0, skillRange: 0.78 },
+  shield: { skillName: "BULLDOZER WALL", skillDesc: "Launch a warned moving wall that sweeps enemies away", cooldown: 5.60, skillDamage: 22.0, skillSpeed: 700.0, skillRange: 0.30 },
+};
+
+function withSkill(row: Omit<EquipmentDef, "skillName" | "skillDesc" | "ultimateName" | "ultimateDesc" | "cooldown" | "skillDamage" | "skillSpeed" | "skillRange">): EquipmentDef {
+  const skill = EQUIPMENT_SKILL[row.id] ?? {
+    skillName: "", skillDesc: "", cooldown: 99.0,
+    skillDamage: row.damage, skillSpeed: row.speed, skillRange: row.range,
+  };
+  return { ...row, ...ULT, ...skill };
+}
+
+/** equipment_registry.gd defs 12행 + 원조 equipment_defs 스킬 필드. */
 export const EQUIPMENT_DEFS: readonly EquipmentDef[] = [
-  { id: "scatter", name: "SPAS-12", normalName: "PUMP BLAST", ...SKILL, fireMode: "semi", damage: 33.6, interval: 0.50, speed: 800.0, range: 0.48, spread: 0.12, projectiles: 5, splash: 0.0, leech: false, cc: 0.0, knockback: 24.0, kind: "pellet", radius: 6.0, pierce: 0, burstShots: 0, magSize: 7, reloadTime: 1.80, preferredRange: 260.0, cooldown: 99.0 },
-  { id: "rail", name: "AWM", normalName: "BOLT SHOT", ...SKILL, fireMode: "bolt", damage: 142.0, interval: 1.22, speed: 1520.0, range: 1.12, spread: 0.006, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 14.0, kind: "bolt", radius: 5.0, pierce: 3, burstShots: 0, magSize: 5, reloadTime: 2.40, preferredRange: 560.0, cooldown: 99.0 },
-  { id: "mortar", name: "M79", normalName: "RPG", ...SKILL, fireMode: "gl", damage: 88.0, interval: 1.05, speed: 620.0, range: 0.95, spread: 0.012, projectiles: 1, splash: 120.0, leech: false, cc: 0.0, knockback: 42.0, kind: "shell", radius: 9.0, pierce: 0, burstShots: 0, magSize: 1, reloadTime: 1.40, preferredRange: 430.0, cooldown: 99.0 },
-  { id: "leech", name: "MP5", normalName: "SMG BURST", ...SKILL, fireMode: "auto", damage: 11.4, interval: 0.095, speed: 980.0, range: 0.42, spread: 0.038, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 5.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 25, reloadTime: 1.25, preferredRange: 240.0, cooldown: 99.0 },
-  { id: "breaker", name: "RPK", normalName: "LMG FIRE", ...SKILL, fireMode: "auto", damage: 12.2, interval: 0.155, speed: 1020.0, range: 0.82, spread: 0.028, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 6.0, pierce: 0, burstShots: 0, magSize: 40, reloadTime: 2.20, preferredRange: 380.0, cooldown: 99.0 },
-  { id: "burst", name: "GLOCK 18", normalName: "AUTO PISTOL", ...SKILL, fireMode: "auto", damage: 13.26, interval: 0.105, speed: 1000.0, range: 0.44, spread: 0.040, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 5.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 18, reloadTime: 1.15, preferredRange: 250.0, cooldown: 99.0 },
-  { id: "blade", name: "THOMPSON", normalName: "DRUM FIRE", ...SKILL, fireMode: "auto", damage: 12.2, interval: 0.125, speed: 910.0, range: 0.58, spread: 0.055, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 6.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 32, reloadTime: 1.70, preferredRange: 300.0, cooldown: 99.0 },
-  { id: "brawler", name: "M1911", normalName: "SEMI PISTOL", ...SKILL, fireMode: "semi", damage: 46.8, interval: 0.40, speed: 1080.0, range: 0.55, spread: 0.018, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 7, reloadTime: 1.05, preferredRange: 230.0, cooldown: 99.0 },
-  { id: "bomb", name: "DOUBLE BARREL", normalName: "TWIN BLAST", ...SKILL, fireMode: "semi", damage: 27.4, interval: 0.22, speed: 760.0, range: 0.40, spread: 0.16, projectiles: 6, splash: 0.0, leech: false, cc: 0.0, knockback: 28.0, kind: "pellet", radius: 6.0, pierce: 0, burstShots: 2, magSize: 2, reloadTime: 1.10, preferredRange: 220.0, cooldown: 99.0 },
-  { id: "spear", name: "AK-47", normalName: "RIFLE FIRE", ...SKILL, fireMode: "auto", damage: 13.2, interval: 0.135, speed: 1060.0, range: 0.86, spread: 0.030, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 30, reloadTime: 1.55, preferredRange: 390.0, cooldown: 99.0 },
-  { id: "chain", name: "M4A1", normalName: "RIFLE FIRE", ...SKILL, fireMode: "auto", damage: 11.6, interval: 0.115, speed: 1100.0, range: 0.88, spread: 0.022, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 7.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 30, reloadTime: 1.35, preferredRange: 400.0, cooldown: 99.0 },
-  { id: "shield", name: "WINCHESTER", normalName: "LEVER SHOT", ...SKILL, fireMode: "lever", damage: 70.2, interval: 0.62, speed: 1200.0, range: 0.78, spread: 0.014, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 12.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 8, reloadTime: 1.60, preferredRange: 360.0, cooldown: 99.0 },
+  withSkill({ id: "scatter", name: "SPAS-12", normalName: "PUMP BLAST", fireMode: "semi", damage: 33.6, interval: 0.50, speed: 800.0, range: 0.48, spread: 0.12, projectiles: 5, splash: 0.0, leech: false, cc: 0.0, knockback: 24.0, kind: "pellet", radius: 6.0, pierce: 0, burstShots: 0, magSize: 7, reloadTime: 1.80, preferredRange: 260.0 }),
+  withSkill({ id: "rail", name: "AWM", normalName: "BOLT SHOT", fireMode: "bolt", damage: 142.0, interval: 1.22, speed: 1520.0, range: 1.12, spread: 0.006, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 14.0, kind: "bolt", radius: 5.0, pierce: 3, burstShots: 0, magSize: 5, reloadTime: 2.40, preferredRange: 560.0 }),
+  withSkill({ id: "mortar", name: "M79", normalName: "RPG", fireMode: "gl", damage: 88.0, interval: 1.05, speed: 620.0, range: 0.95, spread: 0.012, projectiles: 1, splash: 120.0, leech: false, cc: 0.0, knockback: 42.0, kind: "shell", radius: 9.0, pierce: 0, burstShots: 0, magSize: 1, reloadTime: 1.40, preferredRange: 430.0 }),
+  withSkill({ id: "leech", name: "MP5", normalName: "SMG BURST", fireMode: "auto", damage: 11.4, interval: 0.095, speed: 980.0, range: 0.42, spread: 0.038, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 5.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 25, reloadTime: 1.25, preferredRange: 240.0 }),
+  withSkill({ id: "breaker", name: "RPK", normalName: "LMG FIRE", fireMode: "auto", damage: 12.2, interval: 0.155, speed: 1020.0, range: 0.82, spread: 0.028, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 6.0, pierce: 0, burstShots: 0, magSize: 40, reloadTime: 2.20, preferredRange: 380.0 }),
+  withSkill({ id: "burst", name: "GLOCK 18", normalName: "AUTO PISTOL", fireMode: "auto", damage: 13.26, interval: 0.105, speed: 1000.0, range: 0.44, spread: 0.040, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 5.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 18, reloadTime: 1.15, preferredRange: 250.0 }),
+  withSkill({ id: "blade", name: "THOMPSON", normalName: "DRUM FIRE", fireMode: "auto", damage: 12.2, interval: 0.125, speed: 910.0, range: 0.58, spread: 0.055, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 6.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 32, reloadTime: 1.70, preferredRange: 300.0 }),
+  withSkill({ id: "brawler", name: "M1911", normalName: "SEMI PISTOL", fireMode: "semi", damage: 46.8, interval: 0.40, speed: 1080.0, range: 0.55, spread: 0.018, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 7, reloadTime: 1.05, preferredRange: 230.0 }),
+  withSkill({ id: "bomb", name: "DOUBLE BARREL", normalName: "TWIN BLAST", fireMode: "semi", damage: 27.4, interval: 0.22, speed: 760.0, range: 0.40, spread: 0.16, projectiles: 6, splash: 0.0, leech: false, cc: 0.0, knockback: 28.0, kind: "pellet", radius: 6.0, pierce: 0, burstShots: 2, magSize: 2, reloadTime: 1.10, preferredRange: 220.0 }),
+  withSkill({ id: "spear", name: "AK-47", normalName: "RIFLE FIRE", fireMode: "auto", damage: 13.2, interval: 0.135, speed: 1060.0, range: 0.86, spread: 0.030, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 8.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 30, reloadTime: 1.55, preferredRange: 390.0 }),
+  withSkill({ id: "chain", name: "M4A1", normalName: "RIFLE FIRE", fireMode: "auto", damage: 11.6, interval: 0.115, speed: 1100.0, range: 0.88, spread: 0.022, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 7.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 30, reloadTime: 1.35, preferredRange: 400.0 }),
+  withSkill({ id: "shield", name: "WINCHESTER", normalName: "LEVER SHOT", fireMode: "lever", damage: 70.2, interval: 0.62, speed: 1200.0, range: 0.78, spread: 0.014, projectiles: 1, splash: 0.0, leech: false, cc: 0.0, knockback: 12.0, kind: "bolt", radius: 5.0, pierce: 0, burstShots: 0, magSize: 8, reloadTime: 1.60, preferredRange: 360.0 }),
 ];
 
 /** identity_for `_` 분기 — shield 도 명시 키가 없어 여기로 떨어진다. */

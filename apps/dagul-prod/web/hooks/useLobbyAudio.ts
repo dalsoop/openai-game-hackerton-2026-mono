@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { lobbyBgmOn } from "@/lib/game-flow-state";
 import { unlockGodotAudio } from "@/lib/godot/unlock-audio";
+import { playMedia } from "@/lib/ui-sfx";
 import type { GamePhase } from "@/types";
 
 const LOBBY_SRC = "/assets/lobby.ogg";
@@ -31,7 +32,10 @@ export function useLobbyAudio(phase: GamePhase): void {
   const bgmRef = useRef<HTMLAudioElement | null>(null);
   const clickRef = useRef<HTMLAudioElement | null>(null);
   const wantBgmRef = useRef(wantLobbyBgm(phase));
-  wantBgmRef.current = wantLobbyBgm(phase);
+
+  useEffect(() => {
+    wantBgmRef.current = wantLobbyBgm(phase);
+  }, [phase]);
 
   useEffect(() => {
     const bgm = new Audio(LOBBY_SRC);
@@ -44,7 +48,7 @@ export function useLobbyAudio(phase: GamePhase): void {
     clickRef.current = click;
     const tryPlay = (): void => {
       if (holdOff || !wantBgmRef.current) {return;}
-      void bgm.play().catch(() => { /* 제스처 전 autoplay 거절 */ });
+      playMedia(bgm);
     };
     const onGesture = (): void => {
       unlockGodotAudio();
@@ -56,7 +60,7 @@ export function useLobbyAudio(phase: GamePhase): void {
       if (!t.closest("button, a, [role=button]")) {return;}
       if (t.closest("[data-sfx=ok]")) {return;}
       click.currentTime = 0;
-      void click.play().catch(() => { /* 무시 */ });
+      playMedia(click);
     };
     window.addEventListener("pointerdown", onGesture, true);
     window.addEventListener("mousedown", onGesture, true);

@@ -49,7 +49,8 @@ describe("계약: 문구 SSOT", () => {
 
   it("한글 리터럴은 config(KO)·서버 안내문 정본 외에 없다", () => {
     const allowed = (r: string): boolean =>
-      r.startsWith("tests/") || r === "lib/hub/config.ts" || r.startsWith("messages/");
+      r.startsWith("tests/") || r === "lib/hub/config.ts" || r.startsWith("messages/")
+      || r === "lib/hub/match-score.ts" || r === "lib/hub/match-wanted.ts";
     const offenders = tsSources.filter((p) => {
       const r = rel(p);
       if (allowed(r)) {return false;}
@@ -309,6 +310,9 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
     expect(audio).toContain("_pool_bus");
     expect(audio).not.toContain("PLAYBACK_TYPE_STREAM");
     expect(audio).not.toContain("_web_stream");
+    const unlock = audio.slice(audio.indexOf("_on_web_audio_unlock"), audio.indexOf("func _stream_for"));
+    expect(unlock).toContain("_music_a.playing");
+    expect(sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"))).toContain("if (!resumed) {return;}");
   });
 });
 

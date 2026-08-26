@@ -1,6 +1,8 @@
 class_name RenderHeroes
 extends RefCounted
 
+const TextCacheScript = preload("res://games/dagul/render/text_cache.gd")
+
 var r: Node2D
 var world
 
@@ -101,8 +103,9 @@ func draw_flee_mark(body_pos: Vector2, hero: Dictionary) -> void:
 
 func draw_nametag(pos: Vector2, slot: int, animal: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
 	var tag := display_name if display_name != "" else "P%d %s" % [slot + 1, r._zodiac_name(animal)]
-	r.draw_string(GameFont.get_font(), pos + Vector2(-71.0, -78.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(0.0, 0.0, 0.0, 0.85 * opacity))
-	r.draw_string(GameFont.get_font(), pos + Vector2(-72.0, -79.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(1.0, 1.0, 1.0, opacity))
+	var font := GameFont.get_font()
+	TextCacheScript.draw(r, pos + Vector2(-71.0, -78.0), tag, font, 14, Color(0.0, 0.0, 0.0, 0.85 * opacity), 144.0, HORIZONTAL_ALIGNMENT_CENTER)
+	TextCacheScript.draw(r, pos + Vector2(-72.0, -79.0), tag, font, 14, Color(1.0, 1.0, 1.0, opacity), 144.0, HORIZONTAL_ALIGNMENT_CENTER)
 	var bar := Rect2(pos + Vector2(-46.0, -64.0), Vector2(92.0, 16.0))
 	r.draw_rect(bar.grow(2.0), Color(0.04, 0.05, 0.07, 0.92 * opacity))
 	r.draw_rect(bar, Color(0.16, 0.18, 0.22, 0.95 * opacity))
@@ -110,8 +113,8 @@ func draw_nametag(pos: Vector2, slot: int, animal: int, hp_ratio: float, opacity
 	var fill_w := (bar.size.x - 4.0) * clampf(hp_ratio, 0.0, 1.0)
 	r.draw_rect(Rect2(bar.position + Vector2(2.0, 2.0), Vector2(fill_w, bar.size.y - 4.0)), Color(fill, opacity))
 	var hp_label := "%d / %d" % [roundi(hp_now), roundi(hp_max)]
-	r.draw_string(GameFont.get_font(), bar.position + Vector2(1.0, 13.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(0.0, 0.0, 0.0, 0.7 * opacity))
-	r.draw_string(GameFont.get_font(), bar.position + Vector2(0.0, 12.0), hp_label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 11, Color(1.0, 1.0, 1.0, opacity))
+	TextCacheScript.draw(r, bar.position + Vector2(1.0, 13.0), hp_label, font, 11, Color(0.0, 0.0, 0.0, 0.7 * opacity), bar.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+	TextCacheScript.draw(r, bar.position + Vector2(0.0, 12.0), hp_label, font, 11, Color(1.0, 1.0, 1.0, opacity), bar.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 func draw_knockouts() -> void:
 	for knockout in world.knockouts:

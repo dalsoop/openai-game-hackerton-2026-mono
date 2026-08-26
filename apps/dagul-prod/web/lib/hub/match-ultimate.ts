@@ -12,6 +12,7 @@ import {
   type CoverRect,
 } from "./match-covers.js";
 import { MATCH_TIME_LIMIT } from "./match-zone.js";
+import { addEffect, type EffectStore } from "./match-effects.js";
 
 export type Vec2 = { x: number; y: number };
 
@@ -54,7 +55,10 @@ const TAU = Math.PI * 2;
 const LEN_EPS = 0.05;
 const CHARGE_MIN = 0.0001;
 
-export const SNAKE_SHED_GIANT = {
+export const SNAKE_SHED_GIANT: {
+  id: string; name: string; kind: string; atk: number; spd: number; def: number;
+  hp: number; rate: number; range: number; shield: number; dur: number;
+} = {
   id: "giant",
   name: "GIANT",
   kind: "timed",
@@ -66,7 +70,7 @@ export const SNAKE_SHED_GIANT = {
   range: 0.0,
   shield: 0.0,
   dur: 12.0,
-} as const;
+};
 
 export type UltEvent = {
   tick: number;
@@ -204,6 +208,7 @@ export type UltWorld = {
   fightSurgeAt: number;
   covers: CoverRect[];
   events: UltEvent[];
+  effects?: EffectStore;
 };
 
 export type ChargeHero = {
@@ -543,25 +548,25 @@ export function tickOxCharges(w: UltWorld, heroes: ReadonlyMap<number, UltHero>,
         h.oxTime = 0.38;
         h.oxHit = [];
       }
-    } else if (phase === "rush") {
-      h.vel = { x: dir.x * 1100.0, y: dir.y * 1100.0 };
-      h.facing = cloneVec(dir);
-      const hit = h.oxHit;
-      for (const [other, t] of heroes) {
-        if (other === slot || hit.includes(other)) {continue;}
-        if (!t.alive || t.downed) {continue;}
-        if (dist(h.x, h.y, t.x, t.y) > 62.0) {continue;}
-        hit.push(other);
-        t.stunTime = Math.max(t.stunTime, 1.35);
-        t.vel = { x: dir.x * 260.0, y: dir.y * 260.0 };
-        const pushed = resolveMotion(w, heroPos(t), dir.x * 70.0, dir.y * 70.0);
-        setPos(t, pushed);
-      }
-      h.oxHit = hit;
-      if (h.oxTime <= 0) {
-        h.oxPhase = "";
-        h.vel = vec();
-      }
+      continue;
+    }
+    h.vel = { x: dir.x * 1100.0, y: dir.y * 1100.0 };
+    h.facing = cloneVec(dir);
+    const hit = h.oxHit;
+    for (const [other, t] of heroes) {
+      if (other === slot || hit.includes(other)) {continue;}
+      if (!t.alive || t.downed) {continue;}
+      if (dist(h.x, h.y, t.x, t.y) > 62.0) {continue;}
+      hit.push(other);
+      t.stunTime = Math.max(t.stunTime, 1.35);
+      t.vel = { x: dir.x * 260.0, y: dir.y * 260.0 };
+      const pushed = resolveMotion(w, heroPos(t), dir.x * 70.0, dir.y * 70.0);
+      setPos(t, pushed);
+    }
+    h.oxHit = hit;
+    if (h.oxTime <= 0) {
+      h.oxPhase = "";
+      h.vel = vec();
     }
   }
 }
@@ -649,6 +654,10 @@ export function beginDragonSmoke(w: UltWorld, heroes: ReadonlyMap<number, UltHer
   if (!h) {return;}
   w.dragonSmokes.push({ owner: slot, pos: heroPos(h), radius: 300.0, ttl: 15.0 });
   setUltimateFocus(w, slot, 0.22);
+  addEffect(w.effects, {
+    kind: "afterimage", x: h.x, y: h.y, radius: 90, duration: 0.28,
+    color: "#c8c8c8", label: "SMOKE",
+  });
   emit(w, "ultimate_used", slot, -1, { id: "dragon_smoke" });
 }
 
@@ -705,6 +714,10 @@ export function beginSnakeShed(w: UltWorld, heroes: ReadonlyMap<number, UltHero>
   });
   applySnakeGiant(h);
   setUltimateFocus(w, slot, 0.28);
+  addEffect(w.effects, {
+    kind: "afterimage", x: h.x, y: h.y, radius: 64, duration: 0.32,
+    color: "#9ad47a", label: "SHED",
+  });
   emit(w, "ultimate_used", slot, -1, { id: "snake_shed" });
 }
 
@@ -714,7 +727,13 @@ export function tickSnakeSkins(w: UltWorld, dt: number): void {
     if (!skin.alive) {continue;}
     skin.ttl -= dt;
     skin.flash = Math.max(0, skin.flash - dt);
-    if (skin.ttl <= 0 || skin.hp <= 0) {continue;}
+    if (skin.ttl <= 0 || skin.hp <= 0) {
+      addEffect(w.effects, {
+        kind: "hit_spark", x: skin.pos.x, y: skin.pos.y, radius: 48, duration: 0.24,
+        color: "#b7d59a",
+      });
+      continue;
+    }
     kept.push(skin);
   }
   w.snakeSkins = kept;
@@ -730,6 +749,10 @@ export function hurtSnakeSkin(w: UltWorld, index: number, damage: number): boole
   if (skin.hp <= 0) {
     skin.hp = 0;
     skin.alive = false;
+    addEffect(w.effects, {
+      kind: "snake_pop", x: skin.pos.x, y: skin.pos.y, radius: 62, duration: 0.34,
+      color: "#c8e8a8", label: "SHED",
+    });
     emit(w, "snake_shed_break", -1, -1, {});
     return true;
   }
@@ -827,6 +850,9 @@ export function popWoolShield(w: UltWorld, heroes: ReadonlyMap<number, UltHero>,
   const h = heroes.get(slot);
   if (!h) {return;}
   const center = woolShieldPos(h);
+  addEffect(w.effects, {
+    kind: "sheep_pop", x: center.x, y: center.y, radius: 150, duration: 0.36, color: "#fff1c8",
+  });
   for (const [t, vic] of heroes) {
     if (t === slot) {continue;}
     if (!vic.alive || vic.eliminated) {continue;}
@@ -861,6 +887,9 @@ export function absorbWoolShield(
   const shield = woolShieldPos(h);
   if (dist(pos.x, pos.y, shield.x, shield.y) > radius + 58.0) {return false;}
   h.woolHp -= 1;
+  addEffect(w.effects, {
+    kind: "impact", x: shield.x, y: shield.y, radius: 36, duration: 0.18, color: "#fff6d8",
+  });
   if (h.woolHp <= 0) {
     h.woolTime = 0;
     popWoolShield(w, heroes, target);
@@ -928,7 +957,11 @@ export function popUltClone(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, s
   const h = heroes.get(slot);
   if (!h) {return;}
   if (index < 0 || index >= h.ultClones.length) {return;}
+  const pos = h.ultClones[index].pos;
   h.ultClones.splice(index, 1);
+  addEffect(w.effects, {
+    kind: "monkey_pop", x: pos.x, y: pos.y, radius: 54, duration: 0.28, color: "#c9e7ff",
+  });
   emit(w, "clone_pop", slot, -1, {});
 }
 
@@ -978,6 +1011,10 @@ export function explodeRoosterEgg(w: UltWorld, heroes: ReadonlyMap<number, UltHe
     vic.stunTime = Math.max(vic.stunTime, 1.20);
     vic.vel = { x: away.x * 220.0, y: away.y * 220.0 };
   }
+  addEffect(w.effects, {
+    kind: "rooster_burst", x: origin.x, y: origin.y, radius: 82, duration: 0.42,
+    color: "#ffe27a", label: "EGG",
+  });
   emit(w, "rooster_egg_boom", owner, -1, {});
 }
 

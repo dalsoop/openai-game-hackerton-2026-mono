@@ -33,6 +33,8 @@ export const MSG = {
   START: "start",
   INPUT: "input",
   SNAP: "snap",
+  SNAP_OFF: "snap_off",
+  SNAP_ON: "snap_on",
   GUN_FIRE: "gun_fire",
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",

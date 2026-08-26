@@ -332,9 +332,9 @@ func _draw_mobility_effect(effect: Dictionary, effect_color: Color, ratio: float
 func _draw_effect_kind(effect: Dictionary, effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
 	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"explosion", &"drain", &"shockwave"]:
 		_draw_beam_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
-	elif effect_kind in [&"wall_impact", &"hit_spark", &"impact", &"speed_streak", &"slashwave", &"slash_dash", &"fist_burst", &"hammer_slam", &"spear_line", &"chain_arc"]:
+	elif effect_kind in [&"wall_impact", &"hit_spark", &"impact", &"speed_streak", &"slashwave", &"slash_dash", &"fist_burst", &"hammer_slam", &"spear_line", &"chain_arc", &"chain_bind"]:
 		_draw_impact_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
-	elif effect_kind in [&"fuse", &"shield_bash", &"combo_finisher", &"charge_release", &"victory", &"combo_break", &"afterimage", &"death_burst", &"guard"]:
+	elif effect_kind in [&"fuse", &"shield_bash", &"combo_finisher", &"charge_release", &"victory", &"combo_break", &"afterimage", &"death_burst", &"guard", &"charge_break", &"stun_burst", &"snake_pop", &"sheep_pop", &"monkey_pop", &"rooster_burst"]:
 		_draw_burst_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
 	else:
 		_draw_pickup_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
@@ -404,6 +404,8 @@ func _draw_impact_family(effect_color: Color, ratio: float, progress: float, eff
 			r.draw_colored_polygon(PackedVector2Array([effect_pos + direction * effect_radius * 0.28, effect_pos + direction * effect_radius * 0.08 + direction.orthogonal() * 14.0, effect_pos + direction * effect_radius * 0.08 - direction.orthogonal() * 14.0]), Color(effect_color, ratio))
 		&"chain_arc":
 			_draw_chain_arc(effect_color, ratio, progress, effect_pos, effect_radius, direction)
+		&"chain_bind":
+			_draw_chain_bind(effect_color, ratio, progress, effect_pos, effect_radius)
 
 func _draw_speed_streak(effect_color: Color, ratio: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
 	for streak in range(5):
@@ -451,6 +453,18 @@ func _draw_burst_family(effect_color: Color, ratio: float, progress: float, effe
 		&"guard":
 			r.draw_arc(effect_pos, effect_radius, -PI * 0.8, PI * 0.8, 28, Color(effect_color, ratio), 9.0)
 			r.draw_arc(effect_pos, effect_radius - 12.0, -PI * 0.8, PI * 0.8, 28, Color(Color.WHITE, ratio * 0.8), 3.0)
+		&"charge_break":
+			_draw_charge_break(effect_color, ratio, progress, effect_pos, effect_radius)
+		&"stun_burst":
+			_draw_stun_burst(effect_color, ratio, progress, effect_pos, effect_radius)
+		&"snake_pop":
+			_draw_snake_pop(effect_color, ratio, progress, effect_pos, effect_radius, direction)
+		&"sheep_pop":
+			_draw_sheep_pop(effect_color, ratio, progress, effect_pos, effect_radius, direction)
+		&"monkey_pop":
+			_draw_monkey_pop(effect_color, ratio, progress, effect_pos, effect_radius, direction)
+		&"rooster_burst":
+			_draw_rooster_burst(effect_color, ratio, progress, effect_pos, effect_radius, direction)
 
 func _draw_fuse_family(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float) -> void:
 	r.draw_line(effect_pos, effect_pos + Vector2.UP.rotated(progress * 2.0) * effect_radius * 0.7, Color("#ffe36a", ratio), 5.0)
@@ -521,3 +535,76 @@ func _draw_mine_fizzle(effect_color: Color, ratio: float, progress: float, effec
 	for smoke in range(5):
 		var smoke_dir := Vector2.UP.rotated((float(smoke) - 2.0) * 0.28)
 		r.draw_circle(effect_pos + smoke_dir * effect_radius * progress, 7.0 + smoke * 1.5, Color(effect_color, ratio * 0.32))
+
+func _try_ultimate_pop(animal: int, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> bool:
+	var frame := clampi(int(progress * 4.0), 0, 3)
+	var size := Vector2.ONE * effect_radius * 2.35
+	var alpha := clampf(ratio * 1.25, 0.0, 1.0)
+	return r.draw_ultimate_frame(animal, effect_pos, size, frame, 1, direction.angle(), alpha)
+
+func _draw_chain_bind(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float) -> void:
+	var bind_r := effect_radius * lerpf(0.55, 0.95, progress)
+	r.draw_arc(effect_pos, bind_r, progress * 1.2, progress * 1.2 + PI * 1.55, 22, Color(effect_color, ratio), 6.0)
+	r.draw_arc(effect_pos, bind_r * 0.72, -progress * 1.4, -progress * 1.4 + PI * 1.4, 18, Color(Color.WHITE, ratio * 0.8), 3.0)
+	for link in range(6):
+		var link_dir := Vector2.RIGHT.rotated(TAU * float(link) / 6.0 + progress)
+		r.draw_arc(effect_pos + link_dir * bind_r, 6.0, 0.0, TAU, 10, Color(effect_color, ratio), 3.0)
+
+func _draw_charge_break(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float) -> void:
+	var break_r := effect_radius * lerpf(0.35, 1.08, progress)
+	for shard in range(8):
+		var shard_dir := Vector2.RIGHT.rotated(TAU * float(shard) / 8.0 + progress * 0.4)
+		var start_ang := TAU * float(shard) / 8.0 + 0.28
+		r.draw_arc(effect_pos, break_r, start_ang, start_ang + 0.42, 8, Color(effect_color, ratio), 5.0)
+		r.draw_line(effect_pos + shard_dir * break_r * 0.55, effect_pos + shard_dir * break_r, Color(Color.WHITE, ratio * 0.85), 3.0)
+
+func _draw_stun_burst(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float) -> void:
+	var stun_r := effect_radius * lerpf(0.28, 1.05, progress)
+	r.draw_arc(effect_pos, stun_r, 0.0, TAU, 28, Color(effect_color, ratio), 6.0)
+	r.draw_circle(effect_pos, 6.0 * ratio, Color(Color.WHITE, ratio * 0.7))
+	for star in range(5):
+		var star_dir := Vector2.UP.rotated(TAU * float(star) / 5.0 + progress * 1.2)
+		var star_pos := effect_pos + star_dir * stun_r * 0.62
+		r.draw_line(star_pos - star_dir * 7.0, star_pos + star_dir * 7.0, Color(effect_color, ratio), 3.0)
+		r.draw_line(star_pos - star_dir.orthogonal() * 7.0, star_pos + star_dir.orthogonal() * 7.0, Color(Color.WHITE, ratio), 2.0)
+
+func _draw_snake_pop(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	if _try_ultimate_pop(5, ratio, progress, effect_pos, effect_radius, direction):
+		return
+	var shed_r := effect_radius * lerpf(0.22, 1.05, progress)
+	for ring in range(3):
+		var ring_r := shed_r * (0.42 + float(ring) * 0.22)
+		var start := progress * 2.2 + float(ring)
+		r.draw_arc(effect_pos, ring_r, start, start + PI * 1.35, 16, Color(effect_color, ratio * (0.9 - float(ring) * 0.18)), 4.0)
+	r.draw_arc(effect_pos, shed_r * 0.35, 0.0, TAU, 16, Color(Color.WHITE, ratio * 0.6), 2.0)
+
+func _draw_sheep_pop(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	if _try_ultimate_pop(7, ratio, progress, effect_pos, effect_radius, direction):
+		return
+	var puff_r := effect_radius * lerpf(0.18, 0.95, progress)
+	r.draw_circle(effect_pos, puff_r * 0.28, Color(effect_color, ratio * 0.45))
+	for puff in range(7):
+		var puff_dir := Vector2.RIGHT.rotated(TAU * float(puff) / 7.0 + progress * 0.6)
+		r.draw_circle(effect_pos + puff_dir * puff_r * 0.62, 8.0 + float(puff % 3) * 2.0, Color(effect_color, ratio * 0.55))
+	r.draw_arc(effect_pos, puff_r, 0.0, TAU, 22, Color(Color.WHITE, ratio * 0.7), 3.0)
+
+func _draw_monkey_pop(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	if _try_ultimate_pop(8, ratio, progress, effect_pos, effect_radius, direction):
+		return
+	var pop_r := effect_radius * lerpf(0.20, 1.00, progress)
+	r.draw_arc(effect_pos, pop_r, 0.0, TAU, 24, Color(effect_color, ratio), 5.0)
+	for hop in range(6):
+		var hop_dir := Vector2.RIGHT.rotated(TAU * float(hop) / 6.0 + progress * 2.0)
+		var hop_pos := effect_pos + hop_dir * pop_r * (0.45 + 0.2 * sin(progress * TAU + float(hop)))
+		r.draw_circle(hop_pos, 4.5, Color(Color.WHITE, ratio * 0.85))
+	r.draw_circle(effect_pos, 5.0, Color(effect_color, ratio * 0.7))
+
+func _draw_rooster_burst(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	if _try_ultimate_pop(9, ratio, progress, effect_pos, effect_radius, direction):
+		return
+	var burst_r := effect_radius * lerpf(0.25, 1.10, progress)
+	r.draw_arc(effect_pos, burst_r, 0.0, TAU, 28, Color(effect_color, ratio), 6.0)
+	for ray in range(8):
+		var ray_dir := Vector2.UP.rotated(TAU * float(ray) / 8.0)
+		r.draw_line(effect_pos + ray_dir * burst_r * 0.28, effect_pos + ray_dir * burst_r, Color(effect_color, ratio * 0.85), 3.0)
+	r.draw_circle(effect_pos, 6.0 * (1.0 - progress * 0.4), Color(Color.WHITE, ratio))

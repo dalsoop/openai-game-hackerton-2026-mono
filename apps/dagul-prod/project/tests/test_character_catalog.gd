@@ -39,3 +39,29 @@ func run(t) -> void:
 	View.apply_id(view_hero, default_id)
 	t.check("랜덤 id 는 클라에서 풀지 않는다", str(view_hero.get("character_id", "")) == default_id)
 	t.check("랜덤 animal 은 -1", int(view_hero.get("animal", 99)) == -1)
+	_apply_id_cache_isolated(t, sheet_id)
+
+
+func _apply_id_cache_isolated(t, sheet_id: String) -> void:
+	var a := {}
+	var b := {}
+	View.apply_id(a, sheet_id)
+	View.apply_id(b, sheet_id)
+	t.check("apply_id 2회 character_id 동일", str(a.get("character_id", "")) == sheet_id and str(b.get("character_id", "")) == sheet_id)
+	t.check("apply_id 2회 animal 동일", int(a.get("animal", -99)) == int(b.get("animal", -98)))
+	var found_mutable := false
+	for key in a.keys():
+		var value: Variant = a[key]
+		var other: Variant = b.get(key)
+		if value is Dictionary:
+			found_mutable = true
+			(value as Dictionary)["__pollute"] = true
+			t.check("apply_id 캐시가 다른 hero 를 오염시키지 않는다", other is Dictionary and not (other as Dictionary).has("__pollute"))
+			break
+		if value is Array:
+			found_mutable = true
+			(value as Array).append("__pollute")
+			t.check("apply_id 캐시가 다른 hero 를 오염시키지 않는다", other is Array and not (other as Array).has("__pollute"))
+			break
+	if not found_mutable:
+		t.check("apply_id 캐시가 다른 hero 를 오염시키지 않는다", false)

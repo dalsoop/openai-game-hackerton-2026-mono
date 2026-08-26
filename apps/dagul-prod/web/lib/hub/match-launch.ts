@@ -1,3 +1,4 @@
+/* eslint-disable max-lines, max-depth -- 런치·넉백·벽튕김 포팅이 한 파일 */
 /**
  * 넉백·런치·벽 튕김 — 레거시 damage_system.gd(damage_hero 런치 개시) +
  * hero_movement.gd(move_launched_hero / update_knockouts) +
@@ -13,6 +14,7 @@ import {
   resolveCoverMotion,
   type CoverRect,
 } from "./match-covers";
+import { addEffect, type EffectStore } from "./match-effects.js";
 
 export type Vec2 = { x: number; y: number };
 
@@ -222,6 +224,7 @@ export type ApplyLaunchParams = LaunchDecisionInput & {
   comboDamage: number;
   covers: readonly CoverRect[];
   chainWeapon?: boolean;
+  fx?: EffectStore;
 };
 
 export type ApplyLaunchResult = {
@@ -263,8 +266,13 @@ export function applyLaunch(h: LaunchVictim, params: ApplyLaunchParams): ApplyLa
         h.y = pos.y;
       }
     }
-  } else if (params.source === "normal" && params.attackFinisher && h.comboCaptureTime !== undefined) {
-    h.comboCaptureTime = 0;
+  } else if (params.source === "normal" && params.attackFinisher) {
+    if (h.comboCaptureTime !== undefined) {h.comboCaptureTime = 0;}
+    const dir = normalize(h.x - params.attackerPos.x, h.y - params.attackerPos.y);
+    addEffect(params.fx, {
+      kind: "combo_finisher", x: h.x, y: h.y, radius: 118, duration: 0.34,
+      color: "#fff2b2", dx: dir.x, dy: dir.y,
+    });
   }
   if (Math.abs(decision.launchKnockback) <= 0.01) {
     return { launched: false, shove: decision.shove, launchKnockback: decision.launchKnockback };
@@ -354,6 +362,7 @@ export function moveLaunchedHero(
   dt: number,
   tick: number,
   covers: readonly CoverRect[],
+  fx?: EffectStore,
 ): LaunchStepEvent {
   const ev: LaunchStepEvent = {
     bounced: false, wallDamage: 0, wallBounces: h.wallBounces, died: false, ended: false,
@@ -379,6 +388,12 @@ export function moveLaunchedHero(
     ev.bounced = true;
     ev.wallDamage = b.wallDamage;
     ev.wallBounces = h.wallBounces;
+    const crash = normalize(-vx, -vy);
+    addEffect(fx, {
+      kind: "wall_impact", x: px, y: py, radius: 78, duration: 0.32,
+      color: "#ff774f", label: `WALL CRASH -${Math.round(b.wallDamage)}`,
+      dx: crash.x, dy: crash.y,
+    });
     if (b.died) {
       h.x = px;
       h.y = py;
@@ -427,10 +442,11 @@ export function tickLaunch(
   dt: number,
   tickCount: number,
   covers: readonly CoverRect[],
+  fx?: EffectStore,
 ): LaunchStepEvent[] {
   const events: LaunchStepEvent[] = [];
   for (const h of heroes) {
-    if (h.launchTime > 0) {events.push(moveLaunchedHero(h, dt, tickCount, covers));}
+    if (h.launchTime > 0) {events.push(moveLaunchedHero(h, dt, tickCount, covers, fx));}
   }
   return events;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DOWN_BLEED_TIME, DOWN_MOVE_MULT, MAX_REVIVES, RESPAWN_BASE, RESPAWN_MAX,
+  DOWN_BLEED_TIME, DOWN_MOVE_MULT, MAX_REVIVES, RESPAWN_BASE, RESPAWN_MAX, RESPAWN_RANK_STEP,
   SPAWN_PROTECT_RESPAWN, SPAWN_PROTECT_STAND_UP, STAND_UP_HP_RATIO,
   applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns,
 } from "@/lib/hub/match-life";
@@ -110,6 +110,15 @@ describe("리스폰 딜레이·실행·스폰 보호", () => {
     expect(respawnDelayFor(heroes, 5)).toBeCloseTo(RESPAWN_BASE + 0.5 * 2, 10);
   });
 
+  it("리스폰 순위는 실제 score 이지 kills*100 이 아니다", () => {
+    const heroes = new Map<number, LifeHero>([
+      [0, hero(0, { score: 10, kills: 0 })],
+      [1, hero(1, { score: 0, kills: 99 })],
+    ]);
+    expect(respawnDelayFor(heroes, 0)).toBe(RESPAWN_BASE + RESPAWN_RANK_STEP);
+    expect(respawnDelayFor(heroes, 1)).toBe(RESPAWN_BASE);
+  });
+
   it("리스폰 실행 — 풀 HP·풀 탄창·3.0초 무적", () => {
     const zone = createSafeZone();
     const h = hero(0, { alive: false, respawnLeft: 0.01, hp: 0, mag: 0, downed: false });
@@ -139,7 +148,7 @@ describe("MatchSim 통합", () => {
     const b = sim.heroes.get(1);
     expect(a && b).toBeTruthy();
     if (!a || !b) {return;}
-    b.x = a.x + 40;
+    b.x = a.x + 90;
     b.y = a.y;
     b.hp = 10;
     sim.pushInput(0, { fire: true, aimX: b.x, aimY: b.y, seq: 1 });

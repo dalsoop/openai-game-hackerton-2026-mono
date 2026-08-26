@@ -119,20 +119,20 @@ export function applySafeZoneDamage<H extends ZoneHero>(
   return dead;
 }
 
-type RankHero = { slot: number; hp: number; maxHp: number; alive: boolean; kills: number };
+type RankHero = { slot: number; hp: number; maxHp: number; alive: boolean; score?: number };
 
 function hpRatio(hero: RankHero): number {
   if (!hero.alive) {return 0;}
   return Math.min(1, Math.max(0, hero.hp / Math.max(1, hero.maxHp)));
 }
 
-/** 우선순위: HP 비율 높음 → 점수(kills*100) 높음 → 슬롯 낮음. */
+/** 우선순위: HP 비율 높음 → 실제 score 높음 → 슬롯 낮음 (safe_zone_logic.gd:93-102). */
 function betterAtTimeLimit(candidate: RankHero, current: RankHero): boolean {
   const candidateHp = hpRatio(candidate);
   const currentHp = hpRatio(current);
   if (Math.abs(candidateHp - currentHp) > 1e-5) {return candidateHp > currentHp;}
-  const candidateScore = candidate.kills * 100;
-  const currentScore = current.kills * 100;
+  const candidateScore = candidate.score ?? 0;
+  const currentScore = current.score ?? 0;
   if (candidateScore !== currentScore) {return candidateScore > currentScore;}
   return candidate.slot < current.slot;
 }

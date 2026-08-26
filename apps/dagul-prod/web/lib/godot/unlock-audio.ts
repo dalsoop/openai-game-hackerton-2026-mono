@@ -41,11 +41,15 @@ export function captureAudioContexts(): void {
 
 export function unlockGodotAudio(): void {
   if (typeof window === "undefined") {return;}
+  let resumed = false;
   for (const ctx of captured) {
     if (ctx.state === "suspended" || ctx.state === "interrupted") {
       void ctx.resume();
+      resumed = true;
     }
   }
+  // WASD 키 리피트마다 이벤트를 보내면 Godot 가 BGM 을 처음부터 다시 켠다.
+  if (!resumed) {return;}
   window.dispatchEvent(new Event(AUDIO_UNLOCK_EVENT));
 }
 

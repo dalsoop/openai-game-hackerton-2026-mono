@@ -3,6 +3,9 @@
  * hero_movement.gd + cpu_behavior.gd + active_item.gd + match_lifecycle.gd 의 결정론 포팅.
  * RNG·시계 없음: 순수 함수와 상태 객체만. 피해 파이프라인 배선은 통합 단계 몫.
  */
+import {
+  addChargeBreakEffect, addControlEffect, type EffectStore,
+} from "./match-effects.js";
 
 /** 콤보 히트당 증폭 스텝(+6%) — damage_system.gd:251. */
 export const COMBO_AMP_STEP = 0.06;
@@ -151,17 +154,23 @@ export interface CcApplyResult {
  * CC 적용 — damage_system.gd:275-287. 슈퍼아머 활성이면 전체 스킵.
  * slow 는 cc_time 만, root/stun 은 전용 타이머 추가(모두 max 승계).
  */
-export function applyControl(h: CcHeroState, ccTime: number, kind: CcControlKind): CcApplyResult {
+export type CcFx = { store?: EffectStore; x: number; y: number };
+
+export function applyControl(
+  h: CcHeroState, ccTime: number, kind: CcControlKind, fx?: CcFx,
+): CcApplyResult {
   if (superArmorActive(h) || ccTime <= 0) {
     return { applied: false, zeroVelocity: false, cancelCharge: false };
   }
   h.ccTime = Math.max(h.ccTime, ccTime);
   if (kind === "root") {
     h.rootTime = Math.max(h.rootTime, ccTime);
+    addControlEffect(fx?.store, "root", fx?.x ?? 0, fx?.y ?? 0, ccTime);
     return { applied: true, zeroVelocity: true, cancelCharge: false };
   }
   if (kind === "stun") {
     h.stunTime = Math.max(h.stunTime, ccTime);
+    addControlEffect(fx?.store, "stun", fx?.x ?? 0, fx?.y ?? 0, ccTime);
     return { applied: true, zeroVelocity: true, cancelCharge: true };
   }
   return { applied: true, zeroVelocity: false, cancelCharge: false };
@@ -185,6 +194,8 @@ export type ApplyCcHitInput = {
   attackFinisher: boolean;
   chainWeapon: boolean;
   downed?: boolean;
+  chargingSkill?: boolean;
+  fx?: CcFx;
 };
 
 /**
@@ -197,6 +208,9 @@ export function applyCcHit(h: CcHeroState, input: ApplyCcHitInput): {
   let comboHit = 0;
   let amount = input.amount;
   let knockback = input.knockback;
+  if (input.chargingSkill && input.fx) {
+    addChargeBreakEffect(input.fx.store, input.fx.x, input.fx.y);
+  }
   if (input.source !== "mobility") {
     comboHit = registerComboHit(h, input.owner, input.attackFinisher);
     amount *= comboAmplifier(comboHit);
@@ -206,7 +220,7 @@ export function applyCcHit(h: CcHeroState, input: ApplyCcHitInput): {
   knockback = guarded.knockback;
   if (superArmorActive(h)) {h.comboCaptureTime = 0;}
   if (input.source !== "mobility" && !input.downed) {accumulateComboDamage(h, amount);}
-  applyControl(h, input.ccTime, input.controlKind);
+  applyControl(h, input.ccTime, input.controlKind, input.fx);
   if (comboHit > 0 && input.source !== "normal") {applyHitstun(h, comboHit, input.chainWeapon);}
   return { amount, knockback, comboHit };
 }

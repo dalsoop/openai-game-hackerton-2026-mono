@@ -7,7 +7,7 @@ import {
   absorbRouletteShield, apply, applyRouletteFace, applyShutdownBountyDrop, awardKillBounty,
   beginNextRoulette, clearRouletteBuffs, createWantedState, grantKillRoulettes,
   isBountyVictim, killRouletteRank, pack, packRouletteSnap, packWantedSnap,
-  pickRouletteFace, queueRoulette, rouletteBChance, rouletteFaceList, rouletteFaces,
+  pickRouletteFace, queueRoulette, rouletteBChance, rouletteFaceDesc, rouletteFaceList, rouletteFaces,
   rouletteSeedFields, rouletteStat, seed, standingLeader, tick, tickRoulette,
   updateThreat, wantedSeedFields,
   type RouletteHero, type RouletteRng, type WantedHero,
@@ -92,6 +92,12 @@ describe("WANTED 리더·감쇠", () => {
 });
 
 describe("룰렛 면 테이블", () => {
+  it("rouletteFaceDesc 는 원본 한국어 설명", () => {
+    expect(rouletteFaceDesc({ id: "atk", name: "ATK +3" })).toBe("이번 목숨 동안 공격력이 올라갑니다");
+    expect(rouletteFaceDesc({ id: "turtle", name: "TURTLE" })).toBe("2초 동안 공격과 대시를 쓸 수 없습니다");
+    expect(rouletteFaceDesc({ id: "unknown", name: "X" })).toBe("X");
+  });
+
   it("B 확률 0.25/0.55/0.40, turtle 0.03", () => {
     expect(rouletteBChance("assist")).toBe(ROULETTE_B_CHANCE_ASSIST);
     expect(rouletteBChance("wanted")).toBe(ROULETTE_B_CHANCE_WANTED);
@@ -167,6 +173,7 @@ describe("룰렛 적용·틱", () => {
     expect(h.roulettePhase).toBe("land");
     expect(h.rouletteTime).toBe(ROULETTE_LAND_TIME);
     expect(h.rlUntil.atk).toBe(3);
+    expect(h.rouletteDesc).toBe("이번 목숨 동안 공격력이 올라갑니다");
     tickRoulette(h, ROULETTE_LAND_TIME);
     expect(h.roulettePhase).toBe("");
   });

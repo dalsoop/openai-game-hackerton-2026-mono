@@ -3,8 +3,6 @@ extends RefCounted
 ## 호스트 패킹과 게스트 언팩이 같은 키만 쓴다. 필드 추가는 여기 한곳.
 
 const NetSnapParser := preload("res://games/dagul/net/net_snap_parser.gd")
-const Catalog := preload("res://core/contract/character_catalog.gd")
-const View := preload("res://core/contract/character_view.gd")
 
 const TICK := "tick"
 const TIME := "time"
@@ -19,6 +17,8 @@ const START_COUNTDOWN := "startCountdown"
 const WANTED_SLOT := "wantedSlot"
 const MODE := "mode"
 const PLAYERS := "players"
+const EFFECTS := "effects"
+const EVENTS := "events"
 const BULLETS := "bullets"
 const B_ID := "id"
 const B_X := "x"
@@ -26,6 +26,11 @@ const B_Y := "y"
 const B_VX := "vx"
 const B_VY := "vy"
 const B_OWNER := "owner"
+const B_KIND := "kind"
+const B_RADIUS := "radius"
+const B_ARC := "arc"
+const B_HEAVY := "heavy"
+const B_SRC := "src"
 const LOOT := "loot"
 const ZONES := "zones"
 const DEPLOYABLES := "deployables"
@@ -55,6 +60,7 @@ const P_HP := "hp"
 const P_MAX_HP := "maxHp"
 const P_ALIVE := "alive"
 const P_WEAPON := "weapon"
+const P_WEAPON_ID := "weaponId"
 const P_MAG := "mag"
 const P_MAG_MAX := "magMax"
 const P_RELOAD := "reloadLeft"
@@ -71,13 +77,76 @@ const P_DOWN_LEFT := "downLeft"
 const P_DEATHS := "deaths"
 const P_SCORE := "score"
 const P_STREAK := "streak"
+const P_ACTION := "action"
+const P_STUN_T := "stunT"
+const P_ROOT_T := "rootT"
+const P_CC_T := "ccT"
+const P_GUARD_T := "guardT"
+const P_ARMOR_T := "armorT"
+const P_SPAWN_T := "spawnT"
+const P_LAUNCH_T := "launchT"
+const P_LAUNCH_VX := "launchVX"
+const P_LAUNCH_VY := "launchVY"
+const P_CHARGING := "charging"
+const P_CHARGE_T := "chargeT"
+const P_HELD_ITEM := "heldItem"
+const P_SPRING_T := "springT"
+const P_SLIDE_T := "slideT"
+const P_PULL_T := "pullT"
+const P_POCKET_T := "pocketT"
+const P_DMG_ORB_T := "dmgOrbT"
+const P_DOWN_TAKEN := "downTaken"
+const P_WOOL_T := "woolT"
+const P_WOOL_HP := "woolHp"
+const P_WOOL_MAX := "woolMax"
+const P_ROU_T := "rouT"
+const P_ROU_RANK := "rouRank"
+const P_ROU_PHASE := "rouPhase"
+const P_ROU_SPIN := "rouSpin"
+const P_ROU_LABEL := "rouLabel"
+const P_RL_TIMED := "rlTimed"
+const P_ULT_CLONES := "ultClones"
 
 const PLAYER_KEYS: Array[String] = [
 	P_SLOT, P_NAME, P_CPU, P_PARKED, P_X, P_Y, P_AIM_X, P_AIM_Y,
-	P_HP, P_MAX_HP, P_ALIVE, P_WEAPON, P_MAG, P_MAG_MAX, P_RELOAD,
+	P_HP, P_MAX_HP, P_ALIVE, P_WEAPON, P_WEAPON_ID, P_MAG, P_MAG_MAX, P_RELOAD,
 	P_ULT, P_ANIMAL, P_CHARACTER_ID, P_ITEM, P_KILLS, P_EMOTE, P_EMOTE_TIME, P_ACK,
 	P_DOWNED, P_DOWN_LEFT, P_DEATHS, P_SCORE, P_STREAK,
 ]
+## omit-default. 0/false/""/빈 배열이면 키를 생략한다.
+const PLAYER_KEYS_V2: Array[String] = [
+	P_ACTION, P_STUN_T, P_ROOT_T, P_CC_T, P_GUARD_T, P_ARMOR_T, P_SPAWN_T,
+	P_LAUNCH_T, P_LAUNCH_VX, P_LAUNCH_VY, P_CHARGING, P_CHARGE_T,
+	P_HELD_ITEM, P_SPRING_T, P_SLIDE_T, P_PULL_T, P_POCKET_T,
+	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_WOOL_HP, P_WOOL_MAX,
+	P_ROU_T, P_ROU_RANK, P_ROU_PHASE, P_ROU_SPIN, P_ROU_LABEL,
+	P_RL_TIMED, P_ULT_CLONES,
+]
+const V2_FLOAT_WIRE: Array[String] = [
+	P_STUN_T, P_ROOT_T, P_CC_T, P_GUARD_T, P_ARMOR_T, P_SPAWN_T,
+	P_LAUNCH_T, P_CHARGE_T, P_SPRING_T, P_SLIDE_T, P_PULL_T, P_POCKET_T,
+	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_ROU_T,
+]
+const V2_FLOAT_SIM: Array[String] = [
+	"stun_time", "root_time", "cc_time", "guard_time", "super_armor_time", "spawn_protect_time",
+	"launch_time", "charge_time", "spring_time", "slide_time", "pull_time", "pocket_time",
+	"dmg_orb_time", "down_taken", "wool_time", "roulette_time",
+]
+const V2_INT_WIRE: Array[String] = [P_WOOL_HP, P_WOOL_MAX, P_ROU_SPIN]
+const V2_INT_SIM: Array[String] = ["wool_hp", "wool_max", "roulette_spin_id"]
+const V2_STR_WIRE: Array[String] = [P_ACTION, P_HELD_ITEM, P_ROU_RANK, P_ROU_PHASE, P_ROU_LABEL]
+const V2_STR_SIM: Array[String] = ["action", "held_item", "roulette_rank", "roulette_phase", "roulette_label"]
+
+static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
+	return _codec().pack_player(h, cpu, ack)
+
+## snap_hz 는 스냅 간격의 역수(초당 스냅 수). 상수 Hz가 아니라 틱 차이에서 유도한다.
+static func unpack_player(p: Dictionary, old: Dictionary, slot: int, snap_hz: float) -> Dictionary:
+	return _codec().unpack_player(p, old, slot, snap_hz)
+
+## 코덱은 지연 load — preload 순환(코덱→계약 키 참조)을 피한다.
+static func _codec() -> GDScript:
+	return load("res://games/dagul/net/snap_player_codec.gd")
 
 static func pack_header(world) -> Dictionary:
 	var center: Vector2 = world.safe_zone_center
@@ -124,102 +193,6 @@ static func _pack_fx(world) -> Dictionary:
 		STREAK_SUBTITLE: _opt_str(world, "streak_subtitle"),
 		STREAK_CALLOUT_TICKS: _opt_int(world, "streak_callout_ticks"),
 		STREAK_CALLOUT_SHUTDOWN: _opt_bool(world, "streak_callout_shutdown"),
-	}
-
-static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
-	var pos := Vector2(h["pos"])
-	var aim := Vector2(h.get("aim", Vector2.RIGHT))
-	var slot := int(h["slot"])
-	var eq: Dictionary = h.get("equipment", {})
-	var name := str(h.get("display_name", str(eq.get("character_name", "P%d" % (slot + 1)))))
-	return {
-		P_SLOT: slot,
-		P_NAME: name,
-		P_CPU: cpu,
-		P_PARKED: bool(h.get("parked", false)),
-		P_X: pos.x, P_Y: pos.y,
-		P_AIM_X: pos.x + aim.x * 100.0,
-		P_AIM_Y: pos.y + aim.y * 100.0,
-		P_HP: float(h["hp"]),
-		P_MAX_HP: float(h.get("max_hp", 100.0)),
-		P_ALIVE: bool(h["alive"]),
-		P_WEAPON: str(eq.get("name", "")),
-		P_MAG: int(h.get("mag", 0)),
-		P_MAG_MAX: int(eq.get("mag_size", 0)),
-		P_RELOAD: float(h.get("reload_left", 0.0)),
-		P_ULT: float(h.get("ultimate_charge", 0.0)),
-		P_ANIMAL: int(h.get("animal", slot)),
-		P_CHARACTER_ID: str(h.get("character_id", "")),
-		P_ITEM: "medkit" if int(h.get("medkits", 0)) > 0 else "",
-		P_KILLS: int(h["kills"]),
-		P_EMOTE: int(h.get("emote", -1)),
-		P_EMOTE_TIME: float(h.get("emote_time", 0.0)),
-		P_ACK: ack,
-		P_DOWNED: bool(h.get("downed", false)),
-		P_DOWN_LEFT: float(h.get("down_left", 0.0)),
-		P_DEATHS: int(h.get("deaths", 0)),
-		P_SCORE: float(h.get("score", 0.0)),
-		P_STREAK: int(h.get("kill_streak", 0)),
-	}
-
-static func unpack_player(p: Dictionary, old: Dictionary, slot: int, snap_hz: float) -> Dictionary:
-	var pos := Vector2(_f(p, P_X, 0.0), _f(p, P_Y, 0.0))
-	var old_pos: Vector2 = old.get("pos", pos)
-	var aim_point := Vector2(_f(p, P_AIM_X, pos.x + 1.0), _f(p, P_AIM_Y, pos.y))
-	var aim: Vector2 = old.get("aim", Vector2.RIGHT)
-	if pos.distance_squared_to(aim_point) > 1.0:
-		aim = pos.direction_to(aim_point)
-	var player_name := str(p.get(P_NAME, "P%d" % (slot + 1)))
-	var hero := _player_view_defaults()
-	hero["slot"] = int(p.get(P_SLOT, slot))
-	hero["alive"] = bool(p.get(P_ALIVE, true))
-	hero["eliminated"] = not bool(hero["alive"])
-	hero["pos"] = pos
-	hero["vel"] = (pos - old_pos) * snap_hz
-	hero["aim"] = aim
-	_apply_player_vitals(hero, p, player_name, slot)
-	return hero
-
-static func _apply_player_vitals(hero: Dictionary, p: Dictionary, player_name: String, slot: int) -> void:
-	hero["hp"] = _f(p, P_HP, 0.0)
-	hero["max_hp"] = _f(p, P_MAX_HP, 100.0)
-	hero["mag"] = int(p.get(P_MAG, 0))
-	hero["reload_left"] = _f(p, P_RELOAD, 0.0)
-	hero["ultimate_charge"] = _f(p, P_ULT, 0.0)
-	hero["animal"] = int(p.get(P_ANIMAL, -1))
-	var character_id := str(p.get(P_CHARACTER_ID, ""))
-	if character_id == "":
-		character_id = Catalog.id_for_bind(Catalog.bind_key(), int(hero["animal"]))
-	if character_id != "":
-		View.apply_id(hero, character_id)
-	hero["kills"] = int(p.get(P_KILLS, 0))
-	hero["equipment"] = NetSnapParser.make_equipment(str(p.get(P_WEAPON, "")), player_name, int(p.get(P_MAG_MAX, 0)))
-	hero["display_name"] = player_name
-	hero["cpu"] = bool(p.get(P_CPU, false))
-	hero["parked"] = bool(p.get(P_PARKED, false))
-	hero["medkits"] = 1 if str(p.get(P_ITEM, "")) != "" else 0
-	hero["emote"] = int(p.get(P_EMOTE, -1))
-	hero["emote_time"] = _f(p, P_EMOTE_TIME, 0.0)
-	hero["downed"] = bool(p.get(P_DOWNED, false))
-	hero["down_left"] = _f(p, P_DOWN_LEFT, 0.0)
-	hero["deaths"] = int(p.get(P_DEATHS, 0))
-	hero["score"] = _f(p, P_SCORE, 0.0)
-	hero["kill_streak"] = int(p.get(P_STREAK, 0))
-
-static func _player_view_defaults() -> Dictionary:
-	return {
-		"deaths": 0, "score": 0.0, "eliminations": 0,
-		"damage_dealt": 0.0, "core_damage": 0.0,
-		"ultimates": 0, "equipment_hits": 0,
-		"mobility_cd": 0.0,
-		"cc_time": 0.0, "stun_time": 0.0, "root_time": 0.0,
-		"guard_time": 0.0, "super_armor_time": 0.0,
-		"charging_skill": false, "charge_time": 0.0,
-		"emote": -1, "emote_time": 0.0,
-		"kill_streak": 0, "best_kill_streak": 0,
-		"launch_trail": [], "launch_trail_fade": 0.0,
-		"launch_time": 0.0, "launch_vel": Vector2.ZERO,
-		"action": &"READY",
 	}
 
 static func apply_header(dst, snap: Dictionary) -> void:

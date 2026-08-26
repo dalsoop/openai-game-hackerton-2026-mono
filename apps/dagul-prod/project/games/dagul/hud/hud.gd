@@ -2,6 +2,7 @@ extends Control
 
 const GunSig = preload("res://games/dagul/sim/gun_signature.gd")
 const HudPjhScript = preload("res://games/dagul/hud/hud_pjh.gd")
+const TextCacheScript = preload("res://games/dagul/render/text_cache.gd")
 
 var world
 var mode_id: String = "full"
@@ -64,8 +65,8 @@ func _zodiac_name(slot: int) -> String:
 
 func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT, bold: bool = false) -> void:
     var font := GameFont.get_bold_font() if bold else GameFont.get_font()
-    draw_string(font, pos + Vector2(1.5, 1.5), text, align, width, size, Color(0.0, 0.0, 0.0, 0.72 * color.a))
-    draw_string(font, pos, text, align, width, size, color)
+    TextCacheScript.draw(self, pos + Vector2(1.5, 1.5), text, font, size, Color(0.0, 0.0, 0.0, 0.72 * color.a), width, align)
+    TextCacheScript.draw(self, pos, text, font, size, color, width, align)
 
 func _draw() -> void:
     if world == null or world.heroes.is_empty():

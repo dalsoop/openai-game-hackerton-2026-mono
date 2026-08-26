@@ -145,16 +145,19 @@ function sprayYHeavy(): number {
 }
 
 describe("우클릭 스킬 테이블·모빌리티·루트", () => {
-  it("try_equipment_attack 은 no-op, 스킬 이름 공란 cooldown 99", () => {
-    for (const d of ["scatter", "rail", "shield"] as const) {
-      const t = equipmentSkillTable(d);
-      expect(t.skillName).toBe("");
-      expect(t.implemented).toBe(false);
-      expect(t.cooldown).toBe(99.0);
-    }
+  it("try_equipment_attack 은 원본 스킬 테이블을 쓰고 쿨다운을 소모한다", () => {
+    const scatter = equipmentSkillTable("scatter");
+    expect(scatter.skillName).toBe("BACKBLAST");
+    expect(scatter.implemented).toBe(true);
+    expect(scatter.cooldown).toBe(3.10);
+    expect(equipmentSkillTable("rail").cooldown).toBe(3.50);
+    expect(equipmentSkillTable("shield").skillName).toBe("BULLDOZER WALL");
     const h = hero("burst");
-    applyEquipmentAttack(h, { x: 1, y: 0 });
+    const r = applyEquipmentAttack(h, { x: 1, y: 0 });
     expect(h.mag).toBe(18);
+    expect(h.equipmentCd).toBe(3.35);
+    expect(r.fired).toBe(true);
+    expect(r.projectiles.length).toBe(6);
   });
 
   it("모빌리티: leech +8, breaker guard 0.80, blade evade 0.48, shield brace 1.20", () => {

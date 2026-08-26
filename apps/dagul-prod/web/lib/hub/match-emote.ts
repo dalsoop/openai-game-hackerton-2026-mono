@@ -1,11 +1,11 @@
 /**
- * 이모트 중계 — 원본 hero_movement.gd:125-127(입력) + match_lifecycle.gd:38(타이머)의
+ * 이모트 중계 — 원본 hero_movement.gd:21-23(입력, 표시 2.0초) + match_lifecycle.gd:38(타이머)의
  * 결정론 포팅. RNG·시계 없음. 허브는 마지막 입력을 매 틱 재적용하므로
  * medkit use 와 같은 에지 검출로 홀드 재트리거를 막는다.
  */
 
 /** 이모트 표시 시간(초) — 스냅 P_EMOTE_TIME 으로 전달, Godot draw_emote 가 감쇠 알파를 그린다. */
-export const EMOTE_TIME = 1.6;
+export const EMOTE_TIME = 2.0;
 /** 유효 이모트 수 — 입력 0..3 (원본 emote >= 0 and emote < 4). */
 export const EMOTE_COUNT = 4;
 

@@ -34,6 +34,18 @@ describe("unlockGodotAudio", () => {
     expect(resume).toHaveBeenCalled();
     expect(heard).toEqual(["ok"]);
   });
+
+  it("이미 running 이면 이벤트를 다시 보내지 않는다", () => {
+    stubAudioContext();
+    captureAudioContexts();
+    const Ctx = window.AudioContext as unknown as new () => AudioContext;
+    const ctx = new Ctx();
+    Object.defineProperty(ctx, "state", { value: "running" });
+    const heard: string[] = [];
+    window.addEventListener(AUDIO_UNLOCK_EVENT, () => {heard.push("ok");});
+    unlockGodotAudio();
+    expect(heard).toEqual([]);
+  });
 });
 
 describe("captureAudioContexts", () => {

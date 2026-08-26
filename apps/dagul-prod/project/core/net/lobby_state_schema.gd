@@ -1,0 +1,268 @@
+class_name LobbyColyseus
+extends RefCounted
+## 허브 LobbyState + MatchStateSchema 의 GD 거울. 필드 순서는 서버 @type 선언과 같다.
+
+static func f(name: String, type: String, child = null) -> Colyseus.Schema.Field:
+	return Colyseus.Schema.Field.new(name, type, child)
+
+class PlayerRow extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("slot", Colyseus.Schema.NUMBER),
+			LobbyColyseus.f("sessionId", Colyseus.Schema.STRING),
+			LobbyColyseus.f("name", Colyseus.Schema.STRING),
+			LobbyColyseus.f("connected", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("packPct", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("characterId", Colyseus.Schema.STRING),
+		]
+
+class LobbyHero extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("slot", Colyseus.Schema.INT8),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("aimX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("aimY", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxHp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("alive", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("mag", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("magMax", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("ack", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("animal", Colyseus.Schema.INT8),
+		]
+
+class LobbyBullet extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("id", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vx", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vy", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("owner", Colyseus.Schema.INT8),
+			LobbyColyseus.f("kind", Colyseus.Schema.STRING),
+		]
+
+class MatchHero extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("slot", Colyseus.Schema.INT8),
+			LobbyColyseus.f("name", Colyseus.Schema.STRING),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("aimX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("aimY", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxHp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("alive", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("mag", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("magMax", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("reloadLeft", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("weapon", Colyseus.Schema.STRING),
+			LobbyColyseus.f("ult", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("ack", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("animal", Colyseus.Schema.INT8),
+			LobbyColyseus.f("characterId", Colyseus.Schema.STRING),
+			LobbyColyseus.f("cpu", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("item", Colyseus.Schema.STRING),
+			LobbyColyseus.f("kills", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("downed", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("downLeft", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("deaths", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("score", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("streak", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("emote", Colyseus.Schema.INT8),
+			LobbyColyseus.f("emoteTime", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchBullet extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("id", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vx", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vy", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("owner", Colyseus.Schema.INT8),
+			LobbyColyseus.f("kind", Colyseus.Schema.STRING),
+		]
+
+class MatchCover extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("w", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("h", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchCrate extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("id", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxHp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("alive", Colyseus.Schema.BOOLEAN),
+		]
+
+class MatchCrateOrb extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("red", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("active", Colyseus.Schema.BOOLEAN),
+		]
+
+class MatchMidTower extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("alive", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxHp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("boing", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchLoot extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("id", Colyseus.Schema.STRING),
+			LobbyColyseus.f("kind", Colyseus.Schema.STRING),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("n", Colyseus.Schema.STRING),
+		]
+
+class MatchDeployable extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("type", Colyseus.Schema.STRING),
+			LobbyColyseus.f("owner", Colyseus.Schema.INT8),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("dx", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("dy", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("tdx", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("tdy", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("halfLength", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("lifetime", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxLifetime", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("armTime", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("armDuration", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("triggered", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("triggerRadius", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("blastRadius", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("fuseTime", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("fuseDuration", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchZone extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("radius", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("owner", Colyseus.Schema.INT8),
+			LobbyColyseus.f("delay", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("warningDuration", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("color", Colyseus.Schema.STRING),
+			LobbyColyseus.f("effectKind", Colyseus.Schema.STRING),
+			LobbyColyseus.f("label", Colyseus.Schema.STRING),
+		]
+
+class MatchKnockout extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("slot", Colyseus.Schema.INT8),
+			LobbyColyseus.f("animal", Colyseus.Schema.INT8),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("time", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxTime", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchFinishCine extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("on", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("atk", Colyseus.Schema.INT8),
+			LobbyColyseus.f("vic", Colyseus.Schema.INT8),
+			LobbyColyseus.f("t", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hit", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("hitAge", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("fly", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("vicX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vicY", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("vicSpin", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("atkX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("rush", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("midX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("midY", Colyseus.Schema.FLOAT32),
+		]
+
+class MatchCore extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("slot", Colyseus.Schema.INT8),
+			LobbyColyseus.f("x", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("y", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("maxHp", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("alive", Colyseus.Schema.BOOLEAN),
+		]
+
+class MatchState extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("tick", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("time", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("result", Colyseus.Schema.STRING),
+			LobbyColyseus.f("winner", Colyseus.Schema.INT8),
+			LobbyColyseus.f("zoneR", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("shrinking", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("zoneCX", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("zoneCY", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("zonePhase", Colyseus.Schema.UINT8),
+			LobbyColyseus.f("startCountdown", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("callout", Colyseus.Schema.STRING),
+			LobbyColyseus.f("calloutTicks", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("wantedSlot", Colyseus.Schema.INT8),
+			LobbyColyseus.f("mode", Colyseus.Schema.STRING),
+			LobbyColyseus.f("heroes", Colyseus.Schema.MAP, LobbyColyseus.MatchHero),
+			LobbyColyseus.f("bullets", Colyseus.Schema.MAP, LobbyColyseus.MatchBullet),
+			LobbyColyseus.f("covers", Colyseus.Schema.ARRAY, LobbyColyseus.MatchCover),
+			LobbyColyseus.f("crates", Colyseus.Schema.ARRAY, LobbyColyseus.MatchCrate),
+			LobbyColyseus.f("crateOrbs", Colyseus.Schema.ARRAY, LobbyColyseus.MatchCrateOrb),
+			LobbyColyseus.f("midTower", Colyseus.Schema.REF, LobbyColyseus.MatchMidTower),
+			LobbyColyseus.f("loot", Colyseus.Schema.ARRAY, LobbyColyseus.MatchLoot),
+			LobbyColyseus.f("deployables", Colyseus.Schema.ARRAY, LobbyColyseus.MatchDeployable),
+			LobbyColyseus.f("zones", Colyseus.Schema.ARRAY, LobbyColyseus.MatchZone),
+			LobbyColyseus.f("knockouts", Colyseus.Schema.ARRAY, LobbyColyseus.MatchKnockout),
+			LobbyColyseus.f("finishCine", Colyseus.Schema.REF, LobbyColyseus.MatchFinishCine),
+			LobbyColyseus.f("cores", Colyseus.Schema.ARRAY, LobbyColyseus.MatchCore),
+		]
+
+class LobbyState extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("gameId", Colyseus.Schema.STRING),
+			LobbyColyseus.f("open", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("phase", Colyseus.Schema.STRING),
+			LobbyColyseus.f("hostSessionId", Colyseus.Schema.STRING),
+			LobbyColyseus.f("title", Colyseus.Schema.STRING),
+			LobbyColyseus.f("mode", Colyseus.Schema.STRING),
+			LobbyColyseus.f("seed", Colyseus.Schema.NUMBER),
+			LobbyColyseus.f("createdAtMs", Colyseus.Schema.NUMBER),
+			LobbyColyseus.f("idleUntilSec", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("players", Colyseus.Schema.ARRAY, LobbyColyseus.PlayerRow),
+			LobbyColyseus.f("matchTick", Colyseus.Schema.UINT32),
+			LobbyColyseus.f("heroes", Colyseus.Schema.MAP, LobbyColyseus.LobbyHero),
+			LobbyColyseus.f("bullets", Colyseus.Schema.MAP, LobbyColyseus.LobbyBullet),
+			LobbyColyseus.f("match", Colyseus.Schema.REF, LobbyColyseus.MatchState),
+		]

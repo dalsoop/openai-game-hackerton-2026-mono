@@ -2,14 +2,32 @@ import { describe, expect, it } from "vitest";
 import { packAuthoritySnap, type SnapPlayer } from "@/lib/hub/match-authority";
 import {
   DOWN_FINISH_HP,
+  ELIMINATE_SCORE,
   EMOTE_TIME,
+  KILL_EQUIP_CD_BASE,
+  KILL_EQUIP_CD_STEP,
+  KILL_HEAL_CAP,
+  KILL_MOBILITY_CD_BASE,
+  KILL_MOBILITY_CD_STEP,
   KILL_SCORE,
+  KILL_THREAT_GAIN,
   MatchSim,
   SHUTDOWN_BASE,
+  SHUTDOWN_CD_MUL,
+  SHUTDOWN_HEAL_RATIO,
   SHUTDOWN_MAX,
+  SHUTDOWN_ULT_GAIN,
+  STREAK_CALLOUT_TICKS,
+  WIN_SCORE,
   applyScoredDamage,
+  awardEliminateScore,
+  awardWinScore,
+  momentumHealRatio,
   resetDeadStreaks,
   shutdownBonus,
+  streakCalloutSeed,
+  streakTitle,
+  tickStreakCallout,
   type SimHero,
 } from "@/lib/hub/match-sim";
 
@@ -94,6 +112,93 @@ describe("match-score", () => {
     expect(applyScoredDamage(sim.heroes, 0, victim, SHOT)).toBe("none");
     expect(killer.score).toBe(0);
     expect(victim.hp).toBe(victim.maxHp);
+  });
+
+  it("킬 모멘텀 힐은 max_hp * min(0.10, 0.055 + streak*0.01)", () => {
+    expect(momentumHealRatio(1)).toBeCloseTo(0.065);
+    expect(momentumHealRatio(4)).toBeCloseTo(0.095);
+    expect(momentumHealRatio(5)).toBe(KILL_HEAL_CAP);
+    expect(momentumHealRatio(9)).toBe(KILL_HEAL_CAP);
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    killer.hp = killer.maxHp * 0.4;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    expect(killer.hp).toBeCloseTo(killer.maxHp * 0.4 + killer.maxHp * 0.065);
+  });
+
+  it("킬 쿨다운 감소는 equipment 0.50+streak*0.10, mobility 0.35+streak*0.08", () => {
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    killer.equipmentCd = 4;
+    killer.mobilityCd = 3;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    const streak = 1;
+    expect(killer.equipmentCd).toBeCloseTo(4 - (KILL_EQUIP_CD_BASE + streak * KILL_EQUIP_CD_STEP));
+    expect(killer.mobilityCd).toBeCloseTo(3 - (KILL_MOBILITY_CD_BASE + streak * KILL_MOBILITY_CD_STEP));
+  });
+
+  it("셧다운은 힐 max_hp*0.14, 쿨다운 50%, 궁 +20", () => {
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    victim.killStreak = 3;
+    killer.hp = killer.maxHp * 0.5;
+    killer.equipmentCd = 2;
+    killer.mobilityCd = 2;
+    killer.ultimateCharge = 10;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    const afterMomentum = killer.maxHp * 0.5 + killer.maxHp * momentumHealRatio(1);
+    expect(killer.hp).toBeCloseTo(afterMomentum + killer.maxHp * SHUTDOWN_HEAL_RATIO);
+    const equipAfterKill = 2 - (KILL_EQUIP_CD_BASE + 1 * KILL_EQUIP_CD_STEP);
+    const mobAfterKill = 2 - (KILL_MOBILITY_CD_BASE + 1 * KILL_MOBILITY_CD_STEP);
+    expect(killer.equipmentCd).toBeCloseTo(equipAfterKill * SHUTDOWN_CD_MUL);
+    expect(killer.mobilityCd).toBeCloseTo(mobAfterKill * SHUTDOWN_CD_MUL);
+    expect(killer.ultimateCharge).toBeCloseTo(10 + SHUTDOWN_ULT_GAIN);
+  });
+
+  it("킬 시 threat +18", () => {
+    const { sim, killer, victim } = twoHeroSim();
+    primeFinish(victim);
+    const before = killer.threat;
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    expect(killer.threat).toBeCloseTo(before + KILL_THREAT_GAIN);
+  });
+
+  it("탈락 +300, 우승 +500", () => {
+    const attacker = { score: 10 };
+    awardEliminateScore(attacker);
+    expect(attacker.score).toBe(10 + ELIMINATE_SCORE);
+    awardWinScore(attacker);
+    expect(attacker.score).toBe(10 + ELIMINATE_SCORE + WIN_SCORE);
+    expect(WIN_SCORE).toBe(500);
+    expect(ELIMINATE_SCORE).toBe(300);
+  });
+
+  it("스트릭 콜아웃은 원본 한국어 제목·자막·150틱", () => {
+    expect(streakTitle(2)).toBe("더블 킬!");
+    expect(streakTitle(3)).toBe("연속 처치!");
+    expect(streakTitle(4)).toBe("학살 중!");
+    expect(streakTitle(5)).toBe("폭주 중!");
+    expect(streakTitle(6)).toBe("막을 수 없습니다!");
+    const { sim, killer, victim } = twoHeroSim();
+    killer.equipment = { ...killer.equipment, characterName: "ZIP" };
+    primeFinish(victim);
+    applyScoredDamage(sim.heroes, 0, victim, SHOT);
+    const callout = streakCalloutSeed();
+    primeFinish(victim);
+    applyScoredDamage(sim.heroes, 0, victim, SHOT, callout);
+    expect(callout.streakCallout).toBe("더블 킬!");
+    expect(callout.streakSubtitle).toBe("P1 ZIP님이 2연속 처치 중입니다.");
+    expect(callout.streakCalloutTicks).toBe(STREAK_CALLOUT_TICKS);
+    expect(callout.streakCalloutShutdown).toBe(false);
+    primeFinish(victim);
+    victim.killStreak = 3;
+    victim.equipment = { ...victim.equipment, characterName: "REX" };
+    applyScoredDamage(sim.heroes, 0, victim, SHOT, callout);
+    expect(callout.streakCallout).toBe("연속 처치 종료!");
+    expect(callout.streakSubtitle).toBe("P1 ZIP님이 P2 REX님의 3연속 처치를 끝냈습니다.");
+    expect(callout.streakCalloutShutdown).toBe(true);
+    tickStreakCallout(callout);
+    expect(callout.streakCalloutTicks).toBe(STREAK_CALLOUT_TICKS - 1);
   });
 });
 

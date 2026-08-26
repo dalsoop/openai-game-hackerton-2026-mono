@@ -4,9 +4,9 @@
  * 발사 패턴(링·부채꼴·카펫)은 match-tower-fire.ts 에 있다.
  */
 import { ARENA_CENTER, HERO_RADIUS } from "./match-covers.js";
+import { addEffect, type EffectStore } from "./match-effects.js";
 import {
   TOWER_DAMAGE,
-  TOWER_INTERVAL,
   TOWER_RADIUS,
   firePattern,
   type TowerHooks,
@@ -79,7 +79,7 @@ export function resetMidTower(): SimMidTower {
   };
 }
 
-function spawnTower(tower: SimMidTower): void {
+function spawnTower(tower: SimMidTower, fx?: EffectStore): void {
   tower.spawned = true;
   tower.alive = true;
   tower.hp = TOWER_MAX_HP;
@@ -89,9 +89,15 @@ function spawnTower(tower: SimMidTower): void {
   tower.fireCd = SPAWN_FIRE_CD;
   tower.pattern = 0;
   tower.boing = 0;
+  addEffect(fx, {
+    kind: "explosion", x: ARENA_CENTER.x, y: ARENA_CENTER.y, radius: 90, duration: 0.45,
+    color: "#ffb347", label: "TOWER",
+  });
 }
 
-function crushHero(tower: SimMidTower, hero: TowerHero, hooks: TowerHooks): boolean {
+function crushHero(
+  tower: SimMidTower, hero: TowerHero, hooks: TowerHooks, fx?: EffectStore,
+): boolean {
   if (!hero.alive || hero.eliminated) {return false;}
   if (Math.hypot(hero.x - tower.x, hero.y - tower.y) > CRUSH_REACH) {return false;}
   hooks.damageHeroEnvironment(hero.slot, CRUSH_DAMAGE);
@@ -108,6 +114,10 @@ function crushHero(tower: SimMidTower, hero: TowerHero, hooks: TowerHooks): bool
     pushY = Math.sin(hero.slot);
   }
   hooks.pushHero(hero.slot, pushX * CRUSH_PUSH, pushY * CRUSH_PUSH);
+  addEffect(fx, {
+    kind: "explosion", x: hero.x, y: hero.y, radius: 42, duration: 0.18,
+    color: "#ff7a3a", label: "TOWER",
+  });
   return true;
 }
 
@@ -116,13 +126,14 @@ function towerPointBlank(
   heroes: ReadonlyMap<number, TowerHero>,
   hooks: TowerHooks,
   dt: number,
+  fx?: EffectStore,
 ): void {
   tower.crushCd = Math.max(0, tower.crushCd - dt);
   if (tower.crushCd > 0) {return;}
   let hitAny = false;
   const list = [...heroes.values()].sort((a, b) => a.slot - b.slot);
   for (const hero of list) {
-    if (crushHero(tower, hero, hooks)) {hitAny = true;}
+    if (crushHero(tower, hero, hooks, fx)) {hitAny = true;}
   }
   if (!hitAny) {return;}
   tower.crushCd = CRUSH_CD;
@@ -151,16 +162,17 @@ export function updateMidTower(
   matchTime: number,
   hooks: TowerHooks,
   dt: number,
+  fx?: EffectStore,
 ): void {
   if (!playing) {return;}
   if (!tower.spawned && matchTime >= TOWER_SPAWN_TIME) {
-    spawnTower(tower);
+    spawnTower(tower, fx);
     return;
   }
   if (!tower.alive) {return;}
   tower.boing = Math.max(0, tower.boing - dt);
   tower.fireCd = Math.max(0, tower.fireCd - dt);
-  towerPointBlank(tower, heroes, hooks, dt);
+  towerPointBlank(tower, heroes, hooks, dt, fx);
   if (tower.fireCd > 0) {return;}
   const best = heroes.get(nearestHeroSlot(tower, heroes));
   if (!best) {return;}
@@ -208,6 +220,7 @@ export function hurtTower(
   damage: number,
   tick: number,
   heroes: ReadonlyMap<number, TowerHero>,
+  fx?: EffectStore,
 ): TowerDownResult | null {
   if (!tower.alive || damage <= 0) {return null;}
   tower.hp -= damage;
@@ -217,6 +230,10 @@ export function hurtTower(
   tower.alive = false;
   const killerHero = heroes.get(tower.lastHit);
   const killer = killerHero && killerHero.alive ? tower.lastHit : -1;
+  addEffect(fx, {
+    kind: "explosion", x: tower.x, y: tower.y, radius: 110, duration: 0.55,
+    color: "#ff5a4a", label: "BOUNTY",
+  });
   return { killer, assists: towerAssistSlots(tower, tick, heroes) };
 }
 

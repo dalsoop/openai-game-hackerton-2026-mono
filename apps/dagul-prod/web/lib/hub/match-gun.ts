@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 일반공격·재장전·모빌리티 포팅이 한 파일 */
 /**
  * 일반공격·재장전·모빌리티·루트 — damage_system.gd try_normal_attack
  * + active_item.gd try_mobility / try_equipment_attack / try_gun_loot.
@@ -8,6 +9,12 @@ import {
   nextGunLootId, sprayKick, sprayRecoverRate,
   type Equipment, type FireMode, type Vec2,
 } from "./match-equipment.js";
+import {
+  applySkillInput, cancelSkillCharge, tickSkillChargeGuard,
+  type SkillAttackResult, type SkillMineSpec, type SkillWallSpec, type SkillZoneSpec,
+} from "./match-skill.js";
+
+export { applyEquipmentAttack } from "./match-skill.js";
 
 export { familyOf, feelForEquipment, fxForEquipment, gunMountPos, gunWorldScale, muzzleWorldPos, sprayKick, sprayRecoverRate, sprayStep, visualForEquipment } from "./match-equipment.js";
 
@@ -51,7 +58,7 @@ const NAMED_MOBILITY = new Set([
   "scatter", "rail", "mortar", "leech", "breaker", "burst", "blade", "brawler", "bomb", "spear", "chain",
 ]);
 
-export type EquipmentSkillTable = { skillName: string; skillDesc: string; cooldown: number; implemented: false };
+export type EquipmentSkillTable = { skillName: string; skillDesc: string; cooldown: number; implemented: boolean };
 export type GunHero = {
   slot: number; x: number; y: number; hp: number; maxHp: number; alive: boolean; turtle: boolean;
   stunTime: number; launchTime: number; rootTime: number; facingX: number; facingY: number;
@@ -61,12 +68,15 @@ export type GunHero = {
   attackLockTime: number; reloadFlash: number; hopTime: number; hopMax: number; hopHeight: number;
   evadeTime: number; guardTime: number; comboImmunity: number; comboHits: number; comboTime: number;
   comboDamage: number; comboOwner: number; comboCaptureTime: number; hitstunTime: number;
-  chargingSkill: boolean; chargeTime: number; rouletteRate: number; rouletteRange: number;
+  chargingSkill: boolean; chargeTime: number; chargeDirX: number; chargeDirY: number;
+  superArmorTime: number; superArmorStrength: number; equipmentHeld: boolean;
+  rouletteRate: number; rouletteRange: number;
 };
 export type GunProjectile = {
   owner: number; x: number; y: number; vx: number; vy: number; damage: number; radius: number;
-  ttl: number; splash: number; pierce: number; knockback: number; kind: string; source: "normal";
-  heavy: boolean; leech: boolean; ccTime: number;
+  ttl: number; splash: number; pierce: number; knockback: number; kind: string;
+  source: "normal" | "equipment";
+  heavy: boolean; leech: boolean; ccTime: number; homing?: number;
 };
 export type MobilityHit = {
   targetSlot: number; damage: number; source: "mobility"; ccTime: number; knockback: number;
@@ -75,12 +85,24 @@ export type MobilityHit = {
 export type GunFireResult = { fired: boolean; startedReload: boolean; projectiles: GunProjectile[]; mouseKick: Vec2 };
 export type GunInput = {
   primary: boolean; primaryPressed: boolean; reload: boolean; mobility: boolean;
-  moveX: number; moveY: number; equipmentPressed: boolean;
+  moveX: number; moveY: number; equipment?: boolean; equipmentPressed?: boolean;
+  equipmentReleased?: boolean; dt?: number;
 };
-export type GunApplyResult = { kind: "idle" | "fire" | "mobility" | "reload"; projectiles: GunProjectile[]; hits: MobilityHit[]; used: boolean };
+export type GunApplyResult = {
+  kind: "idle" | "fire" | "mobility" | "reload" | "skill";
+  projectiles: GunProjectile[];
+  hits: MobilityHit[];
+  used: boolean;
+  zones: SkillZoneSpec[];
+  mine: SkillMineSpec | null;
+  wall: SkillWallSpec | null;
+};
 
 const ZERO: Vec2 = { x: 0, y: 0 };
 const IDLE_FIRE: GunFireResult = { fired: false, startedReload: false, projectiles: [], mouseKick: ZERO };
+const IDLE_APPLY: GunApplyResult = {
+  kind: "idle", projectiles: [], hits: [], used: false, zones: [], mine: null, wall: null,
+};
 
 export function hopLift(h: Pick<GunHero, "hopTime" | "hopMax" | "hopHeight">): number {
   if (h.hopTime <= 0) {return 0;}
@@ -118,7 +140,7 @@ export function weaponPassiveDamageMul(id: string, hp: number, maxHp: number, di
 }
 export function equipmentSkillTable(id: string): EquipmentSkillTable {
   const eq = makeEquipment(id);
-  return { skillName: eq.skillName, skillDesc: eq.skillDesc, cooldown: eq.cooldown, implemented: false };
+  return { skillName: eq.skillName, skillDesc: eq.skillDesc, cooldown: eq.cooldown, implemented: true };
 }
 export function gunSeedFields(equipment: Equipment): Omit<GunHero, "slot" | "x" | "y" | "hp" | "maxHp" | "alive" | "stunTime" | "launchTime" | "rootTime" | "facingX" | "facingY" | "aimX" | "aimY"> {
   return {
@@ -126,7 +148,9 @@ export function gunSeedFields(equipment: Equipment): Omit<GunHero, "slot" | "x" 
     sprayIndex: 0, sprayIdle: 0, heavyShot: false, equipmentCd: 0, mobilityCd: 0, muzzleTime: 0, muzzleRow: 0,
     muzzleScale: 1, attackLockTime: 0, reloadFlash: 0, hopTime: 0, hopMax: HOP_AIR, hopHeight: HOP_LIFT_DEFAULT,
     evadeTime: 0, guardTime: 0, comboImmunity: 0, comboHits: 0, comboTime: 0, comboDamage: 0, comboOwner: -1,
-    comboCaptureTime: 0, hitstunTime: 0, chargingSkill: false, chargeTime: 0, turtle: false, rouletteRate: 0, rouletteRange: 0,
+    comboCaptureTime: 0, hitstunTime: 0, chargingSkill: false, chargeTime: 0,
+    chargeDirX: 1, chargeDirY: 0, superArmorTime: 0, superArmorStrength: 0, equipmentHeld: false,
+    turtle: false, rouletteRate: 0, rouletteRange: 0,
   };
 }
 
@@ -149,6 +173,7 @@ export function tickGun(h: GunHero, dt: number): void {
   h.muzzleTime = Math.max(0, h.muzzleTime - dt);
   h.attackLockTime = Math.max(0, h.attackLockTime - dt);
   h.reloadFlash = Math.max(0, h.reloadFlash - dt);
+  tickSkillChargeGuard(h);
   tickReload(h, dt);
 }
 export function tryStartReload(h: GunHero): boolean {
@@ -298,10 +323,6 @@ export function applyMobility(
   return { used: true, hits: applyMobilityPerk(h, h.equipment.id, oldX, oldY, others) };
 }
 
-export function applyEquipmentAttack(_h: GunHero, _direction: Vec2, _chargeRatio = 1): void {
-  return;
-}
-
 export function applyGunLoot(h: GunHero, mode: string): boolean {
   if (!h.alive) {return false;}
   if (!(GUN_LOOT_MODES as readonly string[]).includes(mode)) {return false;}
@@ -315,22 +336,40 @@ export function applyGunLoot(h: GunHero, mode: string): boolean {
   return true;
 }
 
+function skillApply(skill: SkillAttackResult): GunApplyResult {
+  return {
+    kind: "skill", projectiles: skill.projectiles, hits: [], used: skill.fired,
+    zones: skill.zones, mine: skill.mine, wall: skill.wall,
+  };
+}
+
 export function applyGunInput(
   h: GunHero, input: GunInput, covers: readonly CoverRect[], others: readonly GunHero[] = [],
 ): GunApplyResult {
+  const aim = { x: h.facingX, y: h.facingY };
   if (input.mobility) {
     const lenSq = input.moveX * input.moveX + input.moveY * input.moveY;
-    const dir = lenSq > 0.1 ? { x: input.moveX, y: input.moveY } : { x: h.facingX, y: h.facingY };
+    const dir = lenSq > 0.1 ? { x: input.moveX, y: input.moveY } : aim;
     const mob = applyMobility(h, dir, covers, others);
-    return { kind: "mobility", projectiles: [], hits: mob.hits, used: mob.used };
+    return { ...IDLE_APPLY, kind: "mobility", hits: mob.hits, used: mob.used };
   }
   if (input.reload) {tryStartReload(h);}
-  if (input.equipmentPressed) {applyEquipmentAttack(h, { x: h.facingX, y: h.facingY });}
-  if (!wantsFire(h.equipment.fireMode, input.primary, input.primaryPressed)) {
-    return { kind: input.reload ? "reload" : "idle", projectiles: [], hits: [], used: false };
+  let fire: GunFireResult | null = null;
+  if (wantsFire(h.equipment.fireMode, input.primary, input.primaryPressed)) {
+    cancelSkillCharge(h);
+    fire = tryNormalAttack(h, aim);
   }
-  const fire = tryNormalAttack(h, { x: h.facingX, y: h.facingY });
-  return { kind: "fire", projectiles: fire.projectiles, hits: [], used: fire.fired };
+  const dt = (input.dt ?? 0) > 0 ? input.dt ?? 1 / 60 : 1 / 60;
+  const held = Boolean(input.equipment) || Boolean(input.equipmentPressed);
+  const skill = applySkillInput(
+    h, held, Boolean(input.equipmentPressed), Boolean(input.equipmentReleased), dt, aim, covers,
+  );
+  if (skill.fired) {return skillApply(skill);}
+  if (fire?.fired) {
+    return { ...IDLE_APPLY, kind: "fire", projectiles: fire.projectiles, used: true };
+  }
+  if (input.reload) {return { ...IDLE_APPLY, kind: "reload" };}
+  return IDLE_APPLY;
 }
 
 export function gunReach(h: GunHero): number {

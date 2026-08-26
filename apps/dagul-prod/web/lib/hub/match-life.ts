@@ -39,6 +39,8 @@ export type LifeHero = {
   reloadLeft: number;
   fireCd: number;
   kills: number;
+  /** 실제 점수 — 리스폰 딜레이 순위는 kills*100 이 아니라 이 필드. */
+  score?: number;
   deaths: number;
   downed: boolean;
   downLeft: number;
@@ -133,11 +135,11 @@ export function downHero(
   target.respawnLeft = respawnDelayFor(heroes, target.slot);
 }
 
-/** 순위 비교 — score(허브는 kills*100) 내림차순 → kills 내림차순 → slot 오름차순. */
+/** 순위 비교 — score 내림차순 → kills 내림차순 → slot 오름차순 (원본 respawn_delay_for). */
 function compareStanding(a: LifeHero, b: LifeHero): number {
-  const scoreA = a.kills * 100;
-  const scoreB = b.kills * 100;
-  if (scoreA !== scoreB) {return scoreB - scoreA;}
+  const scoreA = a.score ?? 0;
+  const scoreB = b.score ?? 0;
+  if (Math.abs(scoreA - scoreB) > 0.01) {return scoreB - scoreA;}
   if (a.kills !== b.kills) {return b.kills - a.kills;}
   return a.slot - b.slot;
 }

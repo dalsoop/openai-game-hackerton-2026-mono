@@ -131,9 +131,9 @@ static func parse_crate_orbs(snap: Dictionary) -> Array[Dictionary]:
 		})
 	return result
 
-static func make_equipment(weapon_name: String, player_name: String, mag_size: int = 0) -> Dictionary:
+static func make_equipment(weapon_name: String, player_name: String, mag_size: int = 0, equip_id: String = "net") -> Dictionary:
 	return {
-		"id":"net",
+		"id":equip_id if equip_id != "" else "net",
 		"name":weapon_name if weapon_name != "" else "권총",
 		"character_name":player_name,
 		"role":"",
@@ -147,6 +147,7 @@ static func make_equipment(weapon_name: String, player_name: String, mag_size: i
 		"mag_size":mag_size
 	}
 
+## snap_hz 는 스냅 간격의 역수(초당 스냅 수). 위치 차로 속도를 복원할 때만 쓴다.
 static func _vel_by_id(bullet_id: int, pos: Vector2, prev_bullets: Array, snap_hz: float) -> Vector2:
 	for prev_b in prev_bullets:
 		if int(prev_b.get("id", -1)) != bullet_id:
@@ -171,12 +172,54 @@ static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> A
 			"pos": pos,
 			"vel": vel,
 			"owner": int(b.get("owner", 0)),
-			"kind": "bolt",
-			"source": &"normal",
-			"arc": false,
-			"radius": 5.0
+			"kind": str(b.get("kind", "bolt")),
+			"source": StringName(str(b.get("src", "normal"))),
+			"arc": bool(b.get("arc", false)),
+			"heavy": bool(b.get("heavy", false)),
+			"radius": _f(b, "radius", 5.0)
 		})
 	return result
+
+static func parse_effects(list: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for raw in list:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		result.append(_parse_effect(raw))
+	return result
+
+static func _parse_effect(e: Dictionary) -> Dictionary:
+	return {
+		"kind": StringName(str(e.get("k", ""))),
+		"pos": Vector2(_f(e, "x", 0.0), _f(e, "y", 0.0)),
+		"radius": _f(e, "r", 0.0),
+		"time": _f(e, "t", 0.0),
+		"max_time": _f(e, "maxT", _f(e, "t", 0.0)),
+		"color": _snap_color(e.get("color", "")),
+		"label": str(e.get("label", "")),
+		"direction": Vector2(_f(e, "dx", 1.0), _f(e, "dy", 0.0)),
+		"follow_slot": int(e.get("follow", -1)),
+	}
+
+static func parse_events(list: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for raw in list:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		result.append(_parse_event(raw))
+	return result
+
+static func _parse_event(e: Dictionary) -> Dictionary:
+	var data: Variant = e.get("d", {})
+	if typeof(data) != TYPE_DICTIONARY:
+		data = {}
+	return {
+		"tick": int(e.get("t", 0)),
+		"kind": StringName(str(e.get("k", ""))),
+		"a": int(e.get("a", -1)),
+		"b": int(e.get("b", -1)),
+		"data": (data as Dictionary).duplicate(true),
+	}
 
 static func parse_loot(list: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/lobby.ogg-7ad7950321420eaa597aadc996afc296.og
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

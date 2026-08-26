@@ -8,6 +8,9 @@ import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "
 import { startBodies } from "./lobby-relay.js";
 import { parseSeatClaim, sameSeatClaim, type SeatClaim } from "../guest-identity.js";
 import {
+  isEngineJoin, playerJoinAllowed, seatClaimTakeover, slotOfEngineClaim,
+} from "./match-engine.js";
+import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
   handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
@@ -25,9 +28,14 @@ export class LobbyRoom extends Room implements LobbyHandle {
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
+  /** Godot 엔진 보조 세션 — 좌석을 먹지 않는다. */
+  private engineSessions = new Set<string>();
+  private engineClaims = new Map<string, SeatClaim>();
+  /** JSON SNAP 을 받지 않는 sessionId. 엔진 직결·SNAP_OFF. */
+  snapOptOut = new Set<string>();
 
   onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
-    this.maxClients = HUB_CONFIG.maxPlayers;
+    this.maxClients = HUB_CONFIG.maxPlayers * 2;
     const settings = parseRoomSettings(
       options,
       hubLimits(KO.roomTitleFallback(this.roomId)),
@@ -64,15 +72,32 @@ export class LobbyRoom extends Room implements LobbyHandle {
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
     [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
+    [MSG.SNAP_OFF]: (client: Client): void => {
+      this.snapOptOut.add(client.sessionId);
+    },
+    [MSG.SNAP_ON]: (client: Client): void => {
+      this.snapOptOut.delete(client.sessionId);
+    },
   };
 
-  onAuth(_client: Client, _options: Record<string, unknown>): boolean {
+  onAuth(_client: Client, options: Record<string, unknown>): boolean {
+    if (isEngineJoin(options)) {return true;}
     if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
-    return true;
+    const claim = parseSeatClaim(options);
+    const takeover = seatClaimTakeover([...this.state.players], this.claims, claim);
+    if (playerJoinAllowed(this.state.players.length, takeover)) {return true;}
+    throw new Error(KO.ROOM_FULL);
   }
 
-  onJoin(client: Client, options: { name?: string; guestId?: unknown; guestKey?: unknown }): void {
+  onJoin(
+    client: Client,
+    options: { name?: string; guestId?: unknown; guestKey?: unknown; engine?: unknown },
+  ): void {
     const claim = parseSeatClaim(options);
+    if (isEngineJoin(options)) {
+      this.attachEngine(client.sessionId, claim);
+      return;
+    }
     if (claim && this.takeOverSeat(client, claim)) {return;}
     const p = new PlayerSchema();
     p.slot = firstFreeSlot(this.state.players.map((s) => s.slot));
@@ -103,13 +128,15 @@ export class LobbyRoom extends Room implements LobbyHandle {
   /** 플레이 중 이어받기 — 새 세션이 매치에 붙도록 START 본문을 다시 보낸다. */
   private resendStart(client: Client, player: PlayerSchema): void {
     const seats = seatsPayloadOf(this.state.players);
+    const engineJoin = this.roomId ? { roomId: this.roomId } : undefined;
     const body = startBodies(
-      [player], this.state.hostSessionId, this.state.seed, this.state.mode, seats,
+      [player], this.state.hostSessionId, this.state.seed, this.state.mode, seats, engineJoin,
     )[0];
     client.send(body.type, body.payload, { afterNextPatch: true });
   }
 
   async onDrop(client: Client, _code?: number): Promise<void> {
+    if (this.dropEngine(client.sessionId)) {return;}
     await this.holdSeat(client);
   }
 
@@ -126,6 +153,8 @@ export class LobbyRoom extends Room implements LobbyHandle {
   }
 
   onLeave(client: Client, _code?: number): void {
+    this.snapOptOut.delete(client.sessionId);
+    if (this.dropEngine(client.sessionId)) {return;}
     this.removeSeat(client.sessionId);
   }
 
@@ -176,7 +205,28 @@ export class LobbyRoom extends Room implements LobbyHandle {
       sessionId,
       data,
       this.bag.authority,
+      this.slotOfSession(sessionId),
     );
+  }
+
+  slotOfSession(sessionId: string): number {
+    const seated = this.state.players.find((p) => p.sessionId === sessionId);
+    if (seated) {return seated.slot;}
+    return slotOfEngineClaim([...this.state.players], this.claims, this.engineClaims.get(sessionId));
+  }
+
+  private attachEngine(sessionId: string, claim: SeatClaim | null): void {
+    this.engineSessions.add(sessionId);
+    this.snapOptOut.add(sessionId);
+    if (claim) {this.engineClaims.set(sessionId, claim);}
+  }
+
+  private dropEngine(sessionId: string): boolean {
+    if (!this.engineSessions.has(sessionId)) {return false;}
+    this.engineSessions.delete(sessionId);
+    this.engineClaims.delete(sessionId);
+    this.snapOptOut.delete(sessionId);
+    return true;
   }
 
   private syncHost(): void {

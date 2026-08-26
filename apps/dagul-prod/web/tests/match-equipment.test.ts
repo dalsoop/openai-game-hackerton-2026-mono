@@ -45,11 +45,17 @@ describe("equipment_registry 12무기", () => {
     expect(need("shield").damage).toBe(70.2);
     expect(need("leech").interval).toBe(0.095);
     expect(need("chain").speed).toBe(1100.0);
+    expect(need("scatter").skillName).toBe("BACKBLAST");
+    expect(need("scatter").cooldown).toBe(3.10);
+    expect(need("scatter").skillDamage).toBe(7.0);
+    expect(need("rail").skillName).toBe("ANCHOR BREAK");
+    expect(need("rail").cooldown).toBe(3.50);
+    expect(need("shield").skillName).toBe("BULLDOZER WALL");
+    expect(need("shield").cooldown).toBe(5.60);
     for (const d of EQUIPMENT_DEFS) {
-      expect(d.skillName).toBe("");
-      expect(d.skillDesc).toBe("");
       expect(d.ultimateName).toBe("");
-      expect(d.cooldown).toBe(99.0);
+      expect(d.cooldown).toBeLessThan(10);
+      expect(d.skillName.length).toBeGreaterThan(0);
     }
   });
 

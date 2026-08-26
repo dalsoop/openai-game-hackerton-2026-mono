@@ -2,6 +2,12 @@
  * WANTED + 킬 룰렛 — match_lifecycle.gd update_threat/_reward_attacker bounty
  * 와 roulette_buff.gd 결정론 포팅. 시계 없음. 면 선택은 RouletteRng.
  */
+import {
+  pickRouletteFace, rouletteBChance, rouletteFaceList, rouletteFaces,
+} from "./match-wanted-faces.js";
+
+export { pickRouletteFace, rouletteBChance, rouletteFaceList, rouletteFaces };
+
 export const BOUNTY_DECAY_PER_SEC = 0.22;
 export const THREAT_DECAY_PER_SEC = 2.3;
 export const GRUDGE_DECAY_PER_SEC = 0.05;
@@ -44,69 +50,9 @@ export type WantedEvent = {
   kind: "bountyMoved"; slot: number; score: number; announce: string; announceTicks: number;
 };
 
-type FaceRow = [string, string, "timed" | "until", number, number, number, number, number, number, number, number];
-
 function emptyUntil(): RouletteUntil {
   return { atk: 0, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
 }
-
-function mkFace(row: FaceRow): RouletteFace {
-  const [id, name, kind, atk, spd, def, hp, rate, range, shield, dur] = row;
-  return { id, name, kind, atk, spd, def, hp, rate, range, shield, dur };
-}
-
-const TURTLE_FACE = mkFace(["turtle", "TURTLE", "timed", 0, 0, 0, 0, 0, 0, 0, 2]);
-
-const FACE_TABLE: Record<string, { timed: FaceRow[]; until: FaceRow[] }> = {
-  assist: {
-    timed: [
-      ["giant", "GIANT", "timed", 2, 3, 0, 2, 0, 0, 0, 8],
-      ["shield", "SHIELD", "timed", 0, 0, 0, 0, 0, 0, 24, 2],
-      ["berserk", "BERSERK", "timed", 2, 0, 0, 0, 0.04, 0, 0, 5],
-    ],
-    until: [
-      ["atk", "ATK +2", "until", 2, 0, 0, 0, 0, 0, 0, 0],
-      ["spd", "SPD +2", "until", 0, 2, 0, 0, 0, 0, 0, 0],
-      ["def", "DEF +4%", "until", 0, 0, 0.04, 0, 0, 0, 0, 0],
-      ["hp", "HP +8", "until", 0, 0, 0, 8, 0, 0, 0, 0],
-      ["rate", "RATE +4%", "until", 0, 0, 0, 0, 0.04, 0, 0, 0],
-      ["range", "RANGE +5%", "until", 0, 0, 0, 0, 0, 0.05, 0, 0],
-    ],
-  },
-  wanted: {
-    timed: [
-      ["giant", "GIANT", "timed", 4.5, 7.5, 0, 4.5, 0, 0, 0, 12],
-      ["shield", "SHIELD", "timed", 0, 0, 0, 0, 0, 0, 60, 3],
-      ["berserk", "BERSERK", "timed", 4.5, 0, 0, 0, 0.105, 0, 0, 8],
-      ["sniper", "SNIPER", "timed", 4.5, 0, 0, 0, 0, 0.12, 0, 9],
-      ["double_giant", "DOUBLE GIANT", "timed", 6, 10, 0, 6, 0, 0, 0, 12],
-    ],
-    until: [
-      ["atk", "ATK +5", "until", 4.5, 0, 0, 0, 0, 0, 0, 0],
-      ["spd", "SPD +6", "until", 0, 6, 0, 0, 0, 0, 0, 0],
-      ["def", "DEF +9%", "until", 0, 0, 0.09, 0, 0, 0, 0, 0],
-      ["hp", "HP +21", "until", 0, 0, 0, 21, 0, 0, 0, 0],
-      ["rate", "RATE +11%", "until", 0, 0, 0, 0, 0.105, 0, 0, 0],
-      ["range", "RANGE +12%", "until", 0, 0, 0, 0, 0, 0.12, 0, 0],
-    ],
-  },
-  kill: {
-    timed: [
-      ["giant", "GIANT", "timed", 3, 5, 0, 3, 0, 0, 0, 12],
-      ["shield", "SHIELD", "timed", 0, 0, 0, 0, 0, 0, 40, 3],
-      ["berserk", "BERSERK", "timed", 3, 0, 0, 0, 0.07, 0, 0, 8],
-      ["sniper", "SNIPER", "timed", 3, 0, 0, 0, 0, 0.08, 0, 9],
-    ],
-    until: [
-      ["atk", "ATK +3", "until", 3, 0, 0, 0, 0, 0, 0, 0],
-      ["spd", "SPD +4", "until", 0, 4, 0, 0, 0, 0, 0, 0],
-      ["def", "DEF +6%", "until", 0, 0, 0.06, 0, 0, 0, 0, 0],
-      ["hp", "HP +14", "until", 0, 0, 0, 14, 0, 0, 0, 0],
-      ["rate", "RATE +7%", "until", 0, 0, 0, 0, 0.07, 0, 0, 0],
-      ["range", "RANGE +8%", "until", 0, 0, 0, 0, 0, 0.08, 0, 0],
-    ],
-  },
-};
 
 export function createWantedState(): WantedState { return { wantedSlot: -1 }; }
 export function wantedSeedFields(): Pick<WantedHero, "bounty" | "threat" | "grudge"> {
@@ -172,30 +118,9 @@ export function packWantedSnap(state: WantedState): { wantedSlot: number } {
   return { wantedSlot: state.wantedSlot };
 }
 
-export function rouletteBChance(rank: string): number {
-  if (rank === "assist") {return ROULETTE_B_CHANCE_ASSIST;}
-  if (rank === "wanted") {return ROULETTE_B_CHANCE_WANTED;}
-  return ROULETTE_B_CHANCE_KILL;
-}
 
-export function rouletteFaces(rank: string, timedGroup: boolean): RouletteFace[] {
-  const table = FACE_TABLE[rank] ?? FACE_TABLE.kill;
-  return (timedGroup ? table.timed : table.until).map(mkFace);
-}
 
-export function pickRouletteFace(rank: string, rng: RouletteRng): RouletteFace {
-  if (rng.rangef(0, 1) < ROULETTE_TURTLE_CHANCE) {return { ...TURTLE_FACE };}
-  const faces = rouletteFaces(rank, rng.rangef(0, 1) < rouletteBChance(rank));
-  return { ...faces[rng.rangei(0, faces.length - 1)] };
-}
 
-export function rouletteFaceList(rank: string): Array<{ id: string; name: string }> {
-  const faces: Array<{ id: string; name: string }> = [];
-  for (const face of rouletteFaces(rank, false)) {faces.push({ id: face.id, name: face.name });}
-  for (const face of rouletteFaces(rank, true)) {faces.push({ id: face.id, name: face.name });}
-  faces.push({ id: "turtle", name: "TURTLE" });
-  return faces;
-}
 
 export function rouletteStat(hero: RouletteHero, key: keyof RouletteUntil): number {
   let total = hero.rlUntil[key];
@@ -223,27 +148,31 @@ function addHp(hero: RouletteHero, hpAdd: number): void {
   hero.hp = Math.min(hero.maxHp, hero.hp + hpAdd);
 }
 
-function num(v: unknown, fallback: number): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+function pendingFace(face: RouletteFace | Record<string, never>): RouletteFace | null {
+  const rec = face as Partial<RouletteFace>;
+  if (rec.kind !== "timed" && rec.kind !== "until") {return null;}
+  return face as RouletteFace;
 }
 
 export function applyRouletteFace(hero: RouletteHero, face: RouletteFace | Record<string, never>): void {
   if (!hero.alive) {return;}
-  const hpAdd = num(face.hp, 0);
-  if (String(face.kind ?? "until") === "until") {
-    hero.rlUntil.atk += num(face.atk, 0);
-    hero.rlUntil.spd += num(face.spd, 0);
-    hero.rlUntil.def += num(face.def, 0);
+  const pending = pendingFace(face);
+  if (!pending) {return;}
+  const hpAdd = pending.hp;
+  if (pending.kind === "until") {
+    hero.rlUntil.atk += pending.atk;
+    hero.rlUntil.spd += pending.spd;
+    hero.rlUntil.def += pending.def;
     hero.rlUntil.hp += hpAdd;
-    hero.rlUntil.rate += num(face.rate, 0);
-    hero.rlUntil.range += num(face.range, 0);
+    hero.rlUntil.rate += pending.rate;
+    hero.rlUntil.range += pending.range;
     addHp(hero, hpAdd);
     return;
   }
   hero.rlTimed.push({
-    id: String(face.id ?? ""), name: String(face.name ?? ""), time: num(face.dur, 0),
-    atk: num(face.atk, 0), spd: num(face.spd, 0), def: num(face.def, 0), hp: hpAdd,
-    rate: num(face.rate, 0), range: num(face.range, 0), shield: num(face.shield, 0),
+    id: pending.id, name: pending.name, time: pending.dur,
+    atk: pending.atk, spd: pending.spd, def: pending.def, hp: hpAdd,
+    rate: pending.rate, range: pending.range, shield: pending.shield,
   });
   addHp(hero, hpAdd);
 }
@@ -331,14 +260,36 @@ function tickSpinFlicker(hero: RouletteHero): void {
 function tickSpinPhase(hero: RouletteHero): void {
   tickSpinFlicker(hero);
   if (hero.rouletteTime > 0) {return;}
-  const face = hero.roulettePending;
-  applyRouletteFace(hero, face);
+  const face = pendingFace(hero.roulettePending);
+  applyRouletteFace(hero, hero.roulettePending);
   hero.roulettePhase = "land";
   hero.rouletteTime = ROULETTE_LAND_TIME;
-  hero.rouletteLabel = String(face.name ?? "");
-  hero.rouletteSpinId = String(face.id ?? "");
-  hero.rouletteDesc = "";
+  hero.rouletteLabel = face ? face.name : "";
+  hero.rouletteSpinId = face ? face.id : "";
+  hero.rouletteDesc = face ? rouletteFaceDesc(face) : "";
   hero.roulettePending = {};
+}
+
+/* eslint-disable no-restricted-syntax -- 원본 roulette_buff.gd:151-179 face 한국어 설명 정본 */
+const ROULETTE_FACE_DESC: Record<string, string> = {
+  atk: "이번 목숨 동안 공격력이 올라갑니다",
+  spd: "이번 목숨 동안 이동속도가 빨라집니다",
+  def: "받는 피해가 줄어듭니다",
+  hp: "최대 체력과 현재 체력이 늘어납니다",
+  rate: "연사 속도가 빨라집니다",
+  range: "총알이 더 멀리 나갑니다",
+  giant: "몸이 커지고 공격과 이동이 세집니다",
+  double_giant: "더 크게 변하고 능력치가 크게 오릅니다",
+  shield: "잠시 보호막이 생깁니다",
+  berserk: "공격과 연사가 잠깐 폭주합니다",
+  sniper: "사거리가 늘어나고 한 방이 세집니다",
+  turtle: "2초 동안 공격과 대시를 쓸 수 없습니다",
+};
+/* eslint-enable no-restricted-syntax */
+
+/** roulette_face_desc — face.id 로 한국어 설명, 미지 id 는 name. */
+export function rouletteFaceDesc(face: { id: string; name: string }): string {
+  return ROULETTE_FACE_DESC[face.id] ?? face.name;
 }
 
 export function tickRoulette(hero: RouletteHero, dt: number): void {

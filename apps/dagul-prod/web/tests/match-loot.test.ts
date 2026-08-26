@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   HEALTH_PICKUP_MAGNET_SPEED, HEALTH_PICKUP_RESPAWN, HEALTH_PICKUP_RETURN_SPEED,
-  MEDKIT_MAX, buildHealthPickups, handleUseInput, lootSeedFields, packItemField,
-  packLootSnap, tryUseMedkit, updateHealthPickups,
+  MEDKIT_MAX, SLIDE_DURATION, SPRING_AIR, SPRING_BOOST, SPRING_EVADE, SPRING_LIFT,
+  buildHealthPickups, handleUseInput, lootSeedFields, packItemField,
+  packLootSnap, spawnGunLootPickup, tryCollectGunLoot, tryUseHeldItem, tryUseMedkit,
+  updateHealthPickups,
 } from "@/lib/hub/match-loot";
 import type { LootHero } from "@/lib/hub/match-loot";
 import { ARENA_CENTER } from "@/lib/hub/match-covers";
@@ -207,6 +209,22 @@ describe("스냅 계약", () => {
     expect(players2[0].item).toBe("medkit");
   });
 
+  it("총 루팅 드랍 습득은 applyGunLoot 를 호출해 체인 다음 총으로 교체한다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }], 7, "gun-semi");
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    expect(h.equipment.id).toBe("rail");
+    const drop = spawnGunLootPickup(sim.loot, h.x, h.y);
+    expect(drop.kind).toBe("gun");
+    updateHealthPickups(sim.loot, sim.heroes, DT, "gun-semi");
+    expect(drop.active).toBe(false);
+    expect(h.equipment.id).toBe("burst");
+    expect(h.mag).toBe(h.equipment.magSize);
+    expect(tryCollectGunLoot(h, "item")).toBe(false);
+  });
+
   it("use 입력 통합 — 카운트다운 뒤 use 로 메드킷을 소비한다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }], 7);
     for (let i = 0; i < 181; i++) {sim.step();}
@@ -225,5 +243,34 @@ describe("스냅 계약", () => {
     // 같은 입력 유지 — 에지 검출로 추가 소비 없음
     sim.step();
     expect(h.medkits).toBe(1);
+  });
+});
+
+describe("spring/slide 아이템 사용", () => {
+  it("heldItem spring 은 hop 0.45·높이 36·evade 0.22·부스트 220 을 건다", () => {
+    const h = {
+      ...hero(0, { heldItem: "spring" }),
+      vx: 10, vy: 0, vel: { x: 10, y: 0 }, facingX: 1, facingY: 0,
+      slideTime: 0, springTime: 0, evadeTime: 0, hopTime: 0, hopMax: 0, hopHeight: 0,
+    };
+    expect(tryUseHeldItem(h)).toBe(true);
+    expect(h.heldItem).toBe("");
+    expect(h.hopTime).toBe(SPRING_AIR);
+    expect(h.hopMax).toBe(SPRING_AIR);
+    expect(h.hopHeight).toBe(SPRING_LIFT);
+    expect(h.evadeTime).toBe(SPRING_EVADE);
+    expect(h.springTime).toBe(SPRING_AIR);
+    expect(h.vx).toBeCloseTo(10 + SPRING_BOOST, 8);
+  });
+
+  it("heldItem slide 는 slideTime 2.2 를 넣고 메드킷을 건너뛴다", () => {
+    const h = {
+      ...hero(0, { heldItem: "slide", medkits: 2, hp: 10 }),
+      vx: 0, vy: 0, vel: { x: 0, y: 0 }, facingX: 1, facingY: 0,
+      slideTime: 0, springTime: 0, evadeTime: 0, hopTime: 0, hopMax: 0, hopHeight: 0,
+    };
+    handleUseInput(h, true);
+    expect(h.slideTime).toBe(SLIDE_DURATION);
+    expect(h.medkits).toBe(2);
   });
 });

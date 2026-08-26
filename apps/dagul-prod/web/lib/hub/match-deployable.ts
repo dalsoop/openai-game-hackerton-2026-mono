@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 지뢰·이동벽 포팅: 설치·틱·폭발이 한 파일 */
 /**
  * 설치물(지뢰·이동벽) — 원본 sim/deployable_system.gd 의 결정론 포팅. RNG·시계 없음.
  * 원본은 지뢰 폭발을 proj.add_zone, 벽 히트를 dmg.damage_hero/damage_core 로 직접 쏘지만
@@ -8,6 +9,7 @@ import {
   ARENA_MARGIN, ARENA_SIZE, HERO_RADIUS, pointInCover, resolveCoverMotion,
 } from "./match-covers.js";
 import type { CoverRect } from "./match-covers.js";
+import { addEffect, type EffectStore } from "./match-effects.js";
 
 /** 코어 반지름 — game_world.gd:35 CORE_RADIUS. */
 export const CORE_RADIUS = 34;
@@ -166,7 +168,9 @@ function sortedBySlot<T extends { slot: number }>(items: Iterable<T>): T[] {
  * 원본 place_mine 의 상한 컷 — owner 의 "비궁극" 설치물 2개 이상이면 index 0 제거.
  * 원본은 type 필터 없이 get("ultimate", false) 만 보므로 벽도 후보에 포함된다(그대로 이식).
  */
-function cullOwnerMines(state: DeployableState, owner: number, events: DeployableEvent[]): void {
+function cullOwnerMines(
+  state: DeployableState, owner: number, events: DeployableEvent[], fx?: EffectStore,
+): void {
   const indices: number[] = [];
   state.deployables.forEach((d, i) => {
     if (d.owner === owner && !(d.type === "mine" && d.ultimate)) {indices.push(i);}
@@ -174,6 +178,10 @@ function cullOwnerMines(state: DeployableState, owner: number, events: Deployabl
   if (indices.length < MINE_MAX_PER_OWNER) {return;}
   const removed = state.deployables[indices[0]];
   events.push({ kind: "fizzle", x: removed.x, y: removed.y, radius: MINE_FIZZLE_RADIUS, label: "REPLACED" });
+  addEffect(fx, {
+    kind: "mine_fizzle", x: removed.x, y: removed.y, radius: 42, duration: 0.24,
+    color: "#8ca0b8", label: "REPLACED",
+  });
   state.deployables.splice(indices[0], 1);
 }
 
@@ -195,13 +203,14 @@ export function placeMine(
   desiredY: number,
   covers: readonly CoverRect[],
   opts: MinePlaceOptions,
+  fx?: EffectStore,
 ): DeployableEvent[] {
   const events: DeployableEvent[] = [];
   const slid = resolveCoverMotion(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
   const x = clampInset(slid.x, ARENA_SIZE.x, MINE_CLAMP_INSET);
   const y = clampInset(slid.y, ARENA_SIZE.y, MINE_CLAMP_INSET);
   const ultimate = opts.ultimate ?? false;
-  if (!ultimate) {cullOwnerMines(state, owner.slot, events);}
+  if (!ultimate) {cullOwnerMines(state, owner.slot, events, fx);}
   const armTime = opts.armTime ?? MINE_ARM_TIME;
   const lifetime = opts.lifetime ?? MINE_LIFETIME;
   const fuseTime = opts.fuseTime ?? MINE_FUSE_TIME;
@@ -217,6 +226,9 @@ export function placeMine(
   });
   state.nextEntityId += 1;
   events.push({ kind: "minePlaced", owner: owner.slot, x, y, ultimate });
+  addEffect(fx, {
+    kind: "mine_place", x, y, radius: 48, duration: 0.28, color: "#ff765f", label: "MINE",
+  });
   return events;
 }
 
@@ -238,12 +250,17 @@ export function placeBounceWall(
   facingY: number,
   covers: readonly CoverRect[],
   opts: WallPlaceOptions,
+  fx?: EffectStore,
 ): DeployableEvent[] {
   const events: DeployableEvent[] = [];
   for (let i = state.deployables.length - 1; i >= 0; i -= 1) {
     const d = state.deployables[i];
     if (d.owner !== owner.slot || d.type !== "wall") {continue;}
     events.push({ kind: "fizzle", x: d.x, y: d.y, radius: WALL_FIZZLE_RADIUS, label: "REPLACED" });
+    addEffect(fx, {
+      kind: "mine_fizzle", x: d.x, y: d.y, radius: 58, duration: 0.26,
+      color: "#8de1ff", label: "REPLACED",
+    });
     state.deployables.splice(i, 1);
   }
   const slid = resolveCoverMotion(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
@@ -261,6 +278,10 @@ export function placeBounceWall(
   });
   state.nextEntityId += 1;
   events.push({ kind: "wallPlaced", owner: owner.slot, x, y, halfLength: opts.halfLength, speed: opts.speed });
+  addEffect(fx, {
+    kind: "charge_release", x, y, radius: opts.halfLength, duration: 0.18,
+    color: "#8de1ff", label: "INCOMING", dx: travel.x, dy: travel.y,
+  });
   return events;
 }
 
@@ -288,6 +309,7 @@ function sweepWallHeroes(
   oldY: number,
   travelDist: number,
   events: DeployableEvent[],
+  fx?: EffectStore,
 ): void {
   const f = attackDirection(wall.travelX, wall.travelY);
   const s = attackDirection(wall.dirX, wall.dirY);
@@ -306,6 +328,10 @@ function sweepWallHeroes(
       kind: "wallHitHero", owner: wall.owner, target: hero.slot, damage: wall.damage,
       ccTime: WALL_HIT_CC_TIME, knockback: wall.knockback,
       originX: hero.x - f.x * WALL_SLAM_ORIGIN_BACK, originY: hero.y - f.y * WALL_SLAM_ORIGIN_BACK,
+    });
+    addEffect(fx, {
+      kind: "wall_impact", x: hero.x, y: hero.y, radius: 102, duration: 0.30,
+      color: "#8de1ff", label: "SLAM", dx: f.x, dy: f.y,
     });
   }
 }
@@ -343,9 +369,10 @@ export function movingWallSweep(
   oldX: number,
   oldY: number,
   events: DeployableEvent[],
+  fx?: EffectStore,
 ): void {
   const travelDist = Math.hypot(wall.x - oldX, wall.y - oldY);
-  sweepWallHeroes(wall, heroes, oldX, oldY, travelDist, events);
+  sweepWallHeroes(wall, heroes, oldX, oldY, travelDist, events, fx);
   sweepWallCores(wall, cores, oldX, oldY, travelDist, events);
 }
 
@@ -363,6 +390,7 @@ function stepWall(
   covers: readonly CoverRect[],
   dt: number,
   events: DeployableEvent[],
+  fx?: EffectStore,
 ): boolean {
   if (wall.armTime > 0) {
     wall.armTime = Math.max(0, wall.armTime - dt);
@@ -371,19 +399,27 @@ function stepWall(
   wall.lifetime -= dt;
   if (wall.lifetime <= 0) {
     events.push({ kind: "fizzle", x: wall.x, y: wall.y, radius: wall.halfLength, label: "" });
+    addEffect(fx, {
+      kind: "mine_fizzle", x: wall.x, y: wall.y, radius: wall.halfLength, duration: 0.24,
+      color: "#8de1ff",
+    });
     return false;
   }
   const nextX = wall.x + wall.travelX * wall.speed * dt;
   const nextY = wall.y + wall.travelY * wall.speed * dt;
   if (wallBlocked(nextX, nextY, covers)) {
     events.push({ kind: "wallCrash", x: wall.x, y: wall.y, halfLength: wall.halfLength });
+    addEffect(fx, {
+      kind: "wall_impact", x: wall.x, y: wall.y, radius: wall.halfLength, duration: 0.30,
+      color: "#8de1ff", label: "CRASH", dx: wall.travelX, dy: wall.travelY,
+    });
     return false;
   }
   const oldX = wall.x;
   const oldY = wall.y;
   wall.x = nextX;
   wall.y = nextY;
-  movingWallSweep(wall, heroes, cores, oldX, oldY, events);
+  movingWallSweep(wall, heroes, cores, oldX, oldY, events, fx);
   return true;
 }
 
@@ -393,6 +429,7 @@ function tryTriggerMine(
   cores: ReadonlyMap<number, DeployableCore>,
   dt: number,
   events: DeployableEvent[],
+  fx?: EffectStore,
 ): void {
   if (mine.autoDetonate >= 0) {mine.autoDetonate -= dt;}
   const autoFire = mine.autoDetonate >= -0.5 && mine.autoDetonate <= 0;
@@ -402,6 +439,10 @@ function tryTriggerMine(
   events.push({
     kind: "mineTriggered", owner: mine.owner, x: mine.x, y: mine.y,
     triggerRadius: mine.triggerRadius, fuseDuration: mine.fuseDuration,
+  });
+  addEffect(fx, {
+    kind: "fuse", x: mine.x, y: mine.y, radius: mine.triggerRadius,
+    duration: mine.fuseDuration, color: "#ff554a", label: "MOVE!",
   });
 }
 
@@ -423,10 +464,15 @@ function stepMine(
   cores: ReadonlyMap<number, DeployableCore>,
   dt: number,
   events: DeployableEvent[],
+  fx?: EffectStore,
 ): boolean {
   mine.lifetime -= dt;
   if (mine.lifetime <= 0) {
     events.push({ kind: "fizzle", x: mine.x, y: mine.y, radius: MINE_FIZZLE_RADIUS, label: "EXPIRED" });
+    addEffect(fx, {
+      kind: "mine_fizzle", x: mine.x, y: mine.y, radius: 42, duration: 0.24,
+      color: "#8ca0b8", label: "EXPIRED",
+    });
     return false;
   }
   if (mine.armTime > 0) {
@@ -434,7 +480,7 @@ function stepMine(
     return true;
   }
   if (!mine.triggered) {
-    tryTriggerMine(mine, heroes, cores, dt, events);
+    tryTriggerMine(mine, heroes, cores, dt, events, fx);
     return true;
   }
   mine.fuseTime -= dt;
@@ -452,13 +498,14 @@ export function updateDeployables(
   cores: ReadonlyMap<number, DeployableCore>,
   covers: readonly CoverRect[],
   dt: number,
+  fx?: EffectStore,
 ): DeployableEvent[] {
   const events: DeployableEvent[] = [];
   const kept: Deployable[] = [];
   for (const d of state.deployables) {
     const keep = d.type === "wall"
-      ? stepWall(d, heroes, cores, covers, dt, events)
-      : stepMine(d, heroes, cores, dt, events);
+      ? stepWall(d, heroes, cores, covers, dt, events, fx)
+      : stepMine(d, heroes, cores, dt, events, fx);
     if (keep) {kept.push(d);}
   }
   state.deployables = kept;

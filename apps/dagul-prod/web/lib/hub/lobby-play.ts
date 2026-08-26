@@ -10,6 +10,7 @@ import {
   tick as tickAuthoritySim,
   writeMatchSchema,
 } from "./match-authority.js";
+import { writeMatchState } from "./match-schema-write.js";
 import { fillMatchSeats } from "./lobby-seats.js";
 import { PLAYER_COUNT } from "./match-sim.js";
 
@@ -25,6 +26,7 @@ export function applyPlayInput(
     client.sessionId,
     data,
     bag.authority,
+    room.slotOfSession?.(client.sessionId) ?? -1,
   );
 }
 
@@ -34,6 +36,7 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
   }))).slice(0, PLAYER_COUNT);
   bag.authority = seedAuthority(seats, room.state.mode, room.state.seed);
   writeMatchSchema(room.state, bag.authority.sim);
+  writeMatchState(room.state.match, bag.authority.sim, bag.authority.names, room.state.mode);
   const snap = packAuthoritySnap(bag.authority.sim, bag.authority.names, room.state.mode);
   bag.prevSnap = null;
   bag.lastSnap = snap;
@@ -42,16 +45,36 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   if (room.state.phase !== "playing" || !bag.authority) {return;}
-  const { snap, fx } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
-  for (const ev of fx) {
-    room.broadcast(MSG.GUN_FIRE, ev);
-  }
+  const { snap, events } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
+  writeMatchState(
+    room.state.match, bag.authority.sim, bag.authority.names, room.state.mode, events,
+  );
   if (!snap) {return;}
+  commitTickSnap(room, bag, snap);
+}
+
+/** lastSnap·승패 판정은 전원 opt-out 이어도 유지. JSON 스냅만 대상 세션에 보낸다. */
+export function commitTickSnap(
+  room: LobbyHandle,
+  bag: LobbyBag,
+  snap: Record<string, unknown>,
+): void {
   bag.prevSnap = bag.lastSnap;
   bag.lastSnap = snap;
-  room.broadcast(MSG.SNAP, snap);
+  sendTickSnap(room, snap);
   if (matchJustEnded(snap, bag.prevSnap)) {
     scheduleLobbyReset(room, bag);
+  }
+}
+
+function sendTickSnap(room: LobbyHandle, snap: Record<string, unknown>): void {
+  const blocked = room.snapOptOut;
+  const targets = blocked && blocked.size > 0
+    ? room.clients.filter((client) => !blocked.has(client.sessionId))
+    : room.clients;
+  if (targets.length === 0) {return;}
+  for (const client of targets) {
+    client.send(MSG.SNAP, snap);
   }
 }
 

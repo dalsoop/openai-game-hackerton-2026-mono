@@ -70,7 +70,7 @@ describe("상수 — ultimate_effect.gd FINISH_*", () => {
 
 describe("try_begin_finish", () => {
   it("280 안 다운 생존자를 고르고 mid 는 중점", () => {
-    const { cine, heroes, vic } = beginNear();
+    const { cine, vic } = beginNear();
     expect(cine.on).toBe(true);
     expect(cine.atk).toBe(0);
     expect(cine.vic).toBe(1);

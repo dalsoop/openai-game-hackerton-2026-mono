@@ -1,10 +1,12 @@
+/* eslint-disable max-lines -- cpu_behavior.gd 포팅: 회복·위험 회피·타게팅을 한 모듈에 둔다 */
 /**
  * CPU 조종 — 원본 cpu_behavior.gd 의 결정론 포팅.
  * 표적 점수(threat·grudge·target_hold)·교전 밴드·발사/궁극기/모빌리티 요청.
  * 슬롯별 성격 배율은 원본에 없으므로 두지 않는다. 난수는 방 시드 LCG 만 쓴다.
  */
-import { ARENA_CENTER, EFFECTIVE_RANGE } from "./match-covers.js";
-import { MatchRng } from "./match-rng.js";
+import { ARENA_CENTER, EFFECTIVE_RANGE, HERO_RADIUS } from "./match-covers.js";
+import { isSignature } from "./match-equipment.js";
+import type { MatchRng } from "./match-rng.js";
 
 /** game_world.gd:270 think 초기값 0.12 + slot*0.025. */
 export const CPU_THINK_SEED_BASE = 0.12;
@@ -33,6 +35,30 @@ export const CPU_ULTIMATE_READY = CPU_ULTIMATE_MAX - 0.5;
 export const CPU_SAFE_ZONE_EDGE_BUFFER = 252;
 /** 자기장 밖 urgency — cpu_behavior.gd:328. */
 export const CPU_ZONE_OUT_URGENCY = 1.85;
+/** 메드킷 — cpu_behavior.gd:40. ITEM_POOL 이면 생략. */
+export const CPU_MEDKIT_HP = 0.5;
+export const CPU_MEDKIT_CHANCE = 0.30;
+/** 회복 탐색 반경 — cpu_behavior.gd:224-230. */
+export const CPU_HEAL_HP_SKIP = 0.65;
+export const CPU_HEAL_R_BASE = 700;
+export const CPU_HEAL_R_EMPTY = 980;
+export const CPU_HEAL_R_LOW = 1190;
+export const CPU_HEAL_R_CRIT = 1750;
+export const CPU_HEAL_SIG_BONUS = 140;
+/** 오브·타워·크레이트 탐색 — cpu_behavior.gd:85-103. */
+export const CPU_ORB_CHANCE = 0.55;
+export const CPU_ORB_FIGHT_CAP = 520;
+export const CPU_TOWER_CHANCE = 0.42;
+export const CPU_TOWER_FIGHT_CAP = 780;
+export const CPU_CRATE_CHANCE = 0.28;
+export const CPU_CRATE_FIGHT_CAP = 460;
+export const CPU_CRATE_NEAR = 480;
+export const CPU_ORB_NEAR = 420;
+/** 위험 반경 패딩 — cpu_behavior.gd:263,310. */
+export const CPU_HAZARD_PAD = 65;
+export const CPU_MINE_PAD = 45;
+export const CPU_WALL_SWEEP_CAP = 480;
+export const CPU_ITEM_POOL_MODE = "item";
 /** preferred_range 를 그대로 쓰는 무기 — cpu_behavior.gd:122. */
 const FULL_PREFERRED_IDS = new Set(["scatter", "rail", "burst", "mortar", "bomb"]);
 /** 표적 점수 가중 — cpu_behavior.gd:202-212. */
@@ -53,8 +79,6 @@ export const CPU_RANGE_SLACK = EFFECTIVE_RANGE * 0.1;
 /** 장비가 없을 때 기본 preferred_range — HOLD 하한(×0.72)이 테스트 밴드 안에 남는다. */
 const DEFAULT_PREFERRED_RANGE = CPU_TARGET_RANGE;
 const DEFAULT_NORMAL_REACH = EFFECTIVE_RANGE * 0.92;
-const CPU_FIXED_DT = 1 / 60;
-const ZERO = { x: 0, y: 0 };
 
 export type CpuBody = {
   slot: number;
@@ -88,6 +112,8 @@ export type CpuBody = {
   comboCaptureTime?: number;
   attackLockTime?: number;
   chargingSkill?: boolean;
+  medkits?: number;
+  heldItem?: string;
 };
 
 export type CpuFields = {
@@ -96,6 +122,7 @@ export type CpuFields = {
   think: number;
   action: string;
   recentAttacker: number;
+  crateTarget: number;
 };
 
 export type CpuZone = { radius: number; x?: number; y?: number };
@@ -109,34 +136,46 @@ export type CpuMatchInput = {
   fire: boolean;
   ultimate: boolean;
   mobility: boolean;
+  use: boolean;
 };
 
 export type CpuCommand = CpuMatchInput;
 
+export type CpuPickup = {
+  x: number; y: number; active: boolean; equipment?: string; gunId?: string;
+};
+export type CpuMark = { x: number; y: number; alive: boolean };
+export type CpuOrb = { x: number; y: number; active?: boolean; arm?: number };
+export type CpuWarn = {
+  x: number; y: number; radius: number; owner: number; delay: number;
+  applied?: boolean; warningDuration?: number;
+};
+export type CpuArc = {
+  owner: number; arc?: boolean; landingX: number; landingY: number;
+  splash: number; ttl: number; maxTtl?: number;
+};
+export type CpuDeploy = {
+  owner: number; type?: string; x: number; y: number; armTime?: number;
+  blastRadius?: number; triggerRadius?: number; triggered?: boolean;
+  travelX?: number; travelY?: number; dirX?: number; dirY?: number;
+  speed?: number; lifetime?: number; halfLength?: number;
+};
+
 export type CpuWorld = {
   zone?: CpuZone;
   lineBlocked?: (ax: number, ay: number, bx: number, by: number) => boolean;
+  pickups?: readonly CpuPickup[];
+  crates?: readonly CpuMark[];
+  crateOrbs?: readonly CpuOrb[];
+  midTower?: CpuMark;
+  warnZones?: readonly CpuWarn[];
+  projectiles?: readonly CpuArc[];
+  deployables?: readonly CpuDeploy[];
+  mode?: string;
 };
 
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
-}
-
-function hypot2(x: number, y: number): number {
-  return x * x + y * y;
-}
-
-function dirTo(ax: number, ay: number, bx: number, by: number): { x: number; y: number } {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const d = Math.hypot(dx, dy);
-  if (d <= 1e-8) {return { x: 0, y: 0 };}
-  return { x: dx / d, y: dy / d };
-}
-
-/** Godot Vector2.orthogonal → (-y, x). */
-function orthogonal(x: number, y: number): { x: number; y: number } {
-  return { x: -y, y: x };
 }
 
 function normalize(x: number, y: number): { x: number; y: number } {
@@ -145,12 +184,28 @@ function normalize(x: number, y: number): { x: number; y: number } {
   return { x: x / d, y: y / d };
 }
 
-function posmod(n: number, m: number): number {
-  return ((n % m) + m) % m;
+export function cpuDirTo(ax: number, ay: number, bx: number, by: number): { x: number; y: number } {
+  return normalize(bx - ax, by - ay);
 }
 
-export function cpuTargetValid(hero: CpuBody | undefined): boolean {
-  return Boolean(hero) && hero!.alive && !hero!.eliminated;
+export function cpuHypot2(x: number, y: number): number {
+  return x * x + y * y;
+}
+
+export function cpuOrthogonal(x: number, y: number): { x: number; y: number } {
+  return { x: -y, y: x };
+}
+
+export function cpuFind(heroes: readonly CpuBody[], slot: number): CpuBody | undefined {
+  for (const h of heroes) {
+    if (h.slot === slot) {return h;}
+  }
+  return undefined;
+}
+
+export function cpuTargetValid(hero: CpuBody | undefined): hero is CpuBody {
+  if (!hero) {return false;}
+  return hero.alive && !hero.eliminated;
 }
 
 /** SimHero 생성 시 CPU 필드 — game_world.gd:270. */
@@ -161,6 +216,7 @@ export function cpuSeedFields(slot: number): CpuFields {
     think: CPU_THINK_SEED_BASE + slot * CPU_THINK_SEED_SLOT,
     action: "HARASS",
     recentAttacker: -1,
+    crateTarget: -1,
   };
 }
 
@@ -184,14 +240,18 @@ export function cpuNormalReach(hero: CpuBody): number {
   return hero.normalReach ?? DEFAULT_NORMAL_REACH;
 }
 
-export function cpuActionSpeed(hero: CpuBody): number {
+/** cc·루트·히트스턴 배율 — 회복/위험 이동. 공격 락은 넣지 않는다. */
+export function cpuCcLockScale(hero: CpuBody): number {
   const ccSpeed = (hero.ccTime ?? 0) > 0 ? 0.42 : 1;
-  const hitstunSpeed = (hero.rootTime ?? 0) > 0
-    ? 0.35
-    : ((hero.hitstunTime ?? 0) > 0 || (hero.comboCaptureTime ?? 0) > 0 ? 0.72 : 1);
+  if ((hero.rootTime ?? 0) > 0) {return ccSpeed * 0.35;}
+  if ((hero.hitstunTime ?? 0) > 0 || (hero.comboCaptureTime ?? 0) > 0) {return ccSpeed * 0.72;}
+  return ccSpeed;
+}
+
+export function cpuActionSpeed(hero: CpuBody): number {
   let actionSpeed = (hero.attackLockTime ?? 0) > 0 ? 0.76 : 1;
   if (hero.chargingSkill) {actionSpeed *= 0.62;}
-  return ccSpeed * hitstunSpeed * actionSpeed;
+  return cpuCcLockScale(hero) * actionSpeed;
 }
 
 /** apply_cpu_move — 위시 방향에 속도 배율을 곱해 MatchInput 이동 성분으로 만든다. */
@@ -228,10 +288,53 @@ function playerCount(heroes: readonly CpuBody[]): number {
   return Math.max(maxSlot + 1, heroes.length);
 }
 
+function attackerCountsOf(list: readonly CpuBody[], n: number): number[] {
+  const counts = new Array<number>(n).fill(0);
+  for (const other of list) {
+    const t = other.target ?? -1;
+    if (t >= 0 && t < n) {counts[t] += 1;}
+  }
+  return counts;
+}
+
+function validTargetCountOf(
+  index: Map<number, CpuBody>,
+  n: number,
+  slot: number,
+): number {
+  let valid = 0;
+  for (let candidate = 0; candidate < n; candidate++) {
+    if (candidate !== slot && cpuTargetValid(index.get(candidate))) {valid += 1;}
+  }
+  return valid;
+}
+
 /**
  * choose_target — threat·finish·grudge·dogpile·bounty − crowd·retaliation·거리.
  * cpu_behavior.gd:182-216.
  */
+function scoreCpuTarget(
+  self: CpuBody,
+  targetH: CpuBody,
+  target: number,
+  attackerCounts: number[],
+  recent: number,
+  rng: MatchRng,
+): number {
+  const distance = Math.hypot(self.x - targetH.x, self.y - targetH.y);
+  const threat = targetH.threat ?? 0;
+  const finishability = clamp01((targetH.maxHp - targetH.hp) / Math.max(1, targetH.maxHp));
+  const dogpile = attackerCounts[target] === 1 ? 1 : 0;
+  const crowdPenalty = Math.max(0, attackerCounts[target] - 1) * CPU_SCORE_CROWD;
+  let score = CPU_SCORE_LEADER * clamp01(threat / 180) + CPU_SCORE_FINISH * finishability;
+  score += CPU_SCORE_THREAT * clamp01(threat / 120);
+  score += CPU_SCORE_GRUDGE * (recent === target ? 1 : 0) + CPU_SCORE_DOGPILE * dogpile
+    + CPU_SCORE_BOUNTY * clamp01((targetH.bounty ?? 0) / 80);
+  score -= crowdPenalty + CPU_SCORE_RETAIL * clamp01(threat / 150)
+    + CPU_SCORE_DIST * clamp01(distance / CPU_SCORE_DIST_REF);
+  return score + rng.rangef(-CPU_SCORE_JITTER, CPU_SCORE_JITTER);
+}
+
 export function chooseCpuTarget(slot: number, heroes: Iterable<CpuBody>, rng: MatchRng): number {
   const list = bySlot(heroes);
   const n = playerCount(list);
@@ -239,39 +342,16 @@ export function chooseCpuTarget(slot: number, heroes: Iterable<CpuBody>, rng: Ma
   for (const h of list) {index.set(h.slot, h);}
   const self = index.get(slot);
   if (!self) {return -1;}
-  const attackerCounts = new Array<number>(n).fill(0);
-  for (const other of list) {
-    const t = other.target ?? -1;
-    if (t >= 0 && t < n) {attackerCounts[t] += 1;}
-  }
-  let validTargetCount = 0;
-  for (let candidate = 0; candidate < n; candidate++) {
-    if (candidate !== slot && cpuTargetValid(index.get(candidate))) {validTargetCount += 1;}
-  }
+  const attackerCounts = attackerCountsOf(list, n);
+  const validTargetCount = validTargetCountOf(index, n, slot);
   let best = -1;
   let bestScore = -999;
   const recent = self.recentAttacker ?? -1;
   for (let target = 0; target < n; target++) {
-    if (target === slot || !cpuTargetValid(index.get(target))) {continue;}
+    const targetH = index.get(target);
+    if (target === slot || !cpuTargetValid(targetH)) {continue;}
     if (validTargetCount >= 3 && attackerCounts[target] >= CPU_CROWD_LIMIT) {continue;}
-    const targetH = index.get(target)!;
-    const distance = Math.hypot(self.x - targetH.x, self.y - targetH.y);
-    const threat = targetH.threat ?? 0;
-    const leaderValue = clamp01(threat / 180);
-    const finishability = clamp01(
-      (targetH.maxHp - targetH.hp) / Math.max(1, targetH.maxHp),
-    );
-    const dogpile = attackerCounts[target] === 1 ? 1 : 0;
-    const crowdPenalty = Math.max(0, attackerCounts[target] - 1) * CPU_SCORE_CROWD;
-    const retaliation = clamp01(threat / 150);
-    const grudge = recent === target ? 1 : 0;
-    let score = CPU_SCORE_LEADER * leaderValue + CPU_SCORE_FINISH * finishability;
-    score += CPU_SCORE_THREAT * clamp01(threat / 120);
-    score += CPU_SCORE_GRUDGE * grudge + CPU_SCORE_DOGPILE * dogpile
-      + CPU_SCORE_BOUNTY * clamp01((targetH.bounty ?? 0) / 80);
-    score -= crowdPenalty + CPU_SCORE_RETAIL * retaliation
-      + CPU_SCORE_DIST * clamp01(distance / CPU_SCORE_DIST_REF);
-    score += rng.rangef(-CPU_SCORE_JITTER, CPU_SCORE_JITTER);
+    const score = scoreCpuTarget(self, targetH, target, attackerCounts, recent, rng);
     if (score > bestScore) {
       bestScore = score;
       best = target;
@@ -280,45 +360,191 @@ export function chooseCpuTarget(slot: number, heroes: Iterable<CpuBody>, rng: Ma
   return best;
 }
 
-function fightWish(
-  hero: CpuBody,
-  prey: CpuBody,
-  world?: CpuWorld,
-): { x: number; y: number; action: string } {
-  const to = dirTo(hero.x, hero.y, prey.x, prey.y);
-  const dist = Math.hypot(prey.x - hero.x, prey.y - hero.y);
-  const orth = orthogonal(to.x, to.y);
-  const sign = hero.slot % 2 === 0 ? -1 : 1;
-  const strafe = { x: orth.x * sign, y: orth.y * sign };
-  const preferred = cpuPreferredRange(hero);
-  if (world?.lineBlocked?.(hero.x, hero.y, prey.x, prey.y)) {
-    const n = normalize(to.x * 0.35 + strafe.x, to.y * 0.35 + strafe.y);
-    return { ...n, action: "FLANK" };
+/** SafeZoneState 처럼 radius 만 있는 인자는 CpuWorld.zone 으로 감싼다. */
+export function asCpuWorld(arg?: CpuZone | CpuWorld): CpuWorld | undefined {
+  if (!arg) {return undefined;}
+  const w = arg as CpuWorld;
+  if (typeof (arg as CpuZone).radius === "number" && w.zone === undefined && w.pickups === undefined
+    && w.crates === undefined && w.warnZones === undefined && w.deployables === undefined
+    && w.midTower === undefined && w.crateOrbs === undefined && w.projectiles === undefined
+    && w.lineBlocked === undefined) {
+    return { zone: arg as CpuZone };
   }
-  if (dist < preferred * 0.72) {
-    const n = normalize(strafe.x * 0.75 - to.x * 0.25, strafe.y * 0.75 - to.y * 0.25);
-    return { ...n, action: "DISENGAGE" };
-  }
-  if (dist <= preferred * 1.15) {
-    const n = normalize(strafe.x * 0.88 + to.x * 0.12, strafe.y * 0.88 + to.y * 0.12);
-    return { ...n, action: "HOLD_RANGE" };
-  }
-  const n = normalize(to.x + strafe.x * 0.20, to.y + strafe.y * 0.20);
-  return { ...n, action: "CLOSE_RANGE" };
+  return w;
 }
 
-function zoneEscape(hero: CpuBody, zone?: CpuZone): { x: number; y: number } {
-  if (!zone) {return { ...ZERO };}
+function healRadius(ratio: number, empty: boolean): number {
+  if (ratio <= 0.30) {return CPU_HEAL_R_CRIT;}
+  if (ratio <= 0.48) {return CPU_HEAL_R_LOW;}
+  return empty ? CPU_HEAL_R_EMPTY : CPU_HEAL_R_BASE;
+}
+
+/** best_health_pickup — cpu_behavior.gd:218-246. */
+export function bestHealthPickup(hero: CpuBody, world?: CpuWorld): number {
+  if (!world?.pickups) {return -1;}
+  const list = world.pickups;
+  const ratio = hero.hp / Math.max(1, hero.maxHp);
+  const empty = world.mode === CPU_ITEM_POOL_MODE && !hero.heldItem;
+  if (ratio > CPU_HEAL_HP_SKIP && !empty) {return -1;}
+  const radius = healRadius(ratio, empty);
+  let best = -1;
+  let bestD = radius;
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (!p.active) {continue;}
+    let d = Math.hypot(hero.x - p.x, hero.y - p.y);
+    if (d >= radius) {continue;}
+    const id = p.equipment ?? p.gunId ?? "";
+    if (id !== "" && isSignature(hero.slot, id)) {d = Math.max(0, d - CPU_HEAL_SIG_BONUS);}
+    if (d >= bestD) {continue;}
+    bestD = d;
+    best = i;
+  }
+  return best;
+}
+
+export function cpuWantMedkit(hero: CpuBody, rng: MatchRng, world?: CpuWorld): boolean {
+  if (world?.mode === CPU_ITEM_POOL_MODE) {return false;}
+  if ((hero.medkits ?? 0) <= 0) {return false;}
+  if (hero.hp >= hero.maxHp * CPU_MEDKIT_HP) {return false;}
+  return rng.chance(CPU_MEDKIT_CHANCE);
+}
+
+export function nearestAlive(x: number, y: number, marks: readonly CpuMark[], cap: number): number {
+  let best = -1;
+  let bestD = cap;
+  for (let i = 0; i < marks.length; i++) {
+    if (!marks[i].alive) {continue;}
+    const d = Math.hypot(x - marks[i].x, y - marks[i].y);
+    if (d >= bestD) {continue;}
+    bestD = d;
+    best = i;
+  }
+  return best;
+}
+
+export function nearestOrb(x: number, y: number, orbs: readonly CpuOrb[]): number {
+  let best = -1;
+  let bestD = CPU_ORB_NEAR;
+  for (let i = 0; i < orbs.length; i++) {
+    if (orbs[i].active === false || (orbs[i].arm ?? 0) > 0) {continue;}
+    const d = Math.hypot(x - orbs[i].x, y - orbs[i].y);
+    if (d >= bestD) {continue;}
+    bestD = d;
+    best = i;
+  }
+  return best;
+}
+
+export function cpuWantTowerFire(hero: CpuBody, action: string, tower?: CpuMark): boolean {
+  if (action !== "SEEK_TOWER" || (hero.fireCd ?? 0) > 0) {return false;}
+  if (!tower?.alive) {return false;}
+  return Math.hypot(hero.x - tower.x, hero.y - tower.y) < cpuNormalReach(hero);
+}
+
+export function cpuWantCrateFire(
+  hero: CpuBody, action: string, crate: CpuMark | undefined, world?: CpuWorld,
+): boolean {
+  if (action !== "SEEK_CRATE" || (hero.fireCd ?? 0) > 0 || !crate?.alive) {return false;}
+  if (Math.hypot(hero.x - crate.x, hero.y - crate.y) >= cpuNormalReach(hero)) {return false;}
+  return !world?.lineBlocked?.(hero.x, hero.y, crate.x, crate.y);
+}
+
+function fallbackDir(kind: "r" | "d" | "l", slot: number, mul: number): { x: number; y: number } {
+  const a = slot * mul;
+  if (kind === "d") {return { x: -Math.sin(a), y: Math.cos(a) };}
+  if (kind === "l") {return { x: -Math.cos(a), y: -Math.sin(a) };}
+  return { x: Math.cos(a), y: Math.sin(a) };
+}
+
+function unitAway(
+  fromX: number, fromY: number, hero: CpuBody, owner: number,
+  bodies: readonly CpuBody[], kind: "r" | "d" | "l", mul: number,
+): { x: number; y: number } {
+  let a = cpuDirTo(fromX, fromY, hero.x, hero.y);
+  if (cpuHypot2(a.x, a.y) >= 0.1) {return a;}
+  const o = cpuFind(bodies, owner);
+  if (o) {
+    a = cpuDirTo(o.x, o.y, hero.x, hero.y);
+    if (cpuHypot2(a.x, a.y) >= 0.1) {return a;}
+  }
+  return fallbackDir(kind, hero.slot, mul);
+}
+
+function warnPush(hero: CpuBody, z: CpuWarn, bodies: readonly CpuBody[]): { x: number; y: number } {
+  if (z.owner === hero.slot || z.applied || z.delay <= 0) {return { x: 0, y: 0 };}
+  const dangerR = z.radius + HERO_RADIUS + CPU_HAZARD_PAD;
+  const dist = Math.hypot(hero.x - z.x, hero.y - z.y);
+  if (dist >= dangerR) {return { x: 0, y: 0 };}
+  const away = unitAway(z.x, z.y, hero, z.owner, bodies, "r", 1.7);
+  const warnDur = Math.max(0.01, z.warningDuration ?? z.delay);
+  const urgency = 1 - clamp01(z.delay / warnDur);
+  const mag = 1 - dist / dangerR + urgency * 1.25;
+  return { x: away.x * mag, y: away.y * mag };
+}
+
+function arcPush(hero: CpuBody, p: CpuArc, bodies: readonly CpuBody[]): { x: number; y: number } {
+  if (p.owner === hero.slot || !p.arc) {return { x: 0, y: 0 };}
+  const dangerR = p.splash + HERO_RADIUS + CPU_HAZARD_PAD;
+  const dist = Math.hypot(hero.x - p.landingX, hero.y - p.landingY);
+  if (dist >= dangerR) {return { x: 0, y: 0 };}
+  const away = unitAway(p.landingX, p.landingY, hero, p.owner, bodies, "d", 1.3);
+  const flight = Math.max(0.01, p.maxTtl ?? p.ttl);
+  const urgency = 1 - clamp01(p.ttl / flight);
+  const mag = 1 - dist / dangerR + urgency * 1.25;
+  return { x: away.x * mag, y: away.y * mag };
+}
+
+function wallSweepHit(d: CpuDeploy, fwd: number, sideDot: number): boolean {
+  const sweep = Math.min((d.speed ?? 0) * (d.lifetime ?? 0), CPU_WALL_SWEEP_CAP);
+  if (fwd < -HERO_RADIUS || fwd > sweep + HERO_RADIUS) {return false;}
+  return Math.abs(sideDot) <= (d.halfLength ?? 0) + HERO_RADIUS + CPU_MINE_PAD;
+}
+
+function wallDodgeSign(slot: number, sideDot: number): number {
+  if (Math.abs(sideDot) < 8) {return slot % 2 === 0 ? 1 : -1;}
+  return sideDot >= 0 ? 1 : -1;
+}
+
+function wallPush(hero: CpuBody, d: CpuDeploy): { x: number; y: number } {
+  const forward = normalize(d.travelX ?? 1, d.travelY ?? 0);
+  const side = normalize(d.dirX ?? 0, d.dirY ?? 1);
+  const rx = hero.x - d.x;
+  const ry = hero.y - d.y;
+  const sideDot = rx * side.x + ry * side.y;
+  if (!wallSweepHit(d, rx * forward.x + ry * forward.y, sideDot)) {return { x: 0, y: 0 };}
+  const sign = wallDodgeSign(hero.slot, sideDot);
+  const mag = (d.armTime ?? 0) > 0 ? 1.15 : 1.75;
+  return { x: side.x * sign * mag, y: side.y * sign * mag };
+}
+
+function minePush(hero: CpuBody, d: CpuDeploy, bodies: readonly CpuBody[]): { x: number; y: number } {
+  if ((d.armTime ?? 0) > 0) {return { x: 0, y: 0 };}
+  const rawR = d.triggered ? (d.blastRadius ?? 0) : (d.triggerRadius ?? 0);
+  const dangerR = rawR + HERO_RADIUS + CPU_MINE_PAD;
+  const dist = Math.hypot(hero.x - d.x, hero.y - d.y);
+  if (dist >= dangerR) {return { x: 0, y: 0 };}
+  const away = unitAway(d.x, d.y, hero, d.owner, bodies, "l", 1.1);
+  const urgency = d.triggered ? 1.3 : 0.55;
+  const mag = 1 - dist / dangerR + urgency;
+  return { x: away.x * mag, y: away.y * mag };
+}
+
+function deployPush(hero: CpuBody, d: CpuDeploy, bodies: readonly CpuBody[]): { x: number; y: number } {
+  if (d.owner === hero.slot) {return { x: 0, y: 0 };}
+  if (d.type === "wall") {return wallPush(hero, d);}
+  return minePush(hero, d, bodies);
+}
+
+function safeZonePush(hero: CpuBody, zone?: CpuZone): { x: number; y: number } {
+  if (!zone) {return { x: 0, y: 0 };}
   const cx = zone.x ?? ARENA_CENTER.x;
   const cy = zone.y ?? ARENA_CENTER.y;
   const zoneDistance = Math.hypot(hero.x - cx, hero.y - cy);
   const retreatRadius = Math.max(40, zone.radius - CPU_SAFE_ZONE_EDGE_BUFFER);
-  if (zoneDistance <= retreatRadius) {return { ...ZERO };}
-  let inward = dirTo(hero.x, hero.y, cx, cy);
-  if (hypot2(inward.x, inward.y) < 0.1) {
-    const ang = hero.slot * 0.7;
-    inward = { x: -Math.cos(ang), y: -Math.sin(ang) };
-  }
+  if (zoneDistance <= retreatRadius) {return { x: 0, y: 0 };}
+  let inward = cpuDirTo(hero.x, hero.y, cx, cy);
+  if (cpuHypot2(inward.x, inward.y) < 0.1) {inward = fallbackDir("l", hero.slot, 0.7);}
   const overrun = zoneDistance - zone.radius;
   const urgency = overrun > 0
     ? CPU_ZONE_OUT_URGENCY
@@ -327,206 +553,22 @@ function zoneEscape(hero: CpuBody, zone?: CpuZone): { x: number; y: number } {
   return { x: inward.x * mag, y: inward.y * mag };
 }
 
-export function cpuWantUltimate(hero: CpuBody, prey: CpuBody | null): boolean {
-  if (!hero.alive || hero.downed || hero.eliminated) {return false;}
-  if ((hero.stunTime ?? 0) > 0 || hero.burrowed) {return false;}
-  const animal = posmod(hero.animal ?? hero.slot, 12);
-  const tslot = prey ? prey.slot : -1;
-  let dist = 99999;
-  if (prey) {dist = Math.hypot(prey.x - hero.x, prey.y - hero.y);}
-  let hpRatio = 1;
-  if ((hero.maxHp ?? 1) > 1) {hpRatio = hero.hp / hero.maxHp;}
-  let want = false;
-  switch (animal) {
-    case 0: want = dist < 520; break;
-    case 1: want = dist < 300; break;
-    case 2: want = dist < 340; break;
-    case 3: want = dist < 640 || hpRatio < 0.42; break;
-    case 4: want = dist < 420; break;
-    case 5: want = hpRatio < 0.55 || dist < 220; break;
-    case 6: want = dist < 210; break;
-    case 7: want = dist < 380 || hpRatio < 0.50; break;
-    case 8: want = dist < 480; break;
-    case 9: want = dist < 360; break;
-    case 10: want = dist > 80 && dist < 520; break;
-    case 11: want = dist < 300; break;
-    default: want = dist < 420; break;
-  }
-  if (tslot < 0 && animal !== 5 && animal !== 7) {want = false;}
-  return want;
+function addPush(acc: { x: number; y: number }, p: { x: number; y: number }): void {
+  acc.x += p.x;
+  acc.y += p.y;
 }
 
-export function cpuWantMobility(hero: CpuBody, prey: CpuBody, action: string): boolean {
-  if (action === "SEEK_HEAL") {return false;}
-  if ((hero.mobilityCd ?? 0) > 0 || (hero.launchTime ?? 0) > 0) {return false;}
-  const preferred = hero.preferredRange ?? DEFAULT_PREFERRED_RANGE;
-  const dist = Math.hypot(prey.x - hero.x, prey.y - hero.y);
-  return dist > preferred * 1.35 || dist < preferred * 0.48;
+/** hazard_escape_vector — cpu_behavior.gd:254-330. */
+export function hazardEscapeVector(
+  hero: CpuBody, world: CpuWorld | undefined, bodies: readonly CpuBody[],
+): { x: number; y: number } {
+  if (!hero.alive) {return { x: 0, y: 0 };}
+  const escape = { x: 0, y: 0 };
+  for (const z of world?.warnZones ?? []) {addPush(escape, warnPush(hero, z, bodies));}
+  for (const p of world?.projectiles ?? []) {addPush(escape, arcPush(hero, p, bodies));}
+  for (const d of world?.deployables ?? []) {addPush(escape, deployPush(hero, d, bodies));}
+  addPush(escape, safeZonePush(hero, world?.zone));
+  if (cpuHypot2(escape.x, escape.y) <= 0.1) {return { x: 0, y: 0 };}
+  return normalize(escape.x, escape.y);
 }
 
-export function cpuWantFire(
-  hero: CpuBody,
-  prey: CpuBody,
-  world?: CpuWorld,
-): boolean {
-  const dist = Math.hypot(prey.x - hero.x, prey.y - hero.y);
-  if (dist >= cpuNormalReach(hero)) {return false;}
-  if (world?.lineBlocked?.(hero.x, hero.y, prey.x, prey.y)) {return false;}
-  return true;
-}
-
-export type CpuMind = CpuFields & {
-  mx: number;
-  my: number;
-  aimX: number;
-  aimY: number;
-  ready: boolean;
-};
-
-/** 방 시드 직후 CPU 두뇌 — think 는 원본 슬롯 오프셋. */
-export function seedCpu(slot: number, x = 0, y = 0): CpuMind {
-  return {
-    ...cpuSeedFields(slot),
-    mx: 0,
-    my: 0,
-    aimX: x + 1,
-    aimY: y,
-    ready: false,
-  };
-}
-
-function findHero(heroes: readonly CpuBody[], slot: number): CpuBody | undefined {
-  for (const h of heroes) {
-    if (h.slot === slot) {return h;}
-  }
-  return undefined;
-}
-
-/**
- * think 주기: target_hold 감소, 만료 시 choose_target, 교전 위시 갱신.
- * 발사/궁극기/모빌리티는 매 틱 요청한다(cpu_behavior.gd:153-168).
- */
-export function tickCpu(
-  mind: CpuMind,
-  hero: CpuBody,
-  heroes: Iterable<CpuBody>,
-  rng: MatchRng,
-  dt: number,
-  world?: CpuWorld,
-): CpuMatchInput | null {
-  if (!hero.alive || hero.eliminated || hero.downed) {return null;}
-  if ((hero.stunTime ?? 0) > 0) {return null;}
-  const bodies = bySlot(heroes).map((h) => (
-    h.slot === hero.slot ? { ...h, target: mind.target, recentAttacker: mind.recentAttacker } : h
-  ));
-  mind.think -= dt;
-  mind.targetHold = Math.max(0, mind.targetHold - dt);
-  if (mind.think <= 0) {
-    mind.think = CPU_THINK_MIN_SEC + rng.rangef(0, CPU_THINK_JITTER_SEC);
-    const oldTarget = mind.target;
-    const chosen = chooseCpuTarget(hero.slot, bodies, rng);
-    const held = findHero(bodies, oldTarget);
-    if (mind.targetHold <= 0 || oldTarget < 0 || !cpuTargetValid(held)) {
-      mind.target = chosen;
-      mind.targetHold = CPU_TARGET_HOLD_MIN_SEC + rng.rangef(0, CPU_TARGET_HOLD_JITTER_SEC);
-    }
-    const prey = findHero(bodies, mind.target);
-    if (cpuTargetValid(prey)) {
-      const wish = fightWish(hero, prey!, world);
-      const scale = cpuActionSpeed(hero) * rng.rangef(CPU_MOVE_SCALE_MIN, CPU_MOVE_SCALE_MAX);
-      const move = applyCpuMove(wish.x, wish.y, scale);
-      const err = rng.rangef(-CPU_AIM_ERROR_RAD, CPU_AIM_ERROR_RAD);
-      const aim = cpuAimPoint(hero, prey!, err);
-      mind.action = wish.action;
-      mind.mx = move.mx;
-      mind.my = move.my;
-      mind.aimX = aim.x;
-      mind.aimY = aim.y;
-      mind.ready = true;
-    } else {
-      mind.action = "HARASS";
-      mind.ready = false;
-    }
-    const escape = zoneEscape(hero, world?.zone);
-    if (hypot2(escape.x, escape.y) > 0.1) {
-      const hazardCc = (hero.ccTime ?? 0) > 0 ? 0.42 : 1;
-      const hazardLock = (hero.rootTime ?? 0) > 0
-        ? 0.35
-        : ((hero.hitstunTime ?? 0) > 0 || (hero.comboCaptureTime ?? 0) > 0 ? 0.72 : 1);
-      const move = applyCpuMove(escape.x, escape.y, hazardCc * hazardLock);
-      mind.mx = move.mx;
-      mind.my = move.my;
-      mind.action = "DODGE_WARNING";
-      mind.ready = true;
-    }
-  }
-  return applyCpu(mind, hero, bodies, rng, world);
-}
-
-/** 매 틱 버튼 — 직전 think 의 이동/조준 위에 fire/ultimate/mobility. */
-export function applyCpu(
-  mind: CpuMind,
-  hero: CpuBody,
-  heroes: Iterable<CpuBody>,
-  rng: MatchRng,
-  world?: CpuWorld,
-): CpuMatchInput | null {
-  if (!mind.ready) {return null;}
-  const prey = findHero(bySlot(heroes), mind.target);
-  const validPrey = cpuTargetValid(prey) ? prey! : null;
-  let fire = false;
-  let mobility = false;
-  let ultimate = false;
-  if ((hero.ultimateCharge ?? 0) >= CPU_ULTIMATE_READY && !hero.turtle) {
-    if (cpuWantUltimate(hero, validPrey) && rng.chance(CPU_ULTIMATE_CHANCE)) {
-      ultimate = true;
-    }
-  }
-  if (validPrey) {
-    if (cpuWantMobility(hero, validPrey, mind.action) && rng.chance(CPU_MOBILITY_CHANCE)) {
-      mobility = true;
-    }
-    if (cpuWantFire(hero, validPrey, world) && (hero.fireCd ?? 0) <= 0) {
-      fire = true;
-    }
-  }
-  return {
-    mx: mind.mx,
-    my: mind.my,
-    aimX: mind.aimX,
-    aimY: mind.aimY,
-    fire,
-    ultimate,
-    mobility,
-  };
-}
-
-/** 방별 CPU 두뇌 — MatchSim 이 시드로 하나 만들어 매 틱 command() 를 부른다. */
-export class CpuFleet {
-  private readonly rng: MatchRng;
-  private readonly minds = new Map<number, CpuMind>();
-
-  constructor(seed?: number) {
-    this.rng = new MatchRng(seed);
-  }
-
-  /** 이번 틱의 CPU 입력. 표적이 없으면 null. think 사이에는 직전 이동을 유지한다. */
-  command(hero: CpuBody, heroes: Iterable<CpuBody>, _tick: number, zone?: CpuZone): CpuCommand | null {
-    let mind = this.minds.get(hero.slot);
-    if (!mind) {
-      // 통합측은 틱마다 mx/my 로 속도를 다시 넣으므로, 첫 command 에서 바로 think 한다.
-      mind = seedCpu(hero.slot, hero.x, hero.y);
-      mind.think = 0;
-      this.minds.set(hero.slot, mind);
-    }
-    mind.recentAttacker = hero.recentAttacker ?? mind.recentAttacker;
-    const bodies = [...heroes].map((h) => {
-      const other = this.minds.get(h.slot);
-      return other ? { ...h, target: other.target } : h;
-    });
-    return tickCpu(mind, hero, bodies, this.rng, CPU_FIXED_DT, { zone });
-  }
-}
-export const seed = seedCpu;
-export const tick = tickCpu;
-export const apply = applyCpu;

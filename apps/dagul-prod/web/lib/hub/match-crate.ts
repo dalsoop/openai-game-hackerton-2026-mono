@@ -13,6 +13,7 @@ import {
   type CoverRect,
 } from "./match-covers.js";
 import { HEALTH_PICKUP_MAGNET_RADIUS, HEALTH_PICKUP_MAGNET_SPEED } from "./match-loot.js";
+import { SAFE_ZONE_DAMAGE_PER_SEC, heroInSafeZone, type SafeZoneState } from "./match-zone.js";
 
 export const CRATE_RADIUS = 28;
 export const CRATE_MAX_HP = 48;
@@ -182,6 +183,24 @@ export const seedBreakableCrates = spawnBreakableCrates;
 
 export function spawnCrateOrb(x: number, y: number, red: boolean): SimCrateOrb {
   return { x, y, homeX: x, homeY: y, red, arm: CRATE_ORB_ARM, magnetSlot: -1, active: true };
+}
+
+/**
+ * 장외 크레이트 환경 피해 — safe_zone_logic.gd:72-81.
+ * 히어로와 같은 16*dt. 존 안·이미 죽은 크레이트는 건너뛴다.
+ */
+export function applySafeZoneCrateDamage(
+  zone: SafeZoneState,
+  crates: readonly SimCrate[],
+  orbs: SimCrateOrb[],
+  dt: number,
+): void {
+  const amount = SAFE_ZONE_DAMAGE_PER_SEC * dt;
+  for (let i = 0; i < crates.length; i += 1) {
+    const crate = crates[i];
+    if (!crate.alive || heroInSafeZone(zone, crate.x, crate.y)) {continue;}
+    hurtCrate(crates, orbs, i, amount);
+  }
 }
 
 /** 크레이트 피해 — hurt_crate. 파괴 시 오브를 orbs 에 넣고 true 를 돌려준다. */

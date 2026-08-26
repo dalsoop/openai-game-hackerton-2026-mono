@@ -1,10 +1,11 @@
+/* eslint-disable max-lines, complexity, max-depth -- 매치 시뮬 파사드: 모듈 조합·히어로 틱이 한 파일 */
 import { idForBind, matchBindKey, seedSeatIdentities } from "../characters/index.js";
 import {
   ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena,
   nudgeOutOfCover, pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
 } from "./match-covers.js";
 import type { CoverRect, SimKnockout } from "./match-covers.js";
-import { CpuFleet } from "./match-cpu.js";
+import { CpuFleet } from "./match-cpu-think.js";
 import { applyEmoteInput, emoteSeedFields, tickEmotes, type EmoteFields } from "./match-emote.js";
 import {
   applyZoneLifeDamage, crawlDowned, downHero, lifeSeedFields, tickDowns,
@@ -12,35 +13,50 @@ import {
 } from "./match-life.js";
 import type { LifeHero } from "./match-life.js";
 import {
-  applyScoredDamage, resetDeadStreaks, scoreSeedFields, type ScoreFields,
+  applyScoredDamage, awardWinScore, resetDeadStreaks, scoreSeedFields, streakCalloutSeed,
+  tickStreakCallout, type ScoreFields, type StreakCalloutState,
 } from "./match-score.js";
-import { buildHealthPickups, handleUseInput, lootSeedFields, updateHealthPickups } from "./match-loot.js";
+import {
+  buildHealthPickups, handleUseInput, lootSeedFields, spawnGunLootPickup, tryCollectGunLoot,
+  updateHealthPickups, steerSlide, SPRING_BOOST,
+} from "./match-loot.js";
 import type { LootHero, LootPickup } from "./match-loot.js";
 import {
   MATCH_TIME_LIMIT, createSafeZone, pickTimeLimitWinner, updateSafeZone,
 } from "./match-zone.js";
 import type { SafeZoneState } from "./match-zone.js";
-import { ccSeedFields, movementControl, tickCc } from "./match-cc.js";
+import {
+  accumulateComboDamage, applyControl, applyGuard, ccSeedFields, comboAmplifier, movementControl,
+  registerComboHit, tickCc,
+} from "./match-cc.js";
 import type { CcHeroState } from "./match-cc.js";
-import { packCoresSnap, spawnCores, damageCore, coreExposed, projectileHitsCore } from "./match-core.js";
+import {
+  packCoresSnap, spawnCores, damageCore, coreExposed, projectileHitsCore, streakDamageMultiplier,
+} from "./match-core.js";
 import type { SimCore } from "./match-core.js";
 import {
   crateHeroSeedFields, spawnBreakableCrates, updateCrateOrbs, tickDmgOrbTime,
-  hurtCrate, packCratesSnap, packCrateOrbsSnap, CRATE_RADIUS,
+  hurtCrate, damageCratesAt, packCratesSnap, packCrateOrbsSnap, CRATE_ORB_DMG_MUL, CRATE_RADIUS,
+  applySafeZoneCrateDamage,
 } from "./match-crate.js";
 import type { CrateHero, SimCrate, SimCrateOrb } from "./match-crate.js";
 import {
-  seedDeployables, updateDeployables, type DeployableCore, type DeployableEvent, type DeployableState,
+  placeBounceWall, placeMine, seedDeployables, updateDeployables,
+  type DeployableCore, type DeployableEvent, type DeployableState,
 } from "./match-deployable.js";
 import { snapDeployables, tickWallHitCd } from "./match-deployable-hit.js";
-import { makeEquipment, startEquipmentId, equipmentReach } from "./match-equipment.js";
+import { GUN_LOOT_MODES, makeEquipment, startEquipmentId, equipmentReach } from "./match-equipment.js";
 import {
-  applyGunInput, gunSeedFields, tickGun, HOP_AIR, HOP_LIFT_DEFAULT, type GunHero, type GunProjectile,
+  applyGunInput, gunSeedFields, tickGun, weaponPassiveDamageMul,
+  HOP_AIR, HOP_LIFT_DEFAULT, type GunHero, type GunApplyResult, type GunProjectile,
 } from "./match-gun.js";
+import { CHARGE_MOVE_MUL, cancelSkillCharge } from "./match-skill.js";
 import {
   applyFinish, packFinishCine, seedFinishCine, tickFinishCine, type FinishCine,
 } from "./match-finish.js";
-import { launchSeedFields, tickLaunch, tickLaunchTrailFade } from "./match-launch.js";
+import {
+  applyLaunch, isHeavyBlast, launchSeedFields, tickLaunch, tickLaunchTrailFade,
+} from "./match-launch.js";
 import type { LaunchState } from "./match-launch.js";
 import { MatchRng } from "./match-rng.js";
 import {
@@ -55,13 +71,14 @@ import {
   type ChargeHero, type UltHero, type UltWorld,
 } from "./match-ultimate.js";
 import {
-  createWantedState, packWantedSnap, queueRoulette, rouletteSeedFields, tickRoulettes,
-  updateThreat, wantedSeedFields,
+  absorbRouletteShield, createWantedState, packWantedSnap, queueRoulette, rouletteSeedFields,
+  rouletteStat, tickRoulettes, updateThreat, wantedSeedFields,
   type RouletteHero, type WantedHero, type WantedState,
 } from "./match-wanted.js";
 
 export * from "./match-covers.js";
 export * from "./match-cpu.js";
+export * from "./match-cpu-think.js";
 export * from "./match-emote.js";
 export * from "./match-life.js";
 export * from "./match-loot.js";
@@ -84,6 +101,19 @@ export const START_COUNTDOWN = 3;
 export const PLAYER_COUNT = 8;
 /** game_world.gd HOP_LOCK. */
 export const HOP_LOCK = 0.08;
+/** projectile_hit.gd splash 피해 배율. */
+export const PROJECTILE_SPLASH_MUL = 0.55;
+/** projectile_hit.gd leech 회복 배율. */
+export const PROJECTILE_LEECH_MUL = 0.13;
+/** projectile_hit.gd splash cc/knockback 배율. */
+export const PROJECTILE_SPLASH_CC_MUL = 0.65;
+export const PROJECTILE_SPLASH_KB_MUL = 0.65;
+/** damage_system.gd:236 — 1 + clamp((match_time-65)/35, 0, 1.25). */
+export const MATCH_DMG_TIME_START = 65;
+export const MATCH_DMG_TIME_SPAN = 35;
+export const MATCH_DMG_TIME_CAP = 1.25;
+/** damage_system.gd:253 — 방어 룰렛 하한. */
+export const ROULETTE_DEF_FLOOR = 0.05;
 
 export type MatchInput = {
   mx?: unknown;
@@ -106,7 +136,7 @@ export type MatchInput = {
   seq?: unknown;
 };
 
-export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld"> & ScoreFields & EmoteFields
+export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldItem"> & ScoreFields & EmoteFields
   & CcHeroState & LaunchState & CrateHero & WantedHero & RouletteHero & GunHero & UltHero & ChargeHero & {
     normalHits: number;
     equipmentHits: number;
@@ -125,6 +155,8 @@ export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld"> & ScoreFi
     action: string;
     coreDamage: number;
     eliminations: number;
+    slideTime: number;
+    springTime: number;
   };
 
 export type SimBullet = {
@@ -145,6 +177,8 @@ export type SimBullet = {
   heavy: boolean;
   leech: boolean;
   ccTime: number;
+  hitSlots: number[];
+  homing: number;
 };
 
 export type SimZone = {
@@ -156,6 +190,10 @@ export type SimZone = {
   damage: number;
   effectKind: string;
   label: string;
+  ccTime?: number;
+  knockback?: number;
+  leech?: boolean;
+  controlKind?: "slow" | "root" | "stun";
 };
 
 export type GunFireFx = {
@@ -202,6 +240,8 @@ export class MatchSim {
   callout = "NO TEAMS. ONLY TEMPORARY CONVENIENCE.";
   calloutTicks = 210;
   mode = "classic";
+  /** 스트릭·셧다운 콜아웃 상태 — match_lifecycle.gd:240-255. 스냅 헤더로 나간다. */
+  readonly streakState: StreakCalloutState = streakCalloutSeed();
   private nextBulletId = 1;
   private inputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
@@ -262,6 +302,8 @@ export class MatchSim {
         action: "READY",
         coreDamage: 0,
         eliminations: 0,
+        slideTime: 0,
+        springTime: 0,
         facingX,
         facingY,
         ...lifeSeedFields(pos.x, pos.y),
@@ -333,9 +375,11 @@ export class MatchSim {
     for (const downed of applyZoneLifeDamage(this.heroes, this.zone, dt)) {
       this.knockouts.push(spawnKnockout(downed));
     }
+    applySafeZoneCrateDamage(this.zone, this.crates, this.crateOrbs, dt);
+    tickStreakCallout(this.streakState);
     tickDowns(this.heroes, this.zone, dt);
     tickUltClones(this.ultWorld, this.heroes, dt);
-    updateHealthPickups(this.loot, this.heroes, dt);
+    updateHealthPickups(this.loot, this.heroes, dt, this.mode);
     updateCrateOrbs(this.crateOrbs, this.heroes, dt);
     updateRespawns(this.heroes, this.zone, this.covers, dt);
     tickKnockouts(this.knockouts, dt);
@@ -361,18 +405,21 @@ export class MatchSim {
     if (standing.length > 1) {return;}
     this.result = standing.length === 0 ? "draw" : "won";
     this.winner = standing[0]?.slot ?? -1;
+    if (standing.length === 1) {awardWinScore(standing[0]);}
   }
 
   /** 210초 도달 — 비탈락 생존자 중 HP비율 > 점수(kills*100) > 낮은 슬롯. */
   private resolveTimeLimit(): void {
     if (this.result !== "playing") {return;}
     const ranks = [...this.heroes.values()].map((h) => ({
-      slot: h.slot, hp: h.hp, maxHp: h.maxHp, kills: h.kills,
+      slot: h.slot, hp: h.hp, maxHp: h.maxHp, kills: h.kills, score: h.score,
       alive: h.alive && !h.eliminated,
     }));
     const best = pickTimeLimitWinner(ranks);
     this.result = best < 0 ? "draw" : "won";
     this.winner = best;
+    const winnerHero = best >= 0 ? this.heroes.get(best) : undefined;
+    if (winnerHero) {awardWinScore(winnerHero);}
   }
 
   private hasHumanSeat(): boolean {
@@ -453,6 +500,8 @@ export class MatchSim {
       if (prevHop > 0 && h.hopTime <= 0) {h.hopLock = HOP_LOCK;}
       else {h.hopLock = Math.max(0, h.hopLock - dt);}
       h.evadeTime = Math.max(0, h.evadeTime - dt);
+      h.slideTime = Math.max(0, h.slideTime - dt);
+      h.springTime = Math.max(0, h.springTime - dt);
       tickLaunchTrailFade(h, dt);
       tickPassiveUltCharge(h, dt);
       h.turtle = h.rlTimed.some((b) => b.id === "turtle" && b.time > 0);
@@ -478,11 +527,21 @@ export class MatchSim {
   }
 
   private driveCpu(hero: SimHero, dt: number): void {
-    const cmd = this.cpuFleet.command(hero, this.heroes.values(), this.tick, this.zone);
+    const cmd = this.cpuFleet.command(hero, this.heroes.values(), this.tick, {
+      zone: this.zone,
+      pickups: this.loot,
+      crates: this.crates,
+      crateOrbs: this.crateOrbs,
+      midTower: this.midTower,
+      warnZones: this.zones,
+      deployables: this.deploy.deployables,
+      mode: this.mode,
+    });
     if (!cmd) {return;}
     this.applyHero(hero, {
       mx: cmd.mx, my: cmd.my, aimX: cmd.aimX, aimY: cmd.aimY,
-      fire: cmd.fire, ultimate: cmd.ultimate, dash: false, mobility: false,
+      fire: cmd.fire, ultimate: cmd.ultimate, dash: false,
+      mobility: cmd.mobility, use: cmd.use,
     }, dt);
   }
 
@@ -534,6 +593,7 @@ export class MatchSim {
       hero.facing = { x: hero.facingX, y: hero.facingY };
       hero.aim = { x: hero.facingX, y: hero.facingY };
     }
+    if (truthy(cmd.ultimate)) {cancelSkillCharge(hero);}
     applyUltimateInput(this.ultWorld, this.heroes, hero.slot, truthy(cmd.ultimate), { x: hero.aimX, y: hero.aimY });
     if (truthy(cmd.hop) && hero.hopTime <= 0 && hero.hopLock <= 0 && hero.rootTime <= 0 && !hero.turtle) {
       hero.hopTime = HOP_AIR;
@@ -541,19 +601,18 @@ export class MatchSim {
       hero.hopHeight = HOP_LIFT_DEFAULT;
     }
     const ctrl = movementControl(hero);
-    if (ctrl.locked) {return;}
-    const spd = heroMoveSpeed(this.ultWorld, this.heroes, hero.slot, MOVE_SPEED) * ctrl.mult;
-    const slid = resolveCoverMotion(hero.x, hero.y, mx * spd * dt, my * spd * dt, this.covers);
-    const next = clampArena(slid.x, slid.y);
-    hero.x = next.x;
-    hero.y = next.y;
-    hero.vx = mx * spd;
-    hero.vy = my * spd;
-    hero.vel = { x: hero.vx, y: hero.vy };
-    hero.action = mlen > 0.04 ? "run" : "idle";
+    if (ctrl.locked) {
+      cancelSkillCharge(hero);
+      return;
+    }
+    this.stepHeroMove(hero, mx, my, mlen, ctrl.mult, dt);
     const savedAimX = hero.aimX;
     const savedAimY = hero.aimY;
     const others = [...this.heroes.values()].filter((h) => h.slot !== hero.slot);
+    const eqHeld = truthy(cmd.equipment) || truthy(cmd.equipmentPressed);
+    const eqPressed = truthy(cmd.equipmentPressed) || (eqHeld && !hero.equipmentHeld);
+    const eqReleased = truthy(cmd.equipmentReleased) || (!eqHeld && hero.equipmentHeld);
+    hero.equipmentHeld = eqHeld;
     const gun = applyGunInput(hero, {
       primary: truthy(cmd.fire),
       primaryPressed: truthy(cmd.firePressed) || truthy(cmd.fire),
@@ -561,15 +620,78 @@ export class MatchSim {
       mobility: truthy(cmd.dash) || truthy(cmd.mobility),
       moveX: mx,
       moveY: my,
-      equipmentPressed: truthy(cmd.equipment) || truthy(cmd.equipmentPressed),
+      equipment: eqHeld,
+      equipmentPressed: eqPressed,
+      equipmentReleased: eqReleased,
+      dt,
     }, this.covers, others);
     hero.aimX = savedAimX;
     hero.aimY = savedAimY;
     hero.facing = { x: hero.facingX, y: hero.facingY };
     hero.aim = { x: hero.facingX, y: hero.facingY };
-    if (gun.kind === "fire" && gun.used) {
-      this.ingestProjectiles(gun.projectiles, hero);
+    this.consumeGunResult(hero, gun);
+  }
+
+  private stepHeroMove(hero: SimHero, mx: number, my: number, mlen: number, ctrlMult: number, dt: number): void {
+    let mult = ctrlMult;
+    if (hero.attackLockTime > 0) {mult *= 0.76;}
+    if (hero.chargingSkill) {mult *= CHARGE_MOVE_MUL;}
+    const spd = heroMoveSpeed(this.ultWorld, this.heroes, hero.slot, hero.equipment.moveSpeed) * mult;
+    if (hero.slideTime > 0) {
+      steerSlide(hero, mx, my, spd, dt);
+    } else {
+      hero.vx = mx * spd;
+      hero.vy = my * spd;
+      if (hero.springTime > 0) {this.applySpringBoost(hero, mx, my);}
+      hero.vel = { x: hero.vx, y: hero.vy };
+    }
+    const slid = resolveCoverMotion(hero.x, hero.y, hero.vx * dt, hero.vy * dt, this.covers);
+    const next = clampArena(slid.x, slid.y);
+    hero.x = next.x;
+    hero.y = next.y;
+    if (hero.chargingSkill) {hero.action = "CHARGING_SKILL";}
+    else {hero.action = mlen > 0.04 ? "run" : "idle";}
+  }
+
+  private applySpringBoost(hero: SimHero, mx: number, my: number): void {
+    let bx = mx;
+    let by = my;
+    if (bx * bx + by * by < 0.1) {
+      bx = hero.facingX;
+      by = hero.facingY;
+    }
+    const len = Math.hypot(bx, by);
+    if (len * len <= 0.1) {return;}
+    hero.vx += (bx / len) * SPRING_BOOST;
+    hero.vy += (by / len) * SPRING_BOOST;
+  }
+
+  private consumeGunResult(hero: SimHero, gun: GunApplyResult): void {
+    if ((gun.kind === "fire" || gun.kind === "skill") && gun.used) {
+      this.ingestProjectiles(gun.projectiles);
       this.fx.push({ slot: hero.slot, x: hero.x, y: hero.y, aimX: hero.aimX, aimY: hero.aimY });
+    }
+    for (const z of gun.zones) {
+      this.zones.push({
+        x: z.x, y: z.y, radius: z.radius, owner: z.owner, delay: z.delay, damage: z.damage,
+        effectKind: z.effectKind, label: z.label, ccTime: z.ccTime, knockback: z.knockback,
+        leech: z.leech, controlKind: z.controlKind,
+      });
+    }
+    if (gun.mine) {
+      placeMine(this.deploy, { slot: hero.slot, x: hero.x, y: hero.y }, gun.mine.x, gun.mine.y, this.covers, {
+        damage: gun.mine.damage, blastRadius: gun.mine.blastRadius, armTime: gun.mine.armTime,
+        lifetime: gun.mine.lifetime, fuseTime: gun.mine.fuseTime,
+      });
+    }
+    if (gun.wall) {
+      placeBounceWall(
+        this.deploy, { slot: hero.slot, x: hero.x, y: hero.y },
+        gun.wall.x, gun.wall.y, gun.wall.facingX, gun.wall.facingY, this.covers, {
+          halfLength: gun.wall.halfLength, lifetime: gun.wall.lifetime, speed: gun.wall.speed,
+          damage: gun.wall.damage, knockback: gun.wall.knockback,
+        },
+      );
     }
     for (const hit of gun.hits) {
       const vic = this.heroes.get(hit.targetSlot);
@@ -577,17 +699,15 @@ export class MatchSim {
     }
   }
 
-  private ingestProjectiles(shots: GunProjectile[], hero: SimHero): void {
-    const dirLen = Math.hypot(hero.facingX, hero.facingY) || 1;
-    const muzzleX = hero.x + (hero.facingX / dirLen) * 28;
-    const muzzleY = hero.y + (hero.facingY / dirLen) * 28;
+  private ingestProjectiles(shots: GunProjectile[]): void {
     for (const p of shots) {
       const id = this.nextBulletId;
       this.nextBulletId += 1;
       this.bullets.set(id, {
-        id, x: muzzleX, y: muzzleY, vx: p.vx, vy: p.vy, owner: p.owner, ttl: p.ttl, kind: p.kind,
-        damage: p.damage, radius: BULLET_RADIUS, splash: p.splash, pierce: p.pierce,
+        id, x: p.x, y: p.y, vx: p.vx, vy: p.vy, owner: p.owner, ttl: p.ttl, kind: p.kind,
+        damage: p.damage, radius: p.radius, splash: p.splash, pierce: p.pierce,
         knockback: p.knockback, source: p.source, heavy: p.heavy, leech: p.leech, ccTime: p.ccTime,
+        hitSlots: [], homing: p.homing ?? 0,
       });
     }
   }
@@ -599,7 +719,7 @@ export class MatchSim {
       id, x: shell.x, y: shell.y, vx: shell.vx, vy: shell.vy, owner: shell.owner, ttl: shell.ttl,
       kind: shell.kind, damage: shell.damage, radius: shell.radius, splash: shell.splash,
       pierce: shell.pierce, knockback: shell.knockback, source: shell.source, heavy: false,
-      leech: shell.leech, ccTime: shell.ccTime,
+      leech: shell.leech, ccTime: shell.ccTime, hitSlots: [], homing: 0,
     });
   }
 
@@ -611,22 +731,58 @@ export class MatchSim {
 
   private expireOrHit(b: SimBullet, dt: number): boolean {
     b.ttl -= dt;
+    this.steerHoming(b, dt);
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     if (b.ttl <= 0 || b.x < 0 || b.y < 0 || b.x > ARENA_SIZE.x || b.y > ARENA_SIZE.y) {
       return true;
     }
-    if (pointInCover(b.x, b.y, this.covers)) {return true;}
+    if (pointInCover(b.x, b.y, this.covers)) {
+      this.splashAround(b, -1);
+      return true;
+    }
     this.hitCrates(b);
     this.hitCores(b);
     const victim = this.hitHero(b);
     if (!victim) {return false;}
-    this.hurtHero(b.owner, victim, b.damage, b.source);
+    this.applyBulletHeroHit(b, victim);
     if (b.pierce > 0) {
       b.pierce -= 1;
+      b.hitSlots.push(victim.slot);
       return false;
     }
     return true;
+  }
+
+  private applyBulletHeroHit(b: SimBullet, victim: SimHero): void {
+    const attacker = this.heroes.get(b.owner);
+    this.hurtHero(b.owner, victim, b.damage, b.source, {
+      knockback: b.knockback,
+      impactX: attacker?.x ?? b.x,
+      impactY: attacker?.y ?? b.y,
+      heavy: b.heavy,
+      effectKind: projectileImpactKind(b.kind),
+      ccTime: b.ccTime,
+    });
+    if (b.splash > 0) {this.splashAround(b, victim.slot);}
+    if (b.leech && attacker?.alive) {
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + b.damage * PROJECTILE_LEECH_MUL);
+    }
+  }
+
+  private splashAround(b: SimBullet, primary: number): void {
+    if (b.splash <= 0) {return;}
+    const dmg = b.damage * PROJECTILE_SPLASH_MUL;
+    const kb = b.knockback * PROJECTILE_SPLASH_KB_MUL;
+    const cc = b.ccTime * PROJECTILE_SPLASH_CC_MUL;
+    for (const h of this.heroes.values()) {
+      if (!h.alive || h.slot === b.owner || h.slot === primary) {continue;}
+      if (Math.hypot(h.x - b.x, h.y - b.y) > b.splash) {continue;}
+      this.hurtHero(b.owner, h, dmg, b.source, {
+        knockback: kb, impactX: b.x, impactY: b.y, effectKind: "explosion", label: "SPLASH", ccTime: cc,
+      });
+    }
+    damageCratesAt(this.crates, this.crateOrbs, b.x, b.y, b.splash, dmg);
   }
 
   private hitCrates(b: SimBullet): void {
@@ -634,7 +790,9 @@ export class MatchSim {
       const c = this.crates[i];
       if (!c.alive) {continue;}
       if (Math.hypot(b.x - c.x, b.y - c.y) > (b.radius || BULLET_RADIUS) + CRATE_RADIUS) {continue;}
-      hurtCrate(this.crates, this.crateOrbs, i, b.damage);
+      if (hurtCrate(this.crates, this.crateOrbs, i, b.damage) && isGunLootMode(this.mode)) {
+        spawnGunLootPickup(this.loot, c.x, c.y);
+      }
     }
   }
 
@@ -651,19 +809,84 @@ export class MatchSim {
   private hitHero(b: SimBullet): SimHero | null {
     const hitR = HERO_RADIUS + (b.radius || BULLET_RADIUS);
     for (const hero of this.heroes.values()) {
-      if (!hero.alive || hero.slot === b.owner) {continue;}
+      if (!hero.alive || hero.slot === b.owner || hero.burrowed) {continue;}
+      if (b.hitSlots.includes(hero.slot)) {continue;}
       if ((hero.x - b.x) ** 2 + (hero.y - b.y) ** 2 <= hitR * hitR) {return hero;}
     }
     return null;
   }
 
-  private hurtHero(owner: number, victim: SimHero, amount: number, source = "normal"): void {
+  private steerHoming(b: SimBullet, dt: number): void {
+    if (b.homing <= 0) {return;}
+    let nearest: SimHero | null = null;
+    let best = Infinity;
+    for (const h of this.heroes.values()) {
+      if (!h.alive || h.slot === b.owner) {continue;}
+      const dist = Math.hypot(h.x - b.x, h.y - b.y);
+      if (dist >= best) {continue;}
+      best = dist;
+      nearest = h;
+    }
+    if (!nearest) {return;}
+    const speed = Math.hypot(b.vx, b.vy);
+    if (speed <= 0) {return;}
+    const dx = nearest.x - b.x;
+    const dy = nearest.y - b.y;
+    const dlen = Math.hypot(dx, dy) || 1;
+    const turn = Math.min(1, Math.max(0, b.homing * dt));
+    const nx = b.vx / speed + (dx / dlen - b.vx / speed) * turn;
+    const ny = b.vy / speed + (dy / dlen - b.vy / speed) * turn;
+    const nlen = Math.hypot(nx, ny) || 1;
+    b.vx = (nx / nlen) * speed;
+    b.vy = (ny / nlen) * speed;
+  }
+
+  private hurtHero(owner: number, victim: SimHero, amount: number, source = "normal", ctx: HurtCtx = {}): void {
+    if (!victim.alive || victim.burrowed || victim.spawnProtect > 0) {return;}
+    if (victim.evadeTime > 0) {
+      victim.evadeTime = 0;
+      return;
+    }
+    if (victim.chargingSkill) {cancelSkillCharge(victim);}
     const attacker = this.heroes.get(owner);
-    const event = applyScoredDamage(this.heroes, owner, victim, amount);
-    if (attacker) {applyHitUltCharge(attacker, victim, amount, source, owner === victim.slot);}
+    const scaled = scaleGunHit(this, attacker, victim, amount, source, ctx);
+    const event = applyScoredDamage(this.heroes, owner, victim, scaled.amount, this.streakState);
+    if (attacker) {
+      applyHitUltCharge(attacker, victim, scaled.amount, source, owner === victim.slot);
+      this.applyGunShove(attacker, victim, source, ctx);
+      if (event === "dead" && isGunLootMode(this.mode)) {
+        tryCollectGunLoot(attacker, this.mode);
+      }
+    }
     if (event === "down" || event === "dead") {
       this.knockouts.push(spawnKnockout(victim));
     }
+  }
+
+  private applyGunShove(attacker: SimHero, victim: SimHero, source: string, ctx: HurtCtx): void {
+    const effectKind = ctx.effectKind ?? "hit_spark";
+    const label = ctx.label ?? "";
+    const heavyBlast = isHeavyBlast(effectKind, label);
+    applyLaunch(victim, {
+      source,
+      knockback: ctx.knockback ?? 0,
+      guardTime: victim.guardTime,
+      heavyBlast,
+      attackFinisher: Boolean(ctx.attackFinisher),
+      superArmorTime: victim.superArmorTime,
+      superArmorStrength: victim.superArmorStrength,
+      impactOrigin: { x: ctx.impactX ?? 0, y: ctx.impactY ?? 0 },
+      attackerPos: { x: attacker.x, y: attacker.y },
+      attackerAim: { x: attacker.aimX, y: attacker.aimY },
+      weight: victim.weight,
+      owner: attacker.slot,
+      comboDamage: victim.comboDamage,
+      covers: this.covers,
+      chainWeapon: attacker.equipment.id === "chain",
+    });
+    const clamped = clampArena(victim.x, victim.y);
+    victim.x = clamped.x;
+    victim.y = clamped.y;
   }
 
   private stepDeployables(dt: number): void {
@@ -735,8 +958,15 @@ export class MatchSim {
       }
       for (const h of this.heroes.values()) {
         if (!h.alive || h.slot === z.owner) {continue;}
-        if (Math.hypot(h.x - z.x, h.y - z.y) <= z.radius + HERO_RADIUS) {
-          this.hurtHero(z.owner, h, z.damage, "equipment");
+        if (Math.hypot(h.x - z.x, h.y - z.y) > z.radius + HERO_RADIUS) {continue;}
+        this.hurtHero(z.owner, h, z.damage, "equipment", {
+          knockback: z.knockback ?? 0, impactX: z.x, impactY: z.y, effectKind: z.effectKind, label: z.label,
+          ccTime: z.ccTime ?? 0,
+        });
+        if (z.controlKind) {applyControl(h, z.ccTime ?? 0, z.controlKind);}
+        if (z.leech) {
+          const atk = this.heroes.get(z.owner);
+          if (atk?.alive) {atk.hp = Math.min(atk.maxHp, atk.hp + z.damage * PROJECTILE_LEECH_MUL);}
         }
       }
     }
@@ -747,6 +977,62 @@ export class MatchSim {
     const ev = updateThreat(this.wanted, this.heroes.values(), dt);
     if (ev) {this.announce(ev.announce, ev.announceTicks);}
   }
+}
+
+type HurtCtx = {
+  knockback?: number;
+  impactX?: number;
+  impactY?: number;
+  heavy?: boolean;
+  attackFinisher?: boolean;
+  label?: string;
+  effectKind?: string;
+  ccTime?: number;
+};
+
+/** damage_system.gd:236. */
+export function matchTimeDamageScale(matchTime: number): number {
+  const t = (matchTime - MATCH_DMG_TIME_START) / MATCH_DMG_TIME_SPAN;
+  return 1 + Math.min(MATCH_DMG_TIME_CAP, Math.max(0, t));
+}
+
+function isGunLootMode(mode: string): boolean {
+  return (GUN_LOOT_MODES as readonly string[]).includes(mode);
+}
+
+/** projectile_hit.gd projectile_impact_kind. */
+function projectileImpactKind(kind: string): string {
+  if (kind === "beam") {return "beam_hit";}
+  if (kind === "shell" || kind === "seeker") {return "explosion";}
+  if (kind === "tether") {return "drain";}
+  if (kind === "hammer") {return "hammer_slam";}
+  if (kind === "slash") {return "slashwave";}
+  if (kind === "fist") {return "fist_burst";}
+  if (kind === "bomb") {return "explosion";}
+  if (kind === "spear") {return "spear_line";}
+  if (kind === "chain") {return "chain_arc";}
+  if (kind === "shield") {return "shield_bash";}
+  return "hit_spark";
+}
+
+function scaleGunHit(
+  sim: MatchSim, attacker: SimHero | undefined, victim: SimHero, amount: number, source: string, ctx: HurtCtx,
+): { amount: number } {
+  if (source !== "normal" || !attacker) {return { amount };}
+  amount *= streakDamageMultiplier(attacker.killStreak);
+  if (attacker.dmgOrbTime > 0) {amount *= CRATE_ORB_DMG_MUL;}
+  const dist = Math.hypot(attacker.x - victim.x, attacker.y - victim.y);
+  amount *= weaponPassiveDamageMul(attacker.equipment.id, attacker.hp, attacker.maxHp, dist);
+  amount *= matchTimeDamageScale(sim.matchTime);
+  const comboHit = registerComboHit(victim, attacker.slot, Boolean(ctx.attackFinisher));
+  amount *= comboAmplifier(comboHit);
+  amount += rouletteStat(attacker, "atk");
+  amount *= Math.max(ROULETTE_DEF_FLOOR, 1 - rouletteStat(victim, "def"));
+  amount = absorbRouletteShield(victim, amount);
+  const guarded = applyGuard(victim, amount, ctx.knockback ?? 0);
+  amount = guarded.amount;
+  if (!victim.downed) {accumulateComboDamage(victim, amount);}
+  return { amount };
 }
 
 export function packZonesSnap(zones: readonly SimZone[]): Array<Record<string, unknown>> {

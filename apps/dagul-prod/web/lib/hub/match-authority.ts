@@ -1,117 +1,13 @@
 import { BulletSchema, HeroSchema, type LobbyState } from "./lobby-state.js";
+import { packAuthoritySnap, type SnapEvent } from "./match-authority-snap.js";
 import {
-  ARENA_CENTER, FIXED_DT, MatchSim, packCoresSnap, packCrateOrbsSnap, packCratesSnap,
-  packFinishCine, packItemField, packLootSnap, packMidTowerSnap,
-  packWantedSnap, packZonesSnap, snapDeployables,
+  FIXED_DT, MatchSim,
   type GunFireFx, type MatchInput, type SeatSeed,
 } from "./match-sim.js";
 
-export type SnapPlayer = {
-  slot: number;
-  name: string;
-  x: number;
-  y: number;
-  aimX: number;
-  aimY: number;
-  hp: number;
-  maxHp: number;
-  alive: boolean;
-  mag: number;
-  magMax: number;
-  reloadLeft: number;
-  weapon: string;
-  ult: number;
-  ack: number;
-  animal: number;
-  characterId: string;
-  cpu: boolean;
-  item: string;
-  kills: number;
-  downed: boolean;
-  downLeft: number;
-  deaths: number;
-  score: number;
-  streak: number;
-  emote: number;
-  emoteTime: number;
-};
+export { packAuthoritySnap, type SnapEvent, type SnapPlayer } from "./match-authority-snap.js";
 
-export function packAuthoritySnap(
-  sim: MatchSim,
-  names: ReadonlyMap<number, string>,
-  mode: string,
-): Record<string, unknown> {
-  const players: SnapPlayer[] = [];
-  for (const h of sim.heroes.values()) {
-    players.push({
-      slot: h.slot,
-      name: names.get(h.slot) ?? `P${h.slot + 1}`,
-      x: h.x,
-      y: h.y,
-      aimX: h.aimX,
-      aimY: h.aimY,
-      hp: h.hp,
-      maxHp: h.maxHp,
-      alive: h.alive,
-      mag: h.mag,
-      magMax: h.magMax,
-      reloadLeft: h.reloadLeft,
-      weapon: h.equipment.name,
-      ult: h.ultimateCharge,
-      ack: h.ack,
-      animal: h.animal,
-      kills: h.kills,
-      characterId: h.characterId,
-      cpu: h.cpu,
-      item: packItemField(h.medkits),
-      downed: h.downed,
-      downLeft: h.downLeft,
-      deaths: h.deaths,
-      score: h.score,
-      streak: h.killStreak,
-      emote: h.emote,
-      emoteTime: h.emoteTime,
-    });
-  }
-  const bullets = [...sim.bullets.values()].map((b) => ({
-    id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, owner: b.owner, kind: b.kind,
-  }));
-  const covers = sim.covers.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h }));
-  const knockouts = sim.knockouts.map((k) => ({
-    slot: k.slot, animal: k.animal, x: k.x, y: k.y, time: k.time, max_time: k.maxTime,
-  }));
-  const loot = packLootSnap(sim.loot);
-  const wanted = packWantedSnap(sim.wanted);
-  return {
-    tick: sim.tick,
-    time: sim.matchTime,
-    result: sim.result,
-    winner: sim.winner,
-    zoneR: sim.zone.radius,
-    shrinking: sim.zone.shrinking,
-    zoneCX: ARENA_CENTER.x,
-    zoneCY: ARENA_CENTER.y,
-    zonePhase: sim.zone.phase,
-    startCountdown: sim.countdown,
-    finishCine: packFinishCine(sim.finishCine),
-    finish_cine: packFinishCine(sim.finishCine),
-    callout: sim.callout,
-    calloutTicks: sim.calloutTicks,
-    wantedSlot: wanted.wantedSlot,
-    cores: packCoresSnap(sim.cores),
-    crates: packCratesSnap(sim.crates),
-    crate_orbs: packCrateOrbsSnap(sim.crateOrbs),
-    mid_tower: packMidTowerSnap(sim.midTower),
-    deployables: snapDeployables(sim.deploy.deployables),
-    zones: packZonesSnap(sim.zones),
-    mode,
-    players,
-    bullets,
-    covers,
-    knockouts,
-    loot,
-  };
-}
+const EVENT_CAP = 32;
 
 export function writeMatchSchema(state: LobbyState, sim: MatchSim): void {
   state.matchTick = sim.tick;
@@ -179,6 +75,8 @@ export class MatchAuthority {
   private acc = 0;
   private snapAcc = 0;
   private mode: string;
+  private pendingEvents: SnapEvent[] = [];
+  private ultEventAt = 0;
 
   /** seed — 방 시드(room.state.seed). CPU 결정론 난수의 뿌리. */
   constructor(seats: readonly SeatSeed[], mode: string, seed = 0) {
@@ -194,7 +92,10 @@ export class MatchAuthority {
     this.sim.pushInput(slot, data);
   }
 
-  advance(dtSec: number, _state: LobbyState): { snap: Record<string, unknown> | null; fx: GunFireFx[] } {
+  advance(
+    dtSec: number,
+    _state: LobbyState,
+  ): { snap: Record<string, unknown> | null; fx: GunFireFx[]; events: SnapEvent[] } {
     this.acc += dtSec;
     if (this.acc > FIXED_DT * MAX_STEPS) {this.acc = FIXED_DT * MAX_STEPS;}
     const fx: GunFireFx[] = [];
@@ -202,13 +103,42 @@ export class MatchAuthority {
     while (this.acc >= FIXED_DT - 1e-9 && steps < MAX_STEPS) {
       this.acc -= FIXED_DT;
       this.sim.step(FIXED_DT);
-      fx.push(...this.sim.drainFx());
+      const stepFx = this.sim.drainFx();
+      fx.push(...stepFx);
+      this.ingestEvents(stepFx);
       steps += 1;
     }
     this.snapAcc += dtSec;
-    if (this.snapAcc < SNAP_DT - 1e-9) {return { snap: null, fx };}
+    if (this.snapAcc < SNAP_DT - 1e-9) {return { snap: null, fx, events: [] };}
     this.snapAcc = 0;
-    return { snap: packAuthoritySnap(this.sim, this.names, this.mode), fx };
+    const events = this.takeEvents();
+    return { snap: packAuthoritySnap(this.sim, this.names, this.mode, events), fx, events };
+  }
+
+  private ingestEvents(stepFx: readonly GunFireFx[]): void {
+    const ult = this.sim.ultWorld.events;
+    for (const ev of ult.slice(this.ultEventAt)) {
+      this.pendingEvents.push({ t: ev.tick, k: ev.type, a: ev.actor, b: ev.target, d: ev.data });
+    }
+    this.ultEventAt = ult.length;
+    for (const fire of stepFx) {
+      this.pendingEvents.push(this.toGunFireEvent(fire));
+    }
+  }
+
+  private toGunFireEvent(fire: GunFireFx): SnapEvent {
+    const hero = this.sim.heroes.get(fire.slot);
+    return {
+      t: this.sim.tick, k: "gun_fire", a: fire.slot, b: -1,
+      d: { equipment: hero?.equipment.id ?? "", x: fire.x, y: fire.y },
+    };
+  }
+
+  private takeEvents(): SnapEvent[] {
+    const all = this.pendingEvents;
+    this.pendingEvents = [];
+    if (all.length <= EVENT_CAP) {return all;}
+    return all.slice(all.length - EVENT_CAP);
   }
 }
 
@@ -218,9 +148,11 @@ export function acceptPlayInput(
   sessionId: string,
   data: Record<string, unknown>,
   authority: MatchAuthority | null,
+  mappedSlot = -1,
 ): boolean {
   if (phase !== "playing" || !authority) {return false;}
-  const slot = players.find((p) => p.sessionId === sessionId)?.slot ?? -1;
+  const seated = players.find((p) => p.sessionId === sessionId)?.slot ?? -1;
+  const slot = seated >= 0 ? seated : mappedSlot;
   if (slot < 0) {return false;}
   authority.pushInput(slot, data);
   return true;
@@ -234,7 +166,7 @@ export function tick(
   authority: MatchAuthority,
   dtSec: number,
   state: LobbyState,
-): { snap: Record<string, unknown> | null; fx: GunFireFx[] } {
+): { snap: Record<string, unknown> | null; fx: GunFireFx[]; events: SnapEvent[] } {
   return authority.advance(dtSec, state);
 }
 

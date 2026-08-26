@@ -102,13 +102,14 @@ describe("SafeZone", () => {
     expect(sim.winner).toBe(0);
   });
 
-  it("시간 판정 우선순위 — HP비율 > 점수 > 낮은 슬롯", () => {
-    const hero = (slot: number, hp: number, kills: number): {
-      slot: number; hp: number; maxHp: number; alive: boolean; kills: number;
-    } => ({ slot, hp, maxHp: 176, alive: true, kills });
-    expect(pickTimeLimitWinner([hero(0, 50, 5), hero(1, 100, 0)])).toBe(1);
-    expect(pickTimeLimitWinner([hero(0, 100, 0), hero(1, 100, 2)])).toBe(1);
-    expect(pickTimeLimitWinner([hero(1, 100, 1), hero(0, 100, 1)])).toBe(0);
+  it("시간 판정 우선순위 — HP비율 > 실제 score > 낮은 슬롯 (kills*100 아님)", () => {
+    const hero = (slot: number, hp: number, score: number, kills = 0): {
+      slot: number; hp: number; maxHp: number; alive: boolean; score: number; kills: number;
+    } => ({ slot, hp, maxHp: 176, alive: true, score, kills });
+    expect(pickTimeLimitWinner([hero(0, 50, 500), hero(1, 100, 0)])).toBe(1);
+    expect(pickTimeLimitWinner([hero(0, 100, 0), hero(1, 100, 200)])).toBe(1);
+    expect(pickTimeLimitWinner([hero(1, 100, 10), hero(0, 100, 10)])).toBe(0);
+    expect(pickTimeLimitWinner([hero(0, 100, 0, 0), hero(1, 100, 0, 9)])).toBe(0);
     expect(pickTimeLimitWinner([])).toBe(-1);
   });
 

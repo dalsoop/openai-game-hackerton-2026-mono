@@ -6,6 +6,8 @@ extends SceneTree
 const SUITES := [
 	"res://tests/test_seeded_rng.gd",
 	"res://tests/test_arena_geometry.gd",
+	"res://tests/test_grass_tile_index.gd",
+	"res://tests/test_text_cache.gd",
 	"res://tests/test_event_log.gd",
 	"res://tests/test_safe_zone.gd",
 	"res://tests/test_rooster_egg.gd",
@@ -21,6 +23,8 @@ const SUITES := [
 	"res://tests/test_net_world.gd",
 	"res://tests/test_snap_contract.gd",
 	"res://tests/test_network_bridge.gd",
+	"res://tests/test_match_snap_adapter.gd",
+	"res://tests/test_engine_socket_fallback.gd",
 	"res://tests/test_settings_store.gd",
 	"res://tests/test_play_chrome.gd",
 ]

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   CRATE_MAX_HP, CRATE_ORB_ARM, CRATE_ORB_DMG_MUL, CRATE_ORB_DMG_TIME, CRATE_ORB_ULT_RATIO,
-  CRATE_RADIUS, bestCrate, bestCrateOrb, collectCrateOrb, crateSeedFields, damageCratesAt, hurtCrate,
+  CRATE_RADIUS, applySafeZoneCrateDamage, bestCrate, bestCrateOrb, collectCrateOrb, crateSeedFields,
+  damageCratesAt, hurtCrate,
   packCrateOrbsSnap, packCratesSnap, spawnBreakableCrates, spawnCrateOrb, tickDmgOrbTime, updateCrateOrbs,
 } from "@/lib/hub/match-crate";
+import { SAFE_ZONE_DAMAGE_PER_SEC, createSafeZone } from "@/lib/hub/match-zone";
 import type { CrateHero, SimCrate, SimCrateOrb } from "@/lib/hub/match-crate";
 import {
   ARENA_CENTER, ARENA_MARGIN, ARENA_SIZE, SPAWN_RADIUS, buildTiledCovers, pointInCover,
@@ -79,6 +81,26 @@ describe("크레이트 링 배치", () => {
 });
 
 describe("크레이트 피해·파괴 → 오브 생성", () => {
+  it("존 밖 크레이트는 16/s 로 타고, 존 안은 안 탄다", () => {
+    const zone = createSafeZone();
+    const inside: SimCrate = {
+      id: 0, x: ARENA_CENTER.x, y: ARENA_CENTER.y, hp: CRATE_MAX_HP, maxHp: CRATE_MAX_HP,
+      alive: true, ring: 0, orbRed: true,
+    };
+    const outside: SimCrate = {
+      id: 1, x: 150, y: 150, hp: CRATE_MAX_HP, maxHp: CRATE_MAX_HP,
+      alive: true, ring: 0, orbRed: false,
+    };
+    const orbs: SimCrateOrb[] = [];
+    applySafeZoneCrateDamage(zone, [inside, outside], orbs, 1);
+    expect(inside.hp).toBe(CRATE_MAX_HP);
+    expect(outside.hp).toBeCloseTo(CRATE_MAX_HP - SAFE_ZONE_DAMAGE_PER_SEC);
+    applySafeZoneCrateDamage(zone, [inside, outside], orbs, 2);
+    expect(outside.alive).toBe(false);
+    expect(outside.hp).toBe(0);
+    expect(orbs).toHaveLength(1);
+  });
+
   it("부분 피해는 hp 만 줄고 오브 없음", () => {
     const crates = spawnBreakableCrates(COVERS);
     const orbs: SimCrateOrb[] = [];

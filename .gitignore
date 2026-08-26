@@ -35,6 +35,8 @@ web/.next/
 # 빌드 산출물 (AGENTS: wasm/pck는 git에 넣지 않는다)
 web/.next/
 apps/*/project/web/index.wasm
+apps/*/project/web/index.side.wasm
+apps/*/project/web/libcolyseus_godot.web.wasm32.release.wasm
 apps/*/project/web/index.pck
 apps/*/project/web/*.br
 apps/*/project/web/*.gz
