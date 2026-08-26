@@ -179,6 +179,11 @@ def build_hub(folder: str) -> None:
         ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
         check=True,
     )
+    pushed = subprocess.run(["docker", "push", ref], check=False)
+    if pushed.returncode:
+        print(f"warn {folder}: harbor push 실패 — ctr import 로 계속")
+    else:
+        print(f"pushed {ref}")
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
     load = subprocess.run(k3s_argv("k3s ctr images import -"), stdin=save.stdout, check=False)
     save.wait()

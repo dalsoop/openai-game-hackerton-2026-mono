@@ -25,13 +25,20 @@ REDIS_DB_MIN = 1
 REDIS_DB_MAX = 15
 
 
-def tree_hash(root: Path) -> str:
+# 익스포트 산출물. 태그에 넣으면 ship(익스포트 후)과 helm(클린 트리) 태그가 갈라진다.
+_HUB_TAG_SKIP = frozenset({"godot", ".next", "node_modules"})
+
+
+def tree_hash(root: Path, skip_parts: frozenset[str] | None = None) -> str:
     digest = hashlib.sha256()
     if not root.exists():
         return "missing"
+    skip = skip_parts or frozenset()
     files = [root] if root.is_file() else sorted(p for p in root.rglob("*") if p.is_file())
     for path in files:
         if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        if any(part in skip for part in path.parts):
             continue
         rel = path.name if root.is_file() else path.relative_to(root).as_posix()
         digest.update(rel.encode())
@@ -130,7 +137,7 @@ def hub_image_tag(folder: Path) -> str:
         ]
     digest = hashlib.sha256()
     for part in parts:
-        digest.update(tree_hash(part).encode())
+        digest.update(tree_hash(part, _HUB_TAG_SKIP).encode())
     return digest.hexdigest()[:12]
 
 
