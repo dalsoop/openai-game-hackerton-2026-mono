@@ -20,6 +20,7 @@ const BULLET_YELLOW := Color("#ffd23f")
 var zodiac_textures: Array = []
 var island_texture: Texture2D = null
 var dirt_tile_texture: Texture2D = null
+var deco_atlas: Texture2D = null
 var tree_atlas: Texture2D = null
 var rock_atlas: Texture2D = null
 var crate_atlas: Texture2D = null
@@ -117,9 +118,10 @@ func _ready() -> void:
         zodiac_textures.append(_load_tex("res://assets/sprites/zodiac_%02d.png" % (index + 1)))
     island_texture = _load_tex("res://assets/world/Tex_BG_Tile_Grass.png")
     dirt_tile_texture = _load_tex("res://assets/world/Tex_BG_Tile_Dirt.png")
+    deco_atlas = _load_tex("res://assets/world/Tex_BG_Deco.png")
     tree_atlas = _load_tex("res://assets/world/Tex_BG_Trees_3x1.png")
     texture_filter = TEXTURE_FILTER_NEAREST
-    print("[gangup] rpg tiles grass=%s dirt=%s trees=%s" % [island_texture != null, dirt_tile_texture != null, tree_atlas != null])
+    print("[gangup] rpg tiles grass=%s dirt=%s deco=%s trees=%s" % [island_texture != null, dirt_tile_texture != null, deco_atlas != null, tree_atlas != null])
     rock_atlas = _load_tex("res://assets/world/Tex_BG_Rocks_5x1.png")
     crate_atlas = _load_tex("res://assets/world/Tex_BG_Crates_4x1.png")
     reload_bubble_atlas = _load_tex("res://assets/fx/ui/Tex_FX_ReloadBubble_4x3.png")

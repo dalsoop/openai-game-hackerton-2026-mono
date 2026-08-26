@@ -30,8 +30,102 @@ func draw_island() -> void:
 			r.draw_texture_rect_region(r.island_texture, Rect2(Vector2(x, y), Vector2(dw, dh)), src)
 			x += cell
 		y += cell
+	_stamp_flower_beds()
 	_draw_dirt_patches()
 	r.texture_filter = prev_filter
+
+const _DIRT_CIRCLES: Array[Vector3] = [
+	Vector3(1720.0, 1620.0, 170.0), Vector3(1960.0, 1760.0, 150.0), Vector3(1800.0, 1860.0, 130.0),
+	Vector3(6040.0, 3460.0, 140.0), Vector3(6220.0, 3580.0, 115.0),
+	Vector3(1380.0, 3680.0, 155.0), Vector3(1600.0, 3840.0, 130.0), Vector3(1480.0, 3960.0, 110.0),
+	Vector3(5480.0, 980.0, 125.0), Vector3(5680.0, 1120.0, 105.0),
+	Vector3(3100.0, 4120.0, 140.0), Vector3(3320.0, 4240.0, 115.0),
+	Vector3(6880.0, 2280.0, 150.0), Vector3(7080.0, 2460.0, 125.0), Vector3(6940.0, 2560.0, 100.0),
+	Vector3(780.0, 2680.0, 120.0), Vector3(960.0, 2820.0, 100.0)
+]
+const _MEADOW_SEEDS: Array[Vector2] = [
+	Vector2(3920.0, 1680.0),
+	Vector2(2680.0, 2600.0),
+	Vector2(4900.0, 3000.0),
+	Vector2(3200.0, 2200.0),
+	Vector2(4600.0, 2000.0),
+	Vector2(3920.0, 3000.0),
+	Vector2(2400.0, 2000.0),
+	Vector2(5400.0, 2400.0),
+	Vector2(1800.0, 3000.0),
+	Vector2(6200.0, 1800.0),
+	Vector2(3000.0, 3400.0),
+	Vector2(4800.0, 1400.0),
+	Vector2(3600.0, 1000.0),
+	Vector2(1200.0, 1600.0),
+	Vector2(4200.0, 4000.0),
+	Vector2(5600.0, 4000.0),
+	Vector2(7000.0, 3400.0),
+	Vector2(2500.0, 1400.0)
+]
+const _CLUMP_CORE: Array[Vector2] = [
+	Vector2(0.0, 0.0),
+	Vector2(28.0, -10.0),
+	Vector2(-26.0, 16.0),
+	Vector2(14.0, 28.0),
+	Vector2(-22.0, -24.0)
+]
+const _CLUMP_FALLOFF: Array[Vector2] = [
+	Vector2(44.0, 12.0),
+	Vector2(-40.0, 8.0)
+]
+
+func _stamp_deco(kind: int, pos: Vector2, size: float) -> void:
+	var atlas: Texture2D = r.deco_atlas
+	if atlas == null:
+		print("[gangup] deco atlas missing")
+		return
+	r.draw_texture_rect_region(atlas, Rect2(pos - Vector2(size, size) * 0.5, Vector2(size, size)), Rect2(float(kind % 6) * 16.0, 0.0, 16.0, 16.0))
+
+func _rotate_off(off: Vector2, seed: int) -> Vector2:
+	var ang := float(seed) * 0.73
+	var ca := cos(ang)
+	var sa := sin(ang)
+	return Vector2(off.x * ca - off.y * sa, off.x * sa + off.y * ca)
+
+func _stamp_clump(origin: Vector2, seed: int) -> void:
+	var k0 := posmod(seed, 6)
+	var k1 := posmod(seed + 2, 6)
+	var k2 := posmod(seed + 4, 6)
+	for i in range(_CLUMP_CORE.size()):
+		var p := origin + _rotate_off(_CLUMP_CORE[i], seed)
+		if _dirt_here(p.x, p.y):
+			continue
+		var kind := k0 if i < 2 else (k1 if i < 4 else k2)
+		var sz := 54.0 if i == 0 else 46.0
+		_stamp_deco(kind, p, sz)
+	for i in range(_CLUMP_FALLOFF.size()):
+		var p := origin + _rotate_off(_CLUMP_FALLOFF[i], seed + 3)
+		if _dirt_here(p.x, p.y):
+			continue
+		_stamp_deco(k2, p, 38.0)
+
+func _stamp_flower_beds() -> void:
+	for ci in range(_DIRT_CIRCLES.size()):
+		var circle: Vector3 = _DIRT_CIRCLES[ci]
+		var c := Vector2(circle.x, circle.y)
+		var rad := circle.z
+		var seeds := 2 if rad < 125.0 else 3
+		for s in range(seeds):
+			var ang := TAU * float(s) / float(seeds) + circle.x * 0.013 + float(s) * 1.17 + circle.y * 0.007
+			var rim := c + Vector2(cos(ang), sin(ang)) * (rad + 52.0)
+			if _dirt_here(rim.x, rim.y):
+				rim = c + Vector2(cos(ang), sin(ang)) * (rad + 88.0)
+			if _dirt_here(rim.x, rim.y):
+				continue
+			if rim.x < 220.0 or rim.y < 220.0 or rim.x > 7620.0 or rim.y > 4540.0:
+				continue
+			_stamp_clump(rim, ci * 5 + s * 11 + int(circle.x))
+	for mi in range(_MEADOW_SEEDS.size()):
+		var m: Vector2 = _MEADOW_SEEDS[mi]
+		if _dirt_here(m.x, m.y):
+			continue
+		_stamp_clump(m, 40 + mi * 13)
 
 func _draw_dirt_patches() -> void:
 	if r.dirt_tile_texture == null:
@@ -58,40 +152,9 @@ func _draw_dirt_patches() -> void:
 
 func _dirt_here(px: float, py: float) -> bool:
 	var p := Vector2(px, py)
-	if p.distance_to(Vector2(1720, 1620)) <= 170.0:
-		return true
-	if p.distance_to(Vector2(1960, 1760)) <= 150.0:
-		return true
-	if p.distance_to(Vector2(1800, 1860)) <= 130.0:
-		return true
-	if p.distance_to(Vector2(6040, 3460)) <= 140.0:
-		return true
-	if p.distance_to(Vector2(6220, 3580)) <= 115.0:
-		return true
-	if p.distance_to(Vector2(1380, 3680)) <= 155.0:
-		return true
-	if p.distance_to(Vector2(1600, 3840)) <= 130.0:
-		return true
-	if p.distance_to(Vector2(1480, 3960)) <= 110.0:
-		return true
-	if p.distance_to(Vector2(5480, 980)) <= 125.0:
-		return true
-	if p.distance_to(Vector2(5680, 1120)) <= 105.0:
-		return true
-	if p.distance_to(Vector2(3100, 4120)) <= 140.0:
-		return true
-	if p.distance_to(Vector2(3320, 4240)) <= 115.0:
-		return true
-	if p.distance_to(Vector2(6880, 2280)) <= 150.0:
-		return true
-	if p.distance_to(Vector2(7080, 2460)) <= 125.0:
-		return true
-	if p.distance_to(Vector2(6940, 2560)) <= 100.0:
-		return true
-	if p.distance_to(Vector2(780, 2680)) <= 120.0:
-		return true
-	if p.distance_to(Vector2(960, 2820)) <= 100.0:
-		return true
+	for circle in _DIRT_CIRCLES:
+		if p.distance_to(Vector2(circle.x, circle.y)) <= circle.z:
+			return true
 	return false
 
 func draw_trees() -> void:
