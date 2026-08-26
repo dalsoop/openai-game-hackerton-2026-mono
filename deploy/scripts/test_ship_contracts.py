@@ -289,6 +289,12 @@ class HelmContract(unittest.TestCase):
         apps_py = path.read_text()
         self.assertIn("drop_legacy_hub_deployments", apps_py)
         self.assertIn("delete deploy", apps_py)
+        self.assertIn("stage_hub_kernel", apps_py)
+        self.assertIn(".docker-hub-kernel", apps_py)
+        prod_df = (APPS / "server-prod" / "web" / "Dockerfile").read_text()
+        yjh_df = (APPS / "server-yjh-dev1" / "web" / "Dockerfile").read_text()
+        self.assertIn("COPY .docker-hub-kernel /packages/hub-kernel", prod_df)
+        self.assertIn("COPY .docker-hub-kernel /packages/hub-kernel", yjh_df)
         self.assertIn("--no-rebuild", apps_py)
         self.assertIn('if "--rebuild" in args', apps_py)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]

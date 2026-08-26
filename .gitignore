@@ -53,6 +53,7 @@ apps/*/web/public/godot/**/index.audio.position.worklet.js
 # 앱별 웹 빌드 산출물 (apps/*/web — 루트 web/ 패턴은 여기 안 닿음)
 apps/*/web/.next/
 apps/*/web/node_modules/
+apps/*/.docker-hub-kernel/
 apps/*/web/next-env.d.ts
 
 # Colyseus GDExtension 플랫폼 바이너리 — 웹 wasm(서빙용)만 커밋한다 (2026-08-25 GH001 정리)
