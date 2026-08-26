@@ -635,9 +635,6 @@ func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> 
         draw_circle(Vector2.ZERO, radius_x * float(ring[0]), Color(0.0, 0.0, 0.0, float(ring[1]) * alpha_mul * opacity))
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func visible_world_rect() -> Rect2:
-    return (get_viewport_transform().affine_inverse() * get_viewport_rect()).grow(192.0)
-
 func _draw() -> void:
     if world == null:
         return
