@@ -131,6 +131,11 @@ function serveOne(
   return true;
 }
 
+function serveGodotWorklet(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+  const worklet = godotWorkletAssetPath(pathname);
+  return Boolean(worklet && serveGodotAsset(req, res, worklet));
+}
+
 function startStatic(): void {
   createServer((req, res) => {
     if (cutRetiredHost(req, res)) {return;}
@@ -150,10 +155,7 @@ function startStatic(): void {
     }
     if (isExtLibPath(pathname) &&
         serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
-    {
-      const worklet = godotWorkletAssetPath(pathname);
-      if (worklet && serveGodotAsset(req, res, worklet)) {return;}
-    }
+    if (serveGodotWorklet(req, res, pathname)) {return;}
     if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
     if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
     res.writeHead(404).end();
@@ -224,10 +226,7 @@ function startHub(): void {
         // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
         if (isExtLibPath(pathname) &&
             serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
-        {
-          const worklet = godotWorkletAssetPath(pathname);
-          if (worklet && serveGodotAsset(req, res, worklet)) {return;}
-        }
+        if (serveGodotWorklet(req, res, pathname)) {return;}
         const servePack = process.env.HUB_STATIC_SPLIT !== "1";
         if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
         if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
