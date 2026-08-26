@@ -48,6 +48,27 @@ def helm_diff_cmd(chart: str, values: str, games: str, env: str) -> list[str]:
     ]
 
 
+def replace_unshipped_hub_tags(text: str, live: dict[str, str], shipped: set[str]) -> str:
+    """보내지 않은 슬롯은 git 옛 태그 대신 클러스터에 있는 태그를 쓴다."""
+    lines: list[str] = []
+    folder = ""
+    in_hubs = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped == "hubs:":
+            in_hubs = True
+        if in_hubs and stripped.startswith("- folder:"):
+            folder = stripped.split(":", 1)[1].strip()
+        elif in_hubs and folder and stripped.startswith("tag:"):
+            if folder not in shipped and folder in live:
+                nl = "\n" if line.endswith("\n") else ""
+                indent = line[: len(line) - len(line.lstrip())]
+                line = f"{indent}tag: {live[folder]}{nl}"
+            folder = ""
+        lines.append(line)
+    return "".join(lines)
+
+
 def planted_hub_tags(text: str) -> dict[str, str]:
     section = text.split("\nhubs:\n", 1)[-1] if "\nhubs:" in text else ""
     tags: dict[str, str] = {}
