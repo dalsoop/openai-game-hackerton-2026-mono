@@ -209,11 +209,11 @@ func _ultimate_src_rect(texture: Texture2D, frame: int, row: int = 0) -> Rect2:
     var cell := Vector2(float(texture.get_width()) / 4.0, float(texture.get_height()) / 2.0)
     return Rect2(Vector2(float(clampi(frame, 0, 3)), float(clampi(row, 0, 1))) * cell, cell)
 
-func draw_ultimate_frame(animal: int, pos: Vector2, size: Vector2, frame: int, row: int = 0, rotation: float = 0.0, alpha: float = 1.0) -> bool:
+func draw_ultimate_frame(animal: int, pos: Vector2, size: Vector2, frame: int, row: int = 0, rotation: float = 0.0, alpha: float = 1.0, flip_x: bool = false) -> bool:
     var texture: Texture2D = ultimate_fx_atlases.get(posmod(animal, 12), null)
     if texture == null:
         return false
-    draw_set_transform(pos, rotation, Vector2.ONE)
+    draw_set_transform(pos, rotation, Vector2(-1.0, 1.0) if flip_x else Vector2.ONE)
     draw_texture_rect_region(texture, Rect2(-size * 0.5, size), _ultimate_src_rect(texture, frame, row), Color(1.0, 1.0, 1.0, alpha))
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
     return true

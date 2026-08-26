@@ -287,8 +287,12 @@ func draw_rabbit_holes() -> void:
 		var ttl := float(hole.get("ttl", 0.0))
 		var fade := clampf(ttl / 1.2, 0.0, 1.0)
 		var sz := 118.0
-		var row := 0 if str(hole.get("kind", "in")) == "in" else 1
-		if r.draw_ultimate_frame(3, pos, Vector2(sz, sz * 0.86), posmod(int(world.tick / 7), 4), row, 0.0, 0.35 + 0.65 * fade):
+		var is_entry := str(hole.get("kind", "in")) == "in"
+		var row := 0 if is_entry else 1
+		var initial_ttl := 4.5 if is_entry else 3.5
+		var animation_age := maxf(0.0, initial_ttl - ttl)
+		var frame := clampi(int(animation_age / 0.12), 0, 3)
+		if r.draw_ultimate_frame(3, pos, Vector2(sz, sz * 0.86), frame, row, 0.0, 0.35 + 0.65 * fade):
 			pass
 		elif r.rabbit_hole_tex != null:
 			r.draw_texture_rect(r.rabbit_hole_tex, Rect2(pos - Vector2(sz * 0.5, sz * 0.42), Vector2(sz, sz * 0.86)), false, Color(1, 1, 1, 0.35 + 0.65 * fade))
@@ -302,11 +306,14 @@ func draw_tiger_roars() -> void:
 		var pos: Vector2 = roar_data.get("pos", Vector2.ZERO)
 		var rad := float(roar_data.get("radius", 300.0))
 		var life := maxf(0.01, float(roar_data.get("life", 1.15)))
-		var t := clampf(float(roar_data.get("age", 0.0)) / life, 0.0, 1.0)
+		var age := float(roar_data.get("age", 0.0))
+		var t := clampf(age / life, 0.0, 1.0)
 		var front := rad * t
 		var fade := 1.0 - t * 0.28
-		var frame := clampi(int(t * 4.0), 0, 3)
-		if not r.draw_ultimate_frame(2, pos, Vector2.ONE * maxf(84.0, front * 2.15), frame, 0, 0.0, fade):
+		var sprite_frame := clampi(int(age / 0.085), 0, 7)
+		var frame := sprite_frame % 4
+		var row := int(sprite_frame / 4)
+		if not r.draw_ultimate_frame(2, pos, Vector2.ONE * maxf(84.0, front * 2.15), frame, row, 0.0, fade):
 			r.draw_arc(pos, front, 0.0, TAU, 64, Color(1.0, 0.86, 0.26, 0.95 * fade), 8.0)
 
 func draw_dragon_smokes() -> void:
@@ -357,8 +364,8 @@ func draw_rat_tides() -> void:
 		dir = dir.normalized()
 		var leng := float(tide.get("length", 360.0))
 		var half_w := float(tide.get("half_w", 118.0))
-		var ang := dir.angle()
-		if r.draw_ultimate_frame(0, pos + dir * leng * 0.16, Vector2(leng * 0.86, half_w * 1.65), posmod(int(world.tick / 5), 4), 0, ang):
+		var face_left := dir.x < 0.0
+		if r.draw_ultimate_frame(0, pos + dir * leng * 0.16, Vector2(leng * 0.86, half_w * 1.65), posmod(int(world.tick / 5), 4), 0, 0.0, 1.0, face_left):
 			continue
 
 func draw_heroes() -> void:
