@@ -123,7 +123,16 @@ func reset() -> void:
     last_down_ticks = 0
     callout = ""
     callout_ticks = 0
+    streak_callout = ""
+    streak_subtitle = ""
+    streak_callout_ticks = 0
+    streak_callout_shutdown = false
     finish_cine = {}
+    cores.clear()
+    zones.clear()
+    deployables.clear()
+    covers.clear()
+    mid_tower = {}
     event_log.clear()
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
@@ -321,18 +330,25 @@ func _overlay_prediction() -> void:
     me["aim"] = _pred_aim
     heroes[local_slot] = me
 
+func apply(snap: Dictionary) -> void:
+    apply_snap(snap)
+
+func seed(snap: Dictionary) -> void:
+    reset()
+    push_snap(snap)
+
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
     var prev_countdown := start_countdown
     var prev_shrinking := safe_zone_shrinking
     SnapContract.apply_header(self, snap)
+    _apply_world_extras(snap)
     var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
     var prev_result := result
     _apply_result(snap)
     SfxDerive.header_events(self, prev_countdown, prev_shrinking)
     _fight_countdown_fired = SfxDerive.countdown_event(self, _fight_countdown_fired)
     _derive_zone_target()
-    _apply_world_extras(snap)
     _apply_players(snap.get(SnapContract.PLAYERS, []))
     _apply_bullets(snap.get(SnapContract.BULLETS, []))
     _apply_loot(snap.get(SnapContract.LOOT, []))
@@ -370,16 +386,7 @@ func _on_match_ended() -> void:
     event_log.emit(tick, &"match_won", winner_slot, -1, {"reason":result_reason})
 
 func _apply_world_extras(snap: Dictionary) -> void:
-    zones = NetSnapParser.parse_zones(snap)
-    deployables = NetSnapParser.parse_deployables(snap)
-    cores = NetSnapParser.parse_cores(snap)
-    covers = NetSnapParser.parse_covers(snap)
-    knockouts = NetSnapParser.parse_knockouts(snap)
-    crates = NetSnapParser.parse_crates(snap)
-    crate_orbs = NetSnapParser.parse_crate_orbs(snap)
-    var tower := NetSnapParser.parse_mid_tower(snap)
-    if not tower.is_empty():
-        mid_tower = tower
+    SnapContract.apply_world(self, snap)
 
 func _apply_players(list: Array) -> void:
     var prev := {}

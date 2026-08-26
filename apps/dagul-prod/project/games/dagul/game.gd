@@ -69,12 +69,6 @@ func _bind_match_camera(ctx: Dictionary, audio: Node, world_view: Node2D) -> voi
 	camera.position = _camera_target(camera)
 	if audio != null and audio.has_method("attach_world"):
 		audio.attach_world(world_view, camera)
-	if _tutorial != null and _tutorial.should_show():
-		_tutorial.start_tutorial()
-
-func show_onboarding() -> void:
-	if _tutorial != null:
-		_tutorial.start_tutorial()
 
 func stop() -> void:
 	var audio := Engine.get_main_loop()

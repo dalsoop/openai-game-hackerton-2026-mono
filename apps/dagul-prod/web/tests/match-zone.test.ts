@@ -87,13 +87,16 @@ describe("SafeZone", () => {
     a.y = ARENA_CENTER.y;
     b.x = ARENA_CENTER.x + 100;
     b.y = ARENA_CENTER.y;
-    a.hp = 100;
-    b.hp = 50;
-    // 카운트다운 3초 동안은 매치 시간이 흐르지 않는다.
-    for (let i = 0; i < 180; i++) {sim.step(DT);}
+    a.maxHp = 1e9;
+    b.maxHp = 1e9;
+    a.hp = 1e9;
+    b.hp = 5e8;
+    sim.countdown = 0;
     expect(sim.matchTime).toBe(0);
     const ticks = Math.ceil(MATCH_TIME_LIMIT / DT) + 2;
-    for (let i = 0; i < ticks && sim.result === "playing"; i++) {sim.step(DT);}
+    for (let i = 0; i < ticks && sim.result === "playing"; i++) {
+      sim.step(DT);
+    }
     expect(sim.matchTime).toBe(MATCH_TIME_LIMIT);
     expect(sim.result).toBe("won");
     expect(sim.winner).toBe(0);
