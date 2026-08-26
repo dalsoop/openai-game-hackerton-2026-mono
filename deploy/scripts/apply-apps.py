@@ -119,12 +119,11 @@ def run_plant(ship_folders: list[str] | None = None) -> None:
         sys.argv = [str(PLANT)]
         plant_mod().main()
     finally:
-        if ship_folders is None:
-            return
-        if previous is None:
-            os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
-        else:
-            os.environ["HACKERTONE_SHIP_FOLDERS"] = previous
+        if ship_folders is not None:
+            if previous is None:
+                os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
+            else:
+                os.environ["HACKERTONE_SHIP_FOLDERS"] = previous
 
 
 
