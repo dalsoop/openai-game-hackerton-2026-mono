@@ -289,8 +289,12 @@ class HelmContract(unittest.TestCase):
         apps_py = path.read_text()
         self.assertIn("drop_legacy_hub_deployments", apps_py)
         self.assertIn("delete deploy", apps_py)
-        self.assertIn("rebuild_images", apps_py)
         self.assertIn("--no-rebuild", apps_py)
+        self.assertIn('if "--rebuild" in args', apps_py)
+        helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
+        self.assertIn("assert_hub_images", helm_fn)
+        self.assertIn("run_plant()", helm_fn)
+        self.assertNotIn("ensure_hub_images", helm_fn)
 
 class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:
@@ -301,9 +305,12 @@ class PlatformGodotPipeline(unittest.TestCase):
         build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
         self.assertIn("--import --quit", build)
         apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
-        self.assertIn("if: ${{ !cancelled() }}", apps_yml)
-        self.assertIn("apply-apps.py helm", apps_yml)
-        self.assertIn("helm --no-rebuild", apps_yml)
+        self.assertNotIn("group: apps-ship", apps_yml)
+        self.assertIn("group: apps-build", apps_yml)
+        self.assertIn("group: apps-helm", apps_yml)
+        self.assertIn("apply-apps.py ship", apps_yml)
+        self.assertIn("apply-apps.py helm --no-rebuild", apps_yml)
+        self.assertEqual(apps_yml.count("apply-apps.py helm"), 1)
         for folder in ("server-yjh-dev1", "server-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)

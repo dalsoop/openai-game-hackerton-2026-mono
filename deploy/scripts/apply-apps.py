@@ -408,15 +408,10 @@ def assert_smoke_hubs() -> None:
     print("smoke create ok " + ",".join(SMOKE_FOLDERS))
 
 
-def helm_upgrade(*, rebuild_images: bool = True) -> None:
-    if rebuild_images:
-        run_plant()
-        mod = plant_mod()
-        ensure_hub_images(mod)
-        assert_hub_images(mod)
-    else:
-        print("helm only: plant·이미지 재빌드 생략")
-        assert_hub_images(plant_mod())
+def helm_upgrade() -> None:
+    run_plant()
+    print("helm: 태그만 plant. 이미지는 ship 이 만든 것만 쓴다")
+    assert_hub_images(plant_mod())
     if on_pve():
         dest = Path(tempfile.mkdtemp(prefix="hackertone-chart-"))
         env_copy = dest / "hackertone-env.yaml"
@@ -493,7 +488,9 @@ def main() -> int:
         run_plant()
         return 0
     if cmd == "helm":
-        helm_upgrade(rebuild_images="--no-rebuild" not in args)
+        if "--rebuild" in args:
+            raise SystemExit("helm 은 이미지를 만들지 않는다. apply-apps.py ship 을 먼저 실행한다.")
+        helm_upgrade()
         return 0
     print(
         "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"

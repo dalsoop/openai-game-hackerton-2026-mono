@@ -43,6 +43,29 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "hackertone-games.hubApplyReplicas" -}}
+{{- $min := include "hackertone-games.hubReplicas" . | int -}}
+{{- $as := .root.Values.hub.scale.autoscaling | default dict -}}
+{{- $auto := and (eq (include "hackertone-games.hubScaled" .) "true") $as.enabled -}}
+{{- if not $auto -}}
+{{- $min -}}
+{{- else -}}
+{{- $max := .root.Values.hub.scale.maxReplicas | int -}}
+{{- $live := lookup "apps/v1" "StatefulSet" .root.Release.Namespace (printf "%s-hub" .folder) -}}
+{{- $cur := $min -}}
+{{- if $live -}}
+{{- $cur = (index $live.spec "replicas" | default $min) | int -}}
+{{- end -}}
+{{- if gt $cur $max -}}
+{{- $max -}}
+{{- else if lt $cur $min -}}
+{{- $min -}}
+{{- else -}}
+{{- $cur -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "hackertone-games.hubRedisUrl" -}}
 {{- $base := required "redis.url 이 필요합니다" .root.Values.redis.url | trimSuffix "/" -}}
 {{- $id := required "hubs[].id 가 필요합니다" .hub.id -}}

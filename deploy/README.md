@@ -6,7 +6,7 @@
 - Actions: https://github.com/dalsoop/openai-game-hackerton-2026-mono/actions/workflows/apps.yml
 - 퍼지만: 그 워크플로에서 `purge_only`로 실행
 
-정본은 Actions `Apps ship`이다.
+정본은 Actions `Apps ship`이다. 이미지 빌드(`apps-build`)와 Helm 적용(`apps-helm`)은 잠금이 다르다. Helm은 이미지를 만들지 않는다.
 
 ## 한 번만 붙이면 되는 것
 
@@ -19,7 +19,7 @@ wasm·pck는 브라우저가 들고 있고, 배포가 끝나면 CI가 Cloudflare
 
 허브 스모크·부하는 `deploy/usability/` 이다. `node cli.mjs smoke`, 부하는 먼저 `--dry-run`.
 
-로컬에서 급히 올릴 때:
+로컬에서 급히 올릴 때. Helm만 실행하면 클러스터에 이미지가 있어야 한다.
 
 ```bash
 python3 deploy/scripts/apply-apps.py hub server-yjh-dev1

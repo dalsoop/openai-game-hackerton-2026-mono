@@ -22,7 +22,7 @@ export const HUB_CONFIG = {
   listPollMs: 4_000,
   lobbyHealthRttMs: 0,
   perProcessCcu: 500,
-  targetCcu: 10_000,
+  targetCcu: 1_000,
 } as const;
 
 export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;
