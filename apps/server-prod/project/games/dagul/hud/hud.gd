@@ -23,8 +23,6 @@ var ammo_casing_texture: Texture2D = null
 var zone_lightning_texture: Texture2D = null
 var animal_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
-var _controls_overlay_time: float = 4.0
-var _controls_dismissed: bool = false
 var _kill_feed: Array[Dictionary] = []
 var _last_kill_event_id: int = 0
 var _ammo_last_mag: int = -1
@@ -102,7 +100,6 @@ func _draw() -> void:
     _draw_critical(me)
     _draw_ultimate_cinematic()
     _draw_crosshair(me)
-    _draw_controls_overlay()
     _update_kill_feed()
     _draw_kill_feed()
 
@@ -506,23 +503,6 @@ func _draw_crosshair(me: Dictionary) -> void:
         draw_line(c + Vector2(-gap - arm, 0), c + Vector2(-gap, 0), col, thick)
         draw_line(c + Vector2(gap, 0), c + Vector2(gap + arm, 0), col, thick)
     draw_arc(c, 5.0 + climb * 0.04, 0.0, TAU, 28, Color(accent, 0.45), 1.4)
-
-func _draw_controls_overlay() -> void:
-    if _controls_dismissed or _controls_overlay_time <= 0.0:
-        return
-    _controls_overlay_time -= 1.0 / 60.0
-    if Input.is_anything_pressed():
-        _controls_dismissed = true
-        return
-    var alpha := clampf(_controls_overlay_time / 1.0, 0.0, 1.0) if _controls_overlay_time < 1.0 else 0.85
-    var bg := Color(0.0, 0.0, 0.0, alpha * 0.7)
-    var tx := Color(1.0, 1.0, 1.0, alpha)
-    var cx := size.x * 0.5
-    var cy := size.y * 0.5
-    draw_rect(Rect2(cx - 160, cy - 90, 320, 180), bg)
-    var lines := ["WASD  이동", "마우스  조준", "좌클릭  공격", "우클릭(홀드)  장비 스킬", "Shift  대시"]
-    for i in lines.size():
-        _text(Vector2(cx - 130, cy - 60 + i * 28), lines[i], 16, tx)
 
 func _update_kill_feed() -> void:
     if world == null or world.event_log == null:

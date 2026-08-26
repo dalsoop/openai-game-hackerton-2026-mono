@@ -122,6 +122,41 @@ describe("LobbyRoom 규칙", () => {
     expect(bySid[guest.sessionId]).toBe("unknown");
   });
 
+  it("playing 중 SET_CHARACTER 는 버린다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.SET_CHARACTER, { characterId: "a1" });
+    await room.waitForNextPatch();
+    expect(room.state.players[0].characterId).toBe("a1");
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    host.send(MSG.SET_CHARACTER, { characterId: "a8" });
+    await new Promise((r) => setTimeout(r, 40));
+    expect(room.state.players[0].characterId).toBe("a1");
+  });
+
+  it("START 좌석과 권위 히어로에 고른 캐릭터가 실린다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.SET_CHARACTER, { characterId: "a2" });
+    guest.send(MSG.SET_CHARACTER, { characterId: "a6" });
+    await room.waitForNextPatch();
+    const startP = host.waitForMessage(MSG.START);
+    const snapP = host.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    const payload = parseStartPayload(await startP);
+    const snap = (await snapP) as { players?: Array<{ slot: number; animal: number }> };
+    expect(payload?.seats.map((s) => s.characterId)).toEqual(["a2", "a6"]);
+    const animal = Object.fromEntries((snap.players ?? []).map((p) => [p.slot, p.animal]));
+    expect(animal[0]).toBe(2);
+    expect(animal[1]).toBe(6);
+    await room.waitForNextPatch();
+    expect(room.state.heroes.get("0")?.animal).toBe(2);
+    expect(room.state.heroes.get("1")?.animal).toBe(6);
+  });
+
   it("방장만 대기실에서 게임을 바꾼다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", game: "dagul" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
@@ -359,9 +394,9 @@ describe("허브 권위 매치", () => {
     const a = hs as { tick?: number; players?: { slot: number }[] };
     const b = gs as { tick?: number; players?: { slot: number }[] };
     expect(a.tick).toBe(b.tick);
-    expect(a.players?.map((p) => p.slot).sort()).toEqual([0, 1]);
+    expect(a.players?.map((p) => p.slot).sort()).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     await room.waitForNextPatch();
-    expect(room.state.heroes.size).toBe(2);
+    expect(room.state.heroes.size).toBe(8);
   });
 
   it("호스트 input 도 권위에 들어가고 스키마에 반영된다", async () => {

@@ -57,4 +57,15 @@ describe("parseStartPayload", () => {
     });
     expect(p?.seats).toEqual([{ slot: 2, name: "둘", connected: true, characterId: "unknown" }]);
   });
+
+  it("좌석 characterId 는 카탈로그만 통과하고 그 외는 기본값이다", () => {
+    const p = parseStartPayload({
+      ...valid,
+      seats: [
+        { slot: 0, name: "호스트", connected: true, characterId: "a3" },
+        { slot: 1, name: "게스트", connected: true, characterId: "??? " },
+      ],
+    });
+    expect(p?.seats.map((s) => s.characterId)).toEqual(["a3", "unknown"]);
+  });
 });

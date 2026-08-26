@@ -217,6 +217,16 @@ describe("계약: 허브 소켓 주인은 React", () => {
   });
 });
 
+describe("계약: 캐릭터 목록은 JSON 정본이다", () => {
+  it("TS 캐릭터 모듈에 십이지 고유명을 쓰지 않는다", () => {
+    const dir = join(ROOT, "lib", "characters");
+    const files = existsSync(dir) ? walk(dir, (n) => n.endsWith(".ts")) : [];
+    const banned = /\b(rat|ox|tiger|rabbit|dragon|snake|horse|sheep|monkey|rooster|dog|pig|쥐|호랑이)\b/i;
+    const offenders = files.filter((p) => banned.test(sourceOf(p)));
+    expect(offenders.map(rel)).toEqual([]);
+  });
+});
+
 describe("계약: 정적 이미지는 JPEG 금지", () => {
   const JPEG_REF = /\.(?:jpg|jpeg)(?:\?|#|"|'|`|\s|$)/i;
   const skipPublic = (name: string): boolean =>

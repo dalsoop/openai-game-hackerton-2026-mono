@@ -23,6 +23,9 @@ func _player_roundtrip(t) -> void:
 	t.check("magMax → equipment.mag_size", int(hero["equipment"].get("mag_size", 0)) == 18)
 	t.check("ult 왕복", is_equal_approx(float(hero["ultimate_charge"]), 55.0))
 	t.check("animal 왕복", int(hero["animal"]) == 2)
+	var unknown := SnapContract.unpack_player(
+		SnapContract.pack_player(_unknown_hero(), false, 0), {}, 0, 20.0)
+	t.check("animal -1 왕복", int(unknown["animal"]) == -1)
 	t.check("emote 왕복", int(hero["emote"]) == 2)
 	t.check("emoteTime 왕복", is_equal_approx(float(hero["emote_time"]), 1.5))
 	t.check("cpu 왕복", bool(hero["cpu"]) == true)
@@ -56,6 +59,12 @@ func _sample_hero() -> Dictionary:
 		"emote_time": 1.5,
 		"parked": false,
 	}
+
+func _unknown_hero() -> Dictionary:
+	var h := _sample_hero()
+	h["slot"] = 0
+	h["animal"] = -1
+	return h
 
 func _header_world() -> RefCounted:
 	var w := HeaderWorld.new()
