@@ -176,7 +176,7 @@ def build_hub(folder: str) -> None:
         return
     context = APPS / folder
     subprocess.run(
-        ["docker", "build", "--no-cache", "-t", ref, "-f", str(docker), str(context)],
+        ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
         check=True,
     )
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)

@@ -296,7 +296,8 @@ class HelmContract(unittest.TestCase):
         self.assertNotIn("stage_hub_kernel", apps_py)
         self.assertIn("COPY web/package-lock.json ./", prod_df)
         self.assertIn("lockfileVersion", prod_df)
-        self.assertIn('"--no-cache"', apps_py)
+        self.assertNotIn('"--no-cache"', apps_py)
+        self.assertIn('["docker", "build"', apps_py)
         self.assertIn("--no-rebuild", apps_py)
         self.assertIn('if "--rebuild" in args', apps_py)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
@@ -309,6 +310,9 @@ class PlatformGodotPipeline(unittest.TestCase):
         root = APPS.parent
         self.assertTrue((root / "deploy" / "scripts" / "build-godot.sh").is_file())
         self.assertTrue((root / "deploy" / "scripts" / "export_web.py").is_file())
+        export_web = (root / "deploy" / "scripts" / "export_web.py").read_text()
+        self.assertIn("should_skip_platform_export", export_web)
+        self.assertIn("skip platform export", export_web)
         self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
         build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
         self.assertIn("--import --quit", build)
