@@ -61,15 +61,15 @@ func _bind_web_unlock() -> void:
 	win.addEventListener("dagul-audio-unlock", _unlock_cb)
 
 func _on_web_audio_unlock(_args: Array) -> void:
+	# 제스처는 JS 가 AudioContext.resume 한다. 트랙을 비우고 play_music 하면
+	# 연타가 곡을 처음부터 켠다. 이미 재생 중이면 손대지 않는다.
 	if _current_track == "":
 		return
 	if _music_a != null and _music_a.playing:
 		return
 	if _music_b != null and _music_b.playing:
 		return
-	var track := _current_track
-	_current_track = ""
-	play_music(track, 0.0)
+	play_music(_current_track, 0.0)
 
 func _stream_for(sound_id: String) -> AudioStream:
 	if Catalog == null:
@@ -118,11 +118,13 @@ func play_sfx(sound_id: String, volume_db: float = -5.0, pitch_variance: float =
 func play_stream(stream: AudioStream, volume_db: float = -5.0, pitch_variance: float = 0.04) -> void:  # lint-gd: public-api
 	if stream == null:
 		return
-	_play_stream(stream, volume_db, pitch_variance, &"World")
+	_play_stream(stream, volume_db, pitch_variance, _pool_bus())
 
-func _play_stream(stream: AudioStream, volume_db: float, pitch_variance: float, bus: StringName = &"World") -> void:
+func _play_stream(stream: AudioStream, volume_db: float, pitch_variance: float, bus: StringName = &"") -> void:
 	if _sfx_players.is_empty():
 		return
+	if bus == &"":
+		bus = _pool_bus()
 	var player := _sfx_players[_sfx_cursor]
 	_sfx_cursor = (_sfx_cursor + 1) % _sfx_players.size()
 	player.bus = bus

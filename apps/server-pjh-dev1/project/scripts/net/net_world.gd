@@ -9,7 +9,7 @@ const ARENA_CENTER := ArenaGeo.ARENA_CENTER
 const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
 const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
-const SNAP_HZ := 20.0
+const TICK_RATE := 60.0
 const INTERP_SEC := 0.06
 const MOVE_SPEED := 419.0
 const DASH_SPEED := 520.0
@@ -121,6 +121,9 @@ static func _f(source: Dictionary, key: String, fallback: float) -> float:
         return float(v)
     return fallback
 
+static func snap_per_sec(from_tick: float, to_tick: float) -> float:
+    return TICK_RATE / maxf(1.0, to_tick - from_tick)
+
 func push_snap(snap: Dictionary) -> void:
     if snap.is_empty():
         return
@@ -157,7 +160,7 @@ func present(_dt: float) -> void:
         _overlay_prediction()
         return
     var latest: Dictionary = _snaps.back()
-    var render_tick := float(int(latest.get("tick", 0))) - INTERP_SEC * SNAP_HZ
+    var render_tick := float(int(latest.get("tick", 0))) - INTERP_SEC * TICK_RATE
     var older: Dictionary = _snaps[0]
     var newer: Dictionary = latest
     for i in range(_snaps.size() - 1):
@@ -173,7 +176,7 @@ func present(_dt: float) -> void:
     var span := maxf(0.0001, to_tick - from_tick)
     var alpha := clampf((render_tick - from_tick) / span, 0.0, 1.0)
     if render_tick > to_tick:
-        var extra := minf(0.08, (render_tick - to_tick) / SNAP_HZ)
+        var extra := minf(0.08, (render_tick - to_tick) / TICK_RATE)
         _extrapolate(extra)
     else:
         _lerp_motion(older, newer, alpha)
@@ -204,6 +207,7 @@ func _player_in(snap: Dictionary, slot: int) -> Dictionary:
     return {}
 
 func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
+    var vel_scale := snap_per_sec(float(int(older.get("tick", 0))), float(int(newer.get("tick", 0))))
     var from_map := {}
     for raw in older.get("players", []):
         var p: Dictionary = raw
@@ -221,7 +225,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var from_pos := Vector2(_f(a, "x", 0.0), _f(a, "y", 0.0))
         var to_pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
         hero["pos"] = from_pos.lerp(to_pos, alpha)
-        hero["vel"] = (to_pos - from_pos) * SNAP_HZ
+        hero["vel"] = (to_pos - from_pos) * vel_scale
         var from_aim := Vector2(_f(a, "aimX", from_pos.x + 1.0), _f(a, "aimY", from_pos.y))
         var to_aim := Vector2(_f(b, "aimX", to_pos.x + 1.0), _f(b, "aimY", to_pos.y))
         var aim_point := from_aim.lerp(to_aim, alpha)
@@ -236,7 +240,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
             var from_b := Vector2(_f(ob, "x", 0.0), _f(ob, "y", 0.0))
             var to_b := Vector2(_f(nb, "x", 0.0), _f(nb, "y", 0.0))
             projectiles[i]["pos"] = from_b.lerp(to_b, alpha)
-            projectiles[i]["vel"] = (to_b - from_b) * SNAP_HZ
+            projectiles[i]["vel"] = (to_b - from_b) * vel_scale
     safe_zone_radius = lerpf(_f(older, "zoneR", safe_zone_radius), _f(newer, "zoneR", safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:
@@ -300,14 +304,15 @@ func _make_equipment(weapon_name: String, player_name: String, mag_size: int = 0
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
     tick = int(snap.get("tick", tick))
-    var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
+    var rate := snap_per_sec(float(prev_tick), float(tick))
+    var snap_dt := maxf(0.0, float(tick - prev_tick)) / TICK_RATE
     match_time = _f(snap, "time", match_time)
     var prev_result := result
     _apply_result(snap)
     _apply_safe_zone(snap)
     _apply_world_extras(snap)
-    _apply_players(snap.get("players", []))
-    _apply_bullets(snap.get("bullets", []))
+    _apply_players(snap.get("players", []), rate)
+    _apply_bullets(snap.get("bullets", []), rate)
     _apply_loot(snap.get("loot", []))
     _decay_effects(snap_dt)
     if last_down_ticks > 0:
@@ -366,7 +371,7 @@ func _apply_world_extras(snap: Dictionary) -> void:
     if not tower.is_empty():
         mid_tower = tower
 
-func _apply_players(list: Array) -> void:
+func _apply_players(list: Array, snap_per_sec: float) -> void:
     var prev := {}
     for hero in heroes:
         prev[int(hero["slot"])] = hero
@@ -376,7 +381,7 @@ func _apply_players(list: Array) -> void:
         var slot := int(p.get("slot", next.size()))
         var old: Dictionary = prev.get(slot, {})
         _check_death(p, old, slot)
-        next.append(_build_hero(p, old, slot))
+        next.append(_build_hero(p, old, slot, snap_per_sec))
     heroes = next
 
 func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
@@ -394,10 +399,10 @@ func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     event_log.emit(tick, &"hero_downed", slot, -1, {})
     _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
 
-func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
+func _build_hero(p: Dictionary, old: Dictionary, slot: int, snap_per_sec: float) -> Dictionary:
     var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
     var old_pos: Vector2 = old.get("pos", pos)
-    var vel := (pos - old_pos) * SNAP_HZ
+    var vel := (pos - old_pos) * snap_per_sec
     var aim_point := Vector2(_f(p, "aimX", pos.x + 1.0), _f(p, "aimY", pos.y))
     var aim := Vector2(old.get("aim", Vector2.RIGHT))
     if pos.distance_squared_to(aim_point) > 1.0:
@@ -431,8 +436,8 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
         "action":&"READY"
     }
 
-func _apply_bullets(list: Array) -> void:
-    var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)
+func _apply_bullets(list: Array, snap_per_sec: float) -> void:
+    var next := NetSnapParser.parse_bullets(list, _prev_bullets, snap_per_sec)
     _prev_bullets = next.duplicate()
     projectiles = next
 
@@ -453,7 +458,7 @@ func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float,
 
 func _decay_effects(dt: float) -> void:
     if dt <= 0.0:
-        dt = 1.0 / SNAP_HZ
+        dt = 1.0 / TICK_RATE
     for i in range(effects.size() - 1, -1, -1):
         var effect: Dictionary = effects[i]
         effect["time"] = float(effect["time"]) - dt

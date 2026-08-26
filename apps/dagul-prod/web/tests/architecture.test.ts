@@ -312,7 +312,11 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
     expect(audio).not.toContain("_web_stream");
     const unlock = audio.slice(audio.indexOf("_on_web_audio_unlock"), audio.indexOf("func _stream_for"));
     expect(unlock).toContain("_music_a.playing");
-    expect(sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"))).toContain("if (!resumed) {return;}");
+    expect(unlock).not.toContain("_current_track = \"\"");
+    expect(audio).toContain("_play_stream(stream, volume_db, pitch_variance, _pool_bus())");
+    const js = sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"));
+    expect(js).toContain("resumeIssued");
+    expect(js).toContain("if (!firstResume) {return;}");
   });
 });
 

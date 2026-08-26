@@ -46,6 +46,22 @@ describe("unlockGodotAudio", () => {
     unlockGodotAudio();
     expect(heard).toEqual([]);
   });
+
+  it("suspended 가 유지돼도 Godot 이벤트는 컨텍스트당 1회다", () => {
+    stubAudioContext();
+    captureAudioContexts();
+    const resume = vi.fn().mockResolvedValue(undefined);
+    const Ctx = window.AudioContext as unknown as new () => AudioContext;
+    const ctx = new Ctx();
+    Object.defineProperty(ctx, "state", { value: "suspended" });
+    (ctx as AudioContext).resume = resume;
+    const heard: string[] = [];
+    window.addEventListener(AUDIO_UNLOCK_EVENT, () => {heard.push("ok");});
+    unlockGodotAudio();
+    unlockGodotAudio();
+    expect(resume).toHaveBeenCalledTimes(2);
+    expect(heard).toEqual(["ok"]);
+  });
 });
 
 describe("captureAudioContexts", () => {

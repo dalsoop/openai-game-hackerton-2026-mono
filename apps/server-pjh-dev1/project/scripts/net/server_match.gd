@@ -95,7 +95,7 @@ func on_peer_disconnected(peer_id: int) -> void:
 func add_spectator(peer_id: int) -> void:
 	if peer_id not in _spectators:
 		_spectators.append(peer_id)
-		_send_snapshot_to(peer_id, _build_full_snapshot())
+		_send_snapshot_to(peer_id, snap_builder.build_snapshot(true))
 
 func try_resume(peer_id: int, token: String) -> bool:
 	var slot = _token_slot.get(token, -1)
@@ -114,20 +114,22 @@ func final_standings() -> Array:
 	return world.final_standings()
 
 func _broadcast_snapshot() -> void:
-	var full_snap := snap_builder.build_snapshot()
+	var incr_snap := snap_builder.build_snapshot(false)
 	for peer_id in _peer_slot:
-		if _needs_full_snap.has(peer_id):
-			_send_snapshot_to(peer_id, full_snap)
-			_needs_full_snap.erase(peer_id)
-		else:
-			var delta = _build_delta(full_snap)
-			_send_snapshot_to(peer_id, delta)
+		_send_peer_snapshot(peer_id, incr_snap)
 	for peer_id in _spectators:
-		_send_snapshot_to(peer_id, full_snap)
-	_prev_snap = full_snap
+		_send_snapshot_to(peer_id, snap_builder.build_snapshot(true))
+	_prev_snap = incr_snap
+
+func _send_peer_snapshot(peer_id: int, incr_snap: Dictionary) -> void:
+	if _needs_full_snap.has(peer_id):
+		_needs_full_snap.erase(peer_id)
+		_send_snapshot_to(peer_id, snap_builder.build_snapshot(true))
+		return
+	_send_snapshot_to(peer_id, _build_delta(incr_snap))
 
 func _build_full_snapshot() -> Dictionary:
-	return snap_builder.build_snapshot()
+	return snap_builder.build_snapshot(true)
 
 func _build_delta(current: Dictionary) -> Dictionary:
 	if _prev_snap.is_empty():

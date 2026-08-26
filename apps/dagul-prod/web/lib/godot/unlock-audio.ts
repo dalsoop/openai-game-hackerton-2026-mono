@@ -1,6 +1,7 @@
 export const AUDIO_UNLOCK_EVENT = "dagul-audio-unlock";
 
 const captured: AudioContext[] = [];
+const resumeIssued = new WeakSet<AudioContext>();
 
 /** vitest 전용 — 캡처 목록을 비운다. */
 export function resetAudioUnlockForTests(): void {
@@ -41,15 +42,17 @@ export function captureAudioContexts(): void {
 
 export function unlockGodotAudio(): void {
   if (typeof window === "undefined") {return;}
-  let resumed = false;
+  let firstResume = false;
   for (const ctx of captured) {
-    if (ctx.state === "suspended" || ctx.state === "interrupted") {
-      void ctx.resume();
-      resumed = true;
+    if (ctx.state !== "suspended" && ctx.state !== "interrupted") {continue;}
+    // resume 은 제스처마다 다시 걸 수 있다. Godot 재시작 이벤트는 컨텍스트당 1회.
+    void ctx.resume();
+    if (!resumeIssued.has(ctx)) {
+      resumeIssued.add(ctx);
+      firstResume = true;
     }
   }
-  // WASD 키 리피트마다 이벤트를 보내면 Godot 가 BGM 을 처음부터 다시 켠다.
-  if (!resumed) {return;}
+  if (!firstResume) {return;}
   window.dispatchEvent(new Event(AUDIO_UNLOCK_EVENT));
 }
 
