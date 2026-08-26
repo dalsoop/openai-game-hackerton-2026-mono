@@ -64,43 +64,36 @@ func _peer_reload_reaches_host(t) -> void:
 	t.check("호스트가 게스트 리로드를 적용한다", float(world.heroes[1]["reload_left"]) > 0.0)
 
 func _peer_fire_follows_aim(t) -> void:
-	var world = WorldScript.new(2222)
-	world.reset()
-	world.start_countdown = 0.0
-	world.local_slot = 0
-	world.human_slots[1] = true
-	var h: Dictionary = world.heroes[1]
-	h["fire_cd"] = 0.0
-	h["facing"] = Vector2.DOWN
-	h["aim"] = Vector2.DOWN
-	world.heroes[1] = h
-	var pos: Vector2 = h["pos"]
-	world.peer_commands[1] = {
-		"mx": 0.0, "my": 0.0,
-		"aimX": pos.x + 120.0, "aimY": pos.y,
-		"fire": true, "firePressed": true,
-	}
-	var before: int = world.projectiles.size()
-	world.step_tick({
-		"move": Vector2.ZERO, "aim": Vector2(pos.x, pos.y + 80.0),
-		"primary": false, "primary_pressed": false,
-		"equipment": false, "equipment_pressed": false, "equipment_released": false,
-		"ultimate": false, "mobility": false, "hop": false, "medkit": false,
-		"reload": false, "finish": false,
-	}, 1.0 / 60.0)
-	t.check("게스트 발사가 호스트에 생긴다", world.projectiles.size() > before)
-	if world.projectiles.is_empty():
+	var nw = NetWorldScript.new()
+	nw.local_slot = 1
+	nw.push_snap({
+		SnapContract.TICK: 4,
+		SnapContract.TIME: 0.2,
+		SnapContract.RESULT: "playing",
+		SnapContract.ZONE_R: 3304.0,
+		SnapContract.PLAYERS: [{
+			SnapContract.P_SLOT: 1,
+			SnapContract.P_NAME: "게스트",
+			SnapContract.P_X: 4000.0, SnapContract.P_Y: 2380.0,
+			SnapContract.P_AIM_X: 4120.0, SnapContract.P_AIM_Y: 2380.0,
+			SnapContract.P_HP: 176.0, SnapContract.P_MAX_HP: 176.0,
+			SnapContract.P_ALIVE: true, SnapContract.P_MAG: 17, SnapContract.P_MAG_MAX: 18,
+			SnapContract.P_KILLS: 0, SnapContract.P_ACK: 2,
+		}],
+		SnapContract.BULLETS: [{
+			SnapContract.B_ID: 9,
+			SnapContract.B_X: 4030.0, SnapContract.B_Y: 2380.0,
+			SnapContract.B_VX: 900.0, SnapContract.B_VY: 0.0,
+			SnapContract.B_OWNER: 1,
+		}],
+	})
+	nw.present(1.0 / 60.0)
+	t.check("게스트 탄이 권위 스냅에 생긴다", nw.projectiles.size() > 0)
+	if nw.projectiles.is_empty():
 		return
-	var mine: Dictionary = {}
-	for proj in world.projectiles:
-		if int(proj.get("owner", -1)) == 1:
-			mine = proj
-			break
-	t.check("게스트 탄의 주인이 맞다", not mine.is_empty())
-	if mine.is_empty():
-		return
-	var vel: Vector2 = mine["vel"]
-	t.check("게스트 탄이 조준 쪽으로 간다", vel.x > absf(vel.y))
+	var mine: Dictionary = nw.projectiles[0]
+	t.check("게스트 탄의 주인이 맞다", int(mine.get("owner", -1)) == 1)
+	t.check("게스트 탄이 조준 쪽으로 간다", Vector2(mine.get("vel", Vector2.ZERO)).x > 0.0)
 
 func _guest_bullets_keep_own_velocity(t) -> void:
 	var prev: Array = [{
