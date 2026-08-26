@@ -2,6 +2,7 @@ extends RefCounted
 ## SettingsStore 정규화 — 모르는 모드는 자동으로 떨어진다.
 
 const Store := preload("res://core/ui/settings_store.gd")
+const Ui := preload("res://core/ui/ui_theme.gd")
 
 func run(t) -> void:
 	t.check("자동은 유지", Store.normalize_mode("auto") == Store.MODE_AUTO)
@@ -15,3 +16,7 @@ func run(t) -> void:
 	t.check("온보딩 숨김을 기록한다", Store.load_onboarding_hide() == true)
 	Store.save_onboarding_hide(false)
 	t.check("온보딩을 다시 켠다", Store.load_onboarding_hide() == false)
+	var tex := Ui.gear_texture(40)
+	t.check("설정 아이콘 텍스처", tex != null and tex.get_width() == 40)
+	var gear := Ui.flat_icon_btn(tex, Vector2(40, 40))
+	t.check("설정은 글자 없는 아이콘", gear.text == "" and gear.icon != null)

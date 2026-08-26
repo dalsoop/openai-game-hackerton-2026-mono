@@ -82,6 +82,50 @@ static func chip(text: String, group: ButtonGroup) -> Button:
 	c.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	return c
 
+static func flat_icon_btn(tex: Texture2D, min_size: Vector2) -> Button:
+	var b := Button.new()
+	b.icon = tex
+	b.expand_icon = true
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = min_size
+	var empty := StyleBoxEmpty.new()
+	b.add_theme_stylebox_override("normal", empty)
+	b.add_theme_stylebox_override("hover", empty)
+	b.add_theme_stylebox_override("pressed", empty)
+	b.add_theme_stylebox_override("focus", empty)
+	b.modulate = Color(0.84, 0.90, 0.96, 0.92)
+	b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
+	b.mouse_exited.connect(func() -> void: b.modulate = Color(0.84, 0.90, 0.96, 0.92))
+	return b
+
+
+static func gear_texture(px: int = 40) -> ImageTexture:
+	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var mid := float(px) * 0.5
+	var ink := Color(0.88, 0.92, 0.96, 0.96)
+	var teeth := 8
+	var step := TAU / float(teeth)
+	var hole := mid * 0.22
+	var valley := mid * 0.58
+	var outer := mid * 0.90
+	for y in range(px):
+		for x in range(px):
+			if _gear_pixel(float(x) + 0.5 - mid, float(y) + 0.5 - mid, hole, valley, outer, step):
+				img.set_pixel(x, y, ink)
+	return ImageTexture.create_from_image(img)
+
+
+static func _gear_pixel(dx: float, dy: float, hole: float, valley: float, outer: float, step: float) -> bool:
+	var r := sqrt(dx * dx + dy * dy)
+	if r < hole or r > outer:
+		return false
+	var local := fposmod(atan2(dy, dx) + step * 0.5, step) / step
+	var max_r := outer if local < 0.34 or local > 0.66 else valley
+	return r <= max_r
+
+
 static func icon_btn(caption: String) -> Button:
 	var b := Button.new()
 	b.text = caption
