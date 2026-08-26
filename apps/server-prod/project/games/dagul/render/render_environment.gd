@@ -50,23 +50,45 @@ func _dirt_here(px: float, py: float) -> bool:
 			return true
 	return false
 
+var _dirt_cells: Array[Dictionary] = []
+
 func _draw_dirt_patches() -> void:
 	if r.dirt_tile_texture == null:
 		return
-	var cell := 96.0
+	if r.lite_draw:
+		_draw_dirt_spots_lite()
+		return
+	_ensure_dirt_cells()
 	var atlas: Texture2D = r.dirt_tile_texture
 	var use_atlas := atlas.get_width() >= 128
+	for cell in _dirt_cells:
+		_draw_dirt_cell(float(cell.x), float(cell.y), 96.0, atlas, use_atlas)
+
+func _ensure_dirt_cells() -> void:
+	if not _dirt_cells.is_empty():
+		return
+	var cell := 96.0
 	var y := 480.0
 	while y < 4440.0:
-		_draw_dirt_row(y, cell, atlas, use_atlas)
+		_collect_dirt_row(y, cell)
 		y += cell
 
-func _draw_dirt_row(y: float, cell: float, atlas: Texture2D, use_atlas: bool) -> void:
+func _collect_dirt_row(y: float, cell: float) -> void:
 	var x := 360.0
 	while x < 7440.0:
 		if _dirt_here(x + cell * 0.5, y + cell * 0.5):
-			_draw_dirt_cell(x, y, cell, atlas, use_atlas)
+			_dirt_cells.append({"x": x, "y": y})
 		x += cell
+
+func _draw_dirt_spots_lite() -> void:
+	var atlas: Texture2D = r.dirt_tile_texture
+	var src := Rect2(Vector2.ZERO, Vector2(32, 32))
+	if atlas.get_width() >= 128:
+		src = Rect2(Vector2(32, 32), Vector2(32, 32))
+	for spot in DIRT_SPOTS:
+		var rad: float = float(spot[2])
+		var pos := Vector2(float(spot[0]) - rad, float(spot[1]) - rad)
+		r.draw_texture_rect_region(atlas, Rect2(pos, Vector2(rad * 2.0, rad * 2.0)), src)
 
 func _draw_dirt_cell(x: float, y: float, cell: float, atlas: Texture2D, use_atlas: bool) -> void:
 	var n := 1 if _dirt_here(x + cell * 0.5, y - cell * 0.5) else 0
@@ -125,7 +147,7 @@ func draw_safe_zone() -> void:
 		r._draw_dashed_circle(center, target_radius, Color(0.90, 0.76, 1.0, 0.55), 3.0, 0.075, 0.075)
 
 func _draw_zone_bands(center: Vector2, radius: float, ring: Color, pulse: float) -> void:
-	var band_count := 24 if r.lite_draw else 48
+	var band_count := 10 if r.lite_draw else 48
 	var shrinking := bool(world.safe_zone_shrinking)
 	var phase := float(world.tick) * (0.026 if shrinking else 0.007)
 	for band_index in range(band_count):
