@@ -7,7 +7,7 @@ import { HUB_CONFIG } from "../hub/config";
 import { DEFAULT_GAME_ID, packOf, type GameId } from "../games/catalog";
 import { AssetStore, assetPlanOf } from "./asset-store";
 import { bindCanvasKeyboardFocus } from "./canvas-focus";
-import { bindAudioUnlock, captureAudioContexts } from "./unlock-audio";
+import { bindAudioUnlock, captureAudioContexts, unlockGodotAudio } from "./unlock-audio";
 import { isWebGL2Available, type GodotEngineApi } from "./webgl";
 import type { StartPayload } from "../hub/start-payload";
 
@@ -155,6 +155,7 @@ export class GodotRuntime {
     this.update({ state: "compiling", progress: 0.42 });
 
     this.writeHandoff(handoff);
+    captureAudioContexts();
     await this.loadEngineScript();
     this.update({ progress: 0.55 });
 
@@ -212,6 +213,7 @@ export class GodotRuntime {
     this.unbindCanvasFocus = bindCanvasKeyboardFocus(canvas);
     this.unbindAudioUnlock?.();
     this.unbindAudioUnlock = bindAudioUnlock(canvas);
+    unlockGodotAudio();
     this.update({ state: "running" });
     this.armWatchdog();
   }

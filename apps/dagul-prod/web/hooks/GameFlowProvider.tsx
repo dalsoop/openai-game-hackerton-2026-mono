@@ -4,12 +4,14 @@ import { createContext, useContext } from "react";
 import type { JSX, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useGameFlow, type UseGameFlowResult } from "@/hooks/useGameFlow";
+import { useLobbyAudio } from "@/hooks/useLobbyAudio";
 
 const GameFlowContext = createContext<UseGameFlowResult | null>(null);
 
 export function GameFlowProvider({ children }: { children: ReactNode }): JSX.Element {
   const t = useTranslations("intro");
   const value = useGameFlow(t("defaultPlayer"));
+  useLobbyAudio(value.phase);
   return <GameFlowContext.Provider value={value}>{children}</GameFlowContext.Provider>;
 }
 

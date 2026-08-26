@@ -168,6 +168,11 @@ export function clearMatchSchema(state: LobbyState): void {
   state.bullets.clear();
 }
 
+/** 스냅은 시뮬과 같은 60Hz. 20Hz 이면 보간이 한 박자 늦게 미끄러진다. */
+export const SNAP_DT = FIXED_DT;
+/** 한 콜백에서 따라잡는 최대 틱. 밀린 dt 를 한 번에 20틱 돌리면 더 끊긴다. */
+const MAX_STEPS = 4;
+
 export class MatchAuthority {
   readonly sim: MatchSim;
   readonly names = new Map<number, string>();
@@ -191,15 +196,18 @@ export class MatchAuthority {
 
   advance(dtSec: number, state: LobbyState): { snap: Record<string, unknown> | null; fx: GunFireFx[] } {
     this.acc += dtSec;
+    if (this.acc > FIXED_DT * MAX_STEPS) {this.acc = FIXED_DT * MAX_STEPS;}
     const fx: GunFireFx[] = [];
-    while (this.acc >= FIXED_DT - 1e-9) {
+    let steps = 0;
+    while (this.acc >= FIXED_DT - 1e-9 && steps < MAX_STEPS) {
       this.acc -= FIXED_DT;
       this.sim.step(FIXED_DT);
       fx.push(...this.sim.drainFx());
+      steps += 1;
     }
     writeMatchSchema(state, this.sim);
     this.snapAcc += dtSec;
-    if (this.snapAcc < 1 / 20 - 1e-9) {return { snap: null, fx };}
+    if (this.snapAcc < SNAP_DT - 1e-9) {return { snap: null, fx };}
     this.snapAcc = 0;
     return { snap: packAuthoritySnap(this.sim, this.names, this.mode), fx };
   }

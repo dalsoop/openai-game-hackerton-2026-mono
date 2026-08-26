@@ -4,7 +4,11 @@ extends Node
 var Catalog = null  # lint-gd: public-api
 
 func register_catalog(catalog: Object) -> void:  # lint-gd: public-api
-	Catalog = catalog
+	# 스크립트 리소스면 인스턴스로 만든다. Script.call("stream_for") 는 웹에서 빈 값을 돌려 전체가 무음이 된다.
+	if catalog is Script:
+		Catalog = (catalog as Script).new()
+	else:
+		Catalog = catalog
 
 const POOL_SIZE := 12  # lint-gd: public-api
 const WORLD_POOL := 16  # lint-gd: public-api
@@ -61,12 +65,12 @@ func _on_web_audio_unlock(_args: Array) -> void:
 func _stream_for(sound_id: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.call("stream_for", sound_id)
+	return Catalog.stream_for(sound_id)
 
 func _music_for(track: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.call("music_for", track)
+	return Catalog.music_for(track)
 
 func _build_sfx_pool() -> void:
 	for i in POOL_SIZE:
