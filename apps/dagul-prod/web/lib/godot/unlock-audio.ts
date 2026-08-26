@@ -2,6 +2,11 @@ export const AUDIO_UNLOCK_EVENT = "dagul-audio-unlock";
 
 const captured: AudioContext[] = [];
 
+/** vitest 전용 — 캡처 목록을 비운다. */
+export function resetAudioUnlockForTests(): void {
+  captured.length = 0;
+}
+
 type AudioWindow = Window & {
   AudioContext: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;
@@ -46,7 +51,7 @@ export function unlockGodotAudio(): void {
 
 const GESTURES = ["pointerdown", "mousedown", "touchstart", "keydown"] as const;
 
-/** Godot 엔진은 #canvas 의 mousedown/touchstart 만 본다. 우리 캔버스 id 는 godot-canvas. */
+/** resume 은 제스처 핸들러 안에서만 호출한다. 엔진 start() 직후 비동기 resume 은 거절된다. */
 export function bindAudioUnlock(canvas: HTMLCanvasElement): () => void {
   const onGesture = (): void => { unlockGodotAudio(); };
   const opts: AddEventListenerOptions = { capture: true };

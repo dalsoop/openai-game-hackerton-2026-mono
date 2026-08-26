@@ -33,7 +33,7 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
 
   return (
     <div className="gc-overlay">
-      <canvas ref={canvasRef} id="godot-canvas" className="gc-canvas" tabIndex={0} />
+      <canvas ref={canvasRef} id="canvas" className="gc-canvas" tabIndex={0} />
       {booting && (
         <div className="gc-booting">
           <div className="gc-boot-pct">{t("godot.loadingPct", { pct })}</div>

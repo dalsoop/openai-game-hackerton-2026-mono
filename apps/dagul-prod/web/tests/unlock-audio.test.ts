@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AUDIO_UNLOCK_EVENT, bindAudioUnlock, captureAudioContexts, unlockGodotAudio,
+  resetAudioUnlockForTests,
 } from "@/lib/godot/unlock-audio";
 
 function stubAudioContext(): void {
@@ -14,6 +15,7 @@ function stubAudioContext(): void {
 }
 
 afterEach(() => {
+  resetAudioUnlockForTests();
   vi.restoreAllMocks();
 });
 

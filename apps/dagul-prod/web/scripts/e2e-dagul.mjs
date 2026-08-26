@@ -52,7 +52,7 @@ ok("3. 대기실 도착", true);
 await startBtn.click();
 console.log("  … Godot 부팅 대기 중 (최대 120초)");
 const canvasOk = await page
-  .waitForFunction(() => document.getElementById("godot-canvas") !== null, null, { timeout: 120_000 })
+  .waitForFunction(() => document.getElementById("canvas") !== null, null, { timeout: 120_000 })
   .then(() => true)
   .catch(() => false);
 const engineOk = canvasOk && await page
@@ -89,7 +89,7 @@ const combatOk = await page
   .then(() => true)
   .catch(() => false);
 ok("7. 카운트다운 종료", combatOk);
-await page.locator("#godot-canvas").click({ position: { x: 640, y: 360 } });
+await page.locator("#canvas.gc-canvas").click({ position: { x: 640, y: 360 } });
 const before = await page.evaluate(() => window.__dagulPlay);
 await page.keyboard.down("KeyW");
 await page.waitForTimeout(900);
@@ -103,9 +103,9 @@ const autoloadLeak = consoleErrors.some((line) => /non-existent singleton '(Game
 ok("9. 오토로드는 엔진 싱글톤이 아님", !autoloadLeak);
 
 const pageFocusEvents = await page.evaluate(() => {
-  document.getElementById("godot-canvas")?.blur();
+  document.getElementById("canvas")?.blur();
   window.dispatchEvent(new Event("focus"));
-  return { canvas: document.activeElement?.id === "godot-canvas" };
+  return { canvas: document.activeElement?.id === "canvas" };
 });
 ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas);
 

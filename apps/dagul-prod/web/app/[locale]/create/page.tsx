@@ -5,12 +5,13 @@ import { useTranslations } from "next-intl";
 import { CONNECTION_CLASS } from "@/types";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { useCreateRoomPage } from "@/hooks/useCreateRoomPage";
+import { ConnectingPhase } from "@/components/phases";
 import CreateRoom from "@/components/CreateRoom";
 
 export default function CreatePage(): JSX.Element {
   const t = useTranslations();
   const { hub } = useGameFlowContext();
-  const { ready, listings, onSubmit, onBack } = useCreateRoomPage();
+  const { ready, creating, listings, onSubmit, onBack } = useCreateRoomPage();
 
   return (
     <div className="page-shell">
@@ -22,7 +23,9 @@ export default function CreatePage(): JSX.Element {
           connClass={CONNECTION_CLASS[hub.status]}
           connText={hub.status === "connecting" ? t("connection.connecting") : t("connection.connected")}
         />
-      ) : null}
+      ) : (
+        <ConnectingPhase message={creating ? t("create.pending") : t("connection.connecting")} />
+      )}
     </div>
   );
 }

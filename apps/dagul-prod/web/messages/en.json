@@ -59,6 +59,7 @@
     "emptyRooms": "No rooms open yet.",
     "room": "Room",
     "createButton": "Create Room",
+    "joining": "Joining the room...",
     "join": "Join",
     "modeFull": "Full",
     "mineHost": "My room · Host",
@@ -88,6 +89,7 @@
     "sizeKb": "{amount}KB",
     "sizeMb": "{amount}MB",
     "submit": "Create Room",
+    "pending": "Creating the room...",
     "cancel": "Back to lobby"
   },
   "room": {

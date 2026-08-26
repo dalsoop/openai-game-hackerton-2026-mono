@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, lobbyBgmOn, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { createSurface, displayNameOf, homeSurface, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
+import type { HomeSurface } from "@/lib/game-flow-state";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
 const PHASES: GamePhase[] = ["intro", "lobby", "room", "playing"];
@@ -39,6 +40,17 @@ describe("lobbyBgmOn", () => {
     expect(lobbyBgmOn("lobby")).toBe(false);
     expect(lobbyBgmOn("room")).toBe(false);
     expect(lobbyBgmOn("playing")).toBe(false);
+  });
+});
+
+describe("matchmakePending", () => {
+  it("생성·입장 요청이 로비에 남아 있는 동안만 참", () => {
+    expect(matchmakePending("create", "lobby")).toBe(true);
+    expect(matchmakePending("join", "connecting")).toBe(true);
+    expect(matchmakePending("create", "in-room")).toBe(false);
+    expect(matchmakePending("join", "playing")).toBe(false);
+    expect(matchmakePending("resume", "lobby")).toBe(false);
+    expect(matchmakePending(null, "lobby")).toBe(false);
   });
 });
 
@@ -103,5 +115,107 @@ describe("packLoadStartsInRoom — 유즈맵 팩 받기 시점", () => {
 
   it.each(["intro", "lobby", "playing"] as GamePhase[])("방 밖(%s)에서는 시작하지 않는다", (phase) => {
     expect(packLoadStartsInRoom(phase)).toBe(false);
+  });
+});
+
+const HOME_SURFACES: HomeSurface[] = [
+  "reconnect", "playing", "intro", "resuming", "matchmaking", "lobby", "room",
+];
+
+/** 허브 상태 우선 — 페이즈가 늦거나 빨라도 빈 화면이 없다. */
+const HOME_BY_STATUS: Record<HubStatus, HomeSurface> = {
+  offline: "reconnect",
+  connecting: "lobby",
+  lobby: "lobby",
+  "in-room": "room",
+  playing: "playing",
+};
+
+describe("homeSurface — 페이즈×상태 전수, 빈 화면 금지", () => {
+  it.each(HUB_STATUSES)("status=%s 는 페이즈와 무관하게 한 화면", (status) => {
+    for (const phase of PHASES) {
+      const view = homeSurface(phase, status);
+      expect(HOME_SURFACES).toContain(view);
+      if (status === "offline") {
+        expect(view).toBe(phase === "intro" ? "intro" : "reconnect");
+        continue;
+      }
+      expect(view).toBe(HOME_BY_STATUS[status]);
+    }
+  });
+
+  it("나가기: 페이즈만 로비, 허브는 아직 in-room → 대기실을 붙든다", () => {
+    expect(homeSurface("lobby", "in-room")).toBe("room");
+  });
+
+  it("입장 성공: 페이즈는 아직 로비, 허브는 in-room → 대기실 (빈 프레임 없음)", () => {
+    expect(homeSurface("lobby", "in-room", { joiningKind: "join" })).toBe("room");
+    expect(homeSurface("lobby", "in-room", { joiningKind: "create" })).toBe("room");
+  });
+
+  it("게임 시작: 페이즈는 아직 대기실, 허브는 playing → 인게임", () => {
+    expect(homeSurface("room", "playing")).toBe("playing");
+  });
+
+  it("매치 종료: 페이즈만 로비, 허브는 아직 playing → 인게임을 붙든다", () => {
+    expect(homeSurface("lobby", "playing")).toBe("playing");
+  });
+
+  it("매치 종료 후 방이 남으면 대기실 (로비 목록으로 점프하지 않음)", () => {
+    expect(homeSurface("playing", "in-room")).toBe("room");
+    expect(homeSurface("lobby", "in-room")).toBe("room");
+  });
+
+  it("방 만들기·입장 중에는 로비 목록을 그리지 않는다", () => {
+    expect(homeSurface("lobby", "lobby", { joiningKind: "create" })).toBe("matchmaking");
+    expect(homeSurface("lobby", "connecting", { joiningKind: "join" })).toBe("matchmaking");
+    expect(homeSurface("lobby", "lobby")).toBe("lobby");
+  });
+
+  it("세션 재개는 재접속 화면", () => {
+    expect(homeSurface("lobby", "lobby", { resuming: true })).toBe("resuming");
+  });
+
+  it("강퇴·튕김은 재접속 모달", () => {
+    expect(homeSurface("room", "in-room", { dropReason: "kicked" })).toBe("reconnect");
+    expect(homeSurface("lobby", "offline", { dropReason: "dropped" })).toBe("reconnect");
+  });
+});
+
+describe("createSurface — /create 빈 화면 금지", () => {
+  it("로비에서만 폼", () => {
+    expect(createSurface("lobby", "lobby", null)).toBe("form");
+  });
+
+  it("제출 후 방이 생길 때까지 pending — 홈으로 보내지 않음", () => {
+    expect(createSurface("lobby", "lobby", "create")).toBe("pending");
+    expect(createSurface("lobby", "connecting", "create")).toBe("pending");
+  });
+
+  it("연결 중·재개 중도 pending (null 금지)", () => {
+    expect(createSurface("lobby", "connecting", null)).toBe("pending");
+    expect(createSurface("lobby", "lobby", null, true)).toBe("pending");
+  });
+
+  it("방이 생기면 홈으로", () => {
+    expect(createSurface("lobby", "in-room", "create")).toBe("redirect");
+    expect(createSurface("room", "in-room", "create")).toBe("redirect");
+    expect(createSurface("playing", "playing", null)).toBe("redirect");
+  });
+
+  it("인트로·오프라인은 홈으로", () => {
+    expect(createSurface("intro", "offline", null)).toBe("redirect");
+    expect(createSurface("lobby", "offline", null)).toBe("redirect");
+  });
+
+  it("페이즈×상태 전수에 form|pending|redirect 만", () => {
+    const kinds = [null, "create", "join", "resume"] as const;
+    for (const phase of PHASES) {
+      for (const status of HUB_STATUSES) {
+        for (const kind of kinds) {
+          expect(["form", "pending", "redirect"]).toContain(createSurface(phase, status, kind));
+        }
+      }
+    }
   });
 });

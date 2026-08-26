@@ -29,7 +29,7 @@ await page.waitForSelector("form.create-form", { timeout: 45_000 });
 await page.click("form.create-form button.cta");
 await page.waitForSelector("text=게임 시작", { timeout: 45_000 });
 await page.click("text=게임 시작");
-await page.waitForSelector(".gc-error-box, #godot-canvas", { timeout: 120_000 });
+await page.waitForSelector(".gc-error-box, #canvas.gc-canvas", { timeout: 120_000 });
 await page.waitForTimeout(8_000);
 const box = await page.locator(".gc-error-box").innerText().catch(() => "");
 await page.screenshot({ path: "/tmp/e2e-null-now.png" });
