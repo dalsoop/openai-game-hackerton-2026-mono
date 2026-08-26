@@ -31,8 +31,11 @@ if [ ! -x "$GODOT" ] && ! command -v "$GODOT" >/dev/null 2>&1; then
 fi
 
 echo "[1/4] 스크립트 게이트 — $SLOT"
+# class_name(WebContract 등)은 .godot 캐시가 있어야 --script 파스가 산다.
+"$GODOT" --headless --path "$PROJECT" --import --quit
 TEST_LOG=$("$GODOT" --headless --path "$PROJECT" --script res://tests/run_tests.gd 2>&1 || true)
 if echo "$TEST_LOG" | grep -E "GDTEST FAIL|SCRIPT ERROR|Parse Error"; then
+  echo "$TEST_LOG" | grep -E "GDTEST FAIL|SCRIPT ERROR|Parse Error" || true
   echo "build-godot: GD 테스트/파스 실패 — export 중단"
   exit 1
 fi

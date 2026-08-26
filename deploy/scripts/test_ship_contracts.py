@@ -245,6 +245,11 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertTrue((root / "deploy" / "scripts" / "build-godot.sh").is_file())
         self.assertTrue((root / "deploy" / "scripts" / "export_web.py").is_file())
         self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
+        build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
+        self.assertIn("--import --quit", build)
+        apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
+        self.assertIn("if: ${{ !cancelled() }}", apps_yml)
+        self.assertIn("apply-apps.py helm", apps_yml)
         for folder in ("server-yjh-dev1", "server-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)
