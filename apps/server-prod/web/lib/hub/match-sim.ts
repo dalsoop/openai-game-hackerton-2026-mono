@@ -191,23 +191,30 @@ export class MatchSim {
 
   private advanceBullets(dt: number): void {
     for (const [id, b] of [...this.bullets]) {
-      b.ttl -= dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      if (b.ttl <= 0 || b.x < 0 || b.y < 0 || b.x > ARENA_SIZE.x || b.y > ARENA_SIZE.y) {
-        this.bullets.delete(id);
-        continue;
-      }
-      for (const hero of this.heroes.values()) {
-        if (!hero.alive || hero.slot === b.owner) {continue;}
-        const hitR = HERO_RADIUS + BULLET_RADIUS;
-        if ((hero.x - b.x) ** 2 + (hero.y - b.y) ** 2 <= hitR * hitR) {
-          hero.hp = Math.max(0, hero.hp - 13.26);
-          if (hero.hp <= 0) {hero.alive = false;}
-          this.bullets.delete(id);
-          break;
-        }
-      }
+      if (this.expireOrHit(b, dt)) {this.bullets.delete(id);}
     }
+  }
+
+  private expireOrHit(b: SimBullet, dt: number): boolean {
+    b.ttl -= dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.ttl <= 0 || b.x < 0 || b.y < 0 || b.x > ARENA_SIZE.x || b.y > ARENA_SIZE.y) {
+      return true;
+    }
+    const victim = this.hitHero(b);
+    if (!victim) {return false;}
+    victim.hp = Math.max(0, victim.hp - 13.26);
+    victim.alive = victim.hp > 0;
+    return true;
+  }
+
+  private hitHero(b: SimBullet): SimHero | null {
+    const hitR = HERO_RADIUS + BULLET_RADIUS;
+    for (const hero of this.heroes.values()) {
+      if (!hero.alive || hero.slot === b.owner) {continue;}
+      if ((hero.x - b.x) ** 2 + (hero.y - b.y) ** 2 <= hitR * hitR) {return hero;}
+    }
+    return null;
   }
 }
