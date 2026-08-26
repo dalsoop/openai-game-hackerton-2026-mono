@@ -240,14 +240,14 @@ body.wait #wait { display: block; }
 .bar-fill.done { background:var(--green); }
 
 /* --- 대기실 --- */
-.room-download { margin:16px 0 8px; padding:12px 14px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius); }
-.dl-label { font-size:13px; color:var(--tx-1); margin-bottom:10px; }
-.dl-roster { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
-.dl-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--tx-1); }
-.dl-row.me { color:var(--tx-0); }
-.dl-name { min-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.dl-pct { min-width:72px; text-align:right; color:var(--tx-2); }
-.dl-row .bar-track { margin-left:0; }
+.pack-list { margin:16px 0 8px; padding:12px 14px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius); }
+.pack-list-label { font-size:13px; color:var(--tx-1); margin-bottom:10px; }
+.pack-list-rows { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.pack-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--tx-1); }
+.pack-row.me { color:var(--tx-0); }
+.pack-name { min-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pack-pct { min-width:72px; text-align:right; color:var(--tx-2); }
+.pack-row .bar-track { margin-left:0; }
 .wait-summary { text-align:center; margin:12px 0; color:var(--tx-1); font-size:13px; }
 .asset-note { text-align:center; color:var(--acc); font-size:13px; margin-top:8px; }
 .host-wait { flex:1; text-align:center; color:var(--tx-2); padding:12px 0; }

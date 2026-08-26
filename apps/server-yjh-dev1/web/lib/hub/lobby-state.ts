@@ -6,7 +6,7 @@ export class PlayerSchema extends Schema {
   @type("string") sessionId = "";
   @type("string") name = "";
   @type("boolean") connected = true;
-  @type("uint8") dlPct = 0;
+  @type("uint8") packPct = 0;
 }
 
 export class LobbyState extends Schema {

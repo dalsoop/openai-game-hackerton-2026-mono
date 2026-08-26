@@ -1,8 +1,8 @@
 "use client";
-// 대기실 좌석 카드 1매 — 채움/내 자리/왕관/단절·받기 단계 표시만 담당.
+// 대기실 좌석 카드 1매 — 채움/내 자리/왕관/단절·팩 단계 표시만 담당.
 import type { JSX } from "react";
 import type { HubPlayer } from "@/types";
-import { clampPct, seatTag, type SeatTag } from "@/lib/domain/download";
+import { clampPackPct, packSeatTag, type PackSeatTag } from "@/lib/domain/waiting-room-pack";
 import { useTranslations } from "next-intl";
 
 interface SlotCardProps {
@@ -11,7 +11,7 @@ interface SlotCardProps {
   you: number;
 }
 
-const TAG_CLASS: Record<SeatTag, string> = {
+const TAG_CLASS: Record<PackSeatTag, string> = {
   reconnect: "bad",
   pending: "cyan",
   progress: "cyan",
@@ -23,12 +23,12 @@ export default function SlotCard({ index, player, you }: SlotCardProps): JSX.Ele
   const t = useTranslations("room");
   const isMe = index === you;
   const classes = ["slot-card", player && "filled", isMe && "me"].filter(Boolean).join(" ");
-  const pct = clampPct(player?.dlPct);
-  const tag = seatTag(player?.dropped === true, pct, player?.host === true);
-  const labels: Record<SeatTag, string> = {
+  const pct = clampPackPct(player?.packPct);
+  const tag = packSeatTag(player?.dropped === true, pct, player?.host === true);
+  const labels: Record<PackSeatTag, string> = {
     reconnect: t("waitingReconnect"),
-    pending: t("dlNotStarted"),
-    progress: t("dlProgress", { pct }),
+    pending: t("packNotStarted"),
+    progress: t("packProgress", { pct }),
     host: t("host"),
     waiting: t("waiting"),
   };

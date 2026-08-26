@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, downloadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { displayNameOf, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -87,12 +87,12 @@ describe("phaseOnMount", () => {
   });
 });
 
-describe("downloadStartsInRoom — 유즈맵 다운로드 시점", () => {
+describe("packLoadStartsInRoom — 유즈맵 팩 받기 시점", () => {
   it("대기실에서만 시작한다", () => {
-    expect(downloadStartsInRoom("room")).toBe(true);
+    expect(packLoadStartsInRoom("room")).toBe(true);
   });
 
   it.each(["intro", "lobby", "playing"] as GamePhase[])("방 밖(%s)에서는 시작하지 않는다", (phase) => {
-    expect(downloadStartsInRoom(phase)).toBe(false);
+    expect(packLoadStartsInRoom(phase)).toBe(false);
   });
 });

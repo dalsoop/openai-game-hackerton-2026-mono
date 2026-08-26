@@ -6,7 +6,7 @@ import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
 import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
-import { useRoomAssets } from "@/hooks/useRoomAssets";
+import { useWaitingRoomPack } from "@/hooks/useWaitingRoomPack";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
 
@@ -20,7 +20,7 @@ export interface UseGameFlowResult {
   hasSavedName: boolean;
   hub: ReturnType<typeof useHub>;
   loader: ReturnType<typeof useGodotLoader>;
-  localPct: number;
+  ownPackPct: number;
   matchInfo: MatchInfo;
   findRoom: () => void;
   start: () => void;
@@ -82,7 +82,7 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     if (hub.dropReason) {setPhase("lobby");}
   }, [hub.dropReason]);
 
-  const { localPct } = useRoomAssets(phase, loader, hub.reportDownload);
+  const { ownPackPct } = useWaitingRoomPack(phase, loader, hub.sendPackPct);
 
   const findRoom = useCallback(() => {
     saveNickname(displayName);
@@ -127,7 +127,7 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     hasSavedName: nickname !== "",
     hub,
     loader,
-    localPct,
+    ownPackPct,
     matchInfo,
     findRoom,
     start,

@@ -98,9 +98,9 @@
     "open": "Open room",
     "close": "Close room",
     "downloading": "Downloading game",
-    "dlReady": "Ready",
-    "dlNotStarted": "Not started",
-    "dlProgress": "{pct}%",
+    "packReady": "Ready",
+    "packNotStarted": "Not started",
+    "packProgress": "{pct}%",
     "changeGame": "Game",
     "idleHost": "Room closes in {sec}s if you do not start",
     "idleGuest": "Room closes in {sec}s unless the host starts"

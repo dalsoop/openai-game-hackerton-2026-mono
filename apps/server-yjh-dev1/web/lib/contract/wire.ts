@@ -38,8 +38,8 @@ export const MSG = {
   ROOM_TOGGLE: "room_toggle",
   /** 방장만. 대기실에서 유즈맵을 바꾼다. */
   SET_GAME: "set_game",
-  /** 자기 좌석의 게임 받기 0..100. Godot 수송이 아니다. */
-  DL: "dl",
+  /** 자기 좌석의 대기실 팩 진행률 0..100. Godot 수송이 아니다. */
+  PACK_PCT: "pack_pct",
   KICKED: "kicked",
   /** React → Godot 방 state. 허브 메시지 타입이 아니다. */
   STATE: "state",
