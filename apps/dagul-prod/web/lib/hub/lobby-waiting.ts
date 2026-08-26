@@ -21,6 +21,7 @@ export type LobbyBag = {
   idleTimer: TimerHandle | null;
   authority: MatchAuthority | null;
   hostLossTimer: TimerHandle | null;
+  loadWaitMs: number;
 };
 
 export type LobbyHandle = {
@@ -127,10 +128,12 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;
+  bag.loadWaitMs = 0;
   clearMatchSchema(room.state);
   clearMatchState(room.state.match);
   room.state.phase = "lobby";
   room.state.seed = 0;
+  for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
   armIdleTimer(room, bag);
 }
@@ -144,8 +147,17 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): v
   clearIdleTimer(room, bag);
   room.state.phase = "playing";
   room.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
+  bag.loadWaitMs = 0;
+  for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
   sendStartBodies(room, bag);
+}
+
+export function handleMatchReady(room: LobbyHandle, client: Client): void {
+  if (room.state.phase !== "playing") {return;}
+  const player = room.state.players.find((p) => p.sessionId === client.sessionId);
+  if (!player) {return;}
+  player.matchReady = true;
 }
 
 function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {

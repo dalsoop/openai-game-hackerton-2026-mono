@@ -20,6 +20,8 @@ func _scan_source(t) -> void:
 	t.check("페이지 브릿지 FROM", code.find("EVT_FROM_ENGINE") >= 0)
 	t.check("반전: matchmake/reconnect 경로 금지", code.find("matchmake") < 0)
 	t.check("MATCH 재소비 가드", code.find("if match_running:") >= 0)
+	t.check("인게임 ready 송신", code.find("func send_ready") >= 0)
+	t.check("ready 는 MSG_READY", code.find("MSG_READY") >= 0)
 
 func _runtime_bridge(t) -> void:
 	var nm: Node = load("res://core/autoload/network_manager.gd").new()
@@ -65,3 +67,8 @@ func _runtime_bridge(t) -> void:
 	})
 	t.check("반전: 빈 sessionId 는 호스트를 바꾸지 않는다", nm.is_host == true)
 	nm.free()
+	var shell := FileAccess.get_file_as_string("res://core/shell/match_shell.gd")
+	var start_at := shell.find("module.start(")
+	var ready_at := shell.find("_notify_match_loaded()")
+	t.check("셸이 모듈 start 뒤에 ready 를 보낸다", start_at >= 0 and ready_at > start_at)
+	t.check("계약 MSG_READY 거울", WebContract.MSG_READY == "ready")

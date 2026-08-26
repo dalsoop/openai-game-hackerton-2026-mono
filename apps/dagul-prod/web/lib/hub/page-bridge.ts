@@ -4,7 +4,9 @@ import { DOM_EVT, MSG } from "../contract";
 
 export type BridgePacket = { readonly type: string; readonly payload: unknown };
 
-const FROM_ENGINE_TYPES = new Set<string>([MSG.INPUT, MSG.LEAVE, MSG.SNAP_OFF, MSG.SNAP_ON]);
+const FROM_ENGINE_TYPES = new Set<string>([
+  MSG.INPUT, MSG.LEAVE, MSG.SNAP_OFF, MSG.SNAP_ON, MSG.READY,
+]);
 const TO_ENGINE_TYPES = new Set<string>([MSG.SNAP, MSG.GUN_FIRE, MSG.ERROR, MSG.STATE]);
 
 export function parseBridgePacket(raw: unknown): BridgePacket | null {

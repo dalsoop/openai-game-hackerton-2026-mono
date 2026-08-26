@@ -1,13 +1,9 @@
-/**
- * 서버 이펙트 채널 — 원본 projectile_hit.gd add_effect / add_mobility_effect
- * + update_effects. 스냅 키는 parse_effects 계약(k,x,y,r,t,maxT,color,label,dx,dy,follow).
- * 수치 창작 없음: kind·반경·지속·색은 원본 add_effect 호출과 동일하다.
- */
-export const EFFECTS_SNAP_CAP = 48;
-/** add_mobility_effect: duration * 0.80. */
-export const MOBILITY_DURATION_SCALE = 0.80;
+// 서버 권위 시각 이펙트 스토어 — 원본 projectile_hit.gd add_effect/add_mobility_effect(52-70행) 대응.
+// kind·반경·지속·색은 원본 호출 수치 그대로. 스냅 "effects" 로 나가 클라 렌더러가 kind 별로 그린다.
 
-export type EffectVec = { x: number; y: number };
+export const EFFECTS_SNAP_CAP = 48;
+/** add_mobility_effect 의 지속 축소 — projectile_hit.gd:57 shortened_duration = duration * 0.80. */
+export const MOBILITY_DURATION_SCALE = 0.8;
 
 export type SimEffect = {
   kind: string;
@@ -23,186 +19,51 @@ export type SimEffect = {
   follow: number;
 };
 
-export type AddEffectInput = {
-  kind: string;
-  x: number;
-  y: number;
-  radius: number;
-  duration: number;
-  color: string;
-  label?: string;
-  dx?: number;
-  dy?: number;
-  follow?: number;
-};
-
 export type EffectStore = { items: SimEffect[] };
-
-export type MobilityDashInput = {
-  equipmentId: string;
-  slot: number;
-  oldX: number;
-  oldY: number;
-  x: number;
-  y: number;
-  dirX: number;
-  dirY: number;
-  comboKind: "combo_break" | "escape" | "none";
-};
-
-type DashSpec = {
-  kind: string;
-  radius: number | "distance";
-  duration: number;
-  color: string;
-  label: string;
-  alongDash: boolean;
-  drawDeparture: boolean;
-};
-
-const DASH_DEFAULT: DashSpec = {
-  kind: "guard", radius: 78, duration: 0.30, color: "#8de1ff",
-  label: "BRACE STEP", alongDash: true, drawDeparture: true,
-};
-
-const DASH_BY_ID: Record<string, DashSpec> = {
-  scatter: {
-    kind: "speed_streak", radius: "distance", duration: 0.30, color: "#ffb45c",
-    label: "SKIRMISH HOP", alongDash: false, drawDeparture: true,
-  },
-  rail: {
-    kind: "beam_step", radius: "distance", duration: 0.26, color: "#71e7ff",
-    label: "SIGHTLINE STEP", alongDash: false, drawDeparture: true,
-  },
-  mortar: {
-    kind: "blast_hop", radius: "distance", duration: 0.32, color: "#ff604f",
-    label: "BLAST HOP", alongDash: false, drawDeparture: false,
-  },
-  leech: {
-    kind: "drain", radius: 88, duration: 0.42, color: "#d45cff",
-    label: "+8 SHADOW PULL", alongDash: false, drawDeparture: true,
-  },
-  breaker: {
-    kind: "guard", radius: 68, duration: 0.20, color: "#ffe066",
-    label: "IRON MARCH", alongDash: true, drawDeparture: true,
-  },
-  burst: {
-    kind: "speed_streak", radius: "distance", duration: 0.28, color: "#ff5ca8",
-    label: "FLASH CUT", alongDash: false, drawDeparture: true,
-  },
-  blade: {
-    kind: "slash_dash", radius: "distance", duration: 0.34, color: "#b9f3ff",
-    label: "SHADOW SHEATH", alongDash: false, drawDeparture: true,
-  },
-  brawler: {
-    kind: "speed_streak", radius: "distance", duration: 0.28, color: "#ff9466",
-    label: "WEAVE", alongDash: false, drawDeparture: true,
-  },
-  bomb: {
-    kind: "fuse", radius: 75, duration: 0.50, color: "#ff5d4f",
-    label: "BLAST ROLL", alongDash: false, drawDeparture: true,
-  },
-  spear: {
-    kind: "spear_line", radius: "distance", duration: 0.32, color: "#ffe27a",
-    label: "POLE VAULT", alongDash: false, drawDeparture: true,
-  },
-  chain: {
-    kind: "chain_arc", radius: "distance", duration: 0.34, color: "#b78cff",
-    label: "SWING STEP", alongDash: false, drawDeparture: true,
-  },
-};
 
 export function createEffectStore(): EffectStore {
   return { items: [] };
 }
 
-function unitOrRight(x: number, y: number): EffectVec {
-  const len = Math.hypot(x, y);
-  if (len < 1e-9) {return { x: 1, y: 0 };}
-  return { x: x / len, y: y / len };
-}
+export type EffectOpts = {
+  kind: string; x: number; y: number; radius: number; duration: number; color: string;
+  label?: string; dx?: number; dy?: number; follow?: number;
+};
 
-function capPush(store: EffectStore, item: SimEffect): void {
-  if (store.items.length >= EFFECTS_SNAP_CAP) {store.items.shift();}
-  store.items.push(item);
-}
-
-/** projectile_hit.gd:51 add_effect. store 없으면 no-op (배선 전 호출 허용). */
-export function addEffect(store: EffectStore | undefined, input: AddEffectInput): void {
+/** 원본 add_effect. 스토어가 없으면(단위 조립 등) 조용히 무시. cap 초과 시 가장 오래된 것 제거. */
+export function addEffect(store: EffectStore | undefined, opts: EffectOpts): void {
   if (!store) {return;}
-  const duration = input.duration;
-  capPush(store, {
-    kind: input.kind,
-    x: input.x,
-    y: input.y,
-    radius: input.radius,
-    time: duration,
-    maxTime: duration,
-    color: input.color,
-    label: input.label ?? "",
-    dx: input.dx ?? 1,
-    dy: input.dy ?? 0,
-    follow: input.follow ?? -1,
+  if (store.items.length >= EFFECTS_SNAP_CAP) {store.items.shift();}
+  store.items.push({
+    kind: opts.kind, x: opts.x, y: opts.y, radius: opts.radius,
+    time: opts.duration, maxTime: opts.duration, color: opts.color,
+    label: opts.label ?? "", dx: opts.dx ?? 1, dy: opts.dy ?? 0, follow: opts.follow ?? -1,
   });
 }
 
-/** projectile_hit.gd:54 add_mobility_effect. duration * 0.80, follow=slot, pos=end. */
+/** 원본 add_mobility_effect — 도착점 기준, 지속 *0.8, follow=slot. */
 export function addMobilityEffect(
-  store: EffectStore | undefined,
-  slot: number,
-  kind: string,
-  _start: EffectVec,
-  end: EffectVec,
-  radius: number,
-  duration: number,
-  color: string,
-  label: string,
-  direction: EffectVec,
-  _drawDeparture = true,
+  store: EffectStore | undefined, slot: number, kind: string,
+  from: { x: number; y: number }, to: { x: number; y: number },
+  radius: number, duration: number, color: string, label: string,
+  dir: { x: number; y: number },
 ): void {
+  void from;
   addEffect(store, {
-    kind, x: end.x, y: end.y, radius,
-    duration: duration * MOBILITY_DURATION_SCALE,
-    color, label, dx: direction.x, dy: direction.y, follow: slot,
+    kind, x: to.x, y: to.y, radius, duration: duration * MOBILITY_DURATION_SCALE,
+    color, label, dx: dir.x, dy: dir.y, follow: slot,
   });
 }
 
-/** projectile_hit.gd:250 update_effects — time -= dt, time>0 만 유지. */
+/** 매 시뮬 스텝 감쇠 — 벽시계 초. */
 export function decayEffects(store: EffectStore, dt: number): void {
-  const kept: SimEffect[] = [];
-  for (const e of store.items) {
-    e.time -= dt;
-    if (e.time > 0) {kept.push(e);}
+  for (let i = store.items.length - 1; i >= 0; i -= 1) {
+    store.items[i].time -= dt;
+    if (store.items[i].time <= 0) {store.items.splice(i, 1);}
   }
-  store.items = kept;
 }
 
-function packOne(e: SimEffect): Record<string, unknown> {
-  return {
-    k: e.kind, x: e.x, y: e.y, r: e.radius, t: e.time, maxT: e.maxTime,
-    color: e.color, label: e.label, dx: e.dx, dy: e.dy, follow: e.follow,
-  };
-}
-
-/** network_host.gd _snap_effects — 최대 48, 삽입 순. 빈 배열은 호출측 omit-empty. */
-export function packEffects(store: EffectStore | undefined): Record<string, unknown>[] {
-  if (!store) {return [];}
-  return store.items.slice(0, EFFECTS_SNAP_CAP).map(packOne);
-}
-
-/** damage_system.gd:222 EVADE. */
-export function addEvadeEffect(store: EffectStore | undefined, x: number, y: number): void {
-  addEffect(store, {
-    kind: "afterimage", x, y, radius: 105, duration: 0.38, color: "#b9f3ff", label: "EVADE",
-  });
-}
-
-/** damage_system.gd:241 charge_break. */
-export function addChargeBreakEffect(store: EffectStore | undefined, x: number, y: number): void {
-  addEffect(store, { kind: "charge_break", x, y, radius: 54, duration: 0.22, color: "#8ca0b8" });
-}
-
-/** damage_system.gd:281 / :287 root·stun 이펙트. */
+/** CC 연출 — 원본 damage_system.gd:281(root=chain_bind), :287(stun=stun_burst). */
 export function addControlEffect(
   store: EffectStore | undefined, kind: "root" | "stun", x: number, y: number, ccTime: number,
 ): void {
@@ -219,61 +80,95 @@ export function addControlEffect(
   });
 }
 
-/** damage_system.gd:350-352 히트 임팩트. */
-export function addHeroHitEffect(
-  store: EffectStore | undefined,
-  input: {
-    x: number; y: number; amount: number; knockback: number; source: string;
-    kind: string; label: string; launchX: number; launchY: number;
-    fromX: number; fromY: number;
-  },
-): void {
-  const radius = Math.min(125, Math.max(32, 24 + input.amount * 1.4 + Math.abs(input.knockback) * 0.12));
-  const launch = unitOrRight(input.launchX, input.launchY);
-  const launchLen = Math.hypot(input.launchX, input.launchY);
-  const dir = launchLen * launchLen > 0.1
-    ? launch
-    : unitOrRight(input.x - input.fromX, input.y - input.fromY);
+/** 차지 끊김 — 원본 damage_system.gd:241. */
+export function addChargeBreakEffect(store: EffectStore | undefined, x: number, y: number): void {
+  addEffect(store, { kind: "charge_break", x, y, radius: 54, duration: 0.22, color: "#8ca0b8" });
+}
+
+/** 회피 잔상 — blade evade 계열 afterimage. */
+export function addEvadeEffect(store: EffectStore | undefined, x: number, y: number): void {
   addEffect(store, {
-    kind: input.kind, x: input.x, y: input.y, radius,
-    duration: input.source === "normal" ? 0.22 : 0.42,
-    color: "#ffffff", label: input.label, dx: dir.x, dy: dir.y,
+    kind: "afterimage", x, y, radius: 105, duration: 0.38, color: "#b9f3ff", label: "EVADE",
   });
 }
 
-/** active_item.gd:59-97 대시 이펙트 12종 + 콤보 브레이크. match-gun applyMobility 배선용. */
-export function addMobilityDashEffects(
-  store: EffectStore | undefined, input: MobilityDashInput,
-): void {
+export type HeroHitFx = {
+  x: number; y: number; amount: number; knockback: number; source: string;
+  kind: string; label: string; launchX: number; launchY: number; fromX: number; fromY: number;
+};
+
+/** 피격 임팩트 — 원본 damage_system.gd:350 반경 clamp(24+amount*1.4+|kb|*0.12, 32, 125). */
+export function addHeroHitEffect(store: EffectStore | undefined, fx: HeroHitFx): void {
+  const radius = Math.min(125, Math.max(32, 24 + fx.amount * 1.4 + Math.abs(fx.knockback) * 0.12));
+  const duration = fx.source === "normal" ? 0.22 : 0.42;
+  const len = Math.hypot(fx.x - fx.fromX, fx.y - fx.fromY) || 1;
+  const dx = fx.launchX !== 0 || fx.launchY !== 0 ? fx.launchX : (fx.x - fx.fromX) / len;
+  const dy = fx.launchX !== 0 || fx.launchY !== 0 ? fx.launchY : (fx.y - fx.fromY) / len;
+  addEffect(store, {
+    kind: fx.kind, x: fx.x, y: fx.y, radius, duration,
+    color: fx.source === "normal" ? "#ff4f68" : "#ffb347", label: fx.label, dx, dy,
+  });
+}
+
+type DashRow = {
+  kind: string; duration: number; color: string; label: string;
+  radius?: number; forward?: boolean;
+};
+
+/** 무기별 대시 연출 — 원본 active_item.gd:62-97. radius 미지정 = 대시 거리. forward = dir(전방). */
+const DASH_TABLE: Readonly<Record<string, DashRow>> = {
+  scatter: { kind: "speed_streak", duration: 0.30, color: "#ffb45c", label: "SKIRMISH HOP" },
+  rail: { kind: "beam_step", duration: 0.26, color: "#71e7ff", label: "SIGHTLINE STEP" },
+  mortar: { kind: "blast_hop", duration: 0.32, color: "#ff604f", label: "BLAST HOP" },
+  leech: { kind: "drain", duration: 0.42, color: "#d45cff", label: "+8 SHADOW PULL", radius: 88 },
+  breaker: { kind: "guard", duration: 0.20, color: "#ffe066", label: "IRON MARCH", radius: 68, forward: true },
+  burst: { kind: "speed_streak", duration: 0.28, color: "#ff5ca8", label: "FLASH CUT" },
+  blade: { kind: "slash_dash", duration: 0.34, color: "#b9f3ff", label: "SHADOW SHEATH" },
+  brawler: { kind: "speed_streak", duration: 0.28, color: "#ff9466", label: "WEAVE" },
+  bomb: { kind: "fuse", duration: 0.50, color: "#ff5d4f", label: "BLAST ROLL", radius: 75 },
+  spear: { kind: "spear_line", duration: 0.32, color: "#ffe27a", label: "POLE VAULT" },
+  chain: { kind: "chain_arc", duration: 0.34, color: "#b78cff", label: "SWING STEP" },
+};
+const DASH_DEFAULT: DashRow = {
+  kind: "guard", duration: 0.30, color: "#8de1ff", label: "BRACE STEP", radius: 78, forward: true,
+};
+
+export type DashFx = {
+  equipmentId: string; slot: number; oldX: number; oldY: number; x: number; y: number;
+  dirX: number; dirY: number; comboKind: "none" | "combo_break" | "escape";
+};
+
+/** 대시(모빌리티) 연출 묶음 — 콤보 브레이크(active_item.gd:59-61) + 무기별 대시(62-97). */
+export function addMobilityDashEffects(store: EffectStore | undefined, fx: DashFx): void {
   if (!store) {return;}
-  const dir = unitOrRight(input.dirX, input.dirY);
-  const old = { x: input.oldX, y: input.oldY };
-  const end = { x: input.x, y: input.y };
-  const distance = Math.hypot(input.x - input.oldX, input.y - input.oldY);
-  if (input.comboKind === "combo_break" || input.comboKind === "escape") {
-    const label = input.comboKind === "combo_break" ? "COMBO BREAK" : "ESCAPE";
+  if (fx.comboKind !== "none") {
     addEffect(store, {
-      kind: "combo_break", x: old.x, y: old.y, radius: 72, duration: 0.34,
-      color: "#6ef3a5", label, dx: dir.x, dy: dir.y,
+      kind: "combo_break", x: fx.oldX, y: fx.oldY, radius: 72, duration: 0.34,
+      color: "#6ef3a5", label: fx.comboKind === "escape" ? "ESCAPE" : "COMBO BREAK",
+      dx: fx.dirX, dy: fx.dirY,
     });
   }
-  if (input.equipmentId === "mortar") {
+  const row = DASH_TABLE[fx.equipmentId] ?? DASH_DEFAULT;
+  const distance = Math.hypot(fx.x - fx.oldX, fx.y - fx.oldY);
+  if (fx.equipmentId === "mortar") {
     addEffect(store, {
-      kind: "explosion", x: old.x, y: old.y, radius: 105, duration: 0.36,
+      kind: "explosion", x: fx.oldX, y: fx.oldY, radius: 105, duration: 0.36,
       color: "#ff604f", label: "BLAST HOP",
     });
   }
-  const spec = DASH_BY_ID[input.equipmentId] ?? DASH_DEFAULT;
-  const radius = spec.radius === "distance" ? distance : spec.radius;
-  const face = spec.alongDash ? dir : { x: -dir.x, y: -dir.y };
+  const sign = row.forward ? 1 : -1;
   addMobilityEffect(
-    store, input.slot, spec.kind, old, end, radius, spec.duration,
-    spec.color, spec.label, face, spec.drawDeparture,
+    store, fx.slot, row.kind, { x: fx.oldX, y: fx.oldY }, { x: fx.x, y: fx.y },
+    row.radius ?? distance, row.duration, row.color, row.label,
+    { x: sign * fx.dirX, y: sign * fx.dirY },
   );
 }
 
-export const seed = createEffectStore;
-export const add = addEffect;
-export const tick = decayEffects;
-export const pack = packEffects;
-export const apply = addEffect;
+/** 스냅 "effects" 패킹 — 클라 계약 {k,x,y,r,t,maxT,color,label,dx,dy,follow}. */
+export function packEffects(store: EffectStore | undefined): Record<string, unknown>[] {
+  if (!store) {return [];}
+  return store.items.map((e) => ({
+    k: e.kind, x: e.x, y: e.y, r: e.radius, t: e.time, maxT: e.maxTime,
+    color: e.color, label: e.label, dx: e.dx, dy: e.dy, follow: e.follow,
+  }));
+}

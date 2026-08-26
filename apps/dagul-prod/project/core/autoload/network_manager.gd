@@ -162,6 +162,10 @@ func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
         return
     _send(WebContract.MSG_INPUT, msg)
 
+## 인게임 모듈 로드가 끝난 뒤에만 보낸다. 엔진 소켓이 살아도 좌석은 React 세션이라 브릿지로 간다.
+func send_ready() -> void:  # lint-gd: public-api
+    _send(WebContract.MSG_READY, {})
+
 func leave_room() -> void:  # lint-gd: public-api
     _send(WebContract.MSG_LEAVE, {})
     in_room = false

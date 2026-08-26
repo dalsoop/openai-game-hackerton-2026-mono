@@ -174,6 +174,20 @@ describe("계약: 웹 캔버스 키 포커스", () => {
   });
 });
 
+describe("계약: Godot 웹 캔버스는 policy=2 와 CSS 가 싸우지 않는다", () => {
+  it("gc-canvas 는 100% 가 아니라 공식 템플릿처럼 absolute 이고, 오버레이는 overflow hidden", () => {
+    const css = sourceOf(join(ROOT, "app/globals.css"));
+    const canvasRule = css.slice(css.indexOf(".gc-canvas"), css.indexOf(".gc-booting"));
+    expect(canvasRule).toContain("position:absolute");
+    expect(canvasRule).not.toMatch(/width:\s*100%/);
+    expect(canvasRule).not.toMatch(/height:\s*100%/);
+    const overlayRule = css.slice(css.indexOf(".gc-overlay"), css.indexOf(".gc-canvas"));
+    expect(overlayRule).toContain("overflow:hidden");
+    expect(sourceOf(join(ROOT, "lib/godot/runtime.ts"))).toContain("canvasResizePolicy: 2");
+    expect(sourceOf(join(ROOT, "hooks/useGodotMatch.ts"))).toContain("lockPlayViewport");
+  });
+});
+
 describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
   const e2e = [
     "scripts/e2e-dagul.mjs",
@@ -202,6 +216,7 @@ describe("계약: 좌석·팩 정본은 web/lib/domain", () => {
     const domain = existsSync(dir) ? walk(dir, (n) => n.endsWith(".ts")).map(rel) : [];
     expect(domain.some((p) => p.endsWith("roster.ts"))).toBe(true);
     expect(domain.some((p) => p.endsWith("waiting-room-pack.ts"))).toBe(true);
+    expect(domain.some((p) => p.endsWith("match-load-ready.ts"))).toBe(true);
   });
 });
 
@@ -215,6 +230,17 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).not.toContain("Colyseus.Client");
     expect(src).toContain("EVT_FROM_ENGINE");
     expect(src).toContain("EVT_TO_ENGINE");
+    expect(src).toContain("send_ready");
+    expect(src).toContain("MSG_READY");
+  });
+
+  it("매치 셸은 모듈 start 뒤에 ready 를 보낸다", () => {
+    const src = sourceOf(join(ROOT, "..", "project", "core/shell/match_shell.gd"));
+    const startAt = src.indexOf("module.start(");
+    const readyAt = src.indexOf("_notify_match_loaded()");
+    expect(startAt).toBeGreaterThanOrEqual(0);
+    expect(readyAt).toBeGreaterThan(startAt);
+    expect(src).toContain("send_ready");
   });
 
   it("반전: START 경로가 leaveOnceForHandoff 로 좌석을 넘기면 실패한다", () => {
@@ -309,7 +335,11 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
     expect(audio).toContain("_ensure_impact");
     expect(audio).toContain("_pool_bus");
     expect(audio).not.toContain("PLAYBACK_TYPE_STREAM");
+    expect(audio).toContain("PLAYBACK_TYPE_SAMPLE");
+    expect(audio).toContain("OS.has_feature(\"web\") or _world_players.is_empty()");
     expect(audio).not.toContain("_web_stream");
+    const godot = sourceOf(join(ROOT, "..", "project/project.godot"));
+    expect(godot).toContain("default_playback_type.web=1");
     const unlock = audio.slice(audio.indexOf("_on_web_audio_unlock"), audio.indexOf("func _stream_for"));
     expect(unlock).toContain("_music_a.playing");
     expect(unlock).not.toContain("_current_track = \"\"");

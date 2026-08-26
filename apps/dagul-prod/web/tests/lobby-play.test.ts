@@ -29,7 +29,7 @@ function roomOf(state: LobbyState, extra: Partial<LobbyHandle> = {}): LobbyHandl
 function emptyBag(): LobbyBag {
   return {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null,
-    authority: null, hostLossTimer: null,
+    authority: null, hostLossTimer: null, loadWaitMs: 0,
   };
 }
 
@@ -51,6 +51,7 @@ describe("scheduleLobbyReset", () => {
       idleTimer: null,
       authority: null,
       hostLossTimer: null,
+      loadWaitMs: 0,
     };
     scheduleLobbyReset(room, bag);
     expect(state.phase).toBe("playing");

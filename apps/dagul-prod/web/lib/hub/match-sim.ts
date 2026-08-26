@@ -26,6 +26,10 @@ import {
 } from "./match-zone.js";
 import type { SafeZoneState } from "./match-zone.js";
 import {
+  addChargeBreakEffect, addMobilityDashEffects, createEffectStore, decayEffects,
+  type EffectStore,
+} from "./match-effects.js";
+import {
   accumulateComboDamage, applyControl, applyGuard, ccSeedFields, comboAmplifier, movementControl,
   registerComboHit, tickCc,
 } from "./match-cc.js";
@@ -242,6 +246,8 @@ export class MatchSim {
   mode = "classic";
   /** 스트릭·셧다운 콜아웃 상태 — match_lifecycle.gd:240-255. 스냅 헤더로 나간다. */
   readonly streakState: StreakCalloutState = streakCalloutSeed();
+  /** 서버 권위 시각 이펙트 — projectile_hit.gd add_effect 대응. 스냅 "effects" 로 나간다. */
+  readonly effects: EffectStore = createEffectStore();
   private nextBulletId = 1;
   private inputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
@@ -256,6 +262,7 @@ export class MatchSim {
     this.rng = new MatchRng(seed);
     this.cpuFleet = new CpuFleet(seed);
     this.ultWorld = seedUltWorld(this.covers);
+    this.ultWorld.effects = this.effects;
     this.crates = spawnBreakableCrates(this.covers);
     const count = Math.max(1, seats.length);
     this.cores = spawnCores(this.covers, PLAYER_COUNT);
@@ -377,6 +384,7 @@ export class MatchSim {
     }
     applySafeZoneCrateDamage(this.zone, this.crates, this.crateOrbs, dt);
     tickStreakCallout(this.streakState);
+    decayEffects(this.effects, dt);
     tickDowns(this.heroes, this.zone, dt);
     tickUltClones(this.ultWorld, this.heroes, dt);
     updateHealthPickups(this.loot, this.heroes, dt, this.mode);
@@ -422,21 +430,6 @@ export class MatchSim {
     if (winnerHero) {awardWinScore(winnerHero);}
   }
 
-  private hasHumanSeat(): boolean {
-    for (const h of this.heroes.values()) {
-      if (!h.cpu) {return true;}
-    }
-    return false;
-  }
-
-  private hasHumanPlayInput(): boolean {
-    for (const [slot] of this.inputs) {
-      const hero = this.heroes.get(slot);
-      if (hero && !hero.cpu) {return true;}
-    }
-    return false;
-  }
-
   private freezeReady(): void {
     for (const h of this.heroes.values()) {
       h.vel = { x: 0, y: 0 };
@@ -454,11 +447,8 @@ export class MatchSim {
   private stepCountdown(dt: number): boolean {
     if (this.countdown <= 0) {return false;}
     if (this.countdownHeld) {
-      if (!(this.hasHumanPlayInput() || !this.hasHumanSeat())) {
-        this.freezeReady();
-        return true;
-      }
-      this.countdownHeld = false;
+      this.freezeReady();
+      return true;
     }
     this.countdown = Math.max(0, this.countdown - dt);
     this.freezeReady();
@@ -556,7 +546,7 @@ export class MatchSim {
   }
 
   private moveLaunched(dt: number): void {
-    tickLaunch(this.heroes.values(), dt, this.tick, this.covers);
+    tickLaunch(this.heroes.values(), dt, this.tick, this.covers, this.effects);
   }
 
   private applyHero(hero: SimHero, cmd: MatchInput, dt: number): void {
@@ -613,6 +603,11 @@ export class MatchSim {
     const eqPressed = truthy(cmd.equipmentPressed) || (eqHeld && !hero.equipmentHeld);
     const eqReleased = truthy(cmd.equipmentReleased) || (!eqHeld && hero.equipmentHeld);
     hero.equipmentHeld = eqHeld;
+    const preDashX = hero.x;
+    const preDashY = hero.y;
+    // 원본 active_item.gd:52-61 — 대시가 콤보 캡처 탈출이면 ESCAPE, 콤보 중이면 COMBO BREAK.
+    const preDashCombo: "none" | "combo_break" | "escape" = hero.comboCaptureTime > 0
+      ? "escape" : (hero.comboHits > 0 ? "combo_break" : "none");
     const gun = applyGunInput(hero, {
       primary: truthy(cmd.fire),
       primaryPressed: truthy(cmd.firePressed) || truthy(cmd.fire),
@@ -629,6 +624,15 @@ export class MatchSim {
     hero.aimY = savedAimY;
     hero.facing = { x: hero.facingX, y: hero.facingY };
     hero.aim = { x: hero.facingX, y: hero.facingY };
+    if (gun.kind === "mobility" && gun.used) {
+      const dashLen = Math.hypot(hero.x - preDashX, hero.y - preDashY) || 1;
+      addMobilityDashEffects(this.effects, {
+        equipmentId: hero.equipment.id, slot: hero.slot,
+        oldX: preDashX, oldY: preDashY, x: hero.x, y: hero.y,
+        dirX: (hero.x - preDashX) / dashLen, dirY: (hero.y - preDashY) / dashLen,
+        comboKind: preDashCombo,
+      });
+    }
     this.consumeGunResult(hero, gun);
   }
 
@@ -682,7 +686,7 @@ export class MatchSim {
       placeMine(this.deploy, { slot: hero.slot, x: hero.x, y: hero.y }, gun.mine.x, gun.mine.y, this.covers, {
         damage: gun.mine.damage, blastRadius: gun.mine.blastRadius, armTime: gun.mine.armTime,
         lifetime: gun.mine.lifetime, fuseTime: gun.mine.fuseTime,
-      });
+      }, this.effects);
     }
     if (gun.wall) {
       placeBounceWall(
@@ -691,6 +695,7 @@ export class MatchSim {
           halfLength: gun.wall.halfLength, lifetime: gun.wall.lifetime, speed: gun.wall.speed,
           damage: gun.wall.damage, knockback: gun.wall.knockback,
         },
+        this.effects,
       );
     }
     for (const hit of gun.hits) {
@@ -847,7 +852,11 @@ export class MatchSim {
       victim.evadeTime = 0;
       return;
     }
-    if (victim.chargingSkill) {cancelSkillCharge(victim);}
+    if (victim.chargingSkill) {
+      // 원본 damage_system.gd:238-241 — 피격 시 차지 끊김 + charge_break 연출.
+      cancelSkillCharge(victim);
+      addChargeBreakEffect(this.effects, victim.x, victim.y);
+    }
     const attacker = this.heroes.get(owner);
     const scaled = scaleGunHit(this, attacker, victim, amount, source, ctx);
     const event = applyScoredDamage(this.heroes, owner, victim, scaled.amount, this.streakState);
@@ -898,7 +907,7 @@ export class MatchSim {
         exposed: coreExposed(c, owner),
       });
     }
-    const events = updateDeployables(this.deploy, this.heroes, cores, this.covers, dt);
+    const events = updateDeployables(this.deploy, this.heroes, cores, this.covers, dt, this.effects);
     for (const ev of events) {this.applyDeployableEvent(ev);}
   }
 
@@ -945,7 +954,7 @@ export class MatchSim {
         });
       },
     };
-    updateMidTower(this.midTower, this.heroes, this.result === "playing", this.matchTime, hooks, dt);
+    updateMidTower(this.midTower, this.heroes, this.result === "playing", this.matchTime, hooks, dt, this.effects);
   }
 
   private advanceZones(dt: number): void {
@@ -963,7 +972,9 @@ export class MatchSim {
           knockback: z.knockback ?? 0, impactX: z.x, impactY: z.y, effectKind: z.effectKind, label: z.label,
           ccTime: z.ccTime ?? 0,
         });
-        if (z.controlKind) {applyControl(h, z.ccTime ?? 0, z.controlKind);}
+        if (z.controlKind) {
+          applyControl(h, z.ccTime ?? 0, z.controlKind, { store: this.effects, x: h.x, y: h.y });
+        }
         if (z.leech) {
           const atk = this.heroes.get(z.owner);
           if (atk?.alive) {atk.hp = Math.min(atk.maxHp, atk.hp + z.damage * PROJECTILE_LEECH_MUL);}

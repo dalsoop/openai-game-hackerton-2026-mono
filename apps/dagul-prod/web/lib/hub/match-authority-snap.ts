@@ -4,7 +4,7 @@ import {
   packWantedSnap, packZonesSnap, snapDeployables,
   type MatchSim, type SimBullet, type SimHero,
 } from "./match-sim.js";
-import { packEffects, type EffectStore } from "./match-effects.js";
+import { packEffects } from "./match-effects.js";
 
 export type SnapEvent = {
   t: number;
@@ -157,6 +157,10 @@ export function packAuthoritySnap(
     finish_cine: packFinishCine(sim.finishCine),
     callout: sim.callout,
     calloutTicks: sim.calloutTicks,
+    streakCallout: sim.streakState.streakCallout,
+    streakSubtitle: sim.streakState.streakSubtitle,
+    streakCalloutTicks: sim.streakState.streakCalloutTicks,
+    streakCalloutShutdown: sim.streakState.streakCalloutShutdown,
     wantedSlot: wanted.wantedSlot,
     cores: packCoresSnap(sim.cores),
     crates: packCratesSnap(sim.crates),
@@ -172,6 +176,6 @@ export function packAuthoritySnap(
     loot,
     events,
   };
-  putOmit(snap, "effects", packEffects((sim as MatchSim & { effects?: EffectStore }).effects));
+  putOmit(snap, "effects", packEffects(sim.effects));
   return snap;
 }

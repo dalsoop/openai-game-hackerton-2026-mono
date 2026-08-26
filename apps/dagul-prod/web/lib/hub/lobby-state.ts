@@ -10,6 +10,7 @@ export class PlayerSchema extends Schema {
   @type("boolean") connected = true;
   @type("uint8") packPct = 0;
   @type("string") characterId = asCharacterId(undefined);
+  @type("boolean") matchReady = false;
 }
 
 /** 인게임 히어로 — id 는 Map 키(slot 문자열). 서버만 변이한다. */

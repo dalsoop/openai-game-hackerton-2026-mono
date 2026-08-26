@@ -12,7 +12,7 @@ import {
 } from "./match-engine.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
-  handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
+  handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import { applyPlayInput, bootAuthority, tickAuthority } from "./lobby-play.js";
@@ -24,7 +24,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null,
+    hostLossTimer: null, loadWaitMs: 0,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -72,6 +72,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
     [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
+    [MSG.READY]: (client: Client): void => handleMatchReady(this, client),
     [MSG.SNAP_OFF]: (client: Client): void => {
       this.snapOptOut.add(client.sessionId);
     },
@@ -116,6 +117,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const oldClient = this.clients.find((c) => c.sessionId === oldId);
     player.sessionId = client.sessionId;
     player.connected = true;
+    player.matchReady = false;
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();
@@ -149,6 +151,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       return;
     }
     player.connected = true;
+    player.matchReady = false;
     this.syncHost();
   }
 
@@ -196,6 +199,14 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   stepSim(dtMs = 50): void {
     tickAuthority(this, this.bag, dtMs);
+  }
+
+  testClock(): { held: boolean; countdown: number; loadWaitMs: number } {
+    return {
+      held: this.bag.authority?.sim.countdownHeld ?? false,
+      countdown: this.bag.authority?.sim.countdown ?? -1,
+      loadWaitMs: this.bag.loadWaitMs,
+    };
   }
 
   pushTestInput(sessionId: string, data: Record<string, unknown>): boolean {

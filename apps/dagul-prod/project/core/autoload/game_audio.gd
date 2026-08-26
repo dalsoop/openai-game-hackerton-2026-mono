@@ -45,7 +45,9 @@ func _ready() -> void:
 	else:
 		_setup_world_bus()
 	_build_sfx_pool()
-	_build_world_pool()
+	# 웹 Sample 은 AudioStreamPlayer2D(위치 워크릿)가 무음이 된다. 1D 풀만 쓴다.
+	if not OS.has_feature("web"):
+		_build_world_pool()
 	_build_music_players()
 	get_tree().node_added.connect(_hook_button)
 	_hook_tree(get_tree().root)
@@ -74,32 +76,46 @@ func _on_web_audio_unlock(_args: Array) -> void:
 func _stream_for(sound_id: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.stream_for(sound_id)
+	return _ensure_web_sample(Catalog.stream_for(sound_id))
 
 func _music_for(track: String) -> AudioStream:
 	if Catalog == null:
 		return null
-	return Catalog.music_for(track)
+	return _ensure_web_sample(Catalog.music_for(track))
+
+func _ensure_web_sample(stream: AudioStream) -> AudioStream:
+	if stream == null or not OS.has_feature("web"):
+		return stream
+	if stream.has_method("get_sample") and stream.get_sample() != null:
+		return stream
+	if stream.has_method("generate_sample"):
+		stream.generate_sample()
+	return stream
 
 func _pool_bus() -> StringName:
 	return &"Master" if OS.has_feature("web") else &"World"
+
+func _wire_player(p: AudioStreamPlayer) -> void:
+	p.bus = _pool_bus()
+	if OS.has_feature("web"):
+		p.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
 
 func _build_sfx_pool() -> void:
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		p.name = "SfxPool%d" % i
-		p.bus = _pool_bus()
+		_wire_player(p)
 		add_child(p)
 		_sfx_players.append(p)
 
 func _build_music_players() -> void:
 	_music_a = AudioStreamPlayer.new()
 	_music_a.name = "MusicA"
-	_music_a.bus = _pool_bus()
+	_wire_player(_music_a)
 	add_child(_music_a)
 	_music_b = AudioStreamPlayer.new()
 	_music_b.name = "MusicB"
-	_music_b.bus = _pool_bus()
+	_wire_player(_music_b)
 	add_child(_music_b)
 
 func _bus_for(sound_id: String) -> StringName:
@@ -127,6 +143,8 @@ func _play_stream(stream: AudioStream, volume_db: float, pitch_variance: float, 
 		bus = _pool_bus()
 	var player := _sfx_players[_sfx_cursor]
 	_sfx_cursor = (_sfx_cursor + 1) % _sfx_players.size()
+	if OS.has_feature("web"):
+		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
 	player.bus = bus
 	player.stream = stream
 	player.volume_db = volume_db + linear_to_db(sfx_volume * master_volume)
@@ -224,7 +242,7 @@ func _ensure_impact() -> void:
 		return
 	_impact = AudioStreamPlayer.new()
 	_impact.name = "ImpactSfx"
-	_impact.bus = &"Master"
+	_wire_player(_impact)
 	add_child(_impact)
 
 func _setup_world_bus() -> void:
@@ -330,7 +348,7 @@ func play_sfx_at(sound_id: String, pos: Vector2, volume_db: float = -5.0, pitch_
 	var stream = _stream_for(sound_id)
 	if stream == null:
 		return
-	if _world_players.is_empty():
+	if OS.has_feature("web") or _world_players.is_empty():
 		_play_stream(stream, volume_db, pitch_variance, _bus_for(sound_id))
 		return
 	var player := _world_players[_world_cursor]

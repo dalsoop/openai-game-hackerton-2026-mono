@@ -41,6 +41,7 @@ export const MSG = {
   SET_GAME: "set_game",
   SET_CHARACTER: "set_character",
   PACK_PCT: "pack_pct",
+  READY: "ready",
   KICKED: "kicked",
   STATE: "state",
   LEAVE: "leave",

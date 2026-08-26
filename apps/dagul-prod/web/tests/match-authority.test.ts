@@ -11,6 +11,8 @@ describe("MatchAuthority 스냅 주기", () => {
   it("advance 는 매 틱 스키마를 쓰지 않는다", () => {
     const state = new LobbyState();
     const auth = seed([{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }], "full");
+    auth.sim.countdownHeld = false;
+    auth.sim.countdown = 0;
     writeMatchSchema(state, auth.sim);
     const bootTick = state.matchTick;
     const bootX = state.heroes.get("0")?.x ?? 0;

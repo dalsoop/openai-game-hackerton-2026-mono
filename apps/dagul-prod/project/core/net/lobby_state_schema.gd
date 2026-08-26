@@ -14,6 +14,7 @@ class PlayerRow extends Colyseus.Schema:
 			LobbyColyseus.f("connected", Colyseus.Schema.BOOLEAN),
 			LobbyColyseus.f("packPct", Colyseus.Schema.UINT8),
 			LobbyColyseus.f("characterId", Colyseus.Schema.STRING),
+			LobbyColyseus.f("matchReady", Colyseus.Schema.BOOLEAN),
 		]
 
 class LobbyHero extends Colyseus.Schema:

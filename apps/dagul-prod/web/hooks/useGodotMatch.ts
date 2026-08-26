@@ -3,6 +3,7 @@
 // GodotCanvas(뷰)는 이 훅이 내려주는 ref·스냅샷만 소비한다 (컴포넌트 훅 금지 규칙).
 import { useEffect, useRef, useState } from "react";
 import { GodotRuntime, type RuntimeSnapshot } from "@/lib/godot/runtime";
+import { lockPlayViewport } from "@/lib/godot/canvas-focus";
 import { asGameId } from "@/lib/games/catalog";
 import { DOM_EVT } from "@/lib/contract";
 import type { MatchInfo } from "@/types";
@@ -28,11 +29,13 @@ export function useGodotMatch({ game, matchInfo, visible, onMatchEnd }: UseGodot
   useEffect(() => {
     if (!visible || !canvasRef.current) {return;}
     const token = ++hold.current;
+    const unlockViewport = lockPlayViewport();
     void runtime.boot(canvasRef.current, { ...matchInfo, game }).catch(() => {
       // 부팅 실패는 runtime 상태(error)로 전파된다.
     });
     // StrictMode 동기 리마운트에서는 바로 quit 하지 않는다 — 매치 키·워치독이 한 번만 살아 있게.
     return (): void => {
+      unlockViewport();
       const generation = token;
       queueMicrotask(() => {
         // 최신 generation 만 유지 — 과거 이펙트의 quit 는 버린다.
