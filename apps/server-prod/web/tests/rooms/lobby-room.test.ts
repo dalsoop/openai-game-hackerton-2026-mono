@@ -126,16 +126,16 @@ describe("LobbyRoom 규칙", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     await room.waitForNextPatch();
-    guest.send(MSG.DL, { pct: 42 });
+    guest.send(MSG.PACK_PCT, { pct: 42 });
     await room.waitForNextPatch();
     const bySid = Object.fromEntries(
-      [...room.state.players].map((p) => [p.sessionId, p.dlPct]),
+      [...room.state.players].map((p) => [p.sessionId, p.packPct]),
     );
     expect(bySid[host.sessionId]).toBe(0);
     expect(bySid[guest.sessionId]).toBe(42);
     host.send(MSG.SET_GAME, { game: "sparring" });
     await room.waitForNextPatch();
-    expect([...room.state.players].every((p) => p.dlPct === 0)).toBe(true);
+    expect([...room.state.players].every((p) => p.packPct === 0)).toBe(true);
   });
 
   it("다른 좌석이 100 이 아니어도 호스트는 시작한다", async () => {
@@ -143,7 +143,7 @@ describe("LobbyRoom 규칙", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
     await room.waitForNextPatch();
-    host.send(MSG.DL, { pct: 100 });
+    host.send(MSG.PACK_PCT, { pct: 100 });
     await room.waitForNextPatch();
     host.send(MSG.START, {});
     await room.waitForNextPatch();

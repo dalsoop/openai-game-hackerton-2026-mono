@@ -59,7 +59,7 @@ describe("수송 방향", () => {
   it("반전: snap 을 엔진이 허브로 보내면 안 된다", () => {
     expect(isEngineOutbound(MSG.SNAP)).toBe(false);
     expect(isEngineOutbound(MSG.START)).toBe(false);
-    expect(isEngineOutbound(MSG.DL)).toBe(false);
+    expect(isEngineOutbound(MSG.PACK_PCT)).toBe(false);
   });
 
   it("허브→엔진은 snap·peer_input·error·state", () => {
@@ -69,7 +69,7 @@ describe("수송 방향", () => {
 
   it("반전: input 을 페이지가 엔진으로 되먹이면 안 된다", () => {
     expect(isEngineInbound(MSG.INPUT)).toBe(false);
-    expect(isEngineInbound(MSG.DL)).toBe(false);
+    expect(isEngineInbound(MSG.PACK_PCT)).toBe(false);
   });
 });
 

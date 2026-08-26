@@ -53,7 +53,7 @@ export interface HubPlayer {
   name: string;
   host?: boolean;
   dropped?: boolean;
-  dlPct?: number;
+  packPct?: number;
 }
 
 /**
@@ -86,7 +86,7 @@ export interface UseHubResult {
   disconnect: () => void;
   returnToLobby: (name: string) => void;
   startMatch: () => void;
-  reportDownload: (pct: number) => void;
+  sendPackPct: (pct: number) => void;
   setGame: (game: string) => void;
   idleLeftSec: number;
   toggleRoom: () => void;

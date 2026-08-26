@@ -2,7 +2,8 @@ import type { Room } from "@colyseus/sdk";
 import { Roster, type RosterSnapshot } from "../domain/roster";
 import type { HubPlayer, HubStatus } from "@/types";
 
-export interface HubFacts {
+/** 대기실 화면에 필요한 방 스냅샷 파생. */
+export interface WaitingRoomRoster {
   gameId: string;
   idleUntilSec: number;
   open: boolean;
@@ -14,12 +15,15 @@ export interface HubFacts {
   status: HubStatus;
 }
 
-export function deriveHubFacts(room: Room | undefined, snap: RosterSnapshot | undefined): HubFacts | null {
+export function waitingRoomRosterOf(
+  room: Room | undefined,
+  snap: RosterSnapshot | undefined,
+): WaitingRoomRoster | null {
   if (!room || !snap) {return null;}
   const roster = Roster.fromSnapshot(snap, room.sessionId);
   const players: HubPlayer[] = roster.seats.map((seat) => ({
     slot: seat.slot, id: seat.playerId, name: seat.name,
-    host: seat.isHost, dropped: !seat.connected, dlPct: seat.dlPct,
+    host: seat.isHost, dropped: !seat.connected, packPct: seat.packPct,
   }));
   return {
     gameId: snap.gameId ?? "",

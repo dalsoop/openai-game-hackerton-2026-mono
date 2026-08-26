@@ -1,10 +1,10 @@
 /**
- * InRoomPhase — 대기실 화면. 받기 표시만 하고 시작은 자기 팩 준비에 맡긴다.
+ * InRoomPhase — 대기실 화면. 팩 진행은 표시만 하고 시작은 자기 팩 준비에 맡긴다.
  */
 import type { JSX } from "react";
 import Room from "@/components/Room";
-import RoomDownload from "@/components/RoomDownload";
-import { roomDownload } from "@/lib/domain/download";
+import WaitingRoomPackList from "@/components/WaitingRoomPackList";
+import { waitingRoomPackView } from "@/lib/domain/waiting-room-pack";
 import type { HubPlayer } from "@/types";
 
 interface InRoomPhaseProps {
@@ -14,7 +14,7 @@ interface InRoomPhaseProps {
   gameId: string;
   roomOpen: boolean;
   idleLeftSec: number;
-  localPct: number;
+  ownPackPct: number;
   canStart: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
@@ -29,14 +29,14 @@ export function InRoomPhase({
   gameId,
   roomOpen,
   idleLeftSec,
-  localPct,
+  ownPackPct,
   canStart,
   onStartGame,
   onLeaveRoom,
   onSetGame,
   onToggleRoom,
 }: InRoomPhaseProps): JSX.Element {
-  const view = roomDownload(players, you, localPct);
+  const view = waitingRoomPackView(players, you, ownPackPct);
 
   return (
     <>
@@ -53,7 +53,7 @@ export function InRoomPhase({
         onToggleRoom={onToggleRoom}
         canStart={canStart}
       />
-      <RoomDownload seats={view.seats} you={you} />
+      <WaitingRoomPackList seats={view.seats} you={you} />
     </>
   );
 }

@@ -8,7 +8,7 @@ import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
 import { MSG } from "@/lib/contract";
 import { type RosterSnapshot } from "@/lib/domain/roster";
-import { deriveHubFacts } from "@/lib/hub/hub-facts";
+import { waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useRoomIdle } from "@/hooks/useRoomIdle";
@@ -19,7 +19,7 @@ import { useRoomRtt } from "@/hooks/useRoomRtt";
 import { shouldMarkRoomDropped } from "@/lib/hub/room-end";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
-import { useDownloadReport } from "@/hooks/useDownloadReport";
+import { useSendPackPct } from "@/hooks/useSendPackPct";
 import type { HubStatus, JoinRequest, UseHubResult } from "@/types";
 
 function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): number {
@@ -90,7 +90,7 @@ export function useHub(): UseHubResult {
   useHubExternalErrors(roomError, lobbyErr, setError);
 
   // 파생 사실은 도메인(Roster)이 계산한다.
-  const derived = useMemo(() => deriveHubFacts(room, snap), [room, snap]);
+  const derived = useMemo(() => waitingRoomRosterOf(room, snap), [room, snap]);
   useEffect(() => {
     if (!derived?.roomId) {return;}
     rememberRoomId(derived.roomId);
@@ -111,7 +111,7 @@ export function useHub(): UseHubResult {
     setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
     toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
   }), [room]);
-  const reportDownload = useDownloadReport(room, `${derived?.roomId ?? ""}:${derived?.gameId ?? ""}`);
+  const sendPackPct = useSendPackPct(room, `${derived?.roomId ?? ""}:${derived?.gameId ?? ""}`);
   const idleLeftSec = useRoomIdle(derived?.idleUntilSec ?? 0, status === "in-room");
 
   return {
@@ -134,7 +134,7 @@ export function useHub(): UseHubResult {
     disconnect: commands.disconnect,
     returnToLobby: commands.returnToLobby,
     startMatch: sends.startMatch,
-    reportDownload,
+    sendPackPct,
     setGame: sends.setGame,
     idleLeftSec,
     toggleRoom: sends.toggleRoom,
