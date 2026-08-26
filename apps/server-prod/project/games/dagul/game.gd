@@ -59,6 +59,9 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	hud.hud_mode = hud_mode
 	if hud.has_method("reset_match_visuals"):
 		hud.reset_match_visuals()
+	if hud.has_signal("to_waiting_pressed"):
+		if not hud.to_waiting_pressed.is_connected(_on_to_waiting_pressed):
+			hud.to_waiting_pressed.connect(_on_to_waiting_pressed.bind(ctx))
 	_last_local_kills = -1
 	last_event_id = 0
 	hit_pause_frames = 0
@@ -73,6 +76,16 @@ func _bind_match_camera(ctx: Dictionary, audio: Node, world_view: Node2D) -> voi
 		audio.attach_world(world_view, camera)
 	if _tutorial != null and TutorialOverlay.is_first_play():
 		_tutorial.start_tutorial()
+
+func _on_to_waiting_pressed(ctx: Dictionary) -> void:
+	_go_waiting(ctx)
+
+
+func _go_waiting(ctx: Dictionary) -> void:
+	var to_waiting: Callable = ctx.get("to_waiting", Callable())
+	if to_waiting.is_valid():
+		to_waiting.call()
+
 
 func stop() -> void:
 	if _host_ctrl != null:
@@ -185,6 +198,8 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 
 	if _input.edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
 		world.finish_cine = {}
+	elif _input.edge(KEY_ESCAPE) and world.result != &"playing":
+		_go_waiting(ctx)
 	if _input.edge(KEY_F1):
 		hud_mode = (hud_mode + 1) % 3
 		hud.hud_mode = hud_mode

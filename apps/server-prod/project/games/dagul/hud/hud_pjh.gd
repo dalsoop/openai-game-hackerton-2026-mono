@@ -440,7 +440,7 @@ func draw_match_result() -> void:
 		draw_pixel_panel(Rect2(470.0, 302.0, 660.0, 240.0), Color("#8b96a8"), Color(0.018, 0.026, 0.040, 0.97))
 		h._text(Vector2(510.0, 390.0), "MATCH DRAW", 48, Color.WHITE, 580.0, HORIZONTAL_ALIGNMENT_CENTER)
 		h._text(Vector2(510.0, 446.0), "NO SURVIVORS", 20, Color("#aebaca"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
-		h._text(Vector2(510.0, 500.0), "ESC  대기실", 16, Color("#dbe5f0"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
+		h._text(Vector2(510.0, 500.0), "대기실로", 16, Color("#dbe5f0"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
 		return
 	_draw_winner_card()
 
@@ -499,7 +499,7 @@ func _draw_winner_standings(_accent: Color) -> void:
 	h._text(Vector2(650.0, 410.0), "FINAL STANDINGS", 14, Color("#aebaca"))
 	for rank in range(mini(3, standings.size())):
 		_draw_standing_row(standings[rank], rank)
-	h._text(Vector2(650.0, 724.0), "대기실로 버튼" if h.touch_hints else "ESC  대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(650.0, 724.0), "대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_standing_row(row: Dictionary, rank: int) -> void:

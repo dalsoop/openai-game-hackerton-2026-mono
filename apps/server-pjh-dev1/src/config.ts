@@ -51,4 +51,8 @@ export const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".wasm": "application/wasm",
+  ".pck": "application/octet-stream",
+  ".ogg": "audio/ogg",
+  ".wav": "audio/wav",
 };

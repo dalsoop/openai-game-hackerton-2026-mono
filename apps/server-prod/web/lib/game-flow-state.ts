@@ -27,6 +27,18 @@ export function phaseAfterMatchEnd(status: HubStatus): GamePhase {
   return "intro";
 }
 
+/** 매치 중 허브가 lobby 로 돌아와도 결과 화면을 엔진에서 바로 끄지 않는다. */
+export function shouldForwardHubState(phase: string, inMatch: boolean): boolean {
+  return !(inMatch && phase === "lobby");
+}
+
+/** 스냅 result 가 끝나면 대기실 버튼을 보여 준다. */
+export function snapShowsMatchEnd(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") {return false;}
+  const result = (raw as { result?: unknown }).result;
+  return typeof result === "string" && result !== "" && result !== "playing";
+}
+
 /** 표시 이름 — 입력값 우선, 비면 기본 플레이어. */
 export function displayNameOf(name: string, defaultPlayer: string): string {
   return name.trim() || defaultPlayer;

@@ -109,7 +109,8 @@
     "starting": "Starting game...",
     "loadingEngine": "Loading Godot engine",
     "startError": "Cannot start game",
-    "backToLobby": "Back to lobby"
+    "backToLobby": "Back to lobby",
+    "toWaitingRoom": "To waiting room"
   },
   "error": {
     "title": "Something went wrong",

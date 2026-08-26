@@ -40,6 +40,7 @@ func _ready() -> void:
 		"hub": hub, "world_view": world_view, "camera": camera,
 		"hud": hud, "hud_layer": hud_layer, "touch": touch,
 		"leave": Callable(self, "_leave_match"),
+		"to_waiting": Callable(self, "_return_to_hub"),
 		"settings_open": false,
 	}
 	if hub != null:
@@ -125,6 +126,8 @@ func _physics_process(delta: float) -> void:
 	if gs == null or not gs.is_state(GameStateScript.State.PLAYING) or module == null:
 		return
 	module.tick(delta, _ctx)
+	_hide_settings_after_result()
+	_sync_play_chrome()
 	_emit_play_probe(delta)
 
 func _emit_play_probe(delta: float) -> void:
@@ -153,6 +156,20 @@ func _emit_play_probe(delta: float) -> void:
 		x, y,
 	]
 	JavaScriptBridge.eval(js)
+
+func _match_over() -> bool:
+	if module == null:
+		return false
+	var world = module.get("world")
+	return world != null and world.get("result") != null and world.result != &"playing"
+
+
+func _hide_settings_after_result() -> void:
+	if settings == null:
+		return
+	if _match_over():
+		settings.set_playing(false)
+
 
 func _leave_match() -> void:
 	var gs := _game_state()
@@ -188,11 +205,12 @@ func _apply_playing_visuals(playing: bool) -> void:
 func _sync_play_chrome() -> void:
 	var playing := world_view.visible
 	var menu_open := settings != null and bool(settings.get("is_open"))
+	var show_cursor := menu_open or _match_over()
 	_ctx["settings_open"] = menu_open
 	if touch != null:
-		touch.set_playing(PlayChromeScript.touch_playing(playing, menu_open))
+		touch.set_playing(PlayChromeScript.touch_playing(playing, show_cursor))
 	Input.set_mouse_mode(
-		Input.MOUSE_MODE_HIDDEN if PlayChromeScript.mouse_hidden(playing, menu_open)
+		Input.MOUSE_MODE_HIDDEN if PlayChromeScript.mouse_hidden(playing, show_cursor)
 		else Input.MOUSE_MODE_VISIBLE)
 
 func _attach_touch() -> void:

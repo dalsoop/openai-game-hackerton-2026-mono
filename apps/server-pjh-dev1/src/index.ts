@@ -14,8 +14,23 @@ import {
 } from "./state.js";
 import { handleMessage } from "./relay.js";
 
-const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public");
+const ROOT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PUBLIC_DIR = path.join(ROOT_DIR, "public");
+const EXPORT_DIR = path.join(ROOT_DIR, "project/web");
 const SERVER_START = Date.now();
+
+function resolveStaticFile(file: string): string | null {
+  for (const root of [PUBLIC_DIR, EXPORT_DIR]) {
+    const full = path.normalize(path.join(root, file));
+    if (full !== root && !full.startsWith(root + path.sep)) continue;
+    try {
+      if (fs.statSync(full).isFile()) return full;
+    } catch {
+      /* missing */
+    }
+  }
+  return null;
+}
 
 // --- Prometheus ---
 
@@ -67,9 +82,10 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://localhost");
   const raw = url.pathname.replace(new RegExp(`^${ROUTES.prefix}`), "") || "/";
   const file = raw === "/" ? "/index.html" : raw;
-  const full = path.normalize(path.join(PUBLIC_DIR, file));
-  if (full !== PUBLIC_DIR && !full.startsWith(PUBLIC_DIR + path.sep)) {
-    res.writeHead(403).end();
+  const full = resolveStaticFile(file);
+  if (!full) {
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("not found");
     return;
   }
   fs.readFile(full, (err, buf) => {

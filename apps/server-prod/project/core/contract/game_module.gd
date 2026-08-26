@@ -14,6 +14,7 @@ extends RefCounted
 ##   hud_layer: CanvasLayer
 ##   touch: CanvasLayer — 터치 컨트롤 (없으면 null)
 ##   leave: Callable    — 매치 이탈 요청 (셸이 처리)
+##   to_waiting: Callable — 결과 화면에서 대기실로 (방은 유지)
 ##   settings_open: bool — 인게임 설정이 열려 있으면 로컬 전투 입력을 버린다
 
 func id() -> String:
