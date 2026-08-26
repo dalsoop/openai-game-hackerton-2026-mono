@@ -27,13 +27,14 @@ export function OfflinePhase({
   return (
     <div className="intro">
       <div className="banner-frame">
-        {/* eslint-disable-next-line @next/next/no-img-element -- 정적 장식 배너, 반응형 폭 유지 위해 img 유지 */}
+        {/* eslint-disable @next/next/no-img-element -- 인트로 정적 배너·로고, 반응형 폭 유지 */}
         <img src="/assets/title-animals.png" alt="" />
         <img
           className={locale === "ko" ? "intro-logo intro-logo-ko" : "intro-logo"}
           src={locale === "ko" ? "/assets/logo-animal-dagulz-ko.png" : "/assets/logo-animal-dagulz-en.png?v=2"}
           alt=""
         />
+        {/* eslint-enable @next/next/no-img-element */}
       </div>
 
       <div className="intro-form">

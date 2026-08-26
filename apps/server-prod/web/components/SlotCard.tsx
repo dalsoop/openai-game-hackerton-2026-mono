@@ -116,11 +116,12 @@ function SlotFilledBody({
 
 export default function SlotCard({ index, player, you, onSetCharacter, pingMs = 0 }: SlotCardProps): JSX.Element {
   const t = useTranslations("room");
+  const conn = useTranslations("connection");
   const isMe = index === you;
   const classes = ["slot-card", player && "filled", isMe && "me"].filter(Boolean).join(" ");
   return (
     <div className={classes}>
-      {isMe && pingMs > 0 && <span className="slot-ping">{pingMs}ms</span>}
+      {isMe && pingMs > 0 && <span className="slot-ping">{conn("ping", { ms: pingMs })}</span>}
       {player ? (
         <SlotFilledBody index={index} player={player} you={you} onSetCharacter={onSetCharacter} />
       ) : (

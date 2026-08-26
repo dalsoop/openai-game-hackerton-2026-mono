@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { sizeParts, type GameListing } from "@/lib/games/listing";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { Button } from "@/components/ui";
 
 interface Props {
   listings: ReadonlyArray<GameListing>;
