@@ -16,6 +16,7 @@ func run(t) -> void:
 	_guest_bullets_keep_own_velocity(t)
 	_local_fire_shake_decays(t)
 	_new_snap_bullet_emits_gun_fire(t)
+	_interp_velocity_matches_tick_span(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -85,7 +86,7 @@ func _guest_bullets_keep_own_velocity(t) -> void:
 		{"id": 1, "x": 60.0, "y": 100.0, "vx": -800.0, "vy": 0.0, "owner": 0},
 		{"id": 2, "x": 110.0, "y": 104.0, "vx": 900.0, "vy": 0.0, "owner": 1},
 	]
-	var parsed: Array = Parser.parse_bullets(next, prev, 20.0)
+	var parsed: Array = Parser.parse_bullets(next, prev, NetWorldScript.snap_per_sec(0.0, 1.0))
 	t.check("탄 두 발이 유지된다", parsed.size() == 2)
 	if parsed.size() < 2:
 		return
@@ -123,6 +124,49 @@ func _local_fire_shake_decays(t) -> void:
 	nw.local_fire_shake = 3
 	nw.present(1.0 / 60.0)
 	t.check("로컬 발사 흔들림이 줄어든다", nw.local_fire_shake == 2)
+
+func _interp_velocity_matches_tick_span(t) -> void:
+	var phys := 300.0
+	var v1 := _remote_lerp_vel_x(1, phys)
+	var v3 := _remote_lerp_vel_x(3, phys)
+	t.check("틱 간격 1(60Hz 스냅) 유도 속도가 물리 속도와 같다", is_equal_approx(v1, phys))
+	t.check("틱 간격 3(20Hz 스냅) 유도 속도가 물리 속도와 같다", is_equal_approx(v3, phys))
+	t.check("틱 간격이 달라도 유도 속도가 같다", is_equal_approx(v1, v3))
+	var u1 := _unpack_vel_x(1, phys)
+	var u3 := _unpack_vel_x(3, phys)
+	t.check("언팩 간격 1 속도가 물리 속도와 같다", is_equal_approx(u1, phys))
+	t.check("언팩 간격 3 속도가 물리 속도와 같다", is_equal_approx(u3, phys))
+
+func _unpack_vel_x(tick_span: int, phys_speed: float) -> float:
+	var old := {"pos": Vector2(100.0, 50.0)}
+	var dx := phys_speed * float(tick_span) / NetWorldScript.TICK_RATE
+	var packed := {
+		SnapContract.P_SLOT: 0,
+		SnapContract.P_X: 100.0 + dx,
+		SnapContract.P_Y: 50.0,
+		SnapContract.P_ALIVE: true,
+	}
+	var rate := NetWorldScript.snap_per_sec(0.0, float(tick_span))
+	var hero := SnapContract.unpack_player(packed, old, 0, rate)
+	return Vector2(hero["vel"]).x
+
+func _remote_lerp_vel_x(tick_span: int, phys_speed: float) -> float:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 1
+	var x0 := 2000.0
+	var y := 2380.0
+	var t0 := 30
+	var dx := phys_speed * float(tick_span) / NetWorldScript.TICK_RATE
+	var first := _center_snap(x0, y, 176.0, 7, 18)
+	first[SnapContract.TICK] = t0
+	var second := _center_snap(x0 + dx, y, 176.0, 7, 18)
+	second[SnapContract.TICK] = t0 + tick_span
+	nw.push_snap(first)
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		return -1.0
+	return Vector2(nw.heroes[0]["vel"]).x
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

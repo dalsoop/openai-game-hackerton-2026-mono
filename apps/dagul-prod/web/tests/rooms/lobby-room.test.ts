@@ -106,6 +106,7 @@ describe("LobbyRoom 규칙", () => {
     expect(payload?.seats).toHaveLength(2);
     expect(payload?.seats.map((s) => s.name)).toEqual(["호스트", "게스트"]);
     expect(payload?.seats.every((s) => s.characterId === "unknown")).toBe(true);
+    expect(payload?.engineJoin?.roomId).toBe(room.roomId);
   });
 
   it("각 좌석이 자기 캐릭터만 고른다", async () => {
@@ -526,3 +527,31 @@ describe("LobbyRoom 좌석 이어받기", () => {
     expect(room.pushTestInput(newTab.sessionId, { mx: 1, my: 0, seq: 3 })).toBe(true);
   });
 });
+
+describe("엔진 보조 세션", () => {
+  it("engine:true 입장은 state.players 를 늘리지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(1);
+    await colyseus.connectTo(room, { engine: true, guestId: 123456, guestKey: KEY_A });
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(1);
+  });
+
+  it("엔진 INPUT 은 같은 claim 좌석 slot 으로 권위에 들어간다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    const first = host.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    const x0 = snapPlayer((await first) as AuthSnap, 0)?.x ?? 0;
+    const engine = await colyseus.connectTo(room, { engine: true, guestId: 123456, guestKey: KEY_A });
+    await room.waitForNextPatch();
+    engine.send(MSG.INPUT, { mx: 1, my: 0, seq: 21, aimX: x0 + 80, aimY: 2380 });
+    await new Promise((r) => setTimeout(r, 40));
+    const me = snapPlayer(playOut(room), 0);
+    expect(me?.ack).toBe(21);
+    expect(me?.x ?? 0).toBeGreaterThan(x0 + 5);
+  });
+});
+

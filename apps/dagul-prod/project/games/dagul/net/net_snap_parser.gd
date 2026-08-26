@@ -147,6 +147,7 @@ static func make_equipment(weapon_name: String, player_name: String, mag_size: i
 		"mag_size":mag_size
 	}
 
+## snap_hz 는 스냅 간격의 역수(초당 스냅 수). 위치 차로 속도를 복원할 때만 쓴다.
 static func _vel_by_id(bullet_id: int, pos: Vector2, prev_bullets: Array, snap_hz: float) -> Vector2:
 	for prev_b in prev_bullets:
 		if int(prev_b.get("id", -1)) != bullet_id:

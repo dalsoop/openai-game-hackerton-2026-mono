@@ -9,6 +9,8 @@ import { seatsPayloadOf } from "./lobby-seats.js";
 import { startBodies } from "./lobby-relay.js";
 import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
 import { clearMatchSchema, type MatchAuthority } from "./match-authority.js";
+import { seatedSession } from "./match-engine.js";
+import { clearMatchState } from "./match-schema-write.js";
 
 export type TimerHandle = { clear(): void };
 
@@ -28,6 +30,8 @@ export type LobbyHandle = {
   setMetadata: (value: object) => void | Promise<void>;
   clock: { setTimeout: (cb: () => void, ms: number) => TimerHandle };
   broadcast: (type: string, payload: unknown) => void;
+  roomId?: string;
+  slotOfSession?(sessionId: string): number;
 };
 
 /** 호스트가 순간적으로 사라져도 곧바로 리셋하지 않고, 유예 뒤 여전히 없을 때만 리셋한다.
@@ -56,6 +60,7 @@ export function handleRoomToggle(room: LobbyHandle, client: Client): void {
   if (room.state.open) {return;}
   for (const c of room.clients) {
     if (c.sessionId === room.state.hostSessionId) {continue;}
+    if (!seatedSession([...room.state.players], c.sessionId)) {continue;}
     c.send(MSG.KICKED, { msg: KO.KICKED_MSG });
     c.leave(CLOSE_CODE.KICKED);
   }
@@ -122,6 +127,7 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   bag.prevSnap = null;
   bag.authority = null;
   clearMatchSchema(room.state);
+  clearMatchState(room.state.match);
   room.state.phase = "lobby";
   room.state.seed = 0;
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
@@ -144,8 +150,10 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): v
 function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {
   // 계약: CPU 좌석 정보는 START 에 없고 SNAP 으로만 전달된다 (seats 는 실접속 플레이어만 담는다).
   const seats = seatsPayloadOf(room.state.players);
+  const engineJoin = room.roomId ? { roomId: room.roomId } : undefined;
   for (const body of startBodies(
     [...room.state.players], room.state.hostSessionId, room.state.seed, room.state.mode, seats,
+    engineJoin,
   )) {
     room.clients.find((c) => c.sessionId === body.sessionId)
       ?.send(body.type, body.payload, { afterNextPatch: true });

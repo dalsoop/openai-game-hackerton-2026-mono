@@ -1,6 +1,7 @@
 // 리스트 룸 → 로비 방 목록 매핑·델타 적용 — 순수 함수 (tests 대상).
 import type { RoomAvailable } from "@colyseus/sdk";
 import type { HubRoom } from "../../types";
+import { HUB_CONFIG } from "./config.js";
 
 /** RoomAvailable 1건 → HubRoom 뷰 모델. */
 export function toHubRoom(r: RoomAvailable): HubRoom {
@@ -26,8 +27,7 @@ export function listableRoom(r: RoomAvailable & { locked?: boolean }): boolean {
   const room = toHubRoom(r);
   if (!roomJoinable(room)) {return false;}
   if (r.locked === true) {return false;}
-  const max = Number(r.maxClients) || 8;
-  return Number(r.clients) < max;
+  return Number(r.clients) < HUB_CONFIG.maxPlayers;
 }
 
 /** 전체 목록 수신(LIST_MSG.ROOMS). */

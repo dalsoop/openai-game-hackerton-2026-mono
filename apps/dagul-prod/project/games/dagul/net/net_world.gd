@@ -12,7 +12,7 @@ const ARENA_CENTER := ArenaGeo.ARENA_CENTER
 const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
 const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
-const TICK_RATE := 60.0
+const TICK_RATE := 60.0  # 서버 고정 시뮬 틱레이트 (FIXED_DT 의 역수)
 const INTERP_SEC := 0.06
 const MOVE_SPEED := 419.0
 const DASH_SPEED := 520.0
@@ -240,19 +240,17 @@ func _player_in(snap: Dictionary, slot: int) -> Dictionary:
             return p
     return {}
 
+func _player_wire_by_slot(snap: Dictionary) -> Dictionary:
+    var by_slot := {}
+    for raw in snap.get(SnapContract.PLAYERS, []):
+        var p: Dictionary = raw
+        by_slot[int(p.get(SnapContract.P_SLOT, -1))] = p
+    return by_slot
+
 func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
-    var vel_scale := snap_per_sec(
-        float(int(older.get(SnapContract.TICK, 0))),
-        float(int(newer.get(SnapContract.TICK, 0)))
-    )
-    var from_map := {}
-    for raw in older.get(SnapContract.PLAYERS, []):
-        var p: Dictionary = raw
-        from_map[int(p.get(SnapContract.P_SLOT, -1))] = p
-    var to_map := {}
-    for raw in newer.get(SnapContract.PLAYERS, []):
-        var p: Dictionary = raw
-        to_map[int(p.get(SnapContract.P_SLOT, -1))] = p
+    var vel_scale := snap_per_sec(float(int(older.get(SnapContract.TICK, 0))), float(int(newer.get(SnapContract.TICK, 0))))
+    var from_map := _player_wire_by_slot(older)
+    var to_map := _player_wire_by_slot(newer)
     for hero in heroes:
         var slot := int(hero["slot"])
         if not from_map.has(slot) or not to_map.has(slot):
@@ -268,6 +266,10 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var aim_point := from_aim.lerp(to_aim, alpha)
         if Vector2(hero["pos"]).distance_squared_to(aim_point) > 1.0:
             hero["aim"] = Vector2(hero["pos"]).direction_to(aim_point)
+    _lerp_shots(older, newer, alpha, vel_scale)
+    safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
+
+func _lerp_shots(older: Dictionary, newer: Dictionary, alpha: float, vel_scale: float) -> void:
     var old_bullets: Dictionary = _bullet_wire_by_id(older.get(SnapContract.BULLETS, []))
     var new_bullets: Dictionary = _bullet_wire_by_id(newer.get(SnapContract.BULLETS, []))
     for shot in projectiles:
@@ -280,7 +282,6 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var to_b := Vector2(_f(nb, SnapContract.B_X, 0.0), _f(nb, SnapContract.B_Y, 0.0))
         shot["pos"] = from_b.lerp(to_b, alpha)
         shot["vel"] = (to_b - from_b) * vel_scale
-    safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
@@ -350,15 +351,15 @@ func apply_snap(snap: Dictionary) -> void:
     var prev_shrinking := safe_zone_shrinking
     SnapContract.apply_header(self, snap)
     _apply_world_extras(snap)
-    var snap_per_sec := snap_per_sec(float(prev_tick), float(tick))
+    var rate := snap_per_sec(float(prev_tick), float(tick))
     var snap_dt := maxf(0.0, float(tick - prev_tick)) / TICK_RATE
     var prev_result := result
     _apply_result(snap)
     SfxDerive.header_events(self, prev_countdown, prev_shrinking)
     _fight_countdown_fired = SfxDerive.countdown_event(self, _fight_countdown_fired)
     _derive_zone_target()
-    _apply_players(snap.get(SnapContract.PLAYERS, []), snap_per_sec)
-    _apply_bullets(snap.get(SnapContract.BULLETS, []), snap_per_sec)
+    _apply_players(snap.get(SnapContract.PLAYERS, []), rate)
+    _apply_bullets(snap.get(SnapContract.BULLETS, []), rate)
     _apply_loot(snap.get(SnapContract.LOOT, []))
     _decay_effects(snap_dt)
     if last_down_ticks > 0:
