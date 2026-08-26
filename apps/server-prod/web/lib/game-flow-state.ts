@@ -1,6 +1,6 @@
 // 게임 페이즈 순수 전이 로직 — 훅(useGameFlow)과 테스트가 같이 쓰는 SSOT.
 // React 의존 없음: 같은 입력엔 같은 출력 (tests/game-flow-state.test.ts 가 전수 검증).
-import type { GamePhase, HubStatus } from "@/types";
+import type { GamePhase, HubStatus } from "../types";
 export type { DropReason, RoomEndKind } from "./hub/room-end";
 export {
   canOfferReconnect,

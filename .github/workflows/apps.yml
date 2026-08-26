@@ -45,6 +45,9 @@ jobs:
           helm=$(python3 -c "import json,sys; print('true' if json.loads(sys.argv[1]).get('helm') else 'false')" "$json")
           echo "folders=$folders" >> "$GITHUB_OUTPUT"
           echo "helm=$helm" >> "$GITHUB_OUTPUT"
+      - name: Lint shipped web
+        if: ${{ steps.list.outputs.folders != '' }}
+        run: python3 deploy/scripts/lint-web.py ${{ steps.list.outputs.folders }}
 
   apply:
     needs: plan

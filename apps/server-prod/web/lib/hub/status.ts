@@ -1,6 +1,6 @@
 // 접속 상태 사다리 — 순수 함수 (tests 대상).
 // 우선순위: 매치 진행 > 방 파생 > 접속 시도 상태.
-import type { HubStatus, MatchInfo } from "@/types";
+import type { HubStatus, MatchInfo } from "../../types";
 
 export function deriveStatus(
   derived: { status: HubStatus } | null,

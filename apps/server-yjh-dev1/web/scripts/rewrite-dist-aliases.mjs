@@ -14,15 +14,20 @@ function walk(dir, visit) {
   }
 }
 
+function toRel(fromFile, spec) {
+  const cleaned = spec.replace(/\.js$/, "");
+  const abs = path.resolve("dist", cleaned);
+  let rel = path.relative(path.dirname(fromFile), abs);
+  if (!rel.startsWith(".")) {
+    rel = `./${rel}`;
+  }
+  return rel.replaceAll("\\", "/");
+}
+
 function rewrite(file) {
   const src = fs.readFileSync(file, "utf8");
-  const next = src.replace(/require\((['"])@\/([^'"]+)\1\)/g, (_m, _q, spec) => {
-    const abs = path.resolve("dist", spec);
-    let rel = path.relative(path.dirname(file), abs);
-    if (!rel.startsWith(".")) {
-      rel = `./${rel}`;
-    }
-    return `require(${JSON.stringify(rel)})`;
+  const next = src.replace(/require\(\s*(['"])@\/([^'"]+)\1\s*\)/g, (_m, _q, spec) => {
+    return `require(${JSON.stringify(toRel(file, spec))})`;
   });
   if (next !== src) {
     fs.writeFileSync(file, next);

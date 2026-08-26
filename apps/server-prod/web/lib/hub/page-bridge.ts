@@ -1,6 +1,6 @@
 // React ↔ Godot 인게임 수송 — 허브 소켓은 React 만 연다.
 // 정본 이벤트 이름: lib/contract DOM_EVT.TO_ENGINE / FROM_ENGINE
-import { DOM_EVT, MSG } from "@/lib/contract";
+import { DOM_EVT, MSG } from "../contract";
 
 export type BridgePacket = { readonly type: string; readonly payload: unknown };
 

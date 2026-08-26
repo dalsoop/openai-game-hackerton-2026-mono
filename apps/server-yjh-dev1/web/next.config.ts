@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  eslint: {
+    ignoreDuringBuilds: process.env.HACKERTONE_IMAGE_BUILD === "1",
+  },
   env: {
     SLOT_FOLDER: process.env.SLOT_FOLDER ?? "server-yjh-dev1",
   },

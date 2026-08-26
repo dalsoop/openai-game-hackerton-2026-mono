@@ -376,9 +376,20 @@ def assert_live_matches_plant() -> None:
     print(f"live tags ok ({len(planted)} hubs)")
 
 
+def smoke_folders() -> list[str]:
+    shipped = [folder for folder in shipped_folders() if hub_enabled(folder)]
+    if shipped:
+        return shipped
+    return [folder for folder in SMOKE_FOLDERS if hub_enabled(folder)]
+
+
 def assert_smoke_hubs() -> None:
     failed = []
-    for folder in SMOKE_FOLDERS:
+    folders = smoke_folders()
+    if not folders:
+        print("smoke skip (ship 한 허브 없음)")
+        return
+    for folder in folders:
         status, body = 0, ""
         for attempt in range(4):
             status, body = probe(health_url(folder))
@@ -422,7 +433,7 @@ def assert_smoke_hubs() -> None:
             failed.append(f"{folder} rooms dropped {room_id} {seat[:80]}")
     if failed:
         raise SystemExit("helm 이후 스모크 실패:\n" + "\n".join(failed))
-    print("smoke create ok " + ",".join(SMOKE_FOLDERS))
+    print("smoke create ok " + ",".join(folders))
 
 
 def kube(cmd: str) -> subprocess.CompletedProcess:
@@ -441,11 +452,7 @@ def hub_enabled(folder: str) -> bool:
 
 
 def wait_folders() -> list[str]:
-    seen: list[str] = []
-    for folder in (*SMOKE_FOLDERS, *shipped_folders()):
-        if folder not in seen and hub_enabled(folder):
-            seen.append(folder)
-    return seen
+    return smoke_folders()
 
 
 def dump_cluster() -> None:

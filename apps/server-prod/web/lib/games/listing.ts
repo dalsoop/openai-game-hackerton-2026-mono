@@ -1,6 +1,6 @@
 // 방 만들기 목록 — 카탈로그에 매니페스트 버전·에셋 용량을 붙인다.
-import { assetPlanOf, godotAssetUrl } from "@/lib/godot/asset-store";
-import { packOf, type GameDescriptor, type GameId } from "@/lib/games/catalog";
+import { assetPlanOf, godotAssetUrl } from "../godot/asset-store";
+import { packOf, type GameDescriptor, type GameId } from "./catalog";
 
 export type SizeUnit = "b" | "kb" | "mb";
 

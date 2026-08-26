@@ -75,6 +75,7 @@ export class GodotRuntime {
     this.pack = pack;
     this.plan = assetPlanOf(pack);
     this.store = new AssetStore(this.plan, (progress, loaded, total): void => {
+      if (this.snap.state !== "downloading") {return;}
       this.update({ progress, bytesLoaded: loaded, bytesTotal: total });
     });
   }
@@ -147,12 +148,15 @@ export class GodotRuntime {
   }
 
   private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
+    this.update({ state: "downloading", progress: 0.02, error: null });
     this.manifest ??= await this.store.loadManifest(this.pack);
     // 프리로드가 아직 진행 중이어도 AssetStore 공유로 중복 다운로드 없이 합류한다.
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
+    this.update({ state: "compiling", progress: 0.42 });
 
     this.writeHandoff(handoff);
     await this.loadEngineScript();
+    this.update({ progress: 0.55 });
 
     const EngineCtor = (window as unknown as {
       Engine?: GodotEngineApi & (new (cfg: unknown) => {
@@ -195,10 +199,12 @@ export class GodotRuntime {
     // side.wasm 도 캐시가 찬 뒤에 init — 엔진의 자체 fetch 가 304 로 떨어지게.
     await this.store.sideWasm;
     await engine.init(this.plan.engineBase);
+    this.update({ progress: 0.74 });
     engine.copyToFS("index.pck", pckBuffer);
     // Godot 웹 dlopen 은 파일명만 쓴다(os_web.cpp p_path.get_file()) —
     // FS 루트에 파일명으로 심어 find_dylib 이 바로 찾게 한다.
     engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
+    this.update({ progress: 0.86 });
     await engine.start(config);
     this.engine = engine;
     this.boundCanvas = canvas;
