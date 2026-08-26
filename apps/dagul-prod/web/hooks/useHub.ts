@@ -33,6 +33,19 @@ function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): 
   return room ? roomRtt : healthRtt;
 }
 
+/** 로비 UI 가 쓰는 필드만. heroes·bullets·matchTick 은 구독하지 않는다. */
+function lobbyRosterFields(s: RosterSnapshot): RosterSnapshot {
+  return {
+    gameId: s.gameId,
+    open: s.open,
+    createdAtMs: s.createdAtMs,
+    idleUntilSec: s.idleUntilSec,
+    phase: s.phase,
+    hostSessionId: s.hostSessionId,
+    players: s.players,
+  };
+}
+
 function useHubExternalErrors(
   roomError: Error | null | undefined,
   lobbyErr: Error | null | undefined,
@@ -87,8 +100,8 @@ export function useHub(): UseHubResult {
     handleResumeFailed,
   );
 
-  // 방 상태 = 서버 state 의 불변 스냅샷.
-  const snap = useRoomState(room as Room<RosterSnapshot> | undefined);
+  // 방 상태 = 로비 필드만. 전투 스키마 패치로 React 트리를 다시 그리지 않는다.
+  const snap = useRoomState(room as Room<RosterSnapshot> | undefined, lobbyRosterFields);
   const roomRtt = useRoomRtt(room);
   const rttMs = liveRttMs(room, roomRtt, 0);
   usePageBridge(room, matchInfo, snap, rttMs);

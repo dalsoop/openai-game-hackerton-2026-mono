@@ -378,9 +378,23 @@ describe("LobbyRoom 규칙", () => {
   });
 });
 
-function stepSim(room: LobbyRoom, n = 8, dt = 50): void {
-  room.stepSim(3100); // 개전 카운트다운(3초)을 먼저 소진한다
-  for (let i = 0; i < n; i += 1) {room.stepSim(dt);}
+type AuthSnap = {
+  players?: Array<{ slot: number; x: number; ack: number }>;
+  bullets?: Array<{ id: number; owner: number }>;
+};
+
+function lastAuthSnap(room: LobbyRoom): AuthSnap {
+  return (room as unknown as { bag: { lastSnap: AuthSnap | null } }).bag.lastSnap ?? {};
+}
+
+/** MAX_STEPS=4 라 dt 한 번에 카운트다운 3초를 못 깎는다. 권위 틱을 여러 번 돌린다. */
+function playOut(room: LobbyRoom): AuthSnap {
+  for (let i = 0; i < 80; i += 1) {room.stepSim(50);}
+  return lastAuthSnap(room);
+}
+
+function snapPlayer(raw: AuthSnap, slot: number): { x: number; ack: number } | undefined {
+  return raw.players?.find((p) => p.slot === slot);
 }
 
 describe("허브 권위 매치", () => {
@@ -400,19 +414,18 @@ describe("허브 권위 매치", () => {
     expect(room.state.heroes.size).toBe(8);
   });
 
-  it("호스트 input 도 권위에 들어가고 스키마에 반영된다", async () => {
+  it("호스트 input 도 권위에 들어가고 스냅에 반영된다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
-    await first;
-    const x0 = room.state.heroes.get("0")?.x ?? 0;
+    const boot = (await first) as AuthSnap;
+    const x0 = snapPlayer(boot, 0)?.x ?? 0;
     expect(room.pushTestInput(host.sessionId, {
       mx: 1, my: 0, seq: 11, aimX: x0 + 80, aimY: 2380,
     })).toBe(true);
-    stepSim(room, 10, 50);
-    const me = room.state.heroes.get("0");
+    const me = snapPlayer(playOut(room), 0);
     expect(me?.x).toBeGreaterThan(x0 + 5);
     expect(me?.ack).toBe(11);
   });
@@ -424,14 +437,17 @@ describe("허브 권위 매치", () => {
     const bootSnap = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
     await bootSnap;
+    expect(room.pushTestInput(host.sessionId, { mx: 1, my: 0, seq: 1 })).toBe(true);
+    playOut(room);
     const fxP = host.waitForMessage(MSG.GUN_FIRE);
     expect(room.pushTestInput(guest.sessionId, {
       mx: 0, my: 0, fire: true, firePressed: true, seq: 4,
       aimX: 4000, aimY: 2380,
     })).toBe(true);
-    stepSim(room, 6, 50);
-    expect(room.state.bullets.size).toBeGreaterThan(0);
-    const shot = [...room.state.bullets.values()][0];
+    for (let i = 0; i < 8; i += 1) {room.stepSim(50);}
+    const bullets = lastAuthSnap(room).bullets ?? [];
+    expect(bullets.length).toBeGreaterThan(0);
+    const shot = bullets[0];
     expect(shot.id).toBeGreaterThan(0);
     expect(shot.owner).toBe(1);
     const fx = (await fxP) as { slot: number };
@@ -447,8 +463,7 @@ describe("허브 권위 매치", () => {
     await first;
     host.send(MSG.INPUT, { mx: 1, my: 0, seq: 5, aimX: 4000, aimY: 2380 });
     await new Promise((r) => setTimeout(r, 40));
-    stepSim(room, 8, 50);
-    expect(room.state.heroes.get("0")?.ack).toBe(5);
+    expect(snapPlayer(playOut(room), 0)?.ack).toBe(5);
   });
 
   it("플레이 중 방장이 나가도 게스트 입력으로 매치가 이어진다", async () => {
@@ -462,8 +477,7 @@ describe("허브 권위 매치", () => {
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
     expect(room.pushTestInput(guest.sessionId, { mx: 1, my: 0, seq: 8 })).toBe(true);
-    stepSim(room, 8, 50);
-    expect(room.state.heroes.get("1")?.ack).toBe(8);
+    expect(snapPlayer(playOut(room), 1)?.ack).toBe(8);
   });
 });
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AssetStore, assetPlanOf, godotAssetUrl, isExtLibPath, versionedAssetUrl } from "@/lib/godot/asset-store";
+import { AssetStore, assetPlanOf, godotAssetUrl, godotWorkletAssetPath, isExtLibPath, versionedAssetUrl } from "@/lib/godot/asset-store";
 import { DEFAULT_GAME_ID, packOf } from "@/lib/games/catalog";
 
 const pack = packOf(DEFAULT_GAME_ID);
@@ -44,6 +44,17 @@ describe("assetPlanOf — URL 체계 SSOT", () => {
     expect(isExtLibPath(`/ko/${file}`)).toBe(true);
     expect(isExtLibPath(`/en/${file}`)).toBe(true);
     expect(isExtLibPath("/godot/dagul/index.wasm")).toBe(false);
+  });
+
+  it("루트·로케일 상대 오디오 워크릿은 팩 URL 로 붙인다", () => {
+    expect(godotWorkletAssetPath("/index.audio.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
+    expect(godotWorkletAssetPath("/ko/index.audio.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
+    expect(godotWorkletAssetPath("/index.audio.position.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.position.worklet.js"));
+    expect(godotWorkletAssetPath("/godot/dagul/index.audio.worklet.js")).toBeNull();
+    expect(godotWorkletAssetPath("/favicon.ico")).toBeNull();
   });
 });
 

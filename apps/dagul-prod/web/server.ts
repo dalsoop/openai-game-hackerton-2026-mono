@@ -11,7 +11,7 @@ import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME } from "./lib/hub/config.js";
 import { hubPublicAddress } from "./lib/hub/public-address.js";
 import { roomsHttpBody, withDeadline } from "./lib/hub/rooms-http.js";
-import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
+import { assetPlanOf, godotWorkletAssetPath, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { deployedBuildId } from "./lib/hub/revision-fs.js";
@@ -150,6 +150,10 @@ function startStatic(): void {
     }
     if (isExtLibPath(pathname) &&
         serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
+    {
+      const worklet = godotWorkletAssetPath(pathname);
+      if (worklet && serveGodotAsset(req, res, worklet)) {return;}
+    }
     if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
     if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
     res.writeHead(404).end();
@@ -220,6 +224,10 @@ function startHub(): void {
         // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
         if (isExtLibPath(pathname) &&
             serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
+        {
+          const worklet = godotWorkletAssetPath(pathname);
+          if (worklet && serveGodotAsset(req, res, worklet)) {return;}
+        }
         const servePack = process.env.HUB_STATIC_SPLIT !== "1";
         if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
         if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}

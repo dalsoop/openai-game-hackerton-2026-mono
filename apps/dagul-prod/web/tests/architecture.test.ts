@@ -233,6 +233,8 @@ describe("계약: 허브 소켓 주인은 React", () => {
     const server = sourceOf(join(ROOT, "server.ts"));
     expect(server).toContain("isExtLibPath(pathname)");
     expect(server).not.toMatch(/servePack && isExtLibPath/);
+    expect(server).toContain("godotWorkletAssetPath(pathname)");
+    expect(server).not.toMatch(/servePack && godotWorkletAssetPath/);
   });
 
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
