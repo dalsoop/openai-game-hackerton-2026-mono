@@ -233,7 +233,7 @@ func _tick_match_audio(ctx: Dictionary) -> void:
 func _local_command(ctx: Dictionary, world_view: Node2D) -> Dictionary:
 	if bool(ctx.get("settings_open", false)):
 		return _input.idle_command(_local_player_pos())
-	return _input.poll(world_view.get_viewport(), _local_player_pos())
+	return _input.poll(world_view, _local_player_pos())
 
 
 func _ensure_input() -> void:

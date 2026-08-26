@@ -40,8 +40,8 @@ func read_move() -> Vector2:
 	return pad.move()
 
 
-func read_aim(viewport: Viewport, local_player_pos: Vector2) -> Vector2:
-	var aim_world := viewport.get_canvas_transform().affine_inverse() * viewport.get_mouse_position()
+func read_aim(space: CanvasItem, local_player_pos: Vector2) -> Vector2:
+	var aim_world := space.get_global_mouse_position()
 	if pad.aiming():
 		aim_world = local_player_pos + pad.aim_dir() * 400.0
 	return aim_world
@@ -57,10 +57,10 @@ func read_equipment() -> bool:
 		pad.is_on(), Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT), pad.skill())
 
 
-func poll(viewport: Viewport, local_player_pos: Vector2) -> Dictionary:
+func poll(space: CanvasItem, local_player_pos: Vector2) -> Dictionary:
 	return build_command(
 		read_move(),
-		read_aim(viewport, local_player_pos),
+		read_aim(space, local_player_pos),
 		read_primary(),
 		read_equipment())
 

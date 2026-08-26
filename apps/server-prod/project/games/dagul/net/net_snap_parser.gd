@@ -145,30 +145,34 @@ static func make_equipment(weapon_name: String, player_name: String, mag_size: i
 		"mag_size":mag_size
 	}
 
-static func _match_bullet_vel(pos: Vector2, prev_bullets: Array, snap_hz: float) -> Vector2:
-	var vel := Vector2.ZERO
-	var best := 3600.0
+static func _vel_by_id(bullet_id: int, pos: Vector2, prev_bullets: Array, snap_hz: float) -> Vector2:
 	for prev_b in prev_bullets:
-		var d := pos.distance_squared_to(prev_b["pos"])
-		if d < best:
-			best = d
-			vel = (pos - prev_b["pos"]) * snap_hz
-	return vel
+		if int(prev_b.get("id", -1)) != bullet_id:
+			continue
+		return (pos - Vector2(prev_b["pos"])) * snap_hz
+	return Vector2.ZERO
 
 static func parse_bullets(list: Array, prev_bullets: Array, snap_hz: float) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for raw in list:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
 		var b: Dictionary = raw
 		var pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
-		var vel := _match_bullet_vel(pos, prev_bullets, snap_hz)
+		var packed_vel := Vector2(_f(b, "vx", 0.0), _f(b, "vy", 0.0))
+		var bullet_id := int(b.get("id", result.size()))
+		var vel := packed_vel
+		if vel.length_squared() < 0.01:
+			vel = _vel_by_id(bullet_id, pos, prev_bullets, snap_hz)
 		result.append({
-			"pos":pos,
-			"vel":vel,
-			"owner":int(b.get("owner", 0)),
-			"kind":"bolt",
-			"source":&"normal",
-			"arc":false,
-			"radius":5.0
+			"id": bullet_id,
+			"pos": pos,
+			"vel": vel,
+			"owner": int(b.get("owner", 0)),
+			"kind": "bolt",
+			"source": &"normal",
+			"arc": false,
+			"radius": 5.0
 		})
 	return result
 

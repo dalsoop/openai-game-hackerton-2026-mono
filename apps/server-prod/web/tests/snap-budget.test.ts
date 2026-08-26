@@ -32,7 +32,14 @@ function hostPackedSnap(): Record<string, unknown> {
     ack: 12,
   }));
   const xy = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ x: 2000 + i * 30, y: 1800 + i * 20, owner: i % 8 }));
+    Array.from({ length: n }, (_, i) => ({
+      id: i + 1,
+      x: 2000 + i * 30,
+      y: 1800 + i * 20,
+      vx: 900,
+      vy: 0,
+      owner: i % 8,
+    }));
   return {
     tick: 1800,
     time: 90,

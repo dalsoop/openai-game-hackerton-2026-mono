@@ -199,6 +199,16 @@ func _seed_prediction(snap: Dictionary) -> void:
         _pred_aim = _pred_aim.normalized()
     _has_pred = true
 
+func _bullet_wire_by_id(list: Array) -> Dictionary:
+    var by_id := {}
+    for i in range(list.size()):
+        var raw: Variant = list[i]
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var b: Dictionary = raw
+        by_id[int(b.get(SnapContract.B_ID, i))] = b
+    return by_id
+
 func _player_in(snap: Dictionary, slot: int) -> Dictionary:
     for raw in snap.get(SnapContract.PLAYERS, []):
         var p: Dictionary = raw
@@ -230,16 +240,18 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var aim_point := from_aim.lerp(to_aim, alpha)
         if Vector2(hero["pos"]).distance_squared_to(aim_point) > 1.0:
             hero["aim"] = Vector2(hero["pos"]).direction_to(aim_point)
-    var old_bullets: Array = older.get(SnapContract.BULLETS, [])
-    var new_bullets: Array = newer.get(SnapContract.BULLETS, [])
-    if old_bullets.size() == new_bullets.size() and projectiles.size() == new_bullets.size():
-        for i in range(projectiles.size()):
-            var ob: Dictionary = old_bullets[i]
-            var nb: Dictionary = new_bullets[i]
-            var from_b := Vector2(_f(ob, SnapContract.P_X, 0.0), _f(ob, SnapContract.P_Y, 0.0))
-            var to_b := Vector2(_f(nb, SnapContract.P_X, 0.0), _f(nb, SnapContract.P_Y, 0.0))
-            projectiles[i]["pos"] = from_b.lerp(to_b, alpha)
-            projectiles[i]["vel"] = (to_b - from_b) * SNAP_HZ
+    var old_bullets: Dictionary = _bullet_wire_by_id(older.get(SnapContract.BULLETS, []))
+    var new_bullets: Dictionary = _bullet_wire_by_id(newer.get(SnapContract.BULLETS, []))
+    for shot in projectiles:
+        var bid := int(shot.get("id", -1))
+        if not old_bullets.has(bid) or not new_bullets.has(bid):
+            continue
+        var ob: Dictionary = old_bullets[bid]
+        var nb: Dictionary = new_bullets[bid]
+        var from_b := Vector2(_f(ob, SnapContract.B_X, 0.0), _f(ob, SnapContract.B_Y, 0.0))
+        var to_b := Vector2(_f(nb, SnapContract.B_X, 0.0), _f(nb, SnapContract.B_Y, 0.0))
+        shot["pos"] = from_b.lerp(to_b, alpha)
+        shot["vel"] = (to_b - from_b) * SNAP_HZ
     safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:

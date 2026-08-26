@@ -181,8 +181,12 @@ func _apply_peer_motion(slot: int, h: Dictionary, cmd: Dictionary) -> void:
 	if move.length_squared() > 1.0:
 		move = move.normalized()
 	var aim_pos := _peer_aim(cmd, h)
-	if Vector2(h["pos"]).distance_squared_to(aim_pos) > 4.0:
-		h["facing"] = Vector2(h["pos"]).direction_to(aim_pos)
+	var to_aim := Vector2(h["pos"]).direction_to(aim_pos)
+	if cmd.has("aimX") and cmd.has("aimY") and to_aim.length_squared() > 0.0001:
+		h["facing"] = to_aim
+		h["aim"] = to_aim
+	elif Vector2(h["pos"]).distance_squared_to(aim_pos) > 4.0:
+		h["facing"] = to_aim
 		h["aim"] = h["facing"]
 	var control_speed := 0.42 if float(h["cc_time"]) > 0.0 else 1.0
 	if float(h["root_time"]) > 0.0:

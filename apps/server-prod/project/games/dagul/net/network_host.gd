@@ -101,7 +101,16 @@ func _snap_players() -> Array:
 func _snap_bullets() -> Array:
 	var arr: Array = []
 	for proj in world.projectiles:
-		arr.append({"x": Vector2(proj["pos"]).x, "y": Vector2(proj["pos"]).y, "owner": int(proj["owner"])})
+		var pos := Vector2(proj["pos"])
+		var vel := Vector2(proj.get("vel", Vector2.ZERO))
+		arr.append({
+			SnapContract.B_ID: int(proj.get("id", 0)),
+			SnapContract.B_X: pos.x,
+			SnapContract.B_Y: pos.y,
+			SnapContract.B_VX: vel.x,
+			SnapContract.B_VY: vel.y,
+			SnapContract.B_OWNER: int(proj["owner"]),
+		})
 	return arr
 
 func _snap_loot() -> Array:
