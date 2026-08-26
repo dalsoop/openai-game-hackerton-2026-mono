@@ -296,6 +296,8 @@ class HelmContract(unittest.TestCase):
         self.assertNotIn("stage_hub_kernel", apps_py)
         self.assertIn("COPY web/package-lock.json ./", prod_df)
         self.assertIn("lockfileVersion", prod_df)
+        self.assertIn("tsc-alias", prod_df)
+        self.assertIn("tsc-alias", yjh_df)
         self.assertNotIn('"--no-cache"', apps_py)
         self.assertIn('["docker", "build"', apps_py)
         self.assertIn('["docker", "push"', apps_py)
