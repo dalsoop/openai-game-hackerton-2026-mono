@@ -2,14 +2,14 @@
 // Godot 웹 런타임의 수명주기 소유자 — 상태머신(idle→downloading→…→running)과
 // 엔진 부팅 시퀀스만 담당한다. URL 체계·다운로드 공유는 AssetStore 가,
 // 핸드오프 키 계약은 lib/contract 가 소유한다 (여기선 조립만).
-import { HANDOFF, DOM_EVT } from "@/lib/contract";
-import { HUB_CONFIG } from "@/lib/hub/config";
-import { DEFAULT_GAME_ID, packOf, type GameId } from "@/lib/games/catalog";
-import { AssetStore, assetPlanOf } from "@/lib/godot/asset-store";
-import { bindCanvasKeyboardFocus } from "@/lib/godot/canvas-focus";
-import { bindAudioUnlock, captureAudioContexts } from "@/lib/godot/unlock-audio";
-import { isWebGL2Available, type GodotEngineApi } from "@/lib/godot/webgl";
-import type { StartPayload } from "@/lib/hub/start-payload";
+import { HANDOFF, DOM_EVT } from "../contract";
+import { HUB_CONFIG } from "../hub/config";
+import { DEFAULT_GAME_ID, packOf, type GameId } from "../games/catalog";
+import { AssetStore, assetPlanOf } from "./asset-store";
+import { bindCanvasKeyboardFocus } from "./canvas-focus";
+import { bindAudioUnlock, captureAudioContexts } from "./unlock-audio";
+import { isWebGL2Available, type GodotEngineApi } from "./webgl";
+import type { StartPayload } from "../hub/start-payload";
 
 export type RuntimeState =
   | "idle" | "downloading" | "compiling" | "ready" | "running" | "error";
