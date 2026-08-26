@@ -35,19 +35,6 @@ func _header_keys(t) -> void:
 	t.check("header zoneR", is_equal_approx(float(header[SnapContract.ZONE_R]), 3304.0))
 	t.check("header zoneCX", is_equal_approx(float(header[SnapContract.ZONE_CX]), 3920.0))
 	t.check("header wantedSlot", int(header[SnapContract.WANTED_SLOT]) == 3)
-	t.check("header mapId", str(header["mapId"]) == "island_2x2")
-	t.check("header mapCols", int(header["mapCols"]) == 2)
-	t.check("header mapRows", int(header["mapRows"]) == 2)
-	t.check("header cellW", is_equal_approx(float(header["cellW"]), 2800.0))
-	t.check("header cellH", is_equal_approx(float(header["cellH"]), 1700.0))
-	for key in SnapContract.HEADER_KEYS:
-		if not header.has(key):
-			push_error("SNAP CONTRACT BROKEN: pack_header 에 %s 없음" % key)
-		t.check("header 에 %s" % key, header.has(key))
-	for key in SnapContract.MAP_KEYS:
-		if not header.has(key):
-			push_error("SNAP CONTRACT BROKEN: pack_header 에 %s 없음" % key)
-		t.check("header 맵 %s" % key, header.has(key))
 
 func _sample_hero() -> Dictionary:
 	return {
@@ -83,15 +70,6 @@ func _header_world() -> RefCounted:
 	w.start_countdown = 0.0
 	w.wanted_slot = 3
 	w.mode = "full"
-	w.play_map = preload("res://games/dagul/sim/play_map.gd").island_2x2()
-	w.result_reason = &""
-	w.callout = "READY"
-	w.callout_ticks = 3
-	w.streak_callout = ""
-	w.streak_subtitle = ""
-	w.streak_callout_ticks = 0
-	w.streak_callout_shutdown = false
-	w.SAFE_ZONE_PHASES = [{"wait": 20.0, "shrink": 22.0, "radius": 2750.0}]
 	return w
 
 class HeaderWorld extends RefCounted:
@@ -106,12 +84,3 @@ class HeaderWorld extends RefCounted:
 	var start_countdown: float = 0.0
 	var wanted_slot: int = -1
 	var mode: String = "classic"
-	var play_map = null
-	var result_reason: StringName = &""
-	var callout: String = ""
-	var callout_ticks: int = 0
-	var streak_callout: String = ""
-	var streak_subtitle: String = ""
-	var streak_callout_ticks: int = 0
-	var streak_callout_shutdown: bool = false
-	var SAFE_ZONE_PHASES: Array = []

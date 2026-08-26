@@ -75,6 +75,7 @@ jobs:
             echo "웹·허브 대상 없음"
           fi
       - name: Helm planted values
+        if: ${{ !cancelled() }}
         run: python3 deploy/scripts/apply-apps.py helm
 
   purge:
