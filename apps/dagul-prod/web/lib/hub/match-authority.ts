@@ -1,9 +1,10 @@
 import { BulletSchema, HeroSchema, type LobbyState } from "./lobby-state.js";
 import {
-  ARENA_CENTER, MatchSim, packItemField, packLootSnap,
+  ARENA_CENTER, FIXED_DT, MatchSim, packCoresSnap, packCrateOrbsSnap, packCratesSnap,
+  packFinishCine, packItemField, packLootSnap, packMidTowerSnap,
+  packWantedSnap, packZonesSnap, snapDeployables,
   type GunFireFx, type MatchInput, type SeatSeed,
 } from "./match-sim.js";
-import { KO } from "./config.js";
 
 export type SnapPlayer = {
   slot: number;
@@ -19,6 +20,7 @@ export type SnapPlayer = {
   magMax: number;
   reloadLeft: number;
   weapon: string;
+  ult: number;
   ack: number;
   animal: number;
   characterId: string;
@@ -54,20 +56,19 @@ export function packAuthoritySnap(
       mag: h.mag,
       magMax: h.magMax,
       reloadLeft: h.reloadLeft,
-      weapon: KO.WEAPON_PISTOL,
+      weapon: h.equipment.name,
+      ult: h.ultimateCharge,
       ack: h.ack,
       animal: h.animal,
       kills: h.kills,
       characterId: h.characterId,
       cpu: h.cpu,
-      // P_ITEM 계약 — snap_contract.gd 가 "medkit"/"" 로 medkits 보유를 복원한다.
       item: packItemField(h.medkits),
       downed: h.downed,
       downLeft: h.downLeft,
       deaths: h.deaths,
       score: h.score,
       streak: h.killStreak,
-      // P_EMOTE·P_EMOTE_TIME 계약 — Godot draw_emote 가 아틀라스 프레임을 그린다.
       emote: h.emote,
       emoteTime: h.emoteTime,
     });
@@ -75,18 +76,14 @@ export function packAuthoritySnap(
   const bullets = [...sim.bullets.values()].map((b) => ({
     id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, owner: b.owner, kind: b.kind,
   }));
-  // 부팅 후 불변이라 매 스냅 포함 — Godot parse_covers 필드명(x·y·w·h) 그대로.
   const covers = sim.covers.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h }));
-  // Godot parse_knockouts 필드명 — time 은 감소, max_time 은 초기 총 시간.
   const knockouts = sim.knockouts.map((k) => ({
     slot: k.slot, animal: k.animal, x: k.x, y: k.y, time: k.time, max_time: k.maxTime,
   }));
-  // Godot parse_loot 기대 필드(id·kind·x·y·n) — active 회복 픽업만 직렬화.
   const loot = packLootSnap(sim.loot);
-  // zones·deployables·cores·crates·crate_orbs·mid_tower 는 허브 시뮬 미구현 — SnapContract 소비측은 빈 폴백.
+  const wanted = packWantedSnap(sim.wanted);
   return {
     tick: sim.tick,
-    // 카운트다운 제외 매치 시간 — Godot HUD 타이머가 210-time 을 표시한다.
     time: sim.matchTime,
     result: sim.result,
     winner: sim.winner,
@@ -96,7 +93,17 @@ export function packAuthoritySnap(
     zoneCY: ARENA_CENTER.y,
     zonePhase: sim.zone.phase,
     startCountdown: sim.countdown,
-    wantedSlot: -1,
+    finishCine: packFinishCine(sim.finishCine),
+    finish_cine: packFinishCine(sim.finishCine),
+    callout: sim.callout,
+    calloutTicks: sim.calloutTicks,
+    wantedSlot: wanted.wantedSlot,
+    cores: packCoresSnap(sim.cores),
+    crates: packCratesSnap(sim.crates),
+    crate_orbs: packCrateOrbsSnap(sim.crateOrbs),
+    mid_tower: packMidTowerSnap(sim.midTower),
+    deployables: snapDeployables(sim.deploy.deployables),
+    zones: packZonesSnap(sim.zones),
     mode,
     players,
     bullets,
@@ -170,7 +177,8 @@ export class MatchAuthority {
 
   /** seed — 방 시드(room.state.seed). CPU 결정론 난수의 뿌리. */
   constructor(seats: readonly SeatSeed[], mode: string, seed = 0) {
-    this.sim = new MatchSim(seats, seed);
+    this.sim = new MatchSim(seats, seed, mode);
+    this.sim.countdownHeld = seats.some((s) => s.slot >= 0 && !s.cpu);
     this.mode = mode;
     for (const s of seats) {
       if (s.slot >= 0) {this.names.set(s.slot, s.name ?? `P${s.slot + 1}`);}
@@ -184,9 +192,9 @@ export class MatchAuthority {
   advance(dtSec: number, state: LobbyState): { snap: Record<string, unknown> | null; fx: GunFireFx[] } {
     this.acc += dtSec;
     const fx: GunFireFx[] = [];
-    while (this.acc >= 1 / 60 - 1e-9) {
-      this.acc -= 1 / 60;
-      this.sim.step(1 / 60);
+    while (this.acc >= FIXED_DT - 1e-9) {
+      this.acc -= FIXED_DT;
+      this.sim.step(FIXED_DT);
       fx.push(...this.sim.drainFx());
     }
     writeMatchSchema(state, this.sim);
@@ -209,4 +217,20 @@ export function acceptPlayInput(
   if (slot < 0) {return false;}
   authority.pushInput(slot, data);
   return true;
+}
+
+export function seed(seats: readonly SeatSeed[], mode: string, matchSeed = 0): MatchAuthority {
+  return new MatchAuthority(seats, mode, matchSeed);
+}
+
+export function tick(
+  authority: MatchAuthority,
+  dtSec: number,
+  state: LobbyState,
+): { snap: Record<string, unknown> | null; fx: GunFireFx[] } {
+  return authority.advance(dtSec, state);
+}
+
+export function apply(authority: MatchAuthority, slot: number, data: MatchInput): void {
+  authority.pushInput(slot, data);
 }

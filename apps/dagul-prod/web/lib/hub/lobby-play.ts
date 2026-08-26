@@ -5,11 +5,13 @@ import { matchJustEnded } from "./lobby-relay.js";
 import { resetToLobby, type LobbyBag, type LobbyHandle } from "./lobby-waiting.js";
 import {
   acceptPlayInput,
-  MatchAuthority,
   packAuthoritySnap,
+  seed as seedAuthority,
+  tick as tickAuthoritySim,
   writeMatchSchema,
 } from "./match-authority.js";
 import { fillMatchSeats } from "./lobby-seats.js";
+import { PLAYER_COUNT } from "./match-sim.js";
 
 export function applyPlayInput(
   room: LobbyHandle,
@@ -29,8 +31,8 @@ export function applyPlayInput(
 export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
   const seats = fillMatchSeats([...room.state.players].map((p) => ({
     slot: p.slot, name: p.name, characterId: p.characterId,
-  })));
-  bag.authority = new MatchAuthority(seats, room.state.mode, room.state.seed);
+  }))).slice(0, PLAYER_COUNT);
+  bag.authority = seedAuthority(seats, room.state.mode, room.state.seed);
   writeMatchSchema(room.state, bag.authority.sim);
   const snap = packAuthoritySnap(bag.authority.sim, bag.authority.names, room.state.mode);
   bag.prevSnap = null;
@@ -40,7 +42,7 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   if (room.state.phase !== "playing" || !bag.authority) {return;}
-  const { snap, fx } = bag.authority.advance(Math.max(0, dtMs) / 1000, room.state);
+  const { snap, fx } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
   for (const ev of fx) {
     room.broadcast(MSG.GUN_FIRE, ev);
   }
@@ -61,3 +63,7 @@ export function scheduleLobbyReset(room: LobbyHandle, bag: LobbyBag): void {
   }, HUB_CONFIG.resetToLobbyDelayMs);
   bag.gameTimer = { clear: (): void => {clearTimeout(handle);} };
 }
+
+export const seed = bootAuthority;
+export const tick = tickAuthority;
+export const apply = applyPlayInput;

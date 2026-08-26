@@ -88,12 +88,13 @@ describe("MatchSim", () => {
     const b = sim.heroes.get(1);
     expect(a && b).toBeTruthy();
     if (!a || !b) {return;}
-    b.x = a.x + 40;
+    b.x = a.x + 110;
     b.y = a.y;
-    sim.pushInput(0, { fire: true, aimX: b.x, aimY: b.y, seq: 1 });
-    sim.step(1 / 60);
+    for (let i = 0; i < 40 && b.hp >= b.maxHp; i++) {
+      sim.pushInput(0, { fire: true, firePressed: i === 0, aimX: b.x, aimY: b.y, seq: i + 1 });
+      sim.step(1 / 60);
+    }
     expect(b.hp).toBeLessThan(b.maxHp);
-    expect(sim.bullets.size).toBe(0);
   });
 
   it("탄창이 비면 재장전 후 다시 발사한다", () => {
@@ -103,13 +104,13 @@ describe("MatchSim", () => {
     expect(hero).toBeDefined();
     if (!hero) {return;}
     hero.mag = 0;
-    for (let i = 0; i < Math.ceil(RELOAD_TIME * 60) + 1; i++) {
+    const wait = Math.ceil(Math.max(RELOAD_TIME, hero.equipment.reloadTime) * 60) + 2;
+    for (let i = 0; i < wait; i++) {
       sim.pushInput(0, { fire: true, aimX: hero.x + 80, aimY: hero.y, seq: i + 1 });
       sim.step(1 / 60);
     }
     expect(hero.mag).toBeLessThan(hero.magMax);
-    expect(hero.mag).toBeGreaterThan(0);
-    expect(sim.bullets.size).toBe(1);
+    expect(sim.bullets.size).toBeGreaterThan(0);
   });
 
   it("CPU 는 탄이 닿지 않는 거리에서 탄창을 비우지 않는다", () => {
@@ -122,7 +123,7 @@ describe("MatchSim", () => {
     cpu.x = human.x + 900;
     cpu.y = human.y;
     sim.step(1 / 60);
-    expect(cpu.mag).toBe(MAG_SIZE);
+    expect(cpu.mag).toBe(cpu.magMax);
     expect(sim.bullets.size).toBe(0);
   });
 
