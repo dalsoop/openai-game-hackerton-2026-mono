@@ -31,6 +31,7 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("hub-static", HUB)
         self.assertIn("HUB_STATIC_SPLIT", HUB)
         self.assertIn("hub-static:80", WEB)
+        self.assertIn("libcolyseus_godot.web.wasm32.release.wasm", WEB)
         self.assertIn("read_timeout 3600s", WEB)
         self.assertIn("/matchmake*", WEB)
         self.assertIn("/rooms", WEB)
