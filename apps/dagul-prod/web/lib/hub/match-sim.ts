@@ -30,8 +30,8 @@ import {
   createEffectStore, decayEffects, type EffectStore,
 } from "./match-effects.js";
 import {
-  accumulateComboDamage, applyControl, applyGuard, ccSeedFields, comboAmplifier, movementControl,
-  registerComboHit, tickCc,
+  accumulateComboDamage, applyControl, applyGuard, applyHitstun, ccSeedFields, comboAmplifier,
+  movementControl, registerComboHit, superArmorActive, tickCc,
 } from "./match-cc.js";
 import type { CcHeroState } from "./match-cc.js";
 import {
@@ -75,9 +75,10 @@ import {
   type ChargeHero, type UltHero, type UltWorld,
 } from "./match-ultimate.js";
 import {
-  absorbRouletteShield, createWantedState, packWantedSnap, queueRoulette, rouletteSeedFields,
-  rouletteStat, tickRoulettes, updateThreat, wantedSeedFields,
-  type RouletteHero, type WantedHero, type WantedState,
+  absorbRouletteShield, assistSlots, createWantedState, grantKillRoulettes, isBountyVictim,
+  packWantedSnap, queueRoulette, recordLifeHit, rouletteSeedFields, rouletteStat, tickRoulettes,
+  updateThreat, wantedSeedFields,
+  type LifeHitRec, type RouletteHero, type WantedHero, type WantedState,
 } from "./match-wanted.js";
 
 export * from "./match-covers.js";
@@ -161,6 +162,7 @@ export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldIte
     eliminations: number;
     slideTime: number;
     springTime: number;
+    lifeHits: Record<string, LifeHitRec>;
   };
 
 export type SimBullet = {
@@ -252,7 +254,7 @@ export class MatchSim {
   private inputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
   private readonly rng: MatchRng;
-  /** 권위 매치에서만 true — 사람 입력이 오기 전까지 카운트다운을 깎지 않는다. */
+  /** 권위 매치에서만 true — 전원 matchReady 또는 타임아웃 전까지 카운트다운을 깎지 않는다. */
   countdownHeld = false;
   private timeLimitWarningEmitted = false;
 
@@ -311,6 +313,7 @@ export class MatchSim {
         eliminations: 0,
         slideTime: 0,
         springTime: 0,
+        lifeHits: {},
         facingX,
         facingY,
         ...lifeSeedFields(pos.x, pos.y),
@@ -505,7 +508,11 @@ export class MatchSim {
     for (const [slot, hero] of this.heroes) {
       if (!hero.alive || hero.cpu) {continue;}
       const cmd = this.inputs.get(slot);
-      if (cmd) {this.applyHero(hero, cmd, dt);}
+      if (!cmd) {continue;}
+      this.applyHero(hero, cmd, dt);
+      cmd.firePressed = false;
+      cmd.equipmentPressed = false;
+      cmd.equipmentReleased = false;
     }
   }
 
@@ -530,8 +537,10 @@ export class MatchSim {
     if (!cmd) {return;}
     this.applyHero(hero, {
       mx: cmd.mx, my: cmd.my, aimX: cmd.aimX, aimY: cmd.aimY,
-      fire: cmd.fire, ultimate: cmd.ultimate, dash: false,
+      fire: cmd.fire, firePressed: cmd.firePressed, ultimate: cmd.ultimate, dash: false,
       mobility: cmd.mobility, use: cmd.use,
+      equipment: cmd.equipment, equipmentPressed: cmd.equipmentPressed,
+      equipmentReleased: cmd.equipmentReleased,
     }, dt);
   }
 
@@ -608,9 +617,12 @@ export class MatchSim {
     // 원본 active_item.gd:52-61 — 대시가 콤보 캡처 탈출이면 ESCAPE, 콤보 중이면 COMBO BREAK.
     const preDashCombo: "none" | "combo_break" | "escape" = hero.comboCaptureTime > 0
       ? "escape" : (hero.comboHits > 0 ? "combo_break" : "none");
+    const fireHeldNow = truthy(cmd.fire);
+    const firePressed = truthy(cmd.firePressed) || (fireHeldNow && !hero.fireHeld);
+    hero.fireHeld = fireHeldNow;
     const gun = applyGunInput(hero, {
-      primary: truthy(cmd.fire),
-      primaryPressed: truthy(cmd.firePressed) || truthy(cmd.fire),
+      primary: fireHeldNow,
+      primaryPressed: firePressed,
       reload: truthy(cmd.reload),
       mobility: truthy(cmd.dash) || truthy(cmd.mobility),
       moveX: mx,
@@ -619,6 +631,7 @@ export class MatchSim {
       equipmentPressed: eqPressed,
       equipmentReleased: eqReleased,
       dt,
+      effects: this.effects,
     }, this.covers, others);
     hero.aimX = savedAimX;
     hero.aimY = savedAimY;
@@ -860,6 +873,18 @@ export class MatchSim {
     }
     const attacker = this.heroes.get(owner);
     const scaled = scaleGunHit(this, attacker, victim, amount, source, ctx);
+    const cc = applyControl(victim, ctx.ccTime ?? 0, ctx.controlKind ?? "slow", {
+      store: this.effects, x: victim.x, y: victim.y,
+    });
+    if (cc.zeroVelocity) {
+      victim.vx = 0;
+      victim.vy = 0;
+      victim.vel = { x: 0, y: 0 };
+    }
+    if (cc.cancelCharge) {cancelSkillCharge(victim);}
+    if (scaled.comboHit > 0 && source !== "normal") {
+      applyHitstun(victim, scaled.comboHit, attacker?.equipment.id === "chain");
+    }
     // 원본 damage_system.gd:350 — 피격 임팩트 연출 (반경 clamp 32~125).
     addHeroHitEffect(this.effects, {
       x: ctx.impactX ?? victim.x, y: ctx.impactY ?? victim.y,
@@ -868,6 +893,7 @@ export class MatchSim {
       launchX: 0, launchY: 0,
       fromX: attacker?.x ?? victim.x, fromY: attacker?.y ?? victim.y,
     });
+    if (owner >= 0) {recordLifeHit(victim.lifeHits, owner, scaled.amount, this.tick);}
     const event = applyScoredDamage(this.heroes, owner, victim, scaled.amount, this.streakState);
     if (attacker) {
       applyHitUltCharge(attacker, victim, scaled.amount, source, owner === victim.slot);
@@ -876,9 +902,18 @@ export class MatchSim {
         tryCollectGunLoot(attacker, this.mode);
       }
     }
-    if (event === "down" || event === "dead") {
+    if (event === "down") {
       this.knockouts.push(spawnKnockout(victim));
     }
+    if (event === "dead") {
+      this.queueKillRoulettes(owner, victim);
+    }
+  }
+
+  private queueKillRoulettes(owner: number, victim: SimHero): void {
+    if (owner < 0 || owner === victim.slot) {return;}
+    const assists = assistSlots(owner, victim.slot, victim.lifeHits, this.heroes, this.tick);
+    grantKillRoulettes(this.heroes, owner, victim.slot, isBountyVictim(this.wanted, victim.slot), assists, this.rng);
   }
 
   private applyGunShove(attacker: SimHero, victim: SimHero, source: string, ctx: HurtCtx): void {
@@ -979,11 +1014,8 @@ export class MatchSim {
         if (Math.hypot(h.x - z.x, h.y - z.y) > z.radius + HERO_RADIUS) {continue;}
         this.hurtHero(z.owner, h, z.damage, "equipment", {
           knockback: z.knockback ?? 0, impactX: z.x, impactY: z.y, effectKind: z.effectKind, label: z.label,
-          ccTime: z.ccTime ?? 0,
+          ccTime: z.ccTime ?? 0, controlKind: z.controlKind ?? "slow",
         });
-        if (z.controlKind) {
-          applyControl(h, z.ccTime ?? 0, z.controlKind, { store: this.effects, x: h.x, y: h.y });
-        }
         if (z.leech) {
           const atk = this.heroes.get(z.owner);
           if (atk?.alive) {atk.hp = Math.min(atk.maxHp, atk.hp + z.damage * PROJECTILE_LEECH_MUL);}
@@ -1008,6 +1040,7 @@ type HurtCtx = {
   label?: string;
   effectKind?: string;
   ccTime?: number;
+  controlKind?: "slow" | "root" | "stun";
 };
 
 /** damage_system.gd:236. */
@@ -1037,22 +1070,29 @@ function projectileImpactKind(kind: string): string {
 
 function scaleGunHit(
   sim: MatchSim, attacker: SimHero | undefined, victim: SimHero, amount: number, source: string, ctx: HurtCtx,
-): { amount: number } {
-  if (source !== "normal" || !attacker) {return { amount };}
+): { amount: number; comboHit: number } {
+  // damage_system.gd:227-257 — 스트릭·오브·패시브·시간·룰렛 atk/def·실드·가드는 소스 무관.
+  // 콤보 증폭만 mobility 제외. 공격자 없는 환경 피해는 damage_hero_environment 경로.
+  if (!attacker) {return { amount, comboHit: 0 };}
   amount *= streakDamageMultiplier(attacker.killStreak);
   if (attacker.dmgOrbTime > 0) {amount *= CRATE_ORB_DMG_MUL;}
   const dist = Math.hypot(attacker.x - victim.x, attacker.y - victim.y);
   amount *= weaponPassiveDamageMul(attacker.equipment.id, attacker.hp, attacker.maxHp, dist);
   amount *= matchTimeDamageScale(sim.matchTime);
-  const comboHit = registerComboHit(victim, attacker.slot, Boolean(ctx.attackFinisher));
-  amount *= comboAmplifier(comboHit);
+  let comboHit = 0;
+  if (source !== "mobility") {
+    comboHit = registerComboHit(victim, attacker.slot, Boolean(ctx.attackFinisher));
+    amount *= comboAmplifier(comboHit);
+  }
   amount += rouletteStat(attacker, "atk");
   amount *= Math.max(ROULETTE_DEF_FLOOR, 1 - rouletteStat(victim, "def"));
   amount = absorbRouletteShield(victim, amount);
   const guarded = applyGuard(victim, amount, ctx.knockback ?? 0);
   amount = guarded.amount;
-  if (!victim.downed) {accumulateComboDamage(victim, amount);}
-  return { amount };
+  ctx.knockback = guarded.knockback;
+  if (superArmorActive(victim)) {victim.comboCaptureTime = 0;}
+  if (source !== "mobility" && !victim.downed) {accumulateComboDamage(victim, amount);}
+  return { amount, comboHit };
 }
 
 export function packZonesSnap(zones: readonly SimZone[]): Array<Record<string, unknown>> {

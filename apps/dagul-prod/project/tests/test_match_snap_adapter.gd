@@ -9,6 +9,7 @@ func run(t) -> void:
 	_tick_flush_and_resident(t)
 	_schema_rename(t)
 	_events_new_seq_only(t)
+	_v2_effects_callout(t)
 
 func _builds_contract_snap(t) -> void:
 	var adapter = AdapterScript.new()
@@ -85,6 +86,52 @@ func _events_new_seq_only(t) -> void:
 	t.check("reset 후 같은 seq 다시 전달", adapter.ingest(first) == true)
 	t.check("reset 전달 1건", (adapter.snap()[SnapContract.EVENTS] as Array).size() == 1)
 
+func _v2_effects_callout(t) -> void:
+	var adapter = AdapterScript.new()
+	var src := _sample_match(8)
+	src["streakCallout"] = "TRIPLE"
+	src["streakSubtitle"] = "3"
+	src["streakCalloutTicks"] = 12
+	src["streakCalloutShutdown"] = true
+	src["effects"] = [{
+		"k": "afterimage", "x": 1.0, "y": 2.0, "r": 105.0, "t": 0.38, "maxT": 0.38,
+		"color": "#b9f3ff", "label": "EVADE", "dx": 1.0, "dy": 0.0, "follow": 0,
+	}]
+	var hero: Dictionary = src["heroes"]["0"]
+	hero["weaponId"] = "burst"
+	hero["stunT"] = 0.4
+	hero["action"] = "STUNNED"
+	hero["rouSpin"] = "tiger"
+	hero["rlTimed"] = "[{\"id\":\"turtle\",\"time\":1}]"
+	hero["ultClones"] = "[{\"x\":3,\"y\":4}]"
+	var bullet: Dictionary = src["bullets"]["9"]
+	bullet["radius"] = 6.0
+	bullet["arc"] = false
+	bullet["heavy"] = true
+	bullet["src"] = "equipment"
+	t.check("v2 ingest", adapter.ingest(src) == true)
+	var snap: Dictionary = adapter.snap()
+	var p0: Dictionary = snap[SnapContract.PLAYERS][0]
+	t.check("weaponId", str(p0.get(SnapContract.P_WEAPON_ID, "")) == "burst")
+	t.check("stunT", is_equal_approx(float(p0.get(SnapContract.P_STUN_T, 0)), 0.4))
+	t.check("action", str(p0.get(SnapContract.P_ACTION, "")) == "STUNNED")
+	t.check("rouSpin 문자열", str(p0.get(SnapContract.P_ROU_SPIN, "")) == "tiger")
+	var timed: Variant = p0.get(SnapContract.P_RL_TIMED, [])
+	t.check("rlTimed 배열", timed is Array and (timed as Array).size() == 1)
+	var clones: Variant = p0.get(SnapContract.P_ULT_CLONES, [])
+	t.check("ultClones 배열", clones is Array and int((clones as Array)[0].get("x", 0)) == 3)
+	var fx: Dictionary = (snap[SnapContract.EFFECTS] as Array)[0]
+	t.check("effect k", str(fx.get("k", "")) == "afterimage")
+	t.check("streakCallout", str(snap.get(SnapContract.STREAK_CALLOUT, "")) == "TRIPLE")
+	t.check("streakSubtitle", str(snap.get(SnapContract.STREAK_SUBTITLE, "")) == "3")
+	var row: Dictionary = snap[SnapContract.BULLETS][0]
+	t.check("bullet radius", is_equal_approx(float(row.get(SnapContract.B_RADIUS, 0)), 6.0))
+	t.check("bullet src", str(row.get(SnapContract.B_SRC, "")) == "equipment")
+	src["effects"] = []
+	src["tick"] = 9
+	adapter.ingest(src)
+	t.check("빈 effects 로 잔여 정리", (adapter.snap()[SnapContract.EFFECTS] as Array).size() == 0)
+
 func _schema_event(seq: int, tick: int, actor: int, data: Variant) -> Dictionary:
 	return {"seq": seq, "t": tick, "k": "gun_fire", "a": actor, "b": -1, "d": data}
 
@@ -139,5 +186,5 @@ func _hero(slot: int, pname: String, hp: float) -> Dictionary:
 		"hp": hp, "maxHp": 176.0, "alive": true, "weapon": "권총", "mag": 6, "magMax": 18,
 		"reloadLeft": 0.0, "ult": 0.0, "ack": 1, "animal": slot, "characterId": "a%d" % slot,
 		"cpu": false, "item": "", "kills": 0, "downed": false, "downLeft": 0.0,
-		"deaths": 0, "score": 0.0, "streak": 0, "emote": 0, "emoteTime": 0.0,
+		"deaths": 0, "score": 0.0, "streak": 0, "emote": -1, "emoteTime": 0.0,
 	}

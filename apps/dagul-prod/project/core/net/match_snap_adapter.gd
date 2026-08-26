@@ -31,14 +31,24 @@ const MID_TOWER := "mid_tower"
 const FINISH_CINE := "finish_cine"
 const CALLOUT := "callout"
 const CALLOUT_TICKS := "calloutTicks"
+const STREAK_CALLOUT := "streakCallout"
+const STREAK_SUBTITLE := "streakSubtitle"
+const STREAK_CALLOUT_TICKS := "streakCalloutTicks"
+const STREAK_CALLOUT_SHUTDOWN := "streakCalloutShutdown"
 
 const PLAYER_COPY := [
 	"slot", "name", "cpu", "parked", "x", "y", "aimX", "aimY",
-	"hp", "maxHp", "alive", "weapon", "mag", "magMax", "reloadLeft",
+	"hp", "maxHp", "alive", "weapon", "weaponId", "mag", "magMax", "reloadLeft",
 	"ult", "animal", "characterId", "item", "kills", "emote", "emoteTime", "ack",
 	"downed", "downLeft", "deaths", "score", "streak",
+	"action", "stunT", "rootT", "ccT", "guardT", "armorT", "spawnT",
+	"launchT", "launchVX", "launchVY", "charging", "chargeT",
+	"heldItem", "springT", "slideT", "dmgOrbT", "downTaken",
+	"woolT", "woolHp", "woolMax", "rouT", "rouRank", "rouPhase", "rouSpin", "rouLabel",
+	"rlTimed", "ultClones",
 ]
-const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind"]
+const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src"]
+const EFFECT_COPY := ["k", "x", "y", "r", "t", "maxT", "color", "label", "dx", "dy", "follow", "sx", "sy", "dep"]
 const COVER_COPY := ["x", "y", "w", "h"]
 const LOOT_COPY := ["id", "kind", "x", "y", "n"]
 const CRATE_ORB_COPY := ["x", "y", "red", "active"]
@@ -56,6 +66,8 @@ func _init() -> void:
 		ZONES: [], DEPLOYABLES: [], CORES: [], COVERS: [], KNOCKOUTS: [],
 		CRATES: [], CRATE_ORBS: [], MID_TOWER: {}, FINISH_CINE: {},
 		CALLOUT: "", CALLOUT_TICKS: 0,
+		STREAK_CALLOUT: "", STREAK_SUBTITLE: "",
+		STREAK_CALLOUT_TICKS: 0, STREAK_CALLOUT_SHUTDOWN: false,
 	}
 
 func snap() -> Dictionary:
@@ -72,8 +84,9 @@ func ingest(match: Variant) -> bool:
 	_write_header(src)
 	if int(_snap.get(TICK, 0)) < _emitted_tick:
 		_last_event_seq = 0
-	_refill(_snap[PLAYERS], _rows_from_map(src.get("heroes", {}), PLAYER_COPY, "slot"))
+	_refill(_snap[PLAYERS], _hero_rows(src.get("heroes", {})))
 	_refill(_snap[BULLETS], _rows_from_map(src.get("bullets", {}), BULLET_COPY, "id"))
+	_refill(_snap[EFFECTS], _rows_from_list(src.get("effects", []), EFFECT_COPY))
 	_refill(_snap[COVERS], _rows_from_list(src.get("covers", []), COVER_COPY))
 	_refill(_snap[CRATES], _mapped_list(src.get("crates", []), [["maxHp", "max_hp"]], ["id", "x", "y", "hp", "alive"]))
 	_refill(_snap[CRATE_ORBS], _rows_from_list(src.get("crateOrbs", []), CRATE_ORB_COPY))
@@ -141,6 +154,10 @@ func _write_header(src: Dictionary) -> void:
 	_snap[MODE] = str(src.get("mode", ""))
 	_snap[CALLOUT] = str(src.get("callout", ""))
 	_snap[CALLOUT_TICKS] = int(src.get("calloutTicks", 0))
+	_snap[STREAK_CALLOUT] = str(src.get("streakCallout", ""))
+	_snap[STREAK_SUBTITLE] = str(src.get("streakSubtitle", ""))
+	_snap[STREAK_CALLOUT_TICKS] = int(src.get("streakCalloutTicks", 0))
+	_snap[STREAK_CALLOUT_SHUTDOWN] = bool(src.get("streakCalloutShutdown", false))
 
 func _as_dict(v: Variant) -> Dictionary:
 	if v is Dictionary:
@@ -153,6 +170,26 @@ func _refill(dst: Array, rows: Array) -> void:
 	dst.clear()
 	for row in rows:
 		dst.append(row)
+
+func _hero_rows(raw: Variant) -> Array:
+	var rows: Array = _rows_from_map(raw, PLAYER_COPY, "slot")
+	for row in rows:
+		_decode_json_array(row, "rlTimed")
+		_decode_json_array(row, "ultClones")
+	return rows
+
+func _decode_json_array(row: Dictionary, key: String) -> void:
+	if not row.has(key):
+		return
+	var raw: Variant = row[key]
+	if raw is Array:
+		return
+	if raw is String:
+		var parsed: Variant = JSON.parse_string(raw)
+		if parsed is Array:
+			row[key] = parsed
+			return
+	row[key] = []
 
 func _rows_from_map(raw: Variant, keys: Array, sort_key: String) -> Array:
 	var rows: Array = []
@@ -228,7 +265,7 @@ func _finish_cine(raw: Variant) -> Dictionary:
 		"t": float(src.get("t", 0.0)),
 		"hit": bool(src.get("hit", false)),
 		"hit_age": float(src.get("hitAge", src.get("hit_age", 0.0))),
-		"fly": src.get("fly", 0.0),
+		"fly": float(src.get("fly", 0.0)),
 		"vic_x": float(src.get("vicX", src.get("vic_x", 0.0))),
 		"vic_y": float(src.get("vicY", src.get("vic_y", 0.0))),
 		"vic_spin": float(src.get("vicSpin", src.get("vic_spin", 0.0))),

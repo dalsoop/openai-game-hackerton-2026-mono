@@ -13,7 +13,7 @@ import {
   decayEffects,
   packEffects,
 } from "@/lib/hub/match-effects";
-import { applyControl, applyCcHit, ccSeedFields } from "@/lib/hub/match-cc";
+import { applyControl, ccSeedFields } from "@/lib/hub/match-cc";
 import { applyLaunchKnockout } from "@/lib/hub/match-launch-knockout";
 import { packAuthoritySnap } from "@/lib/hub/match-authority-snap";
 import { MatchSim } from "@/lib/hub/match-sim";
@@ -45,18 +45,22 @@ describe("이펙트 스토어 add/decay/cap", () => {
     expect(store.items[0]).toMatchObject({
       kind: "hit_spark", x: 10, y: 20, radius: 36, time: 0.18, maxTime: 0.18,
       color: "#ff4f68", label: "", dx: 1, dy: 0, follow: -1,
+      startX: 10, startY: 20, drawDeparture: true,
     });
   });
 
-  it("add_mobility_effect 는 duration*0.80 과 follow=slot", () => {
+  it("add_mobility_effect 는 duration*0.80 과 follow=slot, start=from", () => {
     const store = createEffectStore();
     addMobilityEffect(
-      store, 3, "speed_streak", { x: 0, y: 0 }, { x: 40, y: 0 },
+      store, 3, "speed_streak", { x: 8, y: 9 }, { x: 40, y: 0 },
       40, 0.30, "#ffb45c", "SKIRMISH HOP", { x: -1, y: 0 },
     );
     expect(store.items[0].time).toBeCloseTo(0.30 * MOBILITY_DURATION_SCALE, 10);
     expect(store.items[0].follow).toBe(3);
     expect(store.items[0].x).toBe(40);
+    expect(store.items[0].startX).toBe(8);
+    expect(store.items[0].startY).toBe(9);
+    expect(store.items[0].drawDeparture).toBe(true);
   });
 
   it("decay 는 time-=dt, 0 이하면 제거", () => {
@@ -80,32 +84,36 @@ describe("이펙트 스토어 add/decay/cap", () => {
 });
 
 describe("스냅 패킹 omit-empty", () => {
-  it("pack 키는 k,x,y,r,t,maxT,color,label,dx,dy,follow", () => {
+  it("pack 키는 k,x,y,r,t,maxT,color,label,dx,dy,follow,sx,sy,dep", () => {
     const store = createEffectStore();
     addEvadeEffect(store, 100, 200);
     expect(first(store)).toEqual({
       k: "afterimage", x: 100, y: 200, r: 105, t: 0.38, maxT: 0.38,
       color: "#b9f3ff", label: "EVADE", dx: 1, dy: 0, follow: -1,
+      sx: 100, sy: 200, dep: true,
     });
   });
 
-  it("빈 스토어는 packAuthoritySnap 에서 effects 키를 생략한다", () => {
+  it("W15 — 빈 스토어도 packAuthoritySnap 이 effects=[] 를 항상 싣는다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
-    const snap = packAuthoritySnap(sim, new Map(), "full");
-    expect(snap).not.toHaveProperty("effects");
+    const snap = packAuthoritySnap(sim, new Map(), "full") as { effects: unknown[] };
+    expect(snap.effects).toEqual([]);
   });
 
-  it("스토어가 있으면 effects 배열을 싣고 비면 생략한다", () => {
+  it("스토어가 있으면 effects 배열을 싣고 비어도 키는 남긴다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     const store = createEffectStore();
     (sim as MatchSim & { effects: EffectStore }).effects = store;
     addChargeBreakEffect(store, 1, 2);
-    const snap = packAuthoritySnap(sim, new Map(), "full") as { effects: Array<{ k: string }> };
+    const snap = packAuthoritySnap(sim, new Map(), "full") as { effects: Array<{ k: string; sx: number; sy: number; dep: boolean }> };
     expect(snap.effects).toHaveLength(1);
     expect(snap.effects[0].k).toBe("charge_break");
+    expect(snap.effects[0].sx).toBe(1);
+    expect(snap.effects[0].sy).toBe(2);
+    expect(snap.effects[0].dep).toBe(true);
     decayEffects(store, 1);
-    const empty = packAuthoritySnap(sim, new Map(), "full");
-    expect(empty).not.toHaveProperty("effects");
+    const empty = packAuthoritySnap(sim, new Map(), "full") as { effects: unknown[] };
+    expect(empty.effects).toEqual([]);
   });
 });
 
@@ -130,15 +138,13 @@ describe("원본 수치 — CC·대시·히트", () => {
     expect(store.items[0].x).toBe(11);
   });
 
-  it("applyCcHit chargingSkill 이면 charge_break", () => {
+  it("addChargeBreakEffect 는 charge_break 54/0.22 를 남긴다", () => {
     const store = createEffectStore();
-    const h = ccSeedFields();
-    applyCcHit(h, {
-      owner: 1, amount: 10, knockback: 0, source: "equipment", ccTime: 0,
-      controlKind: "slow", attackFinisher: false, chainWeapon: false,
-      chargingSkill: true, fx: { store, x: 3, y: 4 },
+    addChargeBreakEffect(store, 3, 4);
+    expect(store.items[0]).toMatchObject({
+      kind: "charge_break", x: 3, y: 4, radius: 54, time: 0.22, color: "#8ca0b8",
+      startX: 3, startY: 4, drawDeparture: true,
     });
-    expect(store.items.some((e) => e.kind === "charge_break")).toBe(true);
   });
 
   it("히트 임팩트 반경 clamp 32~125, normal 0.22 / 그 외 0.42", () => {
@@ -188,6 +194,10 @@ describe("원본 수치 — CC·대시·히트", () => {
     expect(mortar.items[0].label).toBe("COMBO BREAK");
     expect(mortar.items[2].follow).toBe(1);
     expect(mortar.items[2].time).toBeCloseTo(0.32 * MOBILITY_DURATION_SCALE, 10);
+    expect(mortar.items[2].startX).toBe(0);
+    expect(mortar.items[2].startY).toBe(0);
+    expect(mortar.items[2].drawDeparture).toBe(false);
+    expect(packEffects(mortar)[2]).toMatchObject({ sx: 0, sy: 0, dep: false, follow: 1 });
   });
 });
 

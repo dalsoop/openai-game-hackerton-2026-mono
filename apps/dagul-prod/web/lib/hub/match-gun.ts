@@ -9,6 +9,7 @@ import {
   nextGunLootId, sprayKick, sprayRecoverRate,
   type Equipment, type FireMode, type Vec2,
 } from "./match-equipment.js";
+import type { EffectStore } from "./match-effects.js";
 import {
   applySkillInput, cancelSkillCharge, tickSkillChargeGuard,
   type SkillAttackResult, type SkillMineSpec, type SkillWallSpec, type SkillZoneSpec,
@@ -69,7 +70,7 @@ export type GunHero = {
   evadeTime: number; guardTime: number; comboImmunity: number; comboHits: number; comboTime: number;
   comboDamage: number; comboOwner: number; comboCaptureTime: number; hitstunTime: number;
   chargingSkill: boolean; chargeTime: number; chargeDirX: number; chargeDirY: number;
-  superArmorTime: number; superArmorStrength: number; equipmentHeld: boolean;
+  superArmorTime: number; superArmorStrength: number; equipmentHeld: boolean; fireHeld: boolean;
   rouletteRate: number; rouletteRange: number;
 };
 export type GunProjectile = {
@@ -86,7 +87,7 @@ export type GunFireResult = { fired: boolean; startedReload: boolean; projectile
 export type GunInput = {
   primary: boolean; primaryPressed: boolean; reload: boolean; mobility: boolean;
   moveX: number; moveY: number; equipment?: boolean; equipmentPressed?: boolean;
-  equipmentReleased?: boolean; dt?: number;
+  equipmentReleased?: boolean; dt?: number; effects?: EffectStore;
 };
 export type GunApplyResult = {
   kind: "idle" | "fire" | "mobility" | "reload" | "skill";
@@ -149,7 +150,8 @@ export function gunSeedFields(equipment: Equipment): Omit<GunHero, "slot" | "x" 
     muzzleScale: 1, attackLockTime: 0, reloadFlash: 0, hopTime: 0, hopMax: HOP_AIR, hopHeight: HOP_LIFT_DEFAULT,
     evadeTime: 0, guardTime: 0, comboImmunity: 0, comboHits: 0, comboTime: 0, comboDamage: 0, comboOwner: -1,
     comboCaptureTime: 0, hitstunTime: 0, chargingSkill: false, chargeTime: 0,
-    chargeDirX: 1, chargeDirY: 0, superArmorTime: 0, superArmorStrength: 0, equipmentHeld: false,
+    chargeDirX: 1, chargeDirY: 0, superArmorTime: 0, superArmorStrength: 0,
+    equipmentHeld: false, fireHeld: false,
     turtle: false, rouletteRate: 0, rouletteRange: 0,
   };
 }
@@ -363,6 +365,7 @@ export function applyGunInput(
   const held = Boolean(input.equipment) || Boolean(input.equipmentPressed);
   const skill = applySkillInput(
     h, held, Boolean(input.equipmentPressed), Boolean(input.equipmentReleased), dt, aim, covers,
+    input.effects,
   );
   if (skill.fired) {return skillApply(skill);}
   if (fire?.fired) {

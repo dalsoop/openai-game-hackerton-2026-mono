@@ -6,6 +6,7 @@ import { ARENA_CENTER, clampArena, nudgeOutOfCover, resolveCoverMotion } from ".
 import type { CoverRect } from "./match-covers.js";
 import { SAFE_ZONE_DAMAGE_PER_SEC, heroInSafeZone } from "./match-zone.js";
 import type { SafeZoneState } from "./match-zone.js";
+import { clearRouletteBuffs, type RouletteHero } from "./match-wanted.js";
 
 export const MAX_REVIVES = 3;
 export const RESPAWN_BASE = 3.0;
@@ -54,6 +55,39 @@ export type LifeHero = {
 };
 
 export type LifeEvent = "none" | "down" | "dead";
+
+/** down_hero 가 지우는 전투 상태 — match_lifecycle.gd:364-395. */
+export type DownCombatHero = LifeHero & Partial<RouletteHero> & {
+  chargingSkill?: boolean;
+  chargeTime?: number;
+  launchTime?: number;
+  launchVel?: { x: number; y: number };
+  vx?: number;
+  vy?: number;
+  vel?: { x: number; y: number };
+  ultClones?: unknown[];
+  ultCloneTime?: number;
+  lifeHits?: Record<string, { dmg: number; tick: number }>;
+};
+
+function isRouletteHero(h: DownCombatHero): h is DownCombatHero & RouletteHero {
+  return h.rlUntil !== undefined && h.baseMaxHp !== undefined && h.rlTimed !== undefined;
+}
+
+/** 룰렛·차지·런치·분신 소거 — down_hero. */
+export function wipeDownCombat(h: DownCombatHero): void {
+  h.chargingSkill = false;
+  h.chargeTime = 0;
+  h.launchTime = 0;
+  if (h.launchVel) {h.launchVel = { x: 0, y: 0 };}
+  if (h.vx !== undefined) {h.vx = 0;}
+  if (h.vy !== undefined) {h.vy = 0;}
+  if (h.vel) {h.vel = { x: 0, y: 0 };}
+  if (h.ultClones) {h.ultClones = [];}
+  h.ultCloneTime = 0;
+  if (h.lifeHits) {h.lifeHits = {};}
+  if (isRouletteHero(h)) {clearRouletteBuffs(h);}
+}
 
 /** SimHero 생성 시 다운/리스폰 관련 초기 필드 묶음. */
 export function lifeSeedFields(spawnX: number, spawnY: number): Pick<
@@ -121,6 +155,7 @@ export function downHero(
   target.downTaken = 0;
   target.spawnProtect = 0;
   target.deaths += 1;
+  wipeDownCombat(target);
   if (owner >= 0 && owner !== target.slot) {
     const killer = heroes.get(owner);
     if (killer) {killer.kills += 1;}

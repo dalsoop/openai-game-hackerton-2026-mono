@@ -38,6 +38,38 @@ function fillHero(row: MatchHeroSchema, h: SimHero, names: ReadonlyMap<number, s
   row.streak = h.killStreak;
   row.emote = h.emote;
   row.emoteTime = h.emoteTime;
+  row.weaponId = h.equipmentId;
+  fillHeroV2(row, h);
+}
+
+function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
+  row.stunT = h.stunTime;
+  row.rootT = h.rootTime;
+  row.ccT = h.ccTime;
+  row.guardT = h.guardTime;
+  row.armorT = h.superArmorTime;
+  row.spawnT = h.spawnProtect;
+  row.launchT = h.launchTime;
+  row.launchVX = h.launchVel.x;
+  row.launchVY = h.launchVel.y;
+  row.charging = h.chargingSkill;
+  row.chargeT = h.chargeTime;
+  row.dmgOrbT = h.dmgOrbTime;
+  row.downTaken = h.downTaken;
+  row.woolT = h.woolTime;
+  row.woolHp = h.woolHp;
+  row.woolMax = h.woolMax;
+  row.rouT = h.rouletteTime;
+  row.rouRank = h.rouletteRank;
+  row.rouPhase = h.roulettePhase;
+  row.rouSpin = String(h.rouletteSpinId);
+  row.rouLabel = h.rouletteLabel;
+  row.action = h.action;
+  row.heldItem = h.heldItem;
+  row.springT = h.springTime;
+  row.slideT = h.slideTime;
+  row.rlTimed = JSON.stringify(h.rlTimed);
+  row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
 }
 
 function writeHeroes(
@@ -78,6 +110,10 @@ function writeBullets(bullets: MapSchema<MatchBulletSchema>, sim: MatchSim): voi
     row.vy = b.vy;
     row.owner = b.owner;
     row.kind = b.kind;
+    row.radius = b.radius;
+    row.arc = Boolean((b as { arc?: boolean }).arc);
+    row.heavy = b.heavy;
+    row.src = b.source;
   }
   for (const key of [...bullets.keys()]) {
     if (!live.has(key)) {bullets.delete(key);}
@@ -97,6 +133,10 @@ function writeScalars(match: MatchStateSchema, sim: MatchSim, mode: string): voi
   match.startCountdown = sim.countdown;
   match.callout = sim.callout;
   match.calloutTicks = sim.calloutTicks;
+  match.streakCallout = sim.streakState.streakCallout;
+  match.streakSubtitle = sim.streakState.streakSubtitle;
+  match.streakCalloutTicks = sim.streakState.streakCalloutTicks;
+  match.streakCalloutShutdown = sim.streakState.streakCalloutShutdown;
   match.wantedSlot = packWantedSnap(sim.wanted).wantedSlot;
   match.mode = mode;
 }
@@ -141,10 +181,15 @@ export function clearMatchState(match: MatchStateSchema): void {
   match.shrinking = false;
   match.callout = "";
   match.calloutTicks = 0;
+  match.streakCallout = "";
+  match.streakSubtitle = "";
+  match.streakCalloutTicks = 0;
+  match.streakCalloutShutdown = false;
   match.wantedSlot = -1;
   match.mode = "";
   match.heroes.clear();
   match.bullets.clear();
+  match.effects.clear();
   match.covers.clear();
   match.crates.clear();
   match.crateOrbs.clear();

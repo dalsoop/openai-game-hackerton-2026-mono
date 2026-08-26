@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bestHealthPickup, cpuWantMedkit, hazardEscapeVector, type CpuBody, type CpuWorld,
 } from "@/lib/hub/match-cpu";
-import { applyCpu, seedCpu, tickCpu } from "@/lib/hub/match-cpu-think";
+import { applyCpu, cpuWantEquipment, seedCpu, tickCpu } from "@/lib/hub/match-cpu-think";
 import { MatchRng } from "@/lib/hub/match-rng";
 
 const DT = 1 / 60;
@@ -29,6 +29,30 @@ describe("회복 탐색", () => {
     expect(cmd).toBeTruthy();
     expect(cmd?.mx ?? 0).toBeGreaterThan(0.5);
     expect(Math.abs(cmd?.my ?? 1)).toBeLessThan(0.2);
+  });
+});
+
+describe("발사 엣지·장비 입력", () => {
+  it("fire 가 켜진 첫 틱만 firePressed 를 켠다", () => {
+    const h = hero({ fireCd: 0, normalReach: 400, x: 0, y: 0 });
+    const prey = hero({ slot: 1, x: 40, y: 0, alive: true });
+    const mind = seedCpu(0);
+    mind.ready = true;
+    mind.target = 1;
+    mind.action = "HOLD_RANGE";
+    const first = applyCpu(mind, h, [h, prey], new MatchRng(1));
+    expect(first?.fire).toBe(true);
+    expect(first?.firePressed).toBe(true);
+    const second = applyCpu(mind, h, [h, prey], new MatchRng(1));
+    expect(second?.fire).toBe(true);
+    expect(second?.firePressed).toBe(false);
+  });
+
+  it("사거리 안이면 장비 스킬 시작을 요청할 수 있다", () => {
+    const h = hero({ fireCd: 0, normalReach: 400, equipmentCd: 0 });
+    const prey = hero({ slot: 1, x: 40, y: 0, alive: true });
+    expect(cpuWantEquipment(h, prey)).toBe(true);
+    expect(cpuWantEquipment({ ...h, equipmentCd: 2 }, prey)).toBe(false);
   });
 });
 

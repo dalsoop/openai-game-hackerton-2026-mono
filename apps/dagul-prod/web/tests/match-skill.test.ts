@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createEffectStore } from "@/lib/hub/match-effects";
 import { makeEquipment } from "@/lib/hub/match-equipment";
 import { gunSeedFields, type GunHero } from "@/lib/hub/match-gun";
 import {
@@ -63,6 +64,18 @@ describe("차지 릴리즈 발동", () => {
 });
 
 describe("쿨다운 소모", () => {
+  it("발동 시 charge_release 와 무기별 이펙트를 방출한다", () => {
+    const store = createEffectStore();
+    const rail = hero("rail");
+    applyEquipmentAttack(rail, { x: 1, y: 0 }, 1, [], store);
+    expect(store.items.some((e) => e.kind === "charge_release")).toBe(true);
+    expect(store.items.some((e) => e.kind === "line")).toBe(true);
+    const scatter = hero("scatter");
+    const scatterStore = createEffectStore();
+    applyEquipmentAttack(scatter, { x: 1, y: 0 }, 1, [], scatterStore);
+    expect(scatterStore.items.some((e) => e.kind === "cast")).toBe(true);
+  });
+
   it("풀차지 rail 은 cooldown 3.50 을 넣고 재발동을 막는다", () => {
     const h = hero("rail");
     const first = applyEquipmentAttack(h, { x: 1, y: 0 }, 1);

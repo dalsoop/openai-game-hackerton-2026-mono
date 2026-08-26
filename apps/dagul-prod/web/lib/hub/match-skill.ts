@@ -1,8 +1,10 @@
+/* eslint-disable max-lines -- 무기별 발동·이펙트가 한 파일 */
 /**
  * 우클릭 장비 스킬 차지 — game_world.gd _begin/_continue/_release/_try_equipment_attack.
  * 수치·분기는 원조 원본 1603-1717행. RNG·시계 없음.
  */
 import { clampArena, resolveCoverMotion, type CoverRect } from "./match-covers.js";
+import { addEffect, type EffectStore } from "./match-effects.js";
 import { attackDirection, pelletOffset, rotateVec } from "./match-gun-geom.js";
 import type { Equipment, Vec2 } from "./match-equipment.js";
 
@@ -105,7 +107,7 @@ export function continueSkillCharge(h: SkillHero, dt: number, direction: Vec2): 
 }
 
 export function releaseSkillCharge(
-  h: SkillHero, direction: Vec2, covers: readonly CoverRect[] = [],
+  h: SkillHero, direction: Vec2, covers: readonly CoverRect[] = [], store?: EffectStore,
 ): SkillAttackResult {
   if (!h.chargingSkill) {return emptySkillResult();}
   const chargeRatio = Math.min(1, Math.max(0, h.chargeTime / CHARGE_MAX));
@@ -114,16 +116,16 @@ export function releaseSkillCharge(
     ? attackDirection(direction.x, direction.y)
     : attackDirection(h.chargeDirX, h.chargeDirY);
   cancelSkillCharge(h);
-  return applyEquipmentAttack(h, chargeDir, chargeRatio, covers);
+  return applyEquipmentAttack(h, chargeDir, chargeRatio, covers, store);
 }
 
 export function applySkillInput(
   h: SkillHero, held: boolean, pressed: boolean, released: boolean,
-  dt: number, direction: Vec2, covers: readonly CoverRect[] = [],
+  dt: number, direction: Vec2, covers: readonly CoverRect[] = [], store?: EffectStore,
 ): SkillAttackResult {
   if (pressed || (held && !h.chargingSkill)) {beginSkillCharge(h, direction);}
   if (held && h.chargingSkill) {continueSkillCharge(h, dt, direction);}
-  if (released) {return releaseSkillCharge(h, direction, covers);}
+  if (released) {return releaseSkillCharge(h, direction, covers, store);}
   return emptySkillResult();
 }
 
@@ -288,9 +290,62 @@ const SKILL_FN: Readonly<Partial<Record<string, (ctx: SkillCtx) => void>>> = {
   bomb: skillBomb, spear: skillSpear, chain: skillChain, shield: skillShield,
 };
 
+/** game_world.gd:1648-1700 add_effect 수치 그대로. */
+function emitSkillReleaseFx(
+  store: EffectStore | undefined, h: SkillHero, dir: Vec2, charge: number,
+): void {
+  addEffect(store, {
+    kind: "charge_release", x: h.x, y: h.y,
+    radius: 54.0 + charge * 28.0, duration: 0.22, color: "#dff8ff", dx: dir.x, dy: dir.y,
+  });
+  const id = h.equipment.id;
+  if (id === "scatter") {
+    addEffect(store, {
+      kind: "cast", x: h.x, y: h.y, radius: 92.0 + 34.0 * charge, duration: 0.26,
+      color: "#ffb45c", dx: dir.x, dy: dir.y,
+    });
+    return;
+  }
+  if (id === "rail") {
+    addEffect(store, {
+      kind: "line", x: h.x, y: h.y, radius: 620.0 + 220.0 * charge, duration: 0.30,
+      color: "#71e7ff", dx: dir.x, dy: dir.y,
+    });
+    return;
+  }
+  if (id === "leech") {
+    addEffect(store, {
+      kind: "line", x: h.x, y: h.y, radius: 360.0 + 240.0 * charge, duration: 0.24,
+      color: "#dc72ff", dx: dir.x, dy: dir.y,
+    });
+    return;
+  }
+  if (id === "burst") {
+    addEffect(store, {
+      kind: "cast", x: h.x, y: h.y, radius: 78.0 + 24.0 * charge, duration: 0.26,
+      color: "#ff5da2", dx: dir.x, dy: dir.y,
+    });
+    return;
+  }
+  if (id === "spear") {
+    addEffect(store, {
+      kind: "spear_line", x: h.x, y: h.y, radius: 440.0 + 230.0 * charge, duration: 0.26,
+      color: "#ffe27a", dx: dir.x, dy: dir.y,
+    });
+    return;
+  }
+  if (id === "chain") {
+    addEffect(store, {
+      kind: "chain_arc", x: h.x, y: h.y, radius: 390.0 + 250.0 * charge, duration: 0.28,
+      color: "#b78cff", dx: dir.x, dy: dir.y,
+    });
+  }
+}
+
 /** game_world.gd:1638-1717 _try_equipment_attack. */
 export function applyEquipmentAttack(
   h: SkillHero, direction: Vec2, chargeRatio = 1, covers: readonly CoverRect[] = [],
+  store?: EffectStore,
 ): SkillAttackResult {
   if (!h.alive || h.equipmentCd > 0 || h.launchTime > 0 || h.hitstunTime > 0 || h.stunTime > 0) {
     return emptySkillResult();
@@ -300,6 +355,7 @@ export function applyEquipmentAttack(
   const out = emptySkillResult();
   out.fired = true;
   h.action = "CHARGED_SKILL";
+  emitSkillReleaseFx(store, h, dir, charge);
   const fn = SKILL_FN[h.equipment.id];
   if (fn) {
     fn({

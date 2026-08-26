@@ -17,6 +17,9 @@ export type SimEffect = {
   dx: number;
   dy: number;
   follow: number;
+  startX: number;
+  startY: number;
+  drawDeparture: boolean;
 };
 
 export type EffectStore = { items: SimEffect[] };
@@ -28,6 +31,7 @@ export function createEffectStore(): EffectStore {
 export type EffectOpts = {
   kind: string; x: number; y: number; radius: number; duration: number; color: string;
   label?: string; dx?: number; dy?: number; follow?: number;
+  startX?: number; startY?: number; drawDeparture?: boolean;
 };
 
 /** 원본 add_effect. 스토어가 없으면(단위 조립 등) 조용히 무시. cap 초과 시 가장 오래된 것 제거. */
@@ -38,20 +42,23 @@ export function addEffect(store: EffectStore | undefined, opts: EffectOpts): voi
     kind: opts.kind, x: opts.x, y: opts.y, radius: opts.radius,
     time: opts.duration, maxTime: opts.duration, color: opts.color,
     label: opts.label ?? "", dx: opts.dx ?? 1, dy: opts.dy ?? 0, follow: opts.follow ?? -1,
+    startX: opts.startX ?? opts.x, startY: opts.startY ?? opts.y,
+    drawDeparture: opts.drawDeparture ?? true,
   });
 }
 
-/** 원본 add_mobility_effect — 도착점 기준, 지속 *0.8, follow=slot. */
+/** 원본 add_mobility_effect — 도착점 기준, 지속 *0.8, follow=slot, start=from. mortar 만 drawDeparture=false. */
 export function addMobilityEffect(
   store: EffectStore | undefined, slot: number, kind: string,
   from: { x: number; y: number }, to: { x: number; y: number },
   radius: number, duration: number, color: string, label: string,
   dir: { x: number; y: number },
+  drawDeparture = true,
 ): void {
-  void from;
   addEffect(store, {
     kind, x: to.x, y: to.y, radius, duration: duration * MOBILITY_DURATION_SCALE,
     color, label, dx: dir.x, dy: dir.y, follow: slot,
+    startX: from.x, startY: from.y, drawDeparture,
   });
 }
 
@@ -161,14 +168,16 @@ export function addMobilityDashEffects(store: EffectStore | undefined, fx: DashF
     store, fx.slot, row.kind, { x: fx.oldX, y: fx.oldY }, { x: fx.x, y: fx.y },
     row.radius ?? distance, row.duration, row.color, row.label,
     { x: sign * fx.dirX, y: sign * fx.dirY },
+    fx.equipmentId !== "mortar",
   );
 }
 
-/** 스냅 "effects" 패킹 — 클라 계약 {k,x,y,r,t,maxT,color,label,dx,dy,follow}. */
+/** 스냅 "effects" 패킹 — 클라 계약 {k,x,y,r,t,maxT,color,label,dx,dy,follow,sx,sy,dep}. */
 export function packEffects(store: EffectStore | undefined): Record<string, unknown>[] {
   if (!store) {return [];}
   return store.items.map((e) => ({
     k: e.kind, x: e.x, y: e.y, r: e.radius, t: e.time, maxT: e.maxTime,
     color: e.color, label: e.label, dx: e.dx, dy: e.dy, follow: e.follow,
+    sx: e.startX, sy: e.startY, dep: e.drawDeparture,
   }));
 }

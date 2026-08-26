@@ -1,5 +1,11 @@
 export { HANDOFF, DOM_EVT, MSG, CLOSE_CODE, ROOM_LEAVE } from "../contract/wire";
 
+/** 스키마 델타라 60Hz 가 가볍다. 0/NaN 은 60. 20으로 낮추면 Colyseus 기본(50ms) 원복. */
+export function parsePatchHz(raw: string | undefined): number {
+  const n = Number(raw ?? 60);
+  return n === 0 || Number.isNaN(n) ? 60 : n;
+}
+
 export const HUB_CONFIG = {
   graceLobbyMs: 60_000,
   gracePlayMs: 180_000,
@@ -28,6 +34,8 @@ export const HUB_CONFIG = {
   lobbyHealthRttMs: 0,
   perProcessCcu: 500,
   targetCcu: 1_000,
+  // 스키마 델타 + 엔진 직결이라 60Hz 가 가볍다. HUB_PATCH_HZ=20 이면 Colyseus 기본(50ms)으로 원복.
+  patchHz: parsePatchHz(process.env.HUB_PATCH_HZ),
 } as const;
 
 export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;

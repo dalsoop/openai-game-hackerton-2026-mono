@@ -27,8 +27,37 @@ export class MatchHeroSchema extends Schema {
   @type("uint32") deaths = 0;
   @type("float32") score = 0;
   @type("uint32") streak = 0;
-  @type("int8") emote = 0;
+  @type("int8") emote = -1;
   @type("float32") emoteTime = 0;
+  @type("string") weaponId = "";
+  @type("float32") stunT = 0;
+  @type("float32") rootT = 0;
+  @type("float32") ccT = 0;
+  @type("float32") guardT = 0;
+  @type("float32") armorT = 0;
+  @type("float32") spawnT = 0;
+  @type("float32") launchT = 0;
+  @type("float32") launchVX = 0;
+  @type("float32") launchVY = 0;
+  @type("boolean") charging = false;
+  @type("float32") chargeT = 0;
+  @type("float32") dmgOrbT = 0;
+  @type("float32") downTaken = 0;
+  @type("float32") woolT = 0;
+  @type("int16") woolHp = 0;
+  @type("int16") woolMax = 0;
+  @type("float32") rouT = 0;
+  @type("string") rouRank = "";
+  @type("string") rouPhase = "";
+  @type("string") rouSpin = "";
+  @type("string") rouLabel = "";
+  @type("string") action = "";
+  @type("string") heldItem = "";
+  @type("float32") springT = 0;
+  @type("float32") slideT = 0;
+  /** JSON 배열 문자열. TimedBuff[] / {x,y}[] 는 nested ArraySchema 가 비싸다. */
+  @type("string") rlTimed = "[]";
+  @type("string") ultClones = "[]";
 }
 
 export class MatchBulletSchema extends Schema {
@@ -39,6 +68,10 @@ export class MatchBulletSchema extends Schema {
   @type("float32") vy = 0;
   @type("int8") owner = -1;
   @type("string") kind = "bolt";
+  @type("float32") radius = 0;
+  @type("boolean") arc = false;
+  @type("boolean") heavy = false;
+  @type("string") src = "";
 }
 
 export class MatchCoverSchema extends Schema {
@@ -130,7 +163,7 @@ export class MatchFinishCineSchema extends Schema {
   @type("float32") t = 0;
   @type("boolean") hit = false;
   @type("float32") hitAge = 0;
-  @type("boolean") fly = false;
+  @type("float32") fly = 0;
   @type("float32") vicX = 0;
   @type("float32") vicY = 0;
   @type("float32") vicSpin = 0;
@@ -147,6 +180,24 @@ export class MatchCoreSchema extends Schema {
   @type("float32") hp = 0;
   @type("float32") maxHp = 0;
   @type("boolean") alive = true;
+}
+
+/** 시각 이펙트. packEffects 키와 같다. */
+export class MatchEffectSchema extends Schema {
+  @type("string") k = "";
+  @type("float32") x = 0;
+  @type("float32") y = 0;
+  @type("float32") r = 0;
+  @type("float32") t = 0;
+  @type("float32") maxT = 0;
+  @type("string") color = "";
+  @type("string") label = "";
+  @type("float32") dx = 1;
+  @type("float32") dy = 0;
+  @type("int8") follow = -1;
+  @type("float32") sx = 0;
+  @type("float32") sy = 0;
+  @type("boolean") dep = true;
 }
 
 /** 일회성 연출. d 는 소형 객체 JSON 문자열. */
@@ -189,4 +240,9 @@ export class MatchStateSchema extends Schema {
   @type([MatchCoreSchema]) cores = new ArraySchema<MatchCoreSchema>();
   @type("uint32") eventSeq = 0;
   @type([MatchEventSchema]) events = new ArraySchema<MatchEventSchema>();
+  @type("string") streakCallout = "";
+  @type("string") streakSubtitle = "";
+  @type("uint32") streakCalloutTicks = 0;
+  @type("boolean") streakCalloutShutdown = false;
+  @type([MatchEffectSchema]) effects = new ArraySchema<MatchEffectSchema>();
 }

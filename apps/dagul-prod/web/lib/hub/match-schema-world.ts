@@ -1,4 +1,5 @@
 import type { ArraySchema, Schema } from "@colyseus/schema";
+import { packEffects } from "./match-effects.js";
 import {
   packCoresSnap, packCrateOrbsSnap, packCratesSnap, packFinishCine, packLootSnap,
   packMidTowerSnap, packZonesSnap, snapDeployables,
@@ -6,7 +7,8 @@ import {
 import type { MatchSim } from "./match-sim.js";
 import {
   MatchCoreSchema, MatchCoverSchema, MatchCrateOrbSchema, MatchCrateSchema,
-  MatchDeployableSchema, MatchKnockoutSchema, MatchLootSchema, MatchZoneSchema,
+  MatchDeployableSchema, MatchEffectSchema, MatchKnockoutSchema, MatchLootSchema,
+  MatchZoneSchema,
 } from "./match-schema.js";
 import type { MatchStateSchema } from "./match-schema.js";
 
@@ -166,7 +168,7 @@ function writeFinishCine(match: MatchStateSchema, sim: MatchSim): void {
   match.finishCine.t = Number(cine.t ?? 0);
   match.finishCine.hit = Boolean(cine.hit);
   match.finishCine.hitAge = Number(cine.hit_age ?? 0);
-  match.finishCine.fly = Boolean(cine.fly);
+  match.finishCine.fly = Number(cine.fly ?? 0);
   match.finishCine.vicX = Number(cine.vic_x ?? 0);
   match.finishCine.vicY = Number(cine.vic_y ?? 0);
   match.finishCine.vicSpin = Number(cine.vic_spin ?? 0);
@@ -174,6 +176,29 @@ function writeFinishCine(match: MatchStateSchema, sim: MatchSim): void {
   match.finishCine.rush = Boolean(cine.rush);
   match.finishCine.midX = Number(cine.mx ?? 0);
   match.finishCine.midY = Number(cine.my ?? 0);
+}
+
+function writeEffects(match: MatchStateSchema, sim: MatchSim): void {
+  const packed = packEffects(sim.effects);
+  syncLen(match.effects, packed.length, () => new MatchEffectSchema());
+  for (let i = 0; i < packed.length; i += 1) {
+    const row = match.effects[i];
+    const e = packed[i];
+    row.k = String(e.k ?? "");
+    row.x = Number(e.x);
+    row.y = Number(e.y);
+    row.r = Number(e.r);
+    row.t = Number(e.t);
+    row.maxT = Number(e.maxT);
+    row.color = String(e.color ?? "");
+    row.label = String(e.label ?? "");
+    row.dx = Number(e.dx);
+    row.dy = Number(e.dy);
+    row.follow = Number(e.follow);
+    row.sx = Number(e.sx ?? e.x);
+    row.sy = Number(e.sy ?? e.y);
+    row.dep = Boolean(e.dep ?? true);
+  }
 }
 
 export function writeMatchWorld(match: MatchStateSchema, sim: MatchSim): void {
@@ -187,4 +212,5 @@ export function writeMatchWorld(match: MatchStateSchema, sim: MatchSim): void {
   writeCores(match, sim);
   writeTower(match, sim);
   writeFinishCine(match, sim);
+  writeEffects(match, sim);
 }
