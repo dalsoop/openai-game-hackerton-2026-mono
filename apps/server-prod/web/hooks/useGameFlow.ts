@@ -33,15 +33,16 @@ export interface UseGameFlowResult {
 }
 
 export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowResult {
-  const { nickname, saveNickname, clearNickname } = useSession();
+  const { nickname, guestName, saveNickname, clearNickname } = useSession();
   const hub = useHub();
   // 유즈맵 — 접속한 방의 게임을 따라간다 (없으면 기본 게임).
   const loader = useGodotLoader(asGameId(hub.gameId));
   const [phase, setPhase] = useState<GamePhase>("intro");
-  const [name, setName] = useState(nickname || "");
+  const fallbackName = guestName || defaultPlayer;
+  const [name, setName] = useState(nickname || guestName);
   const revision = useDeployRevision(buildId);
 
-  const displayName = displayNameOf(name, defaultPlayer);
+  const displayName = displayNameOf(name, fallbackName);
   // START 이후에도 React 방이 살아 있다. matchInfo 가 있으면 그 확정본을 쓴다.
   const matchInfo: MatchInfo = hub.matchInfo ?? {
     roomId: hub.roomId,
@@ -67,9 +68,10 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   }, [hub.resumeFailed]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 저장소(localStorage) → React 동기화
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 저장소(localStorage·쿠키) → React 동기화
     if (nickname) {setName(nickname);}
-  }, [nickname]);
+    else if (guestName) {setName(guestName);}
+  }, [nickname, guestName]);
 
   // 허브 상태가 화면 페이즈를 몰아간다 (in-room → 대기실, playing → 게임).
   useEffect(() => {
@@ -115,8 +117,8 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
 
   const resetName = useCallback(() => {
     clearNickname();
-    setName("");
-  }, [clearNickname]);
+    setName(guestName);
+  }, [clearNickname, guestName]);
 
   return {
     phase,
