@@ -79,6 +79,8 @@ func _on_bridge_packet(packet: Dictionary) -> void:
                 snapshot_received.emit(msg)
         WebContract.MSG_PEER_INPUT:
             peer_input_received.emit(int(msg.get("slot", -1)), msg)
+        WebContract.MSG_GUN_FIRE:
+            pass
         WebContract.MSG_ERROR:
             hub_error.emit(str(msg.get("msg", "")))
         WebContract.MSG_STATE:

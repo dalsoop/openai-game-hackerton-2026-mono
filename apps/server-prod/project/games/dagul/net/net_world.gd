@@ -69,6 +69,9 @@ var safe_zone_phase_time: float = 0.0
 var safe_zone_shrinking: bool = false
 var safe_zone_complete: bool = false
 var mode: String = "classic"
+var local_fire_shake: int = 0
+var local_mouse_kick: Vector2 = Vector2.ZERO
+var local_hit_shake: int = 0
 
 var _prev_bullets: Array[Dictionary] = []
 var _deaths: Dictionary = {}
@@ -152,6 +155,10 @@ func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
     return _input_seq
 
 func present(_dt: float) -> void:
+    if local_fire_shake > 0:
+        local_fire_shake -= 1
+    if local_hit_shake > 0:
+        local_hit_shake -= 1
     if _snaps.is_empty():
         return
     if _snaps.size() == 1:

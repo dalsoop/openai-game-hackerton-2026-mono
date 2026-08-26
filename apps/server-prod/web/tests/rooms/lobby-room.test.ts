@@ -327,3 +327,94 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.players.length).toBe(2);
   });
 });
+
+function stepSim(room: LobbyRoom, n = 8, dt = 50): void {
+  for (let i = 0; i < n; i += 1) {room.stepSim(dt);}
+}
+
+describe("허브 권위 매치", () => {
+  it("시작 직후 호스트와 게스트가 같은 권위 스냅을 받는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    const hostSnap = host.waitForMessage(MSG.SNAP);
+    const guestSnap = guest.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    const [hs, gs] = await Promise.all([hostSnap, guestSnap]);
+    const a = hs as { tick?: number; players?: { slot: number }[] };
+    const b = gs as { tick?: number; players?: { slot: number }[] };
+    expect(a.tick).toBe(b.tick);
+    expect(a.players?.map((p) => p.slot).sort()).toEqual([0, 1]);
+    await room.waitForNextPatch();
+    expect(room.state.heroes.size).toBe(2);
+  });
+
+  it("호스트 input 도 권위에 들어가고 스키마에 반영된다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    const first = host.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    await first;
+    const x0 = room.state.heroes.get("0")?.x ?? 0;
+    expect(room.pushTestInput(host.sessionId, {
+      mx: 1, my: 0, seq: 11, aimX: x0 + 80, aimY: 2380,
+    })).toBe(true);
+    stepSim(room, 10, 50);
+    const me = room.state.heroes.get("0");
+    expect(me?.x).toBeGreaterThan(x0 + 5);
+    expect(me?.ack).toBe(11);
+  });
+
+  it("게스트 발사는 id 있는 탄을 만들고 host_snap 은 무시한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    const bootSnap = host.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    await bootSnap;
+    const fxP = host.waitForMessage(MSG.GUN_FIRE);
+    expect(room.pushTestInput(guest.sessionId, {
+      mx: 0, my: 0, fire: true, firePressed: true, seq: 4,
+      aimX: 4000, aimY: 2380,
+    })).toBe(true);
+    host.send(MSG.HOST_SNAP, { tick: 9999, bullets: [{ id: 77 }] });
+    stepSim(room, 6, 50);
+    expect(room.state.bullets.size).toBeGreaterThan(0);
+    const shot = [...room.state.bullets.values()][0];
+    expect(shot.id).toBeGreaterThan(0);
+    expect(shot.owner).toBe(1);
+    expect(shot.id).not.toBe(77);
+    const fx = (await fxP) as { slot: number };
+    expect(fx.slot).toBe(1);
+  });
+
+  it("클라 INPUT 메시지가 권위 ack 에 남는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    const first = host.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    await first;
+    host.send(MSG.INPUT, { mx: 1, my: 0, seq: 5, aimX: 4000, aimY: 2380 });
+    await new Promise((r) => setTimeout(r, 40));
+    stepSim(room, 8, 50);
+    expect(room.state.heroes.get("0")?.ack).toBe(5);
+  });
+
+  it("플레이 중 방장이 나가도 게스트 입력으로 매치가 이어진다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    const boot = guest.waitForMessage(MSG.SNAP);
+    host.send(MSG.START, {});
+    await boot;
+    (room as unknown as { removeSeat: (id: string) => void }).removeSeat(host.sessionId);
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    expect(room.pushTestInput(guest.sessionId, { mx: 1, my: 0, seq: 8 })).toBe(true);
+    stepSim(room, 8, 50);
+    expect(room.state.heroes.get("1")?.ack).toBe(8);
+  });
+});
+

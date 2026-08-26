@@ -54,18 +54,18 @@ try {
   await waitState(roomB, (s) => s.phase === "playing", "phase 전환");
   step("start → host/seed 정확, state.phase=playing");
 
-  // 4. 호스트 snap → 게스트 수신 (릴레이)
+  const snapA = waitMsg(roomA, "snap", "A");
   const snapB = waitMsg(roomB, "snap", "B");
-  roomA.send("host_snap", { tick: 1, result: "playing" });
-  if ((await snapB).tick !== 1) fail("snap 릴레이");
-  step("host_snap → 게스트 snap 수신");
+  const [saSnap, sbSnap] = await Promise.all([snapA, snapB]);
+  if (typeof saSnap.tick !== "number" || saSnap.tick !== sbSnap.tick) fail("권위 snap", JSON.stringify({ saSnap, sbSnap }));
+  step("start → 양쪽 권위 snap 수신");
 
-  // 5. 게스트 input → 호스트 peer_input (슬롯 태깅) — Godot 브릿지와 동일 경로
-  const inputA = waitMsg(roomA, "peer_input", "A");
+  const snapAck = waitMsg(roomA, "snap", "A-ack");
   roomB.send("input", { mx: 1, seq: 7 });
-  const pin = await inputA;
-  if (pin.seq !== 7 || pin.slot !== 1) fail("peer_input", JSON.stringify(pin));
-  step("input → 호스트 peer_input (slot=1)");
+  const later = await snapAck;
+  const guestRow = (later.players || []).find((p) => p.slot === 1);
+  if (!guestRow || guestRow.ack < 7) fail("input ack", JSON.stringify(later));
+  step("input → 권위 snap ack");
 
   // 6. 게스트 강제 단절 → SDK 자동 재접속으로 같은 좌석 복귀 (allowReconnection 검증)
   // (SDK 보호: 방 가동 5초 미만이면 재접속 거부 — 충족될 때까지 대기)
@@ -74,8 +74,8 @@ try {
   await new Promise((r) => setTimeout(r, 1500));
   await waitState(roomB, (s) => s.players?.length === 2 && s.phase === "playing", "자동 재접속 후 state");
   const snapB2 = waitMsg(roomB, "snap", "B(재접속)");
-  roomA.send("host_snap", { tick: 2, result: "playing" });
-  if ((await snapB2).tick !== 2) fail("재접속 후 snap");
+  roomB.send("input", { mx: -1, seq: 8 });
+  if (typeof (await snapB2).tick !== "number") fail("재접속 후 snap");
   step("강제 단절 → SDK 자동 재접속 → 같은 좌석에서 snap 계속 수신");
 
   await roomA.leave(true);

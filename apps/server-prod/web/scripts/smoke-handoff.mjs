@@ -47,17 +47,14 @@ ok(
   hostRoom.sessionId === hostRoom.state.players.find((p) => p.sessionId === hostRoom.sessionId)?.sessionId,
 );
 
-const [guestSnap] = await Promise.all([
-  onceEvent(guestRoom, "message:snap"),
-  hostRoom.send("host_snap", { tick: 42, world: "demo" }),
-]);
-ok("4. 유지한 소켓으로 snap 릴레이", guestSnap?.tick === 42);
+const guestSnap = await onceEvent(guestRoom, "message:snap");
+ok("4. 유지한 소켓으로 권위 snap", typeof guestSnap?.tick === "number");
 
-const [hostInput] = await Promise.all([
-  onceEvent(hostRoom, "message:peer_input"),
-  guestRoom.send("input", { mx: 1, fire: true }),
-]);
-ok("5. 유지한 소켓으로 input 릴레이", typeof hostInput?.slot === "number" && typeof hostInput?.mx === "number");
+const nextSnapP = onceEvent(hostRoom, "message:snap");
+guestRoom.send("input", { mx: 1, fire: true, seq: 3 });
+const nextSnap = await nextSnapP;
+const g = (nextSnap?.players || []).find((p) => p.slot === 1);
+ok("5. 유지한 소켓으로 게스트 input 이 권위에 들어간다", g?.ack >= 3);
 
 await hostRoom.leave(true);
 await guestRoom.leave(true);

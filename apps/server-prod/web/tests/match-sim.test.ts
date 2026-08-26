@@ -1,0 +1,75 @@
+import { describe, expect, it } from "vitest";
+import {
+  ARENA_CENTER,
+  ARENA_SIZE,
+  FIRE_INTERVAL,
+  MatchSim,
+  MOVE_SPEED,
+  clampArena,
+  spawnPoint,
+} from "@/lib/hub/match-sim";
+
+describe("MatchSim", () => {
+  it("스폰은 풀맵 안이고 좌석마다 갈라진다", () => {
+    const a = spawnPoint(0, 2);
+    const b = spawnPoint(1, 2);
+    expect(a.x).toBeGreaterThan(100);
+    expect(a.x).toBeLessThan(ARENA_SIZE.x - 100);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(400);
+  });
+
+  it("클램프는 옛 섬 반경으로 끌어당기지 않는다", () => {
+    const mid = clampArena(ARENA_CENTER.x, ARENA_CENTER.y);
+    expect(mid.x).toBeCloseTo(ARENA_CENTER.x);
+    expect(mid.y).toBeCloseTo(ARENA_CENTER.y);
+  });
+
+  it("양쪽 입력을 같은 권위로 적용한다", () => {
+    const sim = new MatchSim([{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }]);
+    const h0 = sim.heroes.get(0);
+    const h1 = sim.heroes.get(1);
+    expect(h0 && h1).toBeTruthy();
+    if (!h0 || !h1) {return;}
+    const x0 = h0.x;
+    const x1 = h1.x;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
+    sim.pushInput(1, { mx: -1, my: 0, seq: 1 });
+    sim.step(1 / 60);
+    expect(h0.x).toBeGreaterThan(x0);
+    expect(h1.x).toBeLessThan(x1);
+    expect(h0.x - x0).toBeCloseTo(MOVE_SPEED / 60, 0);
+  });
+
+  it("발사하면 id·속도가 있는 탄이 생기고 쿨다운을 가진다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    const hero = sim.heroes.get(0);
+    expect(hero).toBeDefined();
+    if (!hero) {return;}
+    sim.pushInput(0, { fire: true, aimX: hero.x + 100, aimY: hero.y, seq: 2 });
+    sim.step(1 / 60);
+    expect(sim.bullets.size).toBe(1);
+    const shot = [...sim.bullets.values()][0];
+    expect(shot.id).toBe(1);
+    expect(shot.owner).toBe(0);
+    expect(shot.vx).toBeGreaterThan(0);
+    expect(sim.fx).toHaveLength(1);
+    sim.pushInput(0, { fire: true, aimX: hero.x + 100, aimY: hero.y, seq: 3 });
+    sim.step(1 / 60);
+    expect(sim.bullets.size).toBe(1);
+    expect(hero.fireCd).toBeGreaterThan(FIRE_INTERVAL - 0.03);
+  });
+
+  it("탄이 상대를 맞히면 HP 가 줄고 탄이 사라진다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    const a = sim.heroes.get(0);
+    const b = sim.heroes.get(1);
+    expect(a && b).toBeTruthy();
+    if (!a || !b) {return;}
+    b.x = a.x + 40;
+    b.y = a.y;
+    sim.pushInput(0, { fire: true, aimX: b.x, aimY: b.y, seq: 1 });
+    sim.step(1 / 60);
+    expect(b.hp).toBeLessThan(b.maxHp);
+    expect(sim.bullets.size).toBe(0);
+  });
+});

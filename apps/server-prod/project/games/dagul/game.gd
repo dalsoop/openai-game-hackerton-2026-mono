@@ -46,10 +46,8 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	if audio != null and audio.has_method("register_catalog"):
 		audio.register_catalog(SfxCatalogScript)
 
-	if _is_host:
-		_start_as_host(you, mode, payload.get("seats", []), ctx)
-	else:
-		_start_as_guest(you, mode)
+	# 로비 방장 여부는 payload.host 에 남는다. 시뮬 원본은 허브이므로 전원 NetWorld.
+	_start_as_guest(you, mode)
 
 	var hud: Control = ctx["hud"]
 	var world_view: Node2D = ctx["world_view"]
@@ -90,19 +88,7 @@ func push_snap(snap: Dictionary) -> void:
 		world.push_snap(snap)
 
 func become_host(ctx: Dictionary) -> void:
-	if _is_host:
-		return
-	var you := 0
-	var mode := MODE
-	var prior = world
-	if prior != null:
-		you = int(prior.get("local_slot", 0))
-		mode = str(prior.get("mode", MODE))
 	_is_host = true
-	var hub: Node = ctx.get("hub")
-	var seats: Array = hub.players if hub != null else []
-	_start_as_host(you, mode, seats, ctx)
-	_adopt_live_world(prior)
 	_bind_view(ctx)
 
 func become_guest(ctx: Dictionary) -> void:
@@ -244,12 +230,8 @@ func _ensure_input() -> void:
 func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2D) -> void:
 	hud.net_rtt_ms = int(hub.rtt_ms)
 	hud.net_connected = bool(hub.is_open())
-	if _is_host:
-		world.step_tick(command, TICK)
-		if _host_ctrl != null:
-			_host_ctrl.tick(TICK)
-		_apply_recoil_mouse(world_view)
-		return
+	if bool(command.get("primary_pressed", false)) and world.get("local_fire_shake") != null:
+		world.local_fire_shake = maxi(int(world.local_fire_shake), 4)
 	world.present(TICK)
 	var move: Vector2 = command.get("move", Vector2.ZERO)
 	var aim_world: Vector2 = command.get("aim", Vector2.ZERO)
@@ -259,6 +241,7 @@ func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2
 		_game_client.send_input(packet)
 	else:
 		hub.send_input(packet)
+	_apply_recoil_mouse(world_view)
 
 func _peer_input_packet(command: Dictionary, seq: int) -> Dictionary:
 	var move: Vector2 = command.get("move", Vector2.ZERO)
