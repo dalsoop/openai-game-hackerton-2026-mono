@@ -80,6 +80,15 @@ class SlotShells(unittest.TestCase):
         for folder in ("server-fig-dev1", "server-pjh-dev1"):
             self.assertIn('html/custom_html_shell="custom_shell.html"', slot_preset(folder))
 
+    def test_yjh_and_prod_shells_have_official_placeholders(self) -> None:
+        for folder in ("server-yjh-dev1", "server-prod"):
+            shell = slot_shell(folder)
+            for token in REQUIRED_PLACEHOLDERS:
+                self.assertIn(token, shell)
+            exported = simulate_export(shell)
+            self.assertEqual(leftover_placeholders(exported), [])
+            assert_export_html(folder, exported, shell)
+
     def test_fig_shell_is_official_and_exports_without_want_game(self) -> None:
         shell = slot_shell("server-fig-dev1")
         self.assertNotIn("wantGame", shell)
