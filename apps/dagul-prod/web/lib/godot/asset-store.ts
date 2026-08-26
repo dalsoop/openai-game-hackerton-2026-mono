@@ -112,7 +112,8 @@ export class AssetStore {
     // FIXME: 진단 계측(제거 예정) — 재다운로드 범인 식별용.
     const fetchLog = ((globalThis as { __assetFetches?: string[] }).__assetFetches ??= []);
     fetchLog.push(url + "@" + new Error().stack?.split("\n")[2]?.trim().slice(0, 60));
-    const resp = await fetch(url);
+    const cache: RequestCache = url.includes("?v=") ? "force-cache" : "no-cache";
+    const resp = await fetch(url, { cache });
     if (!resp.ok) {throw new Error(`${url}: ${resp.status}`);}
     const declared = resp.headers.get("content-length");
     const total = declared === null || declared === "" ? expectBytes : Number(declared);

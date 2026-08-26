@@ -95,6 +95,22 @@ export class GodotRuntime {
     for (const fn of this.listeners) {fn(this.snap);}
   }
 
+  private manifestKey(m: Manifest | null): string {
+    if (!m) {return "";}
+    return m.filesHash ?? m.version;
+  }
+
+  private applyManifest(fresh: Manifest): void {
+    const prev = this.manifestKey(this.manifest);
+    const next = this.manifestKey(fresh);
+    this.manifest = fresh;
+    if (prev !== "" && prev !== next) {
+      this.wasmModule = null;
+      this.scriptPromise = null;
+      this.preloadPromise = null;
+    }
+  }
+
   // 로비 단계 백그라운드 프리로드 — wasm·pck·side 를 받아 wasm 을 컴파일해 둔다.
   // 호출이 겹쳐도 preloadPromise 로 1회만 수행된다 (재호출은 같은 결과를 기다린다).
   preload(): Promise<void> {
@@ -110,12 +126,11 @@ export class GodotRuntime {
     this.update({ state: "downloading", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null });
 
     const fresh = await this.store.loadManifest(this.pack);
-    if (this.manifest?.version === fresh.version && this.wasmModule) {
+    this.applyManifest(fresh);
+    if (this.wasmModule) {
       this.update({ state: "ready", progress: 1 });
       return;
     }
-    this.manifest = fresh;
-    this.wasmModule = null;
 
     // 네 부작용: 부팅 전에 브라우저 캐시가 채워진다 — 엔진이 스스로 fetch 하는
     // 무버전 URL 과 같은 엔트리라 부팅 시 ETag 304(본문 0)로 재검증된다.
@@ -149,7 +164,7 @@ export class GodotRuntime {
 
   private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
     this.update({ state: "downloading", progress: 0.02, error: null });
-    this.manifest ??= await this.store.loadManifest(this.pack);
+    this.applyManifest(await this.store.loadManifest(this.pack));
     // 프리로드가 아직 진행 중이어도 AssetStore 공유로 중복 다운로드 없이 합류한다.
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
     this.update({ state: "compiling", progress: 0.42 });
@@ -226,7 +241,7 @@ export class GodotRuntime {
     if (this.scriptPromise) {return this.scriptPromise;}
     this.scriptPromise = new Promise((resolve, reject) => {
       const el = document.createElement("script");
-      el.src = this.plan.files.engineJs;
+      el.src = this.store.assetUrl(this.plan.files.engineJs);
       el.onload = (): void => resolve();
       el.onerror = (): void => {
         this.scriptPromise = null; // 재시도 가능하게

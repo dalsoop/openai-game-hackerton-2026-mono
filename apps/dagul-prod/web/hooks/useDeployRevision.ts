@@ -1,14 +1,25 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { VERSION_PATH, isStaleRevision, revisionIdOf } from "@/lib/hub/revision";
+import { VERSION_PATH, pinOrDetectStale, revisionIdOf } from "@/lib/hub/revision";
 
 export const REVISION_INTERVAL_MS = 30 * 60 * 1000;
 export const REVISION_MIN_GAP_MS = 60 * 1000;
+export const REVISION_DEV_INTERVAL_MS = 5_000;
+export const REVISION_DEV_MIN_GAP_MS = 2_000;
 
 export interface DeployRevisionOptions {
   enabled?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => number;
+}
+
+export function revisionWatchMs(
+  env = process.env.NODE_ENV,
+): { interval: number; minGap: number } {
+  if (env === "production") {
+    return { interval: REVISION_INTERVAL_MS, minGap: REVISION_MIN_GAP_MS };
+  }
+  return { interval: REVISION_DEV_INTERVAL_MS, minGap: REVISION_DEV_MIN_GAP_MS };
 }
 
 export async function fetchRemoteRevision(
@@ -23,7 +34,7 @@ export function useDeployRevision(
   currentId: string,
   options: DeployRevisionOptions = {},
 ): { stale: boolean; reload: () => void } {
-  const enabled = options.enabled ?? (process.env.NODE_ENV === "production" && currentId !== "");
+  const enabled = options.enabled ?? true;
   const [stale, setStale] = useState(false);
 
   const reload = useCallback((): void => {
@@ -31,22 +42,27 @@ export function useDeployRevision(
   }, []);
 
   useEffect(() => {
-    if (!enabled || currentId === "" || stale) {return;}
+    if (!enabled || stale) {return;}
 
     const fetchImpl = options.fetchImpl ?? fetch;
     const now = options.now ?? Date.now;
+    const watch = revisionWatchMs();
     let cancelled = false;
     let last = 0;
     let inFlight = false;
+    let pinned = currentId;
 
     async function check(): Promise<void> {
       const t = now();
-      if (inFlight || t - last < REVISION_MIN_GAP_MS) {return;}
+      if (inFlight || t - last < watch.minGap) {return;}
       inFlight = true;
       last = t;
       try {
         const remote = await fetchRemoteRevision(fetchImpl);
-        if (!cancelled && isStaleRevision(currentId, remote)) {setStale(true);}
+        if (cancelled) {return;}
+        const next = pinOrDetectStale(pinned, remote);
+        pinned = next.pin;
+        if (next.stale) {setStale(true);}
       } catch {
         // 네트워크 순간 오류 — 다음 트리거에서 다시 본다.
       } finally {
@@ -61,7 +77,7 @@ export function useDeployRevision(
     void check();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
-    const interval = setInterval(() => { void check(); }, REVISION_INTERVAL_MS);
+    const interval = setInterval(() => { void check(); }, watch.interval);
     return (): void => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);

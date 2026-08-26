@@ -38,7 +38,12 @@ var _muffling := false
 var _unlock_cb = null
 
 func _ready() -> void:
-	_setup_world_bus()
+	# 웹 Sample + add_bus 는 Master 출력을 끊는다(godot#119026).
+	# Stream 은 싱글스레드 웹에서 믹서가 끊긴다. 웹은 Master 만, Sample 기본값.
+	if OS.has_feature("web"):
+		_ensure_impact()
+	else:
+		_setup_world_bus()
 	_build_sfx_pool()
 	_build_world_pool()
 	_build_music_players()
@@ -72,25 +77,30 @@ func _music_for(track: String) -> AudioStream:
 		return null
 	return Catalog.music_for(track)
 
+func _pool_bus() -> StringName:
+	return &"Master" if OS.has_feature("web") else &"World"
+
 func _build_sfx_pool() -> void:
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		p.name = "SfxPool%d" % i
-		p.bus = &"World"
+		p.bus = _pool_bus()
 		add_child(p)
 		_sfx_players.append(p)
 
 func _build_music_players() -> void:
 	_music_a = AudioStreamPlayer.new()
 	_music_a.name = "MusicA"
-	_music_a.bus = &"World"
+	_music_a.bus = _pool_bus()
 	add_child(_music_a)
 	_music_b = AudioStreamPlayer.new()
 	_music_b.name = "MusicB"
-	_music_b.bus = &"World"
+	_music_b.bus = _pool_bus()
 	add_child(_music_b)
 
 func _bus_for(sound_id: String) -> StringName:
+	if OS.has_feature("web"):
+		return &"Master"
 	if sound_id.begins_with("gun_fire"):
 		return &"Arena"
 	return &"World"
@@ -203,16 +213,20 @@ func _ensure_bus(name: String, send: String) -> int:
 	AudioServer.set_bus_send(idx, send)
 	return idx
 
+func _ensure_impact() -> void:
+	if _impact != null:
+		return
+	_impact = AudioStreamPlayer.new()
+	_impact.name = "ImpactSfx"
+	_impact.bus = &"Master"
+	add_child(_impact)
+
 func _setup_world_bus() -> void:
 	var widx := _ensure_bus("World", "Master")
 	var aidx := _ensure_bus("Arena", "World")
 	_ensure_world_lowpass(widx)
 	_ensure_arena_reverb(aidx)
-	if _impact == null:
-		_impact = AudioStreamPlayer.new()
-		_impact.name = "ImpactSfx"
-		_impact.bus = &"Master"
-		add_child(_impact)
+	_ensure_impact()
 
 func _ensure_world_lowpass(widx: int) -> void:
 	for i in AudioServer.get_bus_effect_count(widx):
@@ -299,7 +313,7 @@ func _build_world_pool() -> void:
 	for i in WORLD_POOL:
 		var p := AudioStreamPlayer2D.new()
 		p.name = "SfxWorld%d" % i
-		p.bus = &"World"
+		p.bus = _pool_bus()
 		p.max_distance = WORLD_MAX_DIST
 		p.attenuation = 0.9
 		p.area_mask = 0
@@ -353,7 +367,7 @@ func _keep_tide_voice(tide, live: Dictionary) -> void:
 func _spawn_tide_voice(key: int, pos: Vector2) -> void:
 	var voice := AudioStreamPlayer2D.new()
 	voice.name = "RatTide%d" % key
-	voice.bus = &"World"
+	voice.bus = _pool_bus()
 	voice.max_distance = WORLD_MAX_DIST
 	voice.attenuation = 1.0
 	var host: Node = _world_host if _world_host != null else self

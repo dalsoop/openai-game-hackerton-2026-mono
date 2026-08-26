@@ -151,6 +151,9 @@ describe("계약: 웹 캔버스 키 포커스", () => {
   it("런타임은 알탭 복귀용 bindCanvasKeyboardFocus 를 붙인다", () => {
     const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));
     expect(runtime).toContain("bindCanvasKeyboardFocus");
+    expect(runtime).toContain("applyManifest");
+    expect(runtime).not.toContain("this.manifest ??=");
+    expect(runtime).toContain("this.store.assetUrl(this.plan.files.engineJs)");
     expect(runtime).toContain("captureAudioContexts");
     expect(runtime).toContain("bindAudioUnlock");
     expect(runtime).not.toContain("unlockGodotAudioAfterBoot");
@@ -291,10 +294,30 @@ describe("계약: 배포 신원은 /health 와 분리한다", () => {
     const server = sourceOf(join(ROOT, "server.ts"));
     const health = sourceOf(join(ROOT, "lib/hub/health.ts"));
     expect(server).toContain('pathname === "/api/version"');
-    expect(server).toContain("revisionBody(deployedBuildId())");
+    expect(server).toContain("revisionBody(liveRevisionId())");
     expect(health).not.toContain("BUILD_ID");
     expect(health).not.toContain("revisionBody");
     expect(sourceOf(join(ROOT, "middleware.ts"))).toContain("api");
+  });
+});
+
+describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
+  it("웹에서 Stream 강제와 add_bus 우회가 없다", () => {
+    const audio = sourceOf(join(ROOT, "..", "project/core/autoload/game_audio.gd"));
+    expect(audio).toContain("OS.has_feature(\"web\")");
+    expect(audio).toContain("_ensure_impact");
+    expect(audio).toContain("_pool_bus");
+    expect(audio).not.toContain("PLAYBACK_TYPE_STREAM");
+    expect(audio).not.toContain("_web_stream");
+  });
+});
+
+describe("계약: 로컬 기동은 죽은 포트와 낡은 팩을 버린다", () => {
+  it("dev.sh 가 팩 신선도와 health 를 본다", () => {
+    const dev = sourceOf(join(ROOT, "..", "dev.sh"));
+    expect(dev).toContain("ensure_godot_fresh");
+    expect(dev).toContain("free_stale_port");
+    expect(dev).toContain("port_healthy");
   });
 });
 
@@ -306,6 +329,7 @@ describe("계약: GameId 는 웹 산출물 경로가 아니다", () => {
     const runtime = sourceOf(join(ROOT, "lib/godot/runtime.ts"));
     expect(listing).toContain("packOf");
     expect(runtime).toContain("packOf");
+    expect(runtime).toContain("applyManifest");
     expect(runtime).not.toMatch(/assetPlanOf\(game\)/);
     const roots = ["lib/", "hooks/", "scripts/"];
     const offenders = tsSources

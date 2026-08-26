@@ -14,7 +14,7 @@ import { roomsHttpBody, withDeadline } from "./lib/hub/rooms-http.js";
 import { assetPlanOf, godotWorkletAssetPath, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
 import { revisionBody } from "./lib/hub/revision.js";
-import { deployedBuildId } from "./lib/hub/revision-fs.js";
+import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -131,6 +131,82 @@ function serveOne(
   return true;
 }
 
+function jsonOk(res: ServerResponse, body: string): void {
+  res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+  res.end(body);
+}
+
+function setIsolationHeaders(res: ServerResponse): void {
+  // SharedArrayBuffer(스레드 지원 Godot 웹 빌드) 에 필요한 교차 출처 격리 헤더.
+  res.setHeader("cross-origin-opener-policy", "same-origin");
+  res.setHeader("cross-origin-embedder-policy", "require-corp");
+  res.setHeader("cross-origin-resource-policy", "same-origin");
+}
+
+function serveMeta(pathname: string, res: ServerResponse): boolean {
+  if (pathname === "/health" || pathname === "/healthz") {
+    jsonOk(res, healthBody());
+    return true;
+  }
+  if (pathname === "/api/version") {
+    jsonOk(res, revisionBody(liveRevisionId()));
+    return true;
+  }
+  return false;
+}
+
+function serveRoomsList(pathname: string, res: ServerResponse): boolean {
+  if (pathname === "/rooms") {
+    void withDeadline(matchMaker.query({ name: ROOM_NAME }), HUB_CONFIG.roomsFetchMs).then((listed) => {
+      jsonOk(res, JSON.stringify(roomsHttpBody(listed)));
+    }).catch(() => {
+      res.writeHead(503, { "content-type": "application/json" });
+      res.end(JSON.stringify({ rooms: [] }));
+    });
+    return true;
+  }
+  return false;
+}
+
+function servePackAssets(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+): boolean {
+  // extlib 는 Godot dlopen 이 페이지 루트에서 파일명만 요청한다.
+  // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
+  if (isExtLibPath(pathname) &&
+      serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {
+    return true;
+  }
+  const worklet = godotWorkletAssetPath(pathname);
+  if (worklet && serveGodotAsset(req, res, worklet)) {return true;}
+  const servePack = process.env.HUB_STATIC_SPLIT !== "1";
+  if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {
+    return true;
+  }
+  if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {
+    return true;
+  }
+  return false;
+}
+
+type RequestHandle = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
+
+function hubFallback(
+  req: IncomingMessage,
+  res: ServerResponse,
+  handle: RequestHandle,
+): void {
+  if (cutRetiredHost(req, res)) {return;}
+  setIsolationHeaders(res);
+  const pathname = (req.url ?? "/").split("?")[0];
+  if (serveMeta(pathname, res)) {return;}
+  if (serveRoomsList(pathname, res)) {return;}
+  if (servePackAssets(req, res, pathname)) {return;}
+  void handle(req, res);
+}
+
 function startStatic(): void {
   createServer((req, res) => {
     if (cutRetiredHost(req, res)) {return;}
@@ -138,16 +214,7 @@ function startStatic(): void {
     res.setHeader("cross-origin-embedder-policy", "require-corp");
     res.setHeader("cross-origin-resource-policy", "same-origin");
     const pathname = (req.url ?? "/").split("?")[0];
-    if (pathname === "/health" || pathname === "/healthz") {
-      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      res.end(healthBody());
-      return;
-    }
-    if (pathname === "/api/version") {
-      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      res.end(revisionBody(deployedBuildId()));
-      return;
-    }
+    if (serveMeta(pathname, res)) {return;}
     if (isExtLibPath(pathname) &&
         serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
     {
@@ -193,45 +260,8 @@ function startHub(): void {
     ...(publicAddress ? { publicAddress } : {}),
     // Colyseus 라우터(매치메이킹 /matchmake/*)가 못 받는 요청은 여기로 폴백된다.
     express: (expressApp): void => {
-      expressApp.use((req: IncomingMessage, res: ServerResponse) => {
-        if (cutRetiredHost(req, res)) {return;}
-        // SharedArrayBuffer(스레드 지원 Godot 웹 빌드) 에 필요한 교차 출처 격리 헤더.
-        res.setHeader("cross-origin-opener-policy", "same-origin");
-        res.setHeader("cross-origin-embedder-policy", "require-corp");
-        res.setHeader("cross-origin-resource-policy", "same-origin");
-        const pathname = (req.url ?? "/").split("?")[0];
-        if (pathname === "/health" || pathname === "/healthz") {
-          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-          res.end(healthBody());
-          return;
-        }
-        if (pathname === "/api/version") {
-          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-          res.end(revisionBody(deployedBuildId()));
-          return;
-        }
-        if (pathname === "/rooms") {
-          void withDeadline(matchMaker.query({ name: ROOM_NAME }), HUB_CONFIG.roomsFetchMs).then((listed) => {
-            res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-            res.end(JSON.stringify(roomsHttpBody(listed)));
-          }).catch(() => {
-            res.writeHead(503, { "content-type": "application/json" });
-            res.end(JSON.stringify({ rooms: [] }));
-          });
-          return;
-        }
-        // extlib 는 Godot dlopen 이 페이지 루트에서 파일명만 요청한다.
-        // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
-        if (isExtLibPath(pathname) &&
-            serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
-        {
-          const worklet = godotWorkletAssetPath(pathname);
-          if (worklet && serveGodotAsset(req, res, worklet)) {return;}
-        }
-        const servePack = process.env.HUB_STATIC_SPLIT !== "1";
-        if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
-        if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
-        void handle(req, res);
+      expressApp.use((req: IncomingMessage, res: ServerResponse): void => {
+        hubFallback(req, res, handle);
       });
     },
   });
