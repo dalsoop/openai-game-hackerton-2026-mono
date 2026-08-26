@@ -31,4 +31,4 @@ COPY --from=build /app/public ./public
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "dist/server.js"]
+CMD ["node", "-r", "./dist/alias-register.js", "dist/server.js"]
