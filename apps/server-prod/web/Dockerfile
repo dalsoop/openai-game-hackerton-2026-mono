@@ -7,6 +7,9 @@ RUN test -s package-lock.json && grep -q '"lockfileVersion"' package-lock.json
 RUN npm ci
 COPY web/ ./
 COPY project/addons/colyseus/bin ./public/addons/colyseus/bin
+# Godot dlopen 은 페이지 루트 파일명을 요청한다. Next 폴백이어도 public 에서 나오게.
+RUN cp ./public/addons/colyseus/bin/libcolyseus_godot.web.wasm32.release.wasm \
+  ./public/libcolyseus_godot.web.wasm32.release.wasm
 RUN test -n "$(find public/godot -name index.pck -print -quit)" \
   || (echo "godot pack missing — Apps ship 이 godot:build+publish 뒤에 이 이미지를 굽는다" && exit 1)
 RUN npx next build && npx tsc --project tsconfig.server.json

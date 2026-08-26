@@ -203,9 +203,11 @@ function startHub(): void {
           });
           return;
         }
-        const servePack = process.env.HUB_STATIC_SPLIT !== "1";
-        if (servePack && isExtLibPath(pathname) &&
+        // extlib 는 Godot dlopen 이 페이지 루트에서 파일명만 요청한다.
+        // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
+        if (isExtLibPath(pathname) &&
             serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
+        const servePack = process.env.HUB_STATIC_SPLIT !== "1";
         if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
         if (servePack && pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
         void handle(req, res);

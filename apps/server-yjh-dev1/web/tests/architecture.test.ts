@@ -203,6 +203,12 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(sourceOf(join(ROOT, "server.ts"))).not.toContain("RoomListRoom");
   });
 
+  it("스케일 분리여도 extlib 루트는 허브가 서빙한다", () => {
+    const server = sourceOf(join(ROOT, "server.ts"));
+    expect(server).toContain("isExtLibPath(pathname)");
+    expect(server).not.toMatch(/servePack && isExtLibPath/);
+  });
+
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
     expect(sourceOf(join(ROOT, "lib/hub/page-bridge.ts"))).not.toContain("onMessage");
     expect(sourceOf(join(ROOT, "hooks/usePageBridge.ts"))).toContain("useRoomMessage");
