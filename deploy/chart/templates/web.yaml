@@ -87,6 +87,13 @@ data:
             flush_interval -1
           }
         }
+        # Godot dlopen 은 페이지 루트(/ 또는 /ko/)에서 이 파일명을 요청한다.
+        @extlib_{{ .id | replace "-" "_" }} path_regexp extlib_{{ .id | replace "-" "" }} /libcolyseus_godot\.web\.wasm32\.release\.wasm$
+        handle @extlib_{{ .id | replace "-" "_" }} {
+          reverse_proxy {{ .folder }}-hub-static:80 {
+            flush_interval -1
+          }
+        }
         handle {
           reverse_proxy {{ .folder }}-hub:80 {
             flush_interval -1
