@@ -11,6 +11,11 @@ export {
   shouldShowReconnect,
 } from "./hub/room-end";
 
+/** 인트로(시작하기) 화면에서만 켠다. */
+export function lobbyBgmOn(phase: GamePhase): boolean {
+  return phase === "intro";
+}
+
 /** 허브 상태가 화면 페이즈를 몰아간다 — 아니면 현재 유지. */
 export function phaseFromHubStatus(status: HubStatus, current: GamePhase): GamePhase {
   if (status === "in-room") {return "room";}

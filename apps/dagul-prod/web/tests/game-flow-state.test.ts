@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { displayNameOf, lobbyBgmOn, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -30,6 +30,15 @@ describe("phaseAfterMatchEnd", () => {
 
   it.each(["offline", "connecting"] as HubStatus[])("연결 단절(%s) → 인트로", (status) => {
     expect(phaseAfterMatchEnd(status)).toBe("intro");
+  });
+});
+
+describe("lobbyBgmOn", () => {
+  it("시작하기 화면만 켜고 로비·대기실·매치는 끈다", () => {
+    expect(lobbyBgmOn("intro")).toBe(true);
+    expect(lobbyBgmOn("lobby")).toBe(false);
+    expect(lobbyBgmOn("room")).toBe(false);
+    expect(lobbyBgmOn("playing")).toBe(false);
   });
 });
 

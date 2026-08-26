@@ -45,14 +45,14 @@ describe("captureAudioContexts", () => {
 });
 
 describe("bindAudioUnlock", () => {
-  it("pointerdown · keydown 에서 unlock 한다", () => {
+  it("pointerdown · mousedown 에서 unlock 한다", () => {
     stubAudioContext();
     const canvas = document.createElement("canvas");
     captureAudioContexts();
     const Ctx = window.AudioContext as unknown as new () => AudioContext;
     const ctx = new Ctx();
     const stop = bindAudioUnlock(canvas);
-    canvas.dispatchEvent(new Event("pointerdown"));
+    canvas.dispatchEvent(new Event("mousedown"));
     expect(ctx.resume).toHaveBeenCalled();
     stop();
   });

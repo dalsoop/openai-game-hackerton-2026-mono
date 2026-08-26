@@ -7,6 +7,7 @@ import { findGame, visibleCatalog } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { useTranslations } from "next-intl";
+import { playOkButton } from "@/lib/ui-sfx";
 
 interface Props {
   players: Seat[];
@@ -86,7 +87,16 @@ export default function Room({
 
       <div className="host-bar">
         {isHost ? (
-          <button type="button" className="cta block" onClick={onStart} disabled={!canStart}>
+          <button
+            type="button"
+            className="cta block"
+            data-sfx="ok"
+            onClick={() => {
+              playOkButton();
+              onStart();
+            }}
+            disabled={!canStart}
+          >
             {t("startButton")}
           </button>
         ) : (
