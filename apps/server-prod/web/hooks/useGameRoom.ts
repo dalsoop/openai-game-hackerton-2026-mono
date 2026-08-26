@@ -8,12 +8,12 @@ import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF } from "@/lib/contract";
 import { ROOM_NAME } from "@/lib/hub/config";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
+import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
 import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
-/** 소켓 유지는 튕김이 아니다. onLeave 만 강제 퇴장. */
-export type RoomEndKind = "handoff" | "drop";
+export type { RoomEndKind };
 
 // 인게임 핸드오프 — START 정보와 재접속 토큰을 localStorage 에 남긴다.
 // 허브 소켓은 React 가 유지한다. Godot 는 페이지 브릿지로만 I/O 한다.
@@ -80,9 +80,9 @@ export function useGameRoom(
             playerName(),
           );
           if (restored) {setMatchInfo(restored);}
-          r.onLeave(() => {
+          r.onLeave((code?: number) => {
             setMatchInfo(null);
-            onRoomEnded("drop");
+            onRoomEnded(roomEndKindFromCode(code));
           });
           return r;
         }

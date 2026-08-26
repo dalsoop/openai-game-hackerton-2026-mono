@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0vcwc0vettmv"
-path="res://.godot/imported/mode_gun_semi.png-74519d03536e19549fe84199ef1edd91.ctex"
+path="res://.godot/imported/mode_gun_semi.png-f02939e710168553a257ecac14373f62.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/ui/mode_gun_semi.png"
-dest_files=["res://.godot/imported/mode_gun_semi.png-74519d03536e19549fe84199ef1edd91.ctex"]
+dest_files=["res://.godot/imported/mode_gun_semi.png-f02939e710168553a257ecac14373f62.ctex"]
 
 [params]
 

@@ -94,7 +94,7 @@ func _snap_players() -> Array:
 	var arr: Array = []
 	for h in world.heroes:
 		var slot := int(h["slot"])
-		var cpu := not world.human_slots.has(slot) and slot != world.local_slot
+		var cpu: bool = not world.human_slots.has(slot) and slot != world.local_slot
 		arr.append(SnapContract.pack_player(h, cpu, _peer_seq.get(slot, 0)))
 	return arr
 

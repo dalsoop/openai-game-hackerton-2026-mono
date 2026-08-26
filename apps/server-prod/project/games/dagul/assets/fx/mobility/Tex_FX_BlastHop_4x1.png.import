@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://blq6ihwyjiw4h"
-path="res://.godot/imported/Tex_FX_BlastHop_4x1.png-efdc4eebd5da78e3bc9d1e667e1ec58d.ctex"
+path="res://.godot/imported/Tex_FX_BlastHop_4x1.png-1a865415e4a23b633ce2b19805b57332.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/mobility/Tex_FX_BlastHop_4x1.png"
-dest_files=["res://.godot/imported/Tex_FX_BlastHop_4x1.png-efdc4eebd5da78e3bc9d1e667e1ec58d.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_BlastHop_4x1.png-1a865415e4a23b633ce2b19805b57332.ctex"]
 
 [params]
 

@@ -19,6 +19,12 @@ export function godotAssetUrl(pack: string, file?: string): string {
   return `/godot/${pack}/${file}`;
 }
 
+/** 내용 해시가 있으면 불변 URL. 엔진 executable 경로(접미사 concat)에는 쓰지 않는다. */
+export function versionedAssetUrl(url: string, filesHash?: string): string {
+  if (filesHash === undefined || filesHash === "") {return url;}
+  return `${url}?v=${filesHash}`;
+}
+
 export function assetPlanOf(pack: string): AssetPlan {
   return {
     engineBase: godotAssetUrl(pack, "index"),
@@ -45,6 +51,7 @@ type ProgressFn = (progress: number, loaded: number, total: number) => void;
 export class AssetStore {
   private readonly inflight = new Map<string, Promise<ArrayBuffer>>();
   private readonly done = new Map<string, ArrayBuffer>();
+  private filesHash = "";
   private loaded = 0;
   private total = 0;
 
@@ -65,16 +72,27 @@ export class AssetStore {
     return inflight;
   }
 
-  get wasm(): Promise<ArrayBuffer> {return this.get(this.plan.files.wasm);}
-  get pck(): Promise<ArrayBuffer> {return this.get(this.plan.files.pck);}
-  get sideWasm(): Promise<ArrayBuffer> {return this.get(this.plan.files.sideWasm);}
+  get wasm(): Promise<ArrayBuffer> {return this.get(this.assetUrl(this.plan.files.wasm));}
+  get pck(): Promise<ArrayBuffer> {return this.get(this.assetUrl(this.plan.files.pck));}
+  get sideWasm(): Promise<ArrayBuffer> {return this.get(this.assetUrl(this.plan.files.sideWasm));}
   get extLib(): Promise<ArrayBuffer> {return this.get(this.plan.extLibUrl);}
+
+  assetUrl(url: string): string {
+    return versionedAssetUrl(url, this.filesHash);
+  }
 
   /** 매니페스트(버전 무결성의 정본) — 캐시 대상 아님: 항상 재검증. */
   async loadManifest(pack: string): Promise<{ version: string; filesHash?: string; files: string[] }> {
     const resp = await fetch(godotAssetUrl(pack, "manifest.json"), { cache: "no-cache" });
     if (!resp.ok) {throw new Error(`manifest.json: ${resp.status}`);}
-    return resp.json();
+    const body = await resp.json() as { version: string; filesHash?: string; files: string[] };
+    const nextHash = typeof body.filesHash === "string" ? body.filesHash : "";
+    if (nextHash !== this.filesHash) {
+      this.done.clear();
+      this.inflight.clear();
+      this.filesHash = nextHash;
+    }
+    return body;
   }
 
   private async fetchCounted(url: string, expectBytes: number): Promise<ArrayBuffer> {

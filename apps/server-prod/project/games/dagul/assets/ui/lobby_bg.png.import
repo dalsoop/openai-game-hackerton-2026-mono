@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dicqjcxp5qitp"
-path="res://.godot/imported/lobby_bg.png-9c15b5af9c01790bc667be7c3c7e0558.ctex"
+path="res://.godot/imported/lobby_bg.png-cd5d537acd1e7c0efcabcd0770db96ad.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/ui/lobby_bg.png"
-dest_files=["res://.godot/imported/lobby_bg.png-9c15b5af9c01790bc667be7c3c7e0558.ctex"]
+dest_files=["res://.godot/imported/lobby_bg.png-cd5d537acd1e7c0efcabcd0770db96ad.ctex"]
 
 [params]
 

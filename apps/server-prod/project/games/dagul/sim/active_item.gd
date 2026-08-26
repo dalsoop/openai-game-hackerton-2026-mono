@@ -1,6 +1,8 @@
 class_name ActiveItem
 extends RefCounted
 
+const EquipmentSkillScript := preload("res://games/dagul/sim/equipment_skill.gd")
+
 var w
 
 func _init(world) -> void:
@@ -125,17 +127,20 @@ func cancel_skill_charge(slot: int) -> void:
 	h["charge_time"] = 0.0
 	w.heroes[slot] = h
 
-func begin_skill_charge(_slot: int, _direction: Vector2) -> void:
-	return
+func apply_equipment_command(slot: int, command: Dictionary, facing: Vector2, dt: float) -> void:
+	EquipmentSkillScript.apply_command(w, slot, command, facing, dt)
 
-func continue_skill_charge(_slot: int, _dt: float, _direction: Vector2) -> void:
-	return
+func begin_skill_charge(slot: int, direction: Vector2) -> void:
+	EquipmentSkillScript.begin_charge(w, slot, direction)
 
-func release_skill_charge(_slot: int, _direction: Vector2) -> void:
-	return
+func continue_skill_charge(slot: int, dt: float, direction: Vector2) -> void:
+	EquipmentSkillScript.continue_charge(w, slot, dt, direction)
 
-func try_equipment_attack(_slot: int, _direction: Vector2, _charge_ratio: float = 1.0) -> void:
-	return
+func release_skill_charge(slot: int, direction: Vector2) -> void:
+	EquipmentSkillScript.release_charge(w, slot, direction)
+
+func try_equipment_attack(slot: int, direction: Vector2, charge_ratio: float = 1.0) -> void:
+	EquipmentSkillScript.fire(w, slot, direction, charge_ratio)
 
 func item_kind_color(kind: String) -> Color:
 	match kind:

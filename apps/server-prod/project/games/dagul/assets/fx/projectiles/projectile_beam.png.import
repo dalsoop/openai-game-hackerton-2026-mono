@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bp6ky6w16y5sj"
-path="res://.godot/imported/projectile_beam.png-a5fd290dcb58241d9764489a62fccfd8.ctex"
+path="res://.godot/imported/projectile_beam.png-a6ab38e444778dd3848e47a273395b59.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/projectiles/projectile_beam.png"
-dest_files=["res://.godot/imported/projectile_beam.png-a5fd290dcb58241d9764489a62fccfd8.ctex"]
+dest_files=["res://.godot/imported/projectile_beam.png-a6ab38e444778dd3848e47a273395b59.ctex"]
 
 [params]
 

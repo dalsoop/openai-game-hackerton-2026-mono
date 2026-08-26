@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://da7h4ck845ou6"
-path="res://.godot/imported/finish-bg.png-7c4d12de492e2b85f4409b974276bc6f.ctex"
+path="res://.godot/imported/finish-bg.png-f3963be11ef5024c8a2709a54c5f7697.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/finish-bg.png"
-dest_files=["res://.godot/imported/finish-bg.png-7c4d12de492e2b85f4409b974276bc6f.ctex"]
+dest_files=["res://.godot/imported/finish-bg.png-f3963be11ef5024c8a2709a54c5f7697.ctex"]
 
 [params]
 

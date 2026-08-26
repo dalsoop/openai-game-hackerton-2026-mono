@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cuctgh8aixym1"
-path="res://.godot/imported/Tex_FX_Ult_Rat_4x2.png-f92072a26d2b11d97789c42df9e83b7d.ctex"
+path="res://.godot/imported/Tex_FX_Ult_Rat_4x2.png-2bef980bac02cd17937fe0b124c854d8.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/ultimates/Tex_FX_Ult_Rat_4x2.png"
-dest_files=["res://.godot/imported/Tex_FX_Ult_Rat_4x2.png-f92072a26d2b11d97789c42df9e83b7d.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_Ult_Rat_4x2.png-2bef980bac02cd17937fe0b124c854d8.ctex"]
 
 [params]
 

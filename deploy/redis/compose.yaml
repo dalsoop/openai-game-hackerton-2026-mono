@@ -1,4 +1,4 @@
-# 로컬·클러스터 모두 Redis 1대. 허브는 REDIS_URL=redis://127.0.0.1:6379
+# Redis 1대. 로컬은 redis://127.0.0.1:6379 (DB 0). 클러스터는 redis.slots.<id> 번호.
 name: hackertone-redis
 services:
   redis:

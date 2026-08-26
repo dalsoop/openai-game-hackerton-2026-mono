@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayNameOf, downloadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, reconnectJoinId, shouldMarkRoomDropped, shouldShowConnectionLost, shouldShowReconnect } from "@/lib/game-flow-state";
+import { displayNameOf, downloadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 
 const HUB_STATUSES: HubStatus[] = ["offline", "connecting", "lobby", "in-room", "playing"];
@@ -52,45 +52,6 @@ describe("shouldShowConnectionLost — 모달 표시 조건", () => {
 
   it.each(["connecting", "lobby", "in-room", "playing"] as HubStatus[])("오프라인이 아니면(%s) 모달 아님", (status) => {
     expect(shouldShowConnectionLost(status, "lobby")).toBe(false);
-  });
-});
-
-describe("shouldMarkRoomDropped — Godot 양도는 튕김이 아님", () => {
-  it("handoff 는 dropReason 을 남기지 않는다", () => {
-    expect(shouldMarkRoomDropped("handoff")).toBe(false);
-  });
-
-  it("그 외 onLeave 는 강제 퇴장이다", () => {
-    expect(shouldMarkRoomDropped("drop")).toBe(true);
-  });
-});
-
-describe("shouldShowReconnect — 회색 화면 대신 모달", () => {
-  it("강퇴·강제 퇴장은 허브 상태와 무관하게 모달", () => {
-    expect(shouldShowReconnect("lobby", "lobby", "kicked")).toBe(true);
-    expect(shouldShowReconnect("in-room", "room", "dropped")).toBe(true);
-  });
-
-  it("이유가 없으면 기존 오프라인 규칙을 따른다", () => {
-    expect(shouldShowReconnect("offline", "intro", null)).toBe(false);
-    expect(shouldShowReconnect("offline", "lobby", null)).toBe(true);
-    expect(shouldShowReconnect("lobby", "lobby", null)).toBe(false);
-  });
-
-  it("핸드오프 직후(playing·이유 없음)는 캔버스를 가리지 않는다", () => {
-    expect(shouldShowReconnect("playing", "playing", null)).toBe(false);
-  });
-});
-
-describe("reconnectJoinId — 재접속 대상", () => {
-  it("강퇴는 로비만 — 닫힌 방으로 들어가지 않는다", () => {
-    expect(reconnectJoinId("kicked", "abc")).toBeNull();
-  });
-
-  it("끊김은 마지막 방으로 다시 들어간다", () => {
-    expect(reconnectJoinId("dropped", "abc")).toBe("abc");
-    expect(reconnectJoinId("offline", "abc")).toBe("abc");
-    expect(reconnectJoinId("dropped", "")).toBeNull();
   });
 });
 

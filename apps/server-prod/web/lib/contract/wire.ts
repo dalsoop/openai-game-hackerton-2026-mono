@@ -26,10 +26,6 @@ export const DOM_EVT = {
   TO_ENGINE: "gangup-to-engine",
   /** Godot → React. 엔진은 matchmake/reconnect 를 치지 않는다. */
   FROM_ENGINE: "gangup-from-engine",
-  /** 알탭·숨김. 엔진은 물리 키 상태를 비운다. */
-  PAGE_HIDDEN: "godot-page-hidden",
-  /** 창 복귀. 허브는 캔버스 포커스를 되돌리고 엔진은 키 상태를 비운다. */
-  PAGE_VISIBLE: "godot-page-visible",
 } as const;
 
 export const MSG = {

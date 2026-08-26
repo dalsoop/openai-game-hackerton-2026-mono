@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0itb8dmsbpb8"
-path="res://.godot/imported/Tex_FX_HitSpark_4x1.png-452d8a81f4458727b6fd6d9301878033.ctex"
+path="res://.godot/imported/Tex_FX_HitSpark_4x1.png-42e47e17277c2c963fe91d69bfbf4c87.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/combat/Tex_FX_HitSpark_4x1.png"
-dest_files=["res://.godot/imported/Tex_FX_HitSpark_4x1.png-452d8a81f4458727b6fd6d9301878033.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_HitSpark_4x1.png-42e47e17277c2c963fe91d69bfbf4c87.ctex"]
 
 [params]
 

@@ -9,8 +9,9 @@ import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 
 const outDir = process.argv[2];
+const sourceHash = process.argv[3] || "";
 if (!outDir) {
-  console.error("사용법: gen-godot-manifest.mjs <godot-export-dir>");
+  console.error("사용법: gen-godot-manifest.mjs <godot-export-dir> [sourceHash]");
   process.exit(1);
 }
 
@@ -42,8 +43,14 @@ if (prev && prev.filesHash === filesHash && prev.version) {
   }
 }
 
+const body = { version, filesHash, files };
+if (sourceHash) {
+  body.sourceHash = sourceHash;
+} else if (prev && prev.sourceHash) {
+  body.sourceHash = prev.sourceHash;
+}
 writeFileSync(
   path.join(outDir, "manifest.json"),
-  JSON.stringify({ version, filesHash, files }, null, 2) + "\n",
+  JSON.stringify(body, null, 2) + "\n",
 );
-console.log(`manifest: version=${version} filesHash=${filesHash}${prev && prev.filesHash === filesHash ? " (변경 없음 — 버전 유지)" : ""}`);
+console.log(`manifest: version=${version} filesHash=${filesHash}${sourceHash ? ` sourceHash=${sourceHash}` : ""}${prev && prev.filesHash === filesHash ? " (변경 없음 — 버전 유지)" : ""}`);

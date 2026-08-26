@@ -49,6 +49,21 @@ func combat_stats_for(equipment_id: String) -> Dictionary:
         "chain": return {"move_speed":402.0, "max_hp":164.0, "weight":1.08, "combo_cap_ratio":0.24, "special_name":"MID FRAME", "special_desc":"average rifle body"}
         _: return {"move_speed":340.0, "max_hp":213.0, "weight":1.55, "combo_cap_ratio":0.24, "special_name":"HEAVY FRAME", "special_desc":"slowest high HP body"}
 
+func skill_stats_for(equipment_id: String) -> Dictionary:
+    match equipment_id:
+        "scatter": return {"cooldown": 3.10, "damage": 7.0, "speed": 720.0, "range": 0.72, "skill_name": "BACKBLAST", "skill_desc": "Cone knockback plus recoil escape"}
+        "rail": return {"cooldown": 3.50, "damage": 38.0, "speed": 1120.0, "range": 1.42, "skill_name": "ANCHOR BREAK", "skill_desc": "Pierce, stagger and launch in one line"}
+        "mortar": return {"cooldown": 4.40, "damage": 24.0, "speed": 560.0, "range": 1.08, "skill_name": "SKYFALL", "skill_desc": "Warned blast opens cores and launches groups"}
+        "leech": return {"cooldown": 3.40, "damage": 18.0, "speed": 820.0, "range": 1.08, "skill_name": "BLOOD HARPOON", "skill_desc": "Hook pulls prey in and restores health"}
+        "breaker": return {"cooldown": 3.60, "damage": 32.0, "speed": 650.0, "range": 0.96, "skill_name": "CRASH ENTRY", "skill_desc": "Armored dash ends in a heavy shockwave"}
+        "burst": return {"cooldown": 3.35, "damage": 10.0, "speed": 820.0, "range": 1.18, "skill_name": "SEEKER SALVO", "skill_desc": "Three curving missiles chase evasive prey"}
+        "blade": return {"cooldown": 3.10, "damage": 27.0, "speed": 980.0, "range": 0.32, "skill_name": "CROSS STEP", "skill_desc": "Pass through the target and cut the exit"}
+        "brawler": return {"cooldown": 3.20, "damage": 24.0, "speed": 820.0, "range": 0.26, "skill_name": "LIVER SHOT", "skill_desc": "Shoulder in and pin the target in hitstun"}
+        "bomb": return {"cooldown": 4.40, "damage": 27.0, "speed": 520.0, "range": 1.10, "skill_name": "PROX MINE", "skill_desc": "Install up to two visible proximity mines"}
+        "spear": return {"cooldown": 3.45, "damage": 29.0, "speed": 1180.0, "range": 0.72, "skill_name": "VAULT IMPALE", "skill_desc": "Vault forward and skewer a sightline"}
+        "chain": return {"cooldown": 4.60, "damage": 21.0, "speed": 900.0, "range": 0.78, "skill_name": "CHAIN LOCK", "skill_desc": "Pull and root one target; charge for a longer bind"}
+        _: return {"cooldown": 5.60, "damage": 22.0, "speed": 700.0, "range": 0.30, "skill_name": "BULLDOZER WALL", "skill_desc": "Launch a warned moving wall that sweeps enemies away"}
+
 func mobility_for(equipment_id: String) -> Dictionary:
     match equipment_id:
         "scatter": return {"mobility_name":"SKIRMISH HOP", "mobility_desc":"fast lateral recoil", "mobility_cooldown":4.2, "mobility_distance":219.0}
@@ -80,4 +95,7 @@ func make_equipment(equipment_id: String) -> Dictionary:
     var combat_stats := combat_stats_for(str(equipment["id"]))
     for key in combat_stats:
         equipment[key] = combat_stats[key]
+    var skill := skill_stats_for(str(equipment["id"]))
+    for key in skill:
+        equipment[key] = skill[key]
     return equipment

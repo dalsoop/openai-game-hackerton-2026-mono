@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bb16ewb5c6gr3"
-path="res://.godot/imported/range.png-9f7dd2835f1efd4a508750ce422c3586.ctex"
+path="res://.godot/imported/range.png-b78fac8cfc6a75b11385576e8d426749.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/range.png"
-dest_files=["res://.godot/imported/range.png-9f7dd2835f1efd4a508750ce422c3586.ctex"]
+dest_files=["res://.godot/imported/range.png-b78fac8cfc6a75b11385576e8d426749.ctex"]
 
 [params]
 

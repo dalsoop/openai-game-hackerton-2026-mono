@@ -40,6 +40,15 @@ apps/*/project/web/*.br
 apps/*/project/web/*.gz
 .claude/worktrees/
 apps/*/project/web/manifest.json
+apps/*/web/public/godot/**/index.wasm
+apps/*/web/public/godot/**/index.pck
+apps/*/web/public/godot/**/index.js
+apps/*/web/public/godot/**/index.side.wasm
+apps/*/web/public/godot/**/*.br
+apps/*/web/public/godot/**/*.gz
+apps/*/web/public/godot/**/manifest.json
+apps/*/web/public/godot/**/index.audio.worklet.js
+apps/*/web/public/godot/**/index.audio.position.worklet.js
 
 # 앱별 웹 빌드 산출물 (apps/*/web — 루트 web/ 패턴은 여기 안 닿음)
 apps/*/web/.next/

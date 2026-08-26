@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://crmvoh324m4ki"
-path="res://.godot/imported/projectile_fist.png-91859de5245cd81b4554a8d8e4ec26a4.ctex"
+path="res://.godot/imported/projectile_fist.png-e60b210af88215177ec83a98ed9b9dd7.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/projectiles/projectile_fist.png"
-dest_files=["res://.godot/imported/projectile_fist.png-91859de5245cd81b4554a8d8e4ec26a4.ctex"]
+dest_files=["res://.godot/imported/projectile_fist.png-e60b210af88215177ec83a98ed9b9dd7.ctex"]
 
 [params]
 

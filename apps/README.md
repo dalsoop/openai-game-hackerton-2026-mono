@@ -23,6 +23,6 @@ server-board/       배포 보드. https://server-board.external.kr/
 
 모드는 로비에서 고른다. 폴더를 모드마다 쪼개지 않는다.
 
-`apps/`를 푸시하면 Actions `Apps ship`이 Godot 웹 익스포트·허브·Helm을 올린다. `project/web`의 wasm/pck는 git에 넣지 않는다.
+`apps/`를 푸시하면 Actions `Apps ship`이 Godot 웹 익스포트·허브·Helm을 올린다. Next 슬롯은 `godot:build` 후 `public/godot`에 복사한 팩을 이미지에 넣는다. wasm/pck는 git에 넣지 않는다.
 
 상태는 `https://server-board.external.kr/` 이다. 파란 구슬은 노드에 파일이 있는 슬롯이다.

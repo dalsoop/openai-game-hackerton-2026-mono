@@ -1,19 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
-import { HUB_CONFIG } from "@/lib/hub/config";
-import { idleLeftSec } from "@/lib/hub/lobby-idle";
+import { idleLeftFromUntil, nowUnixSec } from "@/lib/hub/lobby-idle";
 
-export function useRoomIdle(createdAtMs: number, active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
+/** 서버 idleUntilSec(unix 초) 기준 남은 초. 백그라운드 탭은 복귀 때 다시 읽는다. */
+export function useRoomIdle(idleUntilSec: number, active: boolean): number {
+  const [nowSec, setNowSec] = useState(nowUnixSec);
   useEffect(() => {
-    if (!active || createdAtMs <= 0) {return;}
-    const id = setInterval(() => {setNow(Date.now());}, 1000);
-    return (): void => {clearInterval(id);};
-  }, [active, createdAtMs]);
-  if (!active || createdAtMs <= 0) {return 0;}
-  return idleLeftSec(createdAtMs, now);
-}
-
-export function idleBudgetSec(): number {
-  return Math.floor(HUB_CONFIG.idleStartMs / 1000);
+    if (!active || idleUntilSec <= 0) {return;}
+    const tick = (): void => {setNowSec(nowUnixSec());};
+    const id = setInterval(tick, 1000);
+    const onVis = (): void => {
+      if (document.visibilityState === "visible") {tick();}
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return (): void => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [active, idleUntilSec]);
+  if (!active || idleUntilSec <= 0) {return 0;}
+  return idleLeftFromUntil(idleUntilSec, nowSec);
 }

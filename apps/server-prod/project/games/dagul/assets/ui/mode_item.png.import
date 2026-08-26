@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4xh8no1iyb3f"
-path="res://.godot/imported/mode_item.png-82f370c436a0fa93476adf078f901475.ctex"
+path="res://.godot/imported/mode_item.png-94c5ba57f51e27bc9954d106c7088117.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/ui/mode_item.png"
-dest_files=["res://.godot/imported/mode_item.png-82f370c436a0fa93476adf078f901475.ctex"]
+dest_files=["res://.godot/imported/mode_item.png-94c5ba57f51e27bc9954d106c7088117.ctex"]
 
 [params]
 

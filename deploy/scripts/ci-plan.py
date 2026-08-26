@@ -6,16 +6,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
-HUB_MARKERS = {
-    "src",
-    "Dockerfile",
-    "package.json",
-    "package-lock.json",
-    "public",
-}
 
 
 def folders() -> list[str]:
@@ -28,7 +22,17 @@ def folders() -> list[str]:
 
 def diff_names(before: str, after: str) -> list[str]:
     proc = subprocess.run(
-        ["git", "diff", "--name-only", before, after, "--", "apps/", "deploy/"],
+        [
+            "git",
+            "diff",
+            "--name-only",
+            before,
+            after,
+            "--",
+            "apps/",
+            "deploy/",
+            ".github/workflows/apps.yml",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -37,27 +41,31 @@ def diff_names(before: str, after: str) -> list[str]:
     return [line for line in proc.stdout.splitlines() if line]
 
 
-def analyze(before: str, after: str, all_mode: bool) -> tuple[list[str], bool]:
+def analyze(
+    before: str, after: str, all_mode: bool, changed: Optional[list[str]] = None
+) -> tuple[list[str], bool]:
     known = folders()
     if all_mode or not before or before == "0" * 40:
         return known, True
     picked: set[str] = set()
     helm = False
-    for line in diff_names(before, after):
+    for line in changed if changed is not None else diff_names(before, after):
         parts = Path(line).parts
         if not parts:
             continue
         if parts[0] == "apps" and len(parts) >= 2 and parts[1].startswith("server-"):
             picked.add(parts[1])
-            rest = parts[2:]
-            if rest and (rest[0] in HUB_MARKERS or rest[0] == "hackertone.yaml"):
-                helm = True
+            # 이미지 태그는 plant → values-games.yaml → helm 만 정본이다.
+            helm = True
             continue
         if parts[0] == "deploy":
             helm = True
             name = Path(line).name
             if name in {"plant-apps.py", "slots.json"}:
                 picked.add("server-board")
+            continue
+        if parts[0] == ".github":
+            helm = True
     return [name for name in known if name in picked], helm
 
 

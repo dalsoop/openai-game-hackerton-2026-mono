@@ -69,18 +69,13 @@ jobs:
         run: |
           set -eu
           folders="${{ needs.plan.outputs.folders }}"
-          rc=0
-          set +e
           if [ -n "$folders" ]; then
             python3 deploy/scripts/apply-apps.py ship $folders
-            rc=$?
           else
             echo "웹·허브 대상 없음"
           fi
-          if [ "${{ needs.plan.outputs.helm }}" = "true" ]; then
-            python3 deploy/scripts/apply-apps.py helm || rc=$?
-          fi
-          exit $rc
+      - name: Helm planted values
+        run: python3 deploy/scripts/apply-apps.py helm
 
   purge:
     needs: [plan, ship]

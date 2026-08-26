@@ -7,9 +7,15 @@ import { useGameFlow, type UseGameFlowResult } from "@/hooks/useGameFlow";
 
 const GameFlowContext = createContext<UseGameFlowResult | null>(null);
 
-export function GameFlowProvider({ children }: { children: ReactNode }): JSX.Element {
+export function GameFlowProvider({
+  children,
+  buildId = "",
+}: {
+  children: ReactNode;
+  buildId?: string;
+}): JSX.Element {
   const t = useTranslations("intro");
-  const value = useGameFlow(t("defaultPlayer"));
+  const value = useGameFlow(t("defaultPlayer"), buildId);
   return <GameFlowContext.Provider value={value}>{children}</GameFlowContext.Provider>;
 }
 

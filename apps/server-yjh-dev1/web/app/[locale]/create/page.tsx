@@ -6,10 +6,11 @@ import { CONNECTION_CLASS } from "@/types";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { useCreateRoomPage } from "@/hooks/useCreateRoomPage";
 import CreateRoom from "@/components/CreateRoom";
+import { DeployReloadBanner } from "@/components/DeployReloadBanner";
 
 export default function CreatePage(): JSX.Element {
   const t = useTranslations();
-  const { hub } = useGameFlowContext();
+  const { hub, deployStale, reloadDeploy } = useGameFlowContext();
   const { ready, listings, onSubmit, onBack } = useCreateRoomPage();
 
   return (
@@ -23,6 +24,7 @@ export default function CreatePage(): JSX.Element {
           </span>
         </div>
       </header>
+      <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
       {ready ? <CreateRoom listings={listings} onSubmit={onSubmit} onBack={onBack} /> : null}
     </div>
   );

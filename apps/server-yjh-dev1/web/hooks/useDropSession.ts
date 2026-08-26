@@ -1,14 +1,14 @@
 "use client";
 // 강퇴·튕김 재접속 — useHub 분기 수를 늘리지 않기 위해 분리한다.
 import { useCallback, useState } from "react";
-import { reconnectJoinId, type DropReason } from "@/lib/game-flow-state";
+import { dropReasonFromKick, reconnectJoinId, type DropReason } from "@/lib/hub/room-end";
 
 export function useDropSession(): {
   dropReason: DropReason | null;
   lastRoomId: string;
   rememberRoomId: (id: string) => void;
   onRoomDropped: () => void;
-  onKicked: () => void;
+  onKicked: (raw?: unknown) => void;
   clearDrop: () => void;
   takeReconnectId: () => string | null;
 } {
@@ -21,8 +21,8 @@ export function useDropSession(): {
   const onRoomDropped = useCallback(() => {
     setDropReason((prev) => prev ?? "dropped");
   }, []);
-  const onKicked = useCallback(() => {
-    setDropReason("kicked");
+  const onKicked = useCallback((raw?: unknown) => {
+    setDropReason(dropReasonFromKick(raw));
   }, []);
   const clearDrop = useCallback(() => {
     setDropReason(null);

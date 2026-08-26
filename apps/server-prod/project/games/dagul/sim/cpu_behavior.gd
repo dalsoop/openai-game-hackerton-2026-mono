@@ -8,7 +8,7 @@ func _init(world) -> void:
 
 func update_cpus(dt: float) -> void:
 	for slot in range(w.heroes.size()):
-		if w.human_slots.has(slot):
+		if slot == w.local_slot or w.human_slots.has(slot):
 			continue
 		_update_cpu(slot, dt)
 
@@ -214,16 +214,46 @@ func _cpu_attack_targets(slot: int, h: Dictionary) -> void:
 
 func _cpu_attack_current_target(slot: int, h: Dictionary) -> Dictionary:
 	var current_target = int(h["target"])
-	if current_target >= 0 and target_valid(current_target):
-		var t_pos = target_position(current_target)
-		var dist = Vector2(h["pos"]).distance_to(t_pos)
-		var clear_shot = not w.arena.line_blocked(Vector2(h["pos"]), t_pos)
-		if h["action"] != &"SEEK_HEAL" and float(h["mobility_cd"]) <= 0.0 and float(h["launch_time"]) <= 0.0 and (dist > float(h["equipment"]["preferred_range"]) * 1.35 or dist < float(h["equipment"]["preferred_range"]) * 0.48) and w.rng.chance(0.025):
-			h = _cpu_mobility_escape(slot, h, t_pos)
-		if dist < w.dmg.normal_reach(slot) and clear_shot and float(h["fire_cd"]) <= 0.0:
-			w.dmg.try_normal_attack(slot, Vector2(h["aim"]))
+	if current_target < 0 or not target_valid(current_target):
+		return w.heroes[slot]
+	var t_pos = target_position(current_target)
+	var dist = Vector2(h["pos"]).distance_to(t_pos)
+	var clear_shot = not w.arena.line_blocked(Vector2(h["pos"]), t_pos)
+	if bool(h.get("charging_skill", false)):
+		return _cpu_hold_skill_charge(slot, h, t_pos)
+	if _cpu_should_mobility(h, dist):
+		h = _cpu_mobility_escape(slot, h, t_pos)
+	if dist < w.dmg.normal_reach(slot) and clear_shot and float(h["fire_cd"]) <= 0.0:
+		w.dmg.try_normal_attack(slot, Vector2(h["aim"]))
+	h = w.heroes[slot]
+	if dist < w.dmg.equipment_reach(slot) and clear_shot and float(h["equipment_cd"]) <= 0.0 and w.rng.chance(0.045):
+		w.act_item.begin_skill_charge(slot, Vector2(h["aim"]))
 		h = w.heroes[slot]
-	return h
+		h["cpu_charge_target"] = w.rng.rangef(0.34, 1.15)
+		w.heroes[slot] = h
+	return w.heroes[slot]
+
+
+func _cpu_should_mobility(h: Dictionary, dist: float) -> bool:
+	if h["action"] == &"SEEK_HEAL":
+		return false
+	if float(h["mobility_cd"]) > 0.0 or float(h["launch_time"]) > 0.0:
+		return false
+	var preferred := float(h["equipment"]["preferred_range"])
+	if dist <= preferred * 1.35 and dist >= preferred * 0.48:
+		return false
+	return w.rng.chance(0.025)
+
+
+func _cpu_hold_skill_charge(slot: int, h: Dictionary, t_pos: Vector2) -> Dictionary:
+	w.act_item.continue_skill_charge(slot, w.FIXED_DT, Vector2(h["pos"]).direction_to(t_pos))
+	h = w.heroes[slot]
+	var charge_goal := float(h.get("cpu_charge_target", 0.0))
+	if charge_goal <= 0.0:
+		charge_goal = 0.6
+	if float(h["charge_time"]) >= charge_goal:
+		w.act_item.release_skill_charge(slot, Vector2(h["pos"]).direction_to(t_pos))
+	return w.heroes[slot]
 
 func _cpu_mobility_escape(slot: int, h: Dictionary, t_pos: Vector2) -> Dictionary:
 	var mobility_dir = Vector2(h["vel"]).normalized()

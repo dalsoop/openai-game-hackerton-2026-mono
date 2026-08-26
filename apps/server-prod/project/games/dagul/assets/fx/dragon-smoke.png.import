@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cdhrkd4wi083y"
-path="res://.godot/imported/dragon-smoke.png-9df8f5b53537de8b55f49fd603f7eef2.ctex"
+path="res://.godot/imported/dragon-smoke.png-1963e154d8d29186079b8b56f73f3708.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/dragon-smoke.png"
-dest_files=["res://.godot/imported/dragon-smoke.png-9df8f5b53537de8b55f49fd603f7eef2.ctex"]
+dest_files=["res://.godot/imported/dragon-smoke.png-1963e154d8d29186079b8b56f73f3708.ctex"]
 
 [params]
 

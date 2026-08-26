@@ -1,7 +1,7 @@
 import { chromium } from "playwright-core";
 
 const CHROME = `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
-const URL = process.env.E2E_URL || "https://server-yjh-dev1.external.kr/ko";
+const URL = process.env.E2E_URL || "https://server-prod.external.kr/ko";
 
 const browser = await chromium.launch({
   executablePath: CHROME,

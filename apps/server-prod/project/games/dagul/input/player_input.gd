@@ -1,19 +1,29 @@
 class_name PlayerInput
 extends RefCounted
-
-## Builds per-tick input commands from keyboard + touch.
+## 한 틱 입력을 모은다. 패드가 켜지면 마우스 흉내 발사를 쓰지 않는다.
 
 const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
+const TouchPolicy := preload("res://core/contract/touch_policy.gd")
+const TouchPadScript := preload("res://games/dagul/input/touch_pad.gd")
 
+var pad: TouchPadScript
 var previous_keys: Dictionary = {}
 var previous_right_mouse: bool = false
 var previous_left_mouse: bool = false
 
-var touch: CanvasLayer  # nullable
+
+func _init(touch_pad = null) -> void:
+	pad = touch_pad if touch_pad != null else TouchPadScript.new()
 
 
-func _init(touch_layer: CanvasLayer = null) -> void:
-	touch = touch_layer
+func reset() -> void:
+	previous_keys.clear()
+	previous_right_mouse = false
+	previous_left_mouse = false
+
+
+func bind_layer(layer: CanvasLayer) -> void:
+	pad.bind(layer)
 
 
 func edge(keycode: int) -> bool:
@@ -25,44 +35,56 @@ func edge(keycode: int) -> bool:
 
 func read_move() -> Vector2:
 	var keyboard_move := LayoutKeysScript.move_axis()
-	if touch != null and keyboard_move.length() <= 0.1:
-		return touch.move
-	return keyboard_move
+	if keyboard_move.length() > 0.1:
+		return keyboard_move
+	return pad.move()
 
 
 func read_aim(viewport: Viewport, local_player_pos: Vector2) -> Vector2:
 	var aim_world := viewport.get_canvas_transform().affine_inverse() * viewport.get_mouse_position()
-	if touch != null and touch.aiming:
-		aim_world = local_player_pos + touch.aim_dir * 400.0
+	if pad.aiming():
+		aim_world = local_player_pos + pad.aim_dir() * 400.0
 	return aim_world
 
 
 func read_primary() -> bool:
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
+	return TouchPolicy.action_held(
+		pad.is_on(), Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT), pad.fire())
 
 
 func read_equipment() -> bool:
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
+	return TouchPolicy.action_held(
+		pad.is_on(), Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT), pad.skill())
 
 
-func read_dash() -> bool:
-	return LayoutKeysScript.held(KEY_SHIFT) or (touch != null and touch.dash_held)
+func poll(viewport: Viewport, local_player_pos: Vector2) -> Dictionary:
+	return build_command(
+		read_move(),
+		read_aim(viewport, local_player_pos),
+		read_primary(),
+		read_equipment())
 
 
-func read_use() -> bool:
-	return LayoutKeysScript.held(KEY_E) or (touch != null and touch.medkit_held)
+## 설정이 열려 있을 때. 전투 입력은 버리고 키 엣지만 삼켜 메뉴를 닫아도 한 틱이 나가지 않게 한다.
+func idle_command(aim: Vector2) -> Dictionary:
+	for keycode in [KEY_Q, KEY_SHIFT, KEY_E, KEY_SPACE, KEY_R, KEY_F, KEY_ESCAPE, KEY_1, KEY_2, KEY_3, KEY_4]:
+		previous_keys[keycode] = LayoutKeysScript.held(keycode as Key)
+	previous_right_mouse = false
+	previous_left_mouse = false
+	return {
+		"move": Vector2.ZERO, "aim": aim,
+		"primary": false, "primary_pressed": false,
+		"equipment": false, "equipment_pressed": false, "equipment_released": false,
+		"ultimate": false, "mobility": false,
+		"hop": false, "medkit": false, "reload": false, "finish": false,
+		"emote": -1,
+	}
 
 
 func build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool) -> Dictionary:
-	var ultimate_edge := edge(KEY_Q)
-	var mobility_edge := edge(KEY_SHIFT)
-	var hop_edge := edge(KEY_SPACE)
-	var medkit_edge := edge(KEY_E)
-	var reload_edge := edge(KEY_R)
-	if touch != null:
-		ultimate_edge = touch.consume_ult() or ultimate_edge
-		mobility_edge = touch.consume_dash() or mobility_edge
-		medkit_edge = touch.consume_medkit() or medkit_edge
+	var ultimate_edge: bool = edge(KEY_Q) or bool(pad.consume_ult())
+	var mobility_edge: bool = edge(KEY_SHIFT) or bool(pad.consume_dash())
+	var medkit_edge: bool = edge(KEY_E) or bool(pad.consume_medkit())
 	var cmd := {
 		"move": move, "aim": aim,
 		"primary": primary,
@@ -71,9 +93,17 @@ func build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: b
 		"equipment_pressed": equipment_held and not previous_right_mouse,
 		"equipment_released": not equipment_held and previous_right_mouse,
 		"ultimate": ultimate_edge, "mobility": mobility_edge,
-		"hop": hop_edge, "medkit": medkit_edge,
-		"reload": reload_edge, "finish": edge(KEY_F)
+		"hop": edge(KEY_SPACE), "medkit": medkit_edge,
+		"reload": edge(KEY_R), "finish": edge(KEY_F),
+		"emote": _read_emote(),
 	}
 	previous_right_mouse = equipment_held
 	previous_left_mouse = primary
 	return cmd
+
+
+func _read_emote() -> int:
+	for emote_index in range(4):
+		if edge(KEY_1 + emote_index):
+			return emote_index
+	return -1

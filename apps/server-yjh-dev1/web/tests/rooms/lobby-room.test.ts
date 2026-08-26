@@ -9,6 +9,7 @@ import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
 import { MSG, KO } from "@/lib/hub/config";
 import { parseStartPayload } from "@/lib/hub/start-payload";
+import { nowUnixSec } from "@/lib/hub/lobby-idle";
 
 let colyseus: ColyseusTestServer;
 
@@ -185,6 +186,46 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.open).toBe(false);
     await room.waitForNextPatch();
     expect(room.state.players.length).toBe(1); // 방장만 남는다
+  });
+
+  it("대기실 생성 — unix 초 유휴 마감이 올라간다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    expect(Number(room.state.idleUntilSec)).toBeGreaterThan(nowUnixSec() - 1);
+  });
+
+  it("유휴 폭파 — KICKED(reason=idle) 후 방이 닫힌다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    expect(Number(room.state.idleUntilSec)).toBeGreaterThan(0);
+    const kickedP = host.waitForMessage(MSG.KICKED);
+    (room as unknown as { burstIdle: () => void }).burstIdle();
+    const kicked = (await kickedP) as { msg?: string; reason?: string };
+    expect(kicked.reason).toBe("idle");
+    expect(kicked.msg).toBe(KO.IDLE_START);
+  });
+
+  it("매치 시작 후 유휴 마감이 꺼진다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(Number(room.state.idleUntilSec)).toBe(0);
+  });
+
+  it("대기실 방장 단절 — 유예 중에도 다음 접속자가 방장이다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    await room.waitForNextPatch();
+    const seat = [...room.state.players].find((p) => p.sessionId === host.sessionId);
+    expect(seat).toBeDefined();
+    if (!seat) {return;}
+    seat.connected = false;
+    (room as unknown as { syncHost: () => void }).syncHost();
+    await room.waitForNextPatch();
+    expect(room.state.hostSessionId).toBe(guest.sessionId);
+    expect(room.state.players.length).toBe(2);
   });
 
   it("PING 은 보낸 t 를 PONG 으로 그대로 돌려준다", async () => {

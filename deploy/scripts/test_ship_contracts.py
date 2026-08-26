@@ -6,6 +6,15 @@ import re
 import unittest
 from pathlib import Path
 
+from helm_contract import (
+    helm_upgrade_cmd,
+    image_drift,
+    matchmake_create_ok,
+    planted_hub_ids,
+    planted_hub_tags,
+    planted_redis_slots,
+    redis_url_ok,
+)
 from hub_images import folder_from_hub_ref, missing_hub_refs
 from status import hub_health_ok
 from export_html_contract import (
@@ -102,6 +111,151 @@ class SlotShells(unittest.TestCase):
             re.search(r'html/custom_html_shell=""', text),
             "hexclash 는 공식 기본 HTML 을 쓴다",
         )
+
+
+def plant_mod():
+    import importlib.util
+
+    path = Path(__file__).with_name("plant-apps.py")
+    spec = importlib.util.spec_from_file_location("plant_apps", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class SlotRedis(unittest.TestCase):
+    def test_prod_is_always_one(self) -> None:
+        plant = plant_mod()
+        got = plant.assign_redis_slots(["yjh-dev1", "prod", "fig-dev1"], {})
+        self.assertEqual(got["prod"], 1)
+        self.assertEqual(len(got), len(set(got.values())))
+
+    def test_keeps_persisted_numbers(self) -> None:
+        plant = plant_mod()
+        got = plant.assign_redis_slots(
+            ["prod", "yjh-dev1", "fig-dev1"],
+            {"prod": 9, "yjh-dev1": 4, "fig-dev1": 2},
+        )
+        self.assertEqual(got["prod"], 1)
+        self.assertEqual(got["yjh-dev1"], 4)
+        self.assertEqual(got["fig-dev1"], 2)
+
+    def test_new_id_takes_next_free(self) -> None:
+        plant = plant_mod()
+        got = plant.assign_redis_slots(["prod", "new-slot"], {"prod": 1})
+        self.assertEqual(got["prod"], 1)
+        self.assertEqual(got["new-slot"], 2)
+
+    def test_vacates_one_when_it_was_not_prod(self) -> None:
+        plant = plant_mod()
+        got = plant.assign_redis_slots(["prod", "fig-dev1"], {"fig-dev1": 1})
+        self.assertEqual(got["prod"], 1)
+        self.assertEqual(got["fig-dev1"], 2)
+
+    def test_project_source_hash_is_twelve_hex(self) -> None:
+        plant = plant_mod()
+        digest = plant.project_source_hash(plant.APPS / "server-yjh-dev1")
+        self.assertEqual(len(digest), 12)
+        self.assertTrue(all(ch in "0123456789abcdef" for ch in digest))
+
+    def test_load_redis_slots_reads_id_map(self) -> None:
+        plant = plant_mod()
+        text = "redis:\n  slots:\n    prod: 1\n    yjh-dev1: 4\n"
+        self.assertEqual(plant.load_redis_slots(text), {"prod": 1, "yjh-dev1": 4})
+
+
+class CiPlan(unittest.TestCase):
+    def test_godot_script_change_requires_helm(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("ci-plan.py")
+        spec = importlib.util.spec_from_file_location("ci_plan", path)
+        plan = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plan)
+        picked, helm = plan.analyze(
+            "aaa",
+            "bbb",
+            False,
+            ["apps/server-yjh-dev1/project/games/dagul/game.gd"],
+        )
+        self.assertEqual(picked, ["server-yjh-dev1"])
+        self.assertTrue(helm)
+
+    def test_workflow_change_requires_helm(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("ci-plan.py")
+        spec = importlib.util.spec_from_file_location("ci_plan", path)
+        plan = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plan)
+        picked, helm = plan.analyze(
+            "aaa",
+            "bbb",
+            False,
+            [".github/workflows/apps.yml"],
+        )
+        self.assertEqual(picked, [])
+        self.assertTrue(helm)
+
+
+class HelmContract(unittest.TestCase):
+    GAMES = (
+        "redis:\n  slots:\n    prod: 1\n    yjh-dev1: 4\n"
+        "games:\n  - folder: server-prod\n    id: prod\n"
+        "hubs:\n  - folder: server-prod\n    id: prod\n    tag: abc\n"
+        "  - folder: server-yjh-dev1\n    id: yjh-dev1\n    tag: def\n"
+    )
+
+    def test_upgrade_resets_and_waits_planted_files(self) -> None:
+        cmd = helm_upgrade_cmd("/chart", "/v.yaml", "/g.yaml", "/e.yaml")
+        self.assertIn("--reset-values", cmd)
+        self.assertIn("--wait", cmd)
+        self.assertNotIn("--atomic", cmd)
+        self.assertEqual(cmd[cmd.index("-f") : cmd.index("-f") + 6], ["-f", "/v.yaml", "-f", "/g.yaml", "-f", "/e.yaml"])
+
+    def test_planted_maps(self) -> None:
+        self.assertEqual(planted_hub_tags(self.GAMES), {"server-prod": "abc", "server-yjh-dev1": "def"})
+        self.assertEqual(planted_hub_ids(self.GAMES), {"server-prod": "prod", "server-yjh-dev1": "yjh-dev1"})
+        self.assertEqual(planted_redis_slots(self.GAMES), {"prod": 1, "yjh-dev1": 4})
+
+    def test_image_drift_and_redis(self) -> None:
+        self.assertEqual(
+            image_drift({"server-prod": "abc"}, {"server-prod": "old"}),
+            ["server-prod: plant=abc live=old"],
+        )
+        self.assertTrue(redis_url_ok("redis://redis:6379/1", 1))
+        self.assertFalse(redis_url_ok("redis://redis:6379", 1))
+        self.assertTrue(matchmake_create_ok(200, '{"roomId":"x"}'))
+        self.assertFalse(matchmake_create_ok(523, "{}"))
+
+    def test_platform_pipeline_is_yjh_and_prod(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location("apply_apps", path)
+        apply = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(apply)
+        self.assertTrue(apply.platform_web_pipeline("server-yjh-dev1"))
+        self.assertTrue(apply.platform_web_pipeline("server-prod"))
+        self.assertFalse(apply.platform_web_pipeline("server-pjh-dev1"))
+
+class PlatformGodotPipeline(unittest.TestCase):
+    def test_next_slots_export_on_ship(self) -> None:
+        root = APPS.parent
+        self.assertTrue((root / "deploy" / "scripts" / "build-godot.sh").is_file())
+        self.assertTrue((root / "deploy" / "scripts" / "export_web.py").is_file())
+        self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
+        for folder in ("server-yjh-dev1", "server-prod"):
+            text = (APPS / folder / "hackertone.yaml").read_text()
+            self.assertNotIn("skipExport", text)
+            self.assertIn("pipeline: platform", text)
+            self.assertFalse((APPS / folder / "web" / "scripts" / "build-godot.sh").is_file())
+            dockerfile = (APPS / folder / "web" / "Dockerfile").read_text()
+            self.assertIn("index.pck", dockerfile)
+
+    def test_pjh_keeps_static_export(self) -> None:
+        text = (APPS / "server-pjh-dev1" / "hackertone.yaml").read_text()
+        self.assertNotIn("pipeline: platform", text)
 
 
 class HubImages(unittest.TestCase):

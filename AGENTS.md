@@ -57,7 +57,8 @@ src/              # 방 서버가 이 폴더에 있을 때만
 
 ```bash
 godot --path apps/server-yjh-dev1/project
-cd apps/server-yjh-dev1 && npm start
+cd apps/server-yjh-dev1/web && npm run godot:build && npm run godot:link
+cd apps/server-yjh-dev1 && ./dev.sh
 cd deploy/usability && node cli.mjs smoke
 ```
 
@@ -70,7 +71,7 @@ PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가�
 새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 → `python3 deploy/scripts/plant-apps.py` → 푸시하면 CI가 자동 배포.
 
 ## GDScript 코드 규칙
-- 커밋 게이트(최초 1회): `git config core.hooksPath .githooks` — GD 파스+유닛테스트가 커밋을 차단한다
+- 커밋 게이트(최초 1회): `git config core.hooksPath .githooks` — 배포 계약(`test_ship_contracts`). GD가 있으면 파스+유닛테스트도 차단한다. wasm/pck는 git에 넣지 않고 Apps ship 이 만든다.
 
 에이전트가 GDScript 코드를 작성하거나 수정할 때 따라야 할 규칙:
 
@@ -104,7 +105,7 @@ PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가�
 | GameId→팩 | `web/lib/games/catalog.ts` `packOf` | `/godot/${gameId}` 금지 — 폴더는 `pack` 필드 |
 | Godot 산출물 배치 | `web/scripts/publish-godot-assets.mjs` (`catalog-packs.mjs`) | 팩 폴더 하드코딩 금지 — 카탈로그 pack 집합 |
 | Godot 산출물 버전 | `project/web/manifest.json` (통합 해시) | 버전 쿼리 없는 immutable 캐시 금지 |
-| Godot 빌드 | `npm run godot:build` (export→압축→매니페스트) | export만 하고 매니페스트 생략 금지 |
+| Godot 빌드 | `deploy/scripts/build-godot.sh` (`npm run godot:build`) | 슬롯에 셸 복사 금지. export 실패를 숨기지 말 것 |
 
 ### 게임 폴더 추상화 (project/)
 

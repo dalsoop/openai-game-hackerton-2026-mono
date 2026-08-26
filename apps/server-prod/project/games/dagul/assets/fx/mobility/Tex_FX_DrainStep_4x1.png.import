@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://tv2f4tqs64ke"
-path="res://.godot/imported/Tex_FX_DrainStep_4x1.png-7b1869ec2e8dacd07a8fb44be58cc8eb.ctex"
+path="res://.godot/imported/Tex_FX_DrainStep_4x1.png-bf206354ab323ead06caa96eb749b223.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://games/dagul/assets/fx/mobility/Tex_FX_DrainStep_4x1.png"
-dest_files=["res://.godot/imported/Tex_FX_DrainStep_4x1.png-7b1869ec2e8dacd07a8fb44be58cc8eb.ctex"]
+dest_files=["res://.godot/imported/Tex_FX_DrainStep_4x1.png-bf206354ab323ead06caa96eb749b223.ctex"]
 
 [params]
 

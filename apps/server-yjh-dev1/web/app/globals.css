@@ -312,6 +312,7 @@ body.wait #wait { display: block; }
 .status-msg.error { background:rgba(255,93,93,.1); color:var(--red); border:1px solid var(--red); }
 .status-msg.success { background:rgba(93,217,124,.1); color:var(--green); border:1px solid var(--green); }
 .status-msg.info { background:rgba(62,230,210,.1); color:var(--cyan); border:1px solid var(--cyan); }
+.deploy-banner { display:flex; gap:12px; align-items:center; justify-content:center; margin:0 0 16px; }
 
 .field-wrap.block { width:100%; }
 

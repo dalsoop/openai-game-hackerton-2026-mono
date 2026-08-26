@@ -16,14 +16,14 @@ interface FakeRoom {
   leave: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
   onMessage: (type: string, cb: Handler) => void;
-  onLeave: (cb: () => void) => void;
+  onLeave: (cb: (code?: number) => void) => void;
   emit: (type: string, raw: unknown) => void;
-  drop: () => void;
+  drop: (code?: number) => void;
 }
 
 function makeRoom(): FakeRoom {
   const messages = new Map<string, Handler>();
-  let leaveCb: (() => void) | undefined;
+  let leaveCb: ((code?: number) => void) | undefined;
   const leave = vi.fn();
   return {
     roomId: "r1",
@@ -33,9 +33,9 @@ function makeRoom(): FakeRoom {
     leave,
     send: vi.fn(),
     onMessage: (type: string, cb: Handler): void => {messages.set(type, cb);},
-    onLeave: (cb: () => void): void => {leaveCb = cb;},
+    onLeave: (cb: (code?: number) => void): void => {leaveCb = cb;},
     emit: (type: string, raw: unknown): void => {messages.get(type)?.(raw);},
-    drop: (): void => {leaveCb?.();},
+    drop: (code?: number): void => {leaveCb?.(code);},
   };
 }
 
@@ -123,5 +123,38 @@ describe("useGameRoom START", () => {
     ));
     await waitFor(() => {expect(result.current.matchInfo?.resumeToken).toBe("tok");});
     expect(room.leave).not.toHaveBeenCalled();
+  });
+
+  it("CONSENTED onLeave 는 consented 로 끝난다", async () => {
+    const room = makeRoom();
+    const onEnded = vi.fn();
+    const joinRequest = { kind: "create" as const };
+    const { result } = renderHook(() => useGameRoom(
+      joinRequest,
+      () => "호스트",
+      () => ({ create: () => Promise.resolve(room) }) as unknown as Client,
+      onEnded,
+      vi.fn(),
+    ));
+    await waitFor(() => {expect(result.current.room).toBe(room);});
+    const { CLOSE_CODE } = await import("@/lib/contract");
+    act(() => {room.drop(CLOSE_CODE.CONSENTED);});
+    expect(onEnded).toHaveBeenCalledWith("consented");
+  });
+
+  it("비동의 onLeave 는 drop 이다", async () => {
+    const room = makeRoom();
+    const onEnded = vi.fn();
+    const joinRequest = { kind: "create" as const };
+    const { result } = renderHook(() => useGameRoom(
+      joinRequest,
+      () => "호스트",
+      () => ({ create: () => Promise.resolve(room) }) as unknown as Client,
+      onEnded,
+      vi.fn(),
+    ));
+    await waitFor(() => {expect(result.current.room).toBe(room);});
+    act(() => {room.drop(1001);});
+    expect(onEnded).toHaveBeenCalledWith("drop");
   });
 });

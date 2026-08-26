@@ -1,10 +1,11 @@
 {
-  "version": "260826102913",
-  "filesHash": "ee296bdf5fca",
+  "version": "260826132534",
+  "filesHash": "564a16a30106",
   "files": [
     "index.js",
     "index.wasm",
     "index.pck",
     "index.side.wasm"
-  ]
+  ],
+  "sourceHash": "fc2d9e24d4b2"
 }

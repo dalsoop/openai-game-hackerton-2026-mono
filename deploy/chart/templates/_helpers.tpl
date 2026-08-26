@@ -42,3 +42,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .root.Values.hub.replicaCount -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "hackertone-games.hubRedisUrl" -}}
+{{- $base := required "redis.url 이 필요합니다" .root.Values.redis.url | trimSuffix "/" -}}
+{{- $id := required "hubs[].id 가 필요합니다" .hub.id -}}
+{{- $slots := .root.Values.redis.slots | default dict -}}
+{{- $db := index $slots $id -}}
+{{- if not $db -}}
+{{- fail (printf "redis.slots.%s 가 없습니다" $id) -}}
+{{- end -}}
+{{- printf "%s/%d" $base (int $db) -}}
+{{- end -}}

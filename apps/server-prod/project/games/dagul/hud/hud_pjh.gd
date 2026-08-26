@@ -499,10 +499,7 @@ func _draw_winner_standings(_accent: Color) -> void:
 	h._text(Vector2(650.0, 410.0), "FINAL STANDINGS", 14, Color("#aebaca"))
 	for rank in range(mini(3, standings.size())):
 		_draw_standing_row(standings[rank], rank)
-	if bool(world.get("is_net")):
-		h._text(Vector2(650.0, 724.0), "대기실로 버튼" if h.touch_hints else "ESC  대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
-	elif not h.touch_hints:
-		h._text(Vector2(650.0, 724.0), "R  재경기    ·    ESC  나가기", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(650.0, 724.0), "대기실로 버튼" if h.touch_hints else "ESC  대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_standing_row(row: Dictionary, rank: int) -> void:
