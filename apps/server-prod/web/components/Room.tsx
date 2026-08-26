@@ -5,6 +5,7 @@ import type { Seat } from "@/lib/domain/roster";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { findGame, visibleCatalog } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
+import { MaterialIcon } from "@/components/MaterialIcon";
 import { useTranslations } from "next-intl";
 
 interface Props {
@@ -43,7 +44,7 @@ export default function Room({
     <div className="fade-in wait-panel">
       <div className="back-row">
         <button type="button" className="ghost btn-icon" onClick={onLeave} aria-label={t("leaveButton")}>
-          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
+          <MaterialIcon name="undo" />
         </button>
         <div className="wait-line">
           {idleLeftSec > 0 && (

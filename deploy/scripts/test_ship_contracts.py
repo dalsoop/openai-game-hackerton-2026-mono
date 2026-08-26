@@ -314,6 +314,8 @@ class HelmContract(unittest.TestCase):
         self.assertIn("dump_cluster()", helm_fn)
         self.assertIn("wait_hub_workloads", helm_fn)
         self.assertIn("restart_hub_workloads", helm_fn)
+        self.assertIn("skip restart", apps_py)
+        self.assertIn("hub_enabled", apps_py)
         self.assertNotIn("ensure_hub_images", helm_fn)
         self.assertNotIn("skip hub {folder} ({ref})", apps_py)
         hub_fn = apps_py.split("def hub_refs", 1)[1].split("def assert_hub_images", 1)[0]

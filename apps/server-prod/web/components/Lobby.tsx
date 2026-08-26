@@ -10,6 +10,7 @@ import { roomJoinable } from "@/lib/hub/room-mapper";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
+import { MaterialIcon } from "@/components/MaterialIcon";
 
 interface Props {
   rooms: HubRoom[];
@@ -33,7 +34,7 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = f
         </Link>
         <button type="button" className="ghost btn-icon" onClick={onRefresh} aria-label={t("refresh")} aria-busy={refreshing}>
           <span className={spin.className} aria-hidden="true" onAnimationIteration={spin.onAnimationIteration}>
-            <span className="material-symbols-outlined">directory_sync</span>
+            <MaterialIcon name="directory_sync" />
           </span>
         </button>
       </div>

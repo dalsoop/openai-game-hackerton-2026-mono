@@ -7,6 +7,7 @@
 import type { JSX } from "react";
 import { useTranslations } from "next-intl";
 import Lobby from "@/components/Lobby";
+import { MaterialIcon } from "@/components/MaterialIcon";
 import { ConnectingPhase } from "./ConnectingPhase";
 import type { HubRoom, HubStatus } from "@/types";
 import type { MyRoomIdentity } from "@/lib/room-membership";
@@ -44,7 +45,7 @@ export function LobbyPhase({
     <div className="fade-in">
       <div className="back-row">
         <button type="button" className="ghost btn-icon" onClick={onBackToIntro} aria-label={t("game.back")}>
-          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
+          <MaterialIcon name="undo" />
         </button>
         <div className={connClass}>
           <span className="conn-dot" />

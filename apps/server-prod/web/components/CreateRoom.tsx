@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { sizeParts, type GameListing } from "@/lib/games/listing";
 import { HUB_CONFIG } from "@/lib/hub/config";
+import { MaterialIcon } from "@/components/MaterialIcon";
 
 interface Props {
   listings: ReadonlyArray<GameListing>;
@@ -22,7 +23,7 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
     <div className="fade-in">
       <div className="back-row">
         <button type="button" className="ghost btn-icon" onClick={onBack} aria-label={t("cancel")}>
-          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
+          <MaterialIcon name="undo" />
         </button>
         <div className={connClass}>
           <span className="conn-dot" />

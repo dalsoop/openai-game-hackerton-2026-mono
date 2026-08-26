@@ -432,10 +432,17 @@ def shipped_folders() -> list[str]:
     return [name for name in os.environ.get("HACKERTONE_SHIP_FOLDERS", "").split() if name]
 
 
+def hub_enabled(folder: str) -> bool:
+    try:
+        return bool((parse_folder(plant_mod(), folder).get("hub") or {}).get("enabled"))
+    except SystemExit:
+        return False
+
+
 def wait_folders() -> list[str]:
     seen: list[str] = []
     for folder in (*SMOKE_FOLDERS, *shipped_folders()):
-        if folder not in seen:
+        if folder not in seen and hub_enabled(folder):
             seen.append(folder)
     return seen
 
@@ -456,6 +463,12 @@ def dump_cluster() -> None:
 
 
 def restart_hub_workloads(folder: str) -> None:
+    if not hub_enabled(folder):
+        print(f"skip restart {folder} (no hub)")
+        return
+    if kube(f"get sts {folder}-hub").returncode:
+        print(f"skip restart sts/{folder}-hub")
+        return
     print(f"restart sts/{folder}-hub")
     remote_ok(
         f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} "
@@ -471,6 +484,9 @@ def restart_hub_workloads(folder: str) -> None:
 
 
 def wait_hub_workloads(folder: str) -> None:
+    if not hub_enabled(folder):
+        print(f"skip wait {folder} (no hub)")
+        return
     print(f"wait sts/{folder}-hub")
     status = kube(f"rollout status sts/{folder}-hub --timeout=180s")
     if status.returncode:
