@@ -1,6 +1,6 @@
 export const CONFIG = {
   port: Number(process.env.PORT || 9120),
-  slot: process.env.SLOT_FOLDER || "server-yjh-dev1",
+  slot: process.env.SLOT_FOLDER || "dagul-prod",
   graceLobbyMs: 60_000,
   gracePlayMs: 60_000,
   maxPayload: 256 * 1024,

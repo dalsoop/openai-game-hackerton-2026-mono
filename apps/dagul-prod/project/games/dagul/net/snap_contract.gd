@@ -123,7 +123,7 @@ static func _pack_fx(world) -> Dictionary:
 		STREAK_CALLOUT: _opt_str(world, "streak_callout"),
 		STREAK_SUBTITLE: _opt_str(world, "streak_subtitle"),
 		STREAK_CALLOUT_TICKS: _opt_int(world, "streak_callout_ticks"),
-		STREAK_CALLOUT_SHUTDOWN: bool(world.get("streak_callout_shutdown")),
+		STREAK_CALLOUT_SHUTDOWN: _opt_bool(world, "streak_callout_shutdown"),
 	}
 
 static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
@@ -341,6 +341,10 @@ static func _opt_str(world, name: String) -> String:
 static func _opt_int(world, name: String) -> int:
 	var v: Variant = world.get(name)
 	return int(v) if v is int or v is float else 0
+
+static func _opt_bool(world, name: String) -> bool:
+	var v: Variant = world.get(name)
+	return v if v is bool else false
 
 static func _f(d: Dictionary, key: String, fallback: float) -> float:
 	return NetSnapParser._f(d, key, fallback)

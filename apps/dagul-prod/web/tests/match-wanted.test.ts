@@ -78,7 +78,7 @@ describe("WANTED 리더·감쇠", () => {
     awardKillBounty(a);
     expect(a.bounty).toBe(5 + KILL_BOUNTY_GAIN);
     applyShutdownBountyDrop(a);
-    expect(a.bounty).toBe(5 + KILL_BOUNTY_GAIN - SHUTDOWN_BOUNTY_DROP);
+    expect(a.bounty).toBe(Math.max(0, 5 + KILL_BOUNTY_GAIN - SHUTDOWN_BOUNTY_DROP));
     const low = { bounty: 3 };
     applyShutdownBountyDrop(low);
     expect(low.bounty).toBe(0);

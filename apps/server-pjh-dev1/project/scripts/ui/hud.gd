@@ -23,8 +23,10 @@ var ammo_casing_texture: Texture2D = null
 var zone_lightning_texture: Texture2D = null
 var animal_texture: Texture2D = null
 var roulette_icons: Dictionary = {}
-var _controls_overlay_time: float = 4.0
-var _controls_dismissed: bool = false
+const HELP_LINES := ["WASD  이동", "마우스  조준", "좌클릭  공격", "우클릭  장비 스킬", "Shift  대시"]
+const HELP_SECS := 12.0
+var _controls_overlay_time: float = 0.0
+var _controls_dismissed: bool = true
 var _kill_feed: Array[Dictionary] = []
 var _last_kill_event_id: int = 0
 var _ammo_last_mag: int = -1
@@ -64,6 +66,28 @@ func reset_match_visuals() -> void:
     _ammo_casing_serial = 0
     _ammo_last_tick = -1
     _ammo_world_instance_id = 0
+
+func show_controls_help() -> void:
+    _controls_dismissed = false
+    _controls_overlay_time = HELP_SECS
+
+func is_controls_help_open() -> bool:
+    return not _controls_dismissed and _controls_overlay_time > 0.0
+
+func dismiss_controls_help() -> void:
+    _controls_dismissed = true
+    _controls_overlay_time = 0.0
+
+func _process(delta: float) -> void:
+    if _controls_dismissed:
+        return
+    _controls_overlay_time -= delta
+    if _controls_overlay_time <= 0.0:
+        _controls_dismissed = true
+        return
+    var shown_for := HELP_SECS - _controls_overlay_time
+    if shown_for > 0.5 and (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_ESCAPE)):
+        _controls_dismissed = true
 
 func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT, bold: bool = false) -> void:
     var font := GameFont.get_bold_font() if bold else GameFont.get_font()
@@ -888,21 +912,17 @@ func _draw_crosshair(me: Dictionary) -> void:
     draw_arc(c, (5.0 + climb * 0.04) * s, 0.0, TAU, 28, Color(accent, 0.45), 1.4 * s)
 
 func _draw_controls_overlay() -> void:
-    if _controls_dismissed or _controls_overlay_time <= 0.0:
+    if not is_controls_help_open() or size.x < 200.0 or size.y < 200.0:
         return
-    _controls_overlay_time -= 1.0 / 60.0
-    if Input.is_anything_pressed():
-        _controls_dismissed = true
-        return
-    var alpha := clampf(_controls_overlay_time / 1.0, 0.0, 1.0) if _controls_overlay_time < 1.0 else 0.85
-    var bg := Color(0.0, 0.0, 0.0, alpha * 0.7)
-    var tx := Color(1.0, 1.0, 1.0, alpha)
+    var alpha := clampf(_controls_overlay_time, 0.0, 1.0) if _controls_overlay_time < 1.0 else 1.0
     var cx := size.x * 0.5
     var cy := size.y * 0.5
-    draw_rect(Rect2(cx - 160, cy - 90, 320, 180), bg)
-    var lines := ["WASD  이동", "마우스  조준", "좌클릭  공격", "우클릭(홀드)  장비 스킬", "Shift  대시"]
-    for i in lines.size():
-        _text(Vector2(cx - 130, cy - 60 + i * 28), lines[i], 16, tx)
+    draw_rect(Rect2(cx - 210.0, cy - 130.0, 420.0, 260.0), Color(0.0, 0.0, 0.0, 0.82 * alpha))
+    var ink := Color(1.0, 1.0, 1.0, alpha)
+    _text(Vector2(cx - 180.0, cy - 96.0), "도움말", 22, ink, 360.0, HORIZONTAL_ALIGNMENT_CENTER)
+    for i in HELP_LINES.size():
+        _text(Vector2(cx - 180.0, cy - 52.0 + float(i) * 28.0), HELP_LINES[i], 17, ink, 360.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(cx - 180.0, cy + 104.0), "클릭하면 닫힙니다", 13, Color(1.0, 1.0, 1.0, 0.7 * alpha), 360.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 func _update_kill_feed() -> void:
     if world == null or world.event_log == null:

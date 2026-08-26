@@ -188,3 +188,5 @@ export function firePattern(
 
 export const applyTowerFire = firePattern;
 export const apply = firePattern;
+export const seed = firePattern;
+export const tick = firePattern;

@@ -142,8 +142,8 @@ func _on_start_match() -> void:
 	seed += 1
 	_restart()
 	_set_phase(&"play")
-	if _tutorial != null and TutorialOverlay.is_first_play():
-		_tutorial.start_tutorial()
+	if hud != null:
+		hud.show_controls_help()
 
 func _on_net_match_started(you: int, room: Dictionary) -> void:
 	GameState.net_active = true
@@ -170,6 +170,8 @@ func _on_net_match_started(you: int, room: Dictionary) -> void:
 	previous_left_mouse = false
 	camera.position = _camera_target()
 	_set_phase(&"play")
+	if hud != null:
+		hud.show_controls_help()
 
 func _start_with_game_server(you: int, room: Dictionary, game_url: String) -> void:
 	var net_world = NetWorldScript.new()
@@ -411,6 +413,9 @@ func _physics_process(_delta: float) -> void:
 			else: screens.pop_page()
 		return
 	if _edge(KEY_ESCAPE):
+		if hud != null and hud.is_controls_help_open():
+			hud.dismiss_controls_help()
+			return
 		if world != null and bool(world.finish_cine.get("on", false)):
 			world.finish_cine = {}
 			return
@@ -449,6 +454,12 @@ func _physics_process(_delta: float) -> void:
 		aim_world = _local_player_pos() + touch.aim_dir * 400.0
 	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
 	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
+	var help_open: bool = hud != null and hud.is_controls_help_open()
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if help_open else Input.MOUSE_MODE_HIDDEN)
+	if help_open:
+		move = Vector2.ZERO
+		primary = false
+		equipment_held = false
 	_tick_world(move, aim_world, primary, equipment_held)
 	# SFX
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")) if world != null else 0, last_event_id)
@@ -597,6 +608,8 @@ func _escape_wait() -> void:
 
 func _apply_recoil_mouse() -> void:
 	if world == null:
+		return
+	if hud != null and hud.is_controls_help_open():
 		return
 	var kick: Vector2 = world.local_mouse_kick
 	world.local_mouse_kick = Vector2.ZERO

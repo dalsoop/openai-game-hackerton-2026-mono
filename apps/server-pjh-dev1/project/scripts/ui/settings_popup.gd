@@ -1,7 +1,7 @@
 class_name SettingsPopup
 extends RefCounted
 
-static func build(close_callback: Callable, quit_callback: Callable, control_mode: String, sound_on: bool, on_mode_changed: Callable, on_sound_changed: Callable) -> Dictionary:
+static func build(close_callback: Callable, quit_callback: Callable, control_mode: String, sound_on: bool, on_mode_changed: Callable, on_sound_changed: Callable, on_help: Callable) -> Dictionary:
 	var root := UiTheme.full(Control.new())
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.28)
@@ -15,8 +15,8 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.offset_left = -270
 	panel.offset_right = 270
-	panel.offset_top = -165
-	panel.offset_bottom = 165
+	panel.offset_top = -200
+	panel.offset_bottom = 200
 	panel.add_theme_stylebox_override("panel", UiTheme.card_box())
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
@@ -45,6 +45,9 @@ static func build(close_callback: Callable, quit_callback: Callable, control_mod
 	sound_check.button_pressed = sound_on
 	sound_check.toggled.connect(func(on): on_sound_changed.call(on))
 	col.add_child(sound_check)
+	var help := UiTheme.btn("도움말", UiTheme.BTN_MUTED, Vector2(160, 44))
+	help.pressed.connect(on_help)
+	col.add_child(help)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(spacer)

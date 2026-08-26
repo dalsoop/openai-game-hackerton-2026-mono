@@ -460,9 +460,8 @@ def dump_cluster() -> None:
     for cmd in (
         "get pods,sts,deploy,ing -o wide",
         "get events --sort-by=.lastTimestamp | tail -n 40",
-        "describe sts/server-yjh-dev1-hub",
-        "logs --tail=80 -l hackertone-games/slot=server-yjh-dev1 --all-containers",
-        "logs --tail=40 -l hackertone-games/slot=dagul-prod --all-containers",
+        "describe sts/dagul-prod-hub",
+        "logs --tail=80 -l hackertone-games/slot=dagul-prod --all-containers",
     ):
         print(f"$ kubectl {cmd}")
         proc = kube(cmd)

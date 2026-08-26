@@ -464,7 +464,10 @@ func _build_settings() -> Control:
 		func(on):
 			sound_on = on
 			AudioServer.set_bus_mute(0, not on)
-			SettingsStore.save(control_mode, sound_on)
+			SettingsStore.save(control_mode, sound_on),
+		func():
+			_how_return = _settings_return
+			show_page(&"how")
 	)
 	_settings_mode_buttons = result["mode_buttons"]
 	_settings_mode_desc = result["mode_desc"]

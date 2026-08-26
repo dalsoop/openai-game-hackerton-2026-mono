@@ -16,11 +16,10 @@
 ```text
 ├── AGENTS.md
 ├── apps/game-pjh-gang-up/     # 원본. 수정하지 않음
-├── apps/server-yjh-dev1/      # 정한 개발환경 1
+├── apps/dagul-prod/           # 제출·운영
 ├── apps/server-pjh-dev1/      # 크리엘 개발환경 1
 ├── apps/server-pig-dev1/      # Figix 개발환경 1
 ├── apps/server-*-dev2|3/      # 그 사람의 개발환경 2·3
-├── apps/dagul-prod/           # 제출·운영
 ├── apps/server-board/         # 배포 보드
 ├── deploy/                   # chart(Helm) · env.yaml · 웹 이미지
 ├── docs/
@@ -30,13 +29,13 @@
 ## 빠른 시작
 
 ```bash
-godot --path apps/server-yjh-dev1/project
+godot --path apps/dagul-prod/project
 
-cd apps/server-yjh-dev1 && npm install && npm start
-# 같은 Godot에서 로비 → 방만들기. 웹은 같은 호스트 /gang-up/ws
+cd apps/dagul-prod && npm install && ./dev.sh
+# 같은 Godot에서 로비 → 방만들기. 웹은 같은 호스트
 ```
 
-웹: `https://server-yjh-dev1.external.kr/`  
+웹: `https://dagul-prod.external.kr/`  
 보드: `https://server-board.external.kr/`
 
 ## 협업

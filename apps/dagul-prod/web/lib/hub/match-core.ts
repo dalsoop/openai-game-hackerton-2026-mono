@@ -236,4 +236,5 @@ export const seedCores = spawnCores;
 export const applyCoreDamage = damageCore;
 export const seed = spawnCores;
 export const apply = damageCore;
+export const tick = packCoresSnap;
 export const pack = packCoresSnap;

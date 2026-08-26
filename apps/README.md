@@ -6,16 +6,15 @@
 
 ```text
 game-pjh-gang-up/   다굴 Godot 원본. 크리엘(pjh). 수정하지 않음
-server-yjh-dev1/    정한 개발환경 1. 지금 다굴이 여기
+dagul-prod/         제출·운영. 지금 다굴 정본
 server-pjh-dev1/    크리엘 개발환경 1. 지금 다굴이 여기
 server-pig-dev1/    Figix 개발환경 1. 지금 다굴이 여기
 server-*-dev2/      그 사람의 개발환경 2
 server-*-dev3/      그 사람의 개발환경 3
-dagul-prod/         제출·운영 슬롯
 server-board/       배포 보드. https://server-board.external.kr/
 ```
 
-- `apps/server-yjh-dev1` → `https://server-yjh-dev1.external.kr/`
+- `apps/dagul-prod` → `https://dagul-prod.external.kr/`
 - `apps/server-pjh-dev1` → `https://server-pjh-dev1.external.kr/`
 - `apps/server-pig-dev1` → `https://server-pig-dev1.external.kr/`
 

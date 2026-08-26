@@ -76,6 +76,7 @@ describe("발사 모드·펠릿·스플래시·관통", () => {
     tryNormalAttack(h, { x: 1, y: 0 });
     expect(h.burstLeft).toBe(1);
     expect(h.fireCd).toBe(h.equipment.interval);
+    h.fireCd = 0;
     tryNormalAttack(h, { x: 1, y: 0 });
     expect(h.burstLeft).toBe(2);
     expect(h.fireCd).toBe(h.equipment.reloadTime);

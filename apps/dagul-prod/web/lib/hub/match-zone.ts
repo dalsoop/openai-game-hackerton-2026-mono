@@ -146,3 +146,6 @@ export function pickTimeLimitWinner(heroes: Iterable<RankHero>): number {
   }
   return best ? best.slot : -1;
 }
+export const seed = createSafeZone;
+export const tick = updateSafeZone;
+export const apply = applySafeZoneDamage;

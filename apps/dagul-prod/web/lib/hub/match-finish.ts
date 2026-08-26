@@ -172,7 +172,8 @@ function tickFinishRush(cine: FinishCine): void {
   if (rushT < 1) {return;}
   cine.rush = false;
   cine.hit = true;
-  cine.hitAge = Math.max(0, cine.t - FINISH_PREP - FINISH_RUSH);
+  const hitAge = cine.t - FINISH_PREP - FINISH_RUSH;
+  cine.hitAge = hitAge <= 1e-9 ? 0 : Math.max(0, hitAge);
   cine.fly = 0;
 }
 

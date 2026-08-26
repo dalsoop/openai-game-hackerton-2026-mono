@@ -4,50 +4,26 @@ redis:
     prod: 1
     fig-dev1: 2
     pjh-dev1: 3
-    yjh-dev1: 4
-    yjh-hexclash: 5
-    yjh-snake: 6
 games:
+  - folder: dagul-prod
+    id: prod
   - folder: server-fig-dev1
     id: fig-dev1
   - folder: server-pjh-dev1
     id: pjh-dev1
-  - folder: server-prod
-    id: prod
-  - folder: server-yjh-dev1
-    id: yjh-dev1
-  - folder: server-yjh-hexclash
-    id: yjh-hexclash
-  - folder: server-yjh-snake
-    id: yjh-snake
 hubs:
+  - folder: dagul-prod
+    id: prod
+    pathPrefix: /
+    image: harbor.50.internal.xz/library/dagul-prod
+    tag: "e3f48273e792"
   - folder: server-fig-dev1
     id: fig-dev1
     pathPrefix: /gang-up
     image: harbor.50.internal.xz/library/server-fig-dev1
-    tag: f354f1e048f6
+    tag: "f354f1e048f6"
   - folder: server-pjh-dev1
     id: pjh-dev1
     pathPrefix: /gang-up
     image: harbor.50.internal.xz/library/server-pjh-dev1
-    tag: a4a8d7772c7d
-  - folder: server-prod
-    id: prod
-    pathPrefix: /
-    image: harbor.50.internal.xz/library/server-prod
-    tag: 1f0f8472354c
-  - folder: server-yjh-dev1
-    id: yjh-dev1
-    pathPrefix: /
-    image: harbor.50.internal.xz/library/server-yjh-dev1
-    tag: d8cbe49db3f3
-  - folder: server-yjh-hexclash
-    id: yjh-hexclash
-    pathPrefix: /hexclash
-    image: harbor.50.internal.xz/library/server-yjh-hexclash
-    tag: 76da6bc9d20d
-  - folder: server-yjh-snake
-    id: yjh-snake
-    pathPrefix: /snake
-    image: harbor.50.internal.xz/library/server-yjh-snake
-    tag: 434b8636823e
+    tag: "a4a8d7772c7d"

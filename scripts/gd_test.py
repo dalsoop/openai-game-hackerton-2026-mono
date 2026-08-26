@@ -5,7 +5,7 @@ Godot 바이너리 탐색은 deploy/scripts/apply-apps.py 의 godot_bin() 을 �
 (하이픈 파일명이라 importlib 로 로드). 출력에서 GDTEST 줄을 파싱해 exit code 를 결정.
 
 사용: python3 scripts/gd_test.py [project_root]
-  (기본: apps/server-yjh-dev1/project)
+  (기본: apps/dagul-prod/project)
 """
 import importlib.util
 import re
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PROJECT = ROOT / (sys.argv[1] if len(sys.argv) > 1 else "apps/server-yjh-dev1/project")
+PROJECT = ROOT / (sys.argv[1] if len(sys.argv) > 1 else "apps/dagul-prod/project")
 GDTEST_RE = re.compile(r"^GDTEST (PASS|FAIL) (.+)$")
 SUMMARY_RE = re.compile(r"^GDTEST SUMMARY pass=(\d+) fail=(\d+)$")
 

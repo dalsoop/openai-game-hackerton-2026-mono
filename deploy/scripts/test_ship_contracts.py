@@ -2,7 +2,6 @@
 """공식 Custom HTML shell 계약 — 슬롯 실파일 + 문서 최소 템플릿."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
@@ -87,14 +86,14 @@ class SlotShells(unittest.TestCase):
         for folder in ("server-fig-dev1", "server-pjh-dev1"):
             self.assertIn('html/custom_html_shell="custom_shell.html"', slot_preset(folder))
 
-    def test_yjh_and_prod_shells_have_official_placeholders(self) -> None:
-        for folder in ("server-yjh-dev1", "dagul-prod"):
-            shell = slot_shell(folder)
-            for token in REQUIRED_PLACEHOLDERS:
-                self.assertIn(token, shell)
-            exported = simulate_export(shell)
-            self.assertEqual(leftover_placeholders(exported), [])
-            assert_export_html(folder, exported, shell)
+    def test_prod_shell_has_official_placeholders(self) -> None:
+        folder = "dagul-prod"
+        shell = slot_shell(folder)
+        for token in REQUIRED_PLACEHOLDERS:
+            self.assertIn(token, shell)
+        exported = simulate_export(shell)
+        self.assertEqual(leftover_placeholders(exported), [])
+        assert_export_html(folder, exported, shell)
 
     def test_fig_shell_is_official_and_exports_without_want_game(self) -> None:
         shell = slot_shell("server-fig-dev1")
@@ -119,14 +118,7 @@ class SlotShells(unittest.TestCase):
         self.assertIn("Custom Html Shell", str(ctx.exception))
 
     def test_no_shell_allows_engine_default(self) -> None:
-        assert_export_html("server-yjh-hexclash", DEFAULT_ENGINE_HTML, None)
-
-    def test_hexclash_preset_has_no_custom_shell(self) -> None:
-        text = slot_preset("server-yjh-hexclash")
-        self.assertTrue(
-            re.search(r'html/custom_html_shell=""', text),
-            "hexclash 는 공식 기본 HTML 을 쓴다",
-        )
+        assert_export_html("server-board", DEFAULT_ENGINE_HTML, None)
 
 
 def plant_mod():
@@ -170,7 +162,7 @@ class SlotRedis(unittest.TestCase):
 
     def test_project_source_hash_is_twelve_hex(self) -> None:
         plant = plant_mod()
-        digest = plant.project_source_hash(plant.APPS / "server-yjh-dev1")
+        digest = plant.project_source_hash(plant.APPS / "dagul-prod")
         self.assertEqual(len(digest), 12)
         self.assertTrue(all(ch in "0123456789abcdef" for ch in digest))
 
@@ -192,9 +184,9 @@ class CiPlan(unittest.TestCase):
             "aaa",
             "bbb",
             False,
-            ["apps/server-yjh-dev1/project/games/dagul/game.gd"],
+            ["apps/dagul-prod/project/games/dagul/game.gd"],
         )
-        self.assertEqual(picked, ["server-yjh-dev1"])
+        self.assertEqual(picked, ["dagul-prod"])
         self.assertTrue(helm)
 
     def test_workflow_change_requires_helm(self) -> None:
@@ -286,14 +278,13 @@ class HelmContract(unittest.TestCase):
         self.assertTrue(rooms_stayed([True, True]))
         self.assertFalse(rooms_stayed([True, False]))
 
-    def test_platform_pipeline_is_yjh_and_prod(self) -> None:
+    def test_platform_pipeline_is_prod(self) -> None:
         import importlib.util
 
         path = Path(__file__).with_name("apply-apps.py")
         spec = importlib.util.spec_from_file_location("apply_apps", path)
         apply = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(apply)
-        self.assertTrue(apply.platform_web_pipeline("server-yjh-dev1"))
         self.assertTrue(apply.platform_web_pipeline("dagul-prod"))
         self.assertFalse(apply.platform_web_pipeline("server-pjh-dev1"))
         self.assertEqual(
@@ -311,20 +302,14 @@ class HelmContract(unittest.TestCase):
         self.assertIn("drop_legacy_hub_deployments", apps_py)
         self.assertIn("delete deploy", apps_py)
         prod_df = (APPS / "dagul-prod" / "web" / "Dockerfile").read_text()
-        yjh_df = (APPS / "server-yjh-dev1" / "web" / "Dockerfile").read_text()
         self.assertNotIn("hub-kernel", prod_df)
-        self.assertNotIn("hub-kernel", yjh_df)
         self.assertNotIn("stage_hub_kernel", apps_py)
         self.assertIn("COPY web/package-lock.json ./", prod_df)
         self.assertIn("lockfileVersion", prod_df)
         self.assertIn("tsc-alias", prod_df)
-        self.assertIn("tsc-alias", yjh_df)
         self.assertIn("rewrite-dist-aliases.mjs", prod_df)
-        self.assertIn("rewrite-dist-aliases.mjs", yjh_df)
         self.assertIn("alias-register.js", prod_df)
-        self.assertIn("alias-register.js", yjh_df)
         self.assertIn("HACKERTONE_IMAGE_BUILD", prod_df)
-        self.assertIn("HACKERTONE_IMAGE_BUILD", yjh_df)
         self.assertNotIn('"--no-cache"', apps_py)
         self.assertIn('["docker", "build"', apps_py)
         self.assertIn('["docker", "push"', apps_py)
@@ -413,7 +398,7 @@ class PlatformGodotPipeline(unittest.TestCase):
         apps_py = (root / "deploy" / "scripts" / "apply-apps.py").read_text()
         self.assertIn('if cmd == "ship":', apps_py)
         self.assertIn("helm_upgrade()", apps_py)
-        for folder in ("server-yjh-dev1", "dagul-prod"):
+        for folder in ("dagul-prod",):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)
             self.assertIn("pipeline: platform", text)

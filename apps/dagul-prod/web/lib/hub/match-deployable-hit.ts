@@ -5,7 +5,7 @@
  * 설치·틱 본체는 match-deployable.ts.
  */
 import { HERO_RADIUS } from "./match-covers.js";
-import { attackDirection } from "./match-deployable.js";
+import { attackDirection, deployableHeroSeedFields } from "./match-deployable.js";
 import type { Deployable, DeployableState, WallDeployable } from "./match-deployable.js";
 
 /** 세그먼트 근접 히트 마진 — dist(new_pos, closest) <= HERO_RADIUS + 9. */
@@ -188,3 +188,4 @@ export const applyWallContact = deployableWallHit;
 export const apply = deployableWallHit;
 export const pack = snapDeployables;
 export const tick = tickWallHitCd;
+export const seed = deployableHeroSeedFields;

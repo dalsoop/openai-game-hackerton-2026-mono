@@ -262,6 +262,12 @@ function posmod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
 
+/** Godot maxf(0, t-dt) + <= 0. JS f64 잔여 1e-9 이하는 0. */
+function decayTimer(t: number, dt: number): number {
+  const next = t - dt;
+  return next <= 1e-9 ? 0 : next;
+}
+
 /** Godot Vector2.angle_to — atan2(cross, dot), [-PI, PI]. */
 function angleTo(a: Vec2, b: Vec2): number {
   return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
@@ -979,8 +985,8 @@ export function tickRoosterEggs(w: UltWorld, heroes: ReadonlyMap<number, UltHero
   const kept: RoosterEgg[] = [];
   for (const egg of w.roosterEggs) {
     if (!egg.alive) {continue;}
-    egg.ttl -= dt;
-    egg.arm = Math.max(0, egg.arm - dt);
+    egg.ttl = decayTimer(egg.ttl, dt);
+    egg.arm = decayTimer(egg.arm, dt);
     if (egg.ttl <= 0) {continue;}
     const origin = egg.pos;
     const trig = egg.trigger + HERO_RADIUS;
@@ -1021,7 +1027,7 @@ export function tickDogRush(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, d
   for (const [slot, h] of heroes) {
     let wind = h.dogWindup;
     if (wind > 0) {
-      wind = Math.max(0, wind - dt);
+      wind = decayTimer(wind, dt);
       h.dogWindup = wind;
       if (!h.alive || h.downed) {
         h.dogWindup = 0;

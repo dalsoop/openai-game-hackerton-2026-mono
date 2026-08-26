@@ -36,3 +36,6 @@ export function tickEmotes(heroes: Iterable<EmoteFields>, dt: number): void {
     h.emoteTime = Math.max(0, h.emoteTime - dt);
   }
 }
+export const seed = emoteSeedFields;
+export const tick = tickEmotes;
+export const apply = applyEmoteInput;

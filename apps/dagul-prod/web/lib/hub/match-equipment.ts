@@ -161,6 +161,9 @@ export function nextGunLootId(currentId: string): string {
   if (i >= GUN_LOOT_CHAIN.length - 1) {return "";}
   return GUN_LOOT_CHAIN[i + 1] ?? "";
 }
+export const seed = makeEquipment;
+export const apply = startEquipmentId;
+export const tick = nextGunLootId;
 
 export type GunVisual = {
   frame: number; gun: string; family: string; muzzleRow: number;
