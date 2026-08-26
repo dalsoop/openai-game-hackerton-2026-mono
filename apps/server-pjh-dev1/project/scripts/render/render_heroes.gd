@@ -365,7 +365,10 @@ func draw_rat_tides() -> void:
 		var leng := float(tide.get("length", 360.0))
 		var half_w := float(tide.get("half_w", 118.0))
 		var face_left := dir.x < 0.0
-		if r.draw_ultimate_frame(0, pos + dir * leng * 0.16, Vector2(leng * 0.86, half_w * 1.65), posmod(int(world.tick / 5), 4), 0, 0.0, 1.0, face_left):
+		var travel_angle := dir.angle()
+		if face_left:
+			travel_angle = wrapf(travel_angle + PI, -PI, PI)
+		if r.draw_ultimate_frame(0, pos + dir * leng * 0.16, Vector2(leng * 0.86, half_w * 1.65), posmod(int(world.tick / 5), 4), 0, travel_angle, 1.0, face_left):
 			continue
 
 func draw_heroes() -> void:
