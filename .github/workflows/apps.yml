@@ -1,6 +1,6 @@
 name: Apps
 
-# 푸시하면 바뀐 server-* 만 pve-hackertone 이 ship 하고 helm 한다. 전 슬롯은 굽지 않는다.
+# 푸시하면 바뀐 server-* 만 pve-hackertone 이 같은 잡에서 ship 하고 helm 한다.
 on:
   push:
     branches: [main, jeongright-gang-up-multi]
@@ -36,9 +36,7 @@ jobs:
         run: |
           set -eu
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_FOLDERS:-}" ]; then
-            json=$(python3 -c 'import json,os,re,sys; fs=os.environ["INPUT_FOLDERS"].split();
-            [sys.exit("bad folder "+f) for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)];
-            print(json.dumps({"folder":fs,"helm":True}))')
+            json=$(python3 -c 'import json,os,re,sys; fs=[f for f in os.environ.get("INPUT_FOLDERS","").split() if f]; bad=next((f for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)), ""); sys.exit("bad folder "+bad) if bad else print(json.dumps({"folder":fs,"helm":True}))')
           else
             json=$(python3 deploy/scripts/ci-plan.py --changed "${BEFORE:-}" "${SHA}")
           fi
@@ -48,9 +46,9 @@ jobs:
           echo "folders=$folders" >> "$GITHUB_OUTPUT"
           echo "helm=$helm" >> "$GITHUB_OUTPUT"
 
-  ship:
+  apply:
     needs: plan
-    if: ${{ needs.plan.outputs.folders != '' }}
+    if: ${{ needs.plan.outputs.folders != '' || needs.plan.outputs.helm == 'true' }}
     runs-on: [self-hosted, hackertone]
     timeout-minutes: 45
     concurrency:
@@ -58,26 +56,14 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Ship changed slots
-        run: python3 deploy/scripts/apply-apps.py ship ${{ needs.plan.outputs.folders }}
-
-  helm:
-    needs: [plan, ship]
-    if: >-
-      always() &&
-      !cancelled() &&
-      needs.plan.result == 'success' &&
-      needs.plan.outputs.helm == 'true' &&
-      (needs.ship.result == 'success' || needs.ship.result == 'skipped')
-    runs-on: [self-hosted, hackertone]
-    timeout-minutes: 30
-    concurrency:
-      group: apps-helm
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - name: Helm planted values
+      - name: Ship then helm on pve-hackertone
         env:
+          FOLDERS: ${{ needs.plan.outputs.folders }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: python3 deploy/scripts/apply-apps.py helm
+        run: |
+          set -eu
+          if [ -n "${FOLDERS:-}" ]; then
+            python3 deploy/scripts/apply-apps.py ship $FOLDERS
+          fi
+          python3 deploy/scripts/apply-apps.py helm
