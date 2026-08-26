@@ -52,11 +52,27 @@ hub:
     PORT: "8080"
   # 다중 복제 시: strategy: RollingUpdate + publicPrefix: "%s.external.kr/hubp"
   # (printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결)
-  strategy: ""
-  publicPrefix: ""
+  strategy: RollingUpdate
+  publicPrefix: "%s.external.kr/hubp"
+  staticSplit: true
   scale:
-    folders: []
-    replicaCount: 1
+    folders:
+      - server-prod
+    # HUB_CONFIG: ceil(targetCcu / perProcessCcu). 개발 슬롯은 위 replicaCount 1.
+    replicaCount: 20
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    staticResources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
   resources:
     requests:
       cpu: 50m

@@ -30,6 +30,14 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("/matchmake*", WEB)
         self.assertIn("/rooms", WEB)
 
+    def test_prod_scale_values(self) -> None:
+        self.assertIn("staticSplit: true", VALUES)
+        self.assertIn('publicPrefix: "%s.external.kr/hubp"', VALUES)
+        self.assertIn("- server-prod", VALUES)
+        self.assertIn("replicaCount: 20", VALUES)
+        self.assertIn("staticResources:", VALUES)
+        self.assertIn("scale.resources", HUB)
+
 
 if __name__ == "__main__":
     unittest.main()
