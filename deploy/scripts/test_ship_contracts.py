@@ -7,13 +7,19 @@ import unittest
 from pathlib import Path
 
 from helm_contract import (
+    create_public_address_ok,
+    create_room_id,
     helm_upgrade_cmd,
+    hubp_health_url,
     image_drift,
     matchmake_create_ok,
     planted_hub_ids,
     planted_hub_tags,
     planted_redis_slots,
     redis_url_ok,
+    rooms_listed,
+    rooms_stayed,
+    rooms_url,
 )
 from hub_images import folder_from_hub_ref, missing_hub_refs
 from status import hub_health_ok
@@ -236,6 +242,28 @@ class HelmContract(unittest.TestCase):
         self.assertFalse(redis_url_ok("redis://redis:6379", 1))
         self.assertTrue(matchmake_create_ok(200, '{"roomId":"x"}'))
         self.assertFalse(matchmake_create_ok(523, "{}"))
+        self.assertEqual(
+            hubp_health_url("server-prod"),
+            "https://server-prod.external.kr/hubp/server-prod-hub-0/health",
+        )
+        self.assertTrue(
+            create_public_address_ok(
+                "server-prod",
+                '{"roomId":"x","room":{"publicAddress":"server-prod.external.kr/hubp/server-prod-hub-0"}}',
+            )
+        )
+        self.assertFalse(
+            create_public_address_ok(
+                "server-prod",
+                '{"roomId":"x","room":{"publicAddress":"server-prod.external.kr/hubp/hash-pod"}}',
+            )
+        )
+        self.assertEqual(rooms_url("server-prod"), "https://server-prod.external.kr/rooms")
+        self.assertEqual(create_room_id('{"roomId":"LOh_VE43u"}'), "LOh_VE43u")
+        self.assertTrue(rooms_listed('{"rooms":[{"roomId":"LOh_VE43u"}]}', "LOh_VE43u"))
+        self.assertFalse(rooms_listed('{"rooms":[]}', "LOh_VE43u"))
+        self.assertTrue(rooms_stayed([True, True]))
+        self.assertFalse(rooms_stayed([True, False]))
 
     def test_platform_pipeline_is_yjh_and_prod(self) -> None:
         import importlib.util

@@ -3,7 +3,7 @@
 {{- $scaled := eq (include "hackertone-games.hubScaled" $ctx) "true" }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ .folder }}-hub
   labels:
@@ -11,14 +11,11 @@ metadata:
     app.kubernetes.io/component: hub
     hackertone-games/slot: {{ .folder }}
 spec:
+  serviceName: {{ .folder }}-hub-pods
   replicas: {{ include "hackertone-games.hubReplicas" $ctx }}
-  strategy:
+  podManagementPolicy: Parallel
+  updateStrategy:
     type: {{ $.Values.hub.strategy | default "RollingUpdate" }}
-    {{- if eq ($.Values.hub.strategy | default "RollingUpdate") "RollingUpdate" }}
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-    {{- end }}
   selector:
     matchLabels:
       {{- include "hackertone-games.selectorLabels" $ | nindent 6 }}
@@ -32,6 +29,8 @@ spec:
         hackertone-games/slot: {{ .folder }}
     spec:
       enableServiceLinks: false
+      # hostname 은 StatefulSet 이 <folder>-hub-N 으로 넣는다. 템플릿에 비우지 않는다.
+      subdomain: {{ .folder }}-hub-pods
       {{- with $.Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -22,7 +22,12 @@ class HubScaleChart(unittest.TestCase):
         self.assertIn("redis.slots", HELPERS)
 
     def test_templates_pin_ws_and_static(self) -> None:
+        self.assertEqual(HUB.count("kind: StatefulSet"), 1)
+        self.assertIn("serviceName: {{ .folder }}-hub-pods", HUB)
+        self.assertIn("podManagementPolicy: Parallel", HUB)
         self.assertIn("HUB_PUBLIC_PREFIX", HUB)
+        self.assertIn("subdomain: {{ .folder }}-hub-pods", HUB)
+        self.assertIn("kind: Deployment", HUB)
         self.assertIn("hub-static", HUB)
         self.assertIn("HUB_STATIC_SPLIT", HUB)
         self.assertIn("hub-static:80", WEB)

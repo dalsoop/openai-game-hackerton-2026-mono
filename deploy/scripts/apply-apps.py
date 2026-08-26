@@ -29,11 +29,14 @@ from export_web import (  # noqa: E402
 from helm_contract import (  # noqa: E402
     NAMESPACE,
     SMOKE_FOLDERS,
+    create_public_address_ok,
+    create_room_id,
     create_url,
     deploy_image_tags,
     health_url,
     helm_diff_cmd,
     helm_upgrade_cmd,
+    hubp_health_url,
     image_drift,
     matchmake_create_ok,
     parse_deploy_env,
@@ -41,6 +44,9 @@ from helm_contract import (  # noqa: E402
     planted_hub_tags,
     planted_redis_slots,
     redis_url_ok,
+    rooms_listed,
+    rooms_stayed,
+    rooms_url,
 )
 from hub_images import folder_from_hub_ref, missing_hub_refs  # noqa: E402
 from status import hub_health_ok, probe  # noqa: E402
@@ -272,6 +278,14 @@ def live_hub_image_lines(deploy_list: dict) -> str:
     return "\n".join(lines)
 
 
+def live_hub_workloads() -> dict:
+    items: list[dict] = []
+    for kind in ("statefulset", "deploy"):
+        data = kubectl_json(kind)
+        items.extend(data.get("items") or [])
+    return {"items": items}
+
+
 def live_deploy_env_lines(deploy: dict) -> str:
     containers = (
         ((deploy.get("spec") or {}).get("template") or {}).get("spec") or {}
@@ -304,7 +318,7 @@ def post_json(url: str, payload: dict) -> tuple[int, str]:
 def assert_live_matches_plant() -> None:
     games = (CHART / "values-games.yaml").read_text()
     planted = planted_hub_tags(games)
-    live = deploy_image_tags(live_hub_image_lines(kubectl_json("deploy")))
+    live = deploy_image_tags(live_hub_image_lines(live_hub_workloads()))
     drift = image_drift(planted, live)
     if drift:
         raise SystemExit("live 이미지가 values-games 태그와 다르다:\n" + "\n".join(drift))
@@ -316,7 +330,7 @@ def assert_live_matches_plant() -> None:
         if db is None:
             redis_fail.append(f"{folder}: redis.slots.{slot_id} 없음")
             continue
-        env = parse_deploy_env(live_deploy_env_lines(kubectl_json(f"deploy/{folder}-hub")))
+        env = parse_deploy_env(live_deploy_env_lines(kubectl_json(f"sts/{folder}-hub")))
         url = env.get("REDIS_URL", "")
         if not redis_url_ok(url, db):
             redis_fail.append(f"{folder}: REDIS_URL={url or '없음'} expected /{db}")
@@ -337,17 +351,38 @@ def assert_smoke_hubs() -> None:
         else:
             failed.append(f"{folder} health {status} {body[:120]}")
             continue
+        pin_status, pin_body = 0, ""
+        for attempt in range(4):
+            pin_status, pin_body = probe(hubp_health_url(folder))
+            if 200 <= pin_status < 400 and hub_health_ok(folder, pin_body):
+                break
+            time.sleep(3 * (attempt + 1))
+        else:
+            failed.append(f"{folder} hubp-0 {pin_status} {pin_body[:120]}")
+            continue
         created = False
         last = ""
+        seat = ""
+        room_id = ""
         for attempt in range(3):
             status, body = post_json(create_url(folder), {})
             last = f"{status} {body[:160]}"
-            if matchmake_create_ok(status, body):
+            if matchmake_create_ok(status, body) and create_public_address_ok(folder, body):
                 created = True
+                seat = body
+                room_id = create_room_id(body)
                 break
             time.sleep(2 * (attempt + 1))
         if not created:
             failed.append(f"{folder} create {last}")
+            continue
+        seen: list[bool] = []
+        for _ in range(2):
+            _st, listed = probe(rooms_url(folder))
+            seen.append(rooms_listed(listed, room_id))
+            time.sleep(4)
+        if seen[0] and not rooms_stayed(seen):
+            failed.append(f"{folder} rooms dropped {room_id} {seat[:80]}")
     if failed:
         raise SystemExit("helm 이후 스모크 실패:\n" + "\n".join(failed))
     print("smoke create ok " + ",".join(SMOKE_FOLDERS))
