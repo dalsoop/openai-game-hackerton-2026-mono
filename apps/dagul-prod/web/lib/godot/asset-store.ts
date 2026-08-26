@@ -45,6 +45,19 @@ export function isExtLibPath(pathname: string, file = assetPlanOf("dagul").extLi
   return pathname === `/${file}` || pathname.endsWith(`/${file}`);
 }
 
+const WORKLET_FILES = ["index.audio.worklet.js", "index.audio.position.worklet.js"] as const;
+
+/** 엔진이 페이지 루트·로케일 상대(`/index.audio.worklet.js`, `/ko/…`)로 요청하는 워크릿. */
+export function godotWorkletAssetPath(
+  pathname: string,
+  pack = "dagul",
+): string | null {
+  if (pathname.startsWith("/godot/")) {return null;}
+  const base = pathname.split("/").filter(Boolean).pop() ?? "";
+  if (!(WORKLET_FILES as readonly string[]).includes(base)) {return null;}
+  return godotAssetUrl(pack, base);
+}
+
 type ProgressFn = (progress: number, loaded: number, total: number) => void;
 
 /** 파일별 진행 중 Promise 메모 — 동시 요청·재요청 모두 네트워크 1회로 수렴시킨다. */

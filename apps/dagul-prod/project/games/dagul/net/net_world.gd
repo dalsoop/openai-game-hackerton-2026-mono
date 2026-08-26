@@ -12,7 +12,7 @@ const ARENA_CENTER := ArenaGeo.ARENA_CENTER
 const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
 const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
-const SNAP_HZ := 20.0
+const TICK_RATE := 60.0
 const INTERP_SEC := 0.06
 const MOVE_SPEED := 419.0
 const DASH_SPEED := 520.0
@@ -141,6 +141,9 @@ static func _f(source: Dictionary, key: String, fallback: float) -> float:
         return float(v)
     return fallback
 
+static func snap_per_sec(from_tick: float, to_tick: float) -> float:
+    return TICK_RATE / maxf(1.0, to_tick - from_tick)
+
 func push_snap(snap: Dictionary) -> void:
     if snap.is_empty():
         return
@@ -181,7 +184,7 @@ func present(_dt: float) -> void:
         _overlay_prediction()
         return
     var latest: Dictionary = _snaps.back()
-    var render_tick := float(int(latest.get(SnapContract.TICK, 0))) - INTERP_SEC * SNAP_HZ
+    var render_tick := float(int(latest.get(SnapContract.TICK, 0))) - INTERP_SEC * TICK_RATE
     var older: Dictionary = _snaps[0]
     var newer: Dictionary = latest
     for i in range(_snaps.size() - 1):
@@ -197,7 +200,7 @@ func present(_dt: float) -> void:
     var span := maxf(0.0001, to_tick - from_tick)
     var alpha := clampf((render_tick - from_tick) / span, 0.0, 1.0)
     if render_tick > to_tick:
-        var extra := minf(0.08, (render_tick - to_tick) / SNAP_HZ)
+        var extra := minf(0.08, (render_tick - to_tick) / TICK_RATE)
         _extrapolate(extra)
     else:
         _lerp_motion(older, newer, alpha)
@@ -238,6 +241,10 @@ func _player_in(snap: Dictionary, slot: int) -> Dictionary:
     return {}
 
 func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
+    var vel_scale := snap_per_sec(
+        float(int(older.get(SnapContract.TICK, 0))),
+        float(int(newer.get(SnapContract.TICK, 0)))
+    )
     var from_map := {}
     for raw in older.get(SnapContract.PLAYERS, []):
         var p: Dictionary = raw
@@ -255,7 +262,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var from_pos := Vector2(_f(a, SnapContract.P_X, 0.0), _f(a, SnapContract.P_Y, 0.0))
         var to_pos := Vector2(_f(b, SnapContract.P_X, 0.0), _f(b, SnapContract.P_Y, 0.0))
         hero["pos"] = from_pos.lerp(to_pos, alpha)
-        hero["vel"] = (to_pos - from_pos) * SNAP_HZ
+        hero["vel"] = (to_pos - from_pos) * vel_scale
         var from_aim := Vector2(_f(a, SnapContract.P_AIM_X, from_pos.x + 1.0), _f(a, SnapContract.P_AIM_Y, from_pos.y))
         var to_aim := Vector2(_f(b, SnapContract.P_AIM_X, to_pos.x + 1.0), _f(b, SnapContract.P_AIM_Y, to_pos.y))
         var aim_point := from_aim.lerp(to_aim, alpha)
@@ -272,7 +279,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
         var from_b := Vector2(_f(ob, SnapContract.B_X, 0.0), _f(ob, SnapContract.B_Y, 0.0))
         var to_b := Vector2(_f(nb, SnapContract.B_X, 0.0), _f(nb, SnapContract.B_Y, 0.0))
         shot["pos"] = from_b.lerp(to_b, alpha)
-        shot["vel"] = (to_b - from_b) * SNAP_HZ
+        shot["vel"] = (to_b - from_b) * vel_scale
     safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:
@@ -343,14 +350,15 @@ func apply_snap(snap: Dictionary) -> void:
     var prev_shrinking := safe_zone_shrinking
     SnapContract.apply_header(self, snap)
     _apply_world_extras(snap)
-    var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
+    var snap_per_sec := snap_per_sec(float(prev_tick), float(tick))
+    var snap_dt := maxf(0.0, float(tick - prev_tick)) / TICK_RATE
     var prev_result := result
     _apply_result(snap)
     SfxDerive.header_events(self, prev_countdown, prev_shrinking)
     _fight_countdown_fired = SfxDerive.countdown_event(self, _fight_countdown_fired)
     _derive_zone_target()
-    _apply_players(snap.get(SnapContract.PLAYERS, []))
-    _apply_bullets(snap.get(SnapContract.BULLETS, []))
+    _apply_players(snap.get(SnapContract.PLAYERS, []), snap_per_sec)
+    _apply_bullets(snap.get(SnapContract.BULLETS, []), snap_per_sec)
     _apply_loot(snap.get(SnapContract.LOOT, []))
     _decay_effects(snap_dt)
     if last_down_ticks > 0:
@@ -388,7 +396,7 @@ func _on_match_ended() -> void:
 func _apply_world_extras(snap: Dictionary) -> void:
     SnapContract.apply_world(self, snap)
 
-func _apply_players(list: Array) -> void:
+func _apply_players(list: Array, snap_per_sec: float) -> void:
     var prev := {}
     for hero in heroes:
         prev[int(hero["slot"])] = hero
@@ -399,7 +407,7 @@ func _apply_players(list: Array) -> void:
         var old: Dictionary = prev.get(slot, {})
         _check_death(p, old, slot)
         SfxDerive.player_events(self, p, old, slot)
-        next.append(_build_hero(p, old, slot))
+        next.append(_build_hero(p, old, slot, snap_per_sec))
     heroes = next
 
 func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
@@ -417,16 +425,16 @@ func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     event_log.emit(tick, &"hero_downed", slot, -1, {})
     _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
 
-func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
-    var hero := SnapContract.unpack_player(p, old, slot, SNAP_HZ)
+func _build_hero(p: Dictionary, old: Dictionary, slot: int, snap_per_sec: float) -> Dictionary:
+    var hero := SnapContract.unpack_player(p, old, slot, snap_per_sec)
     # deaths·score 는 스냅 값 우선 — 스냅에 키가 없을 때만 로컬 전이 카운터 폴백.
     if not p.has(SnapContract.P_DEATHS):
         hero["deaths"] = int(_deaths.get(slot, 0))
     hero["eliminations"] = int(hero["kills"])
     return hero
 
-func _apply_bullets(list: Array) -> void:
-    var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)
+func _apply_bullets(list: Array, snap_per_sec: float) -> void:
+    var next := NetSnapParser.parse_bullets(list, _prev_bullets, snap_per_sec)
     if _bullets_ready:
         var seen := {}
         for prev_b in _prev_bullets:
@@ -459,7 +467,7 @@ func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float,
 
 func _decay_effects(dt: float) -> void:
     if dt <= 0.0:
-        dt = 1.0 / SNAP_HZ
+        dt = 1.0 / TICK_RATE
     for i in range(effects.size() - 1, -1, -1):
         var effect: Dictionary = effects[i]
         effect["time"] = float(effect["time"]) - dt
