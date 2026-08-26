@@ -1,33 +1,56 @@
 name: Apps
 
-# 푸시: 퍼지만. 올리기: pve-hackertone 이 apply-apps.py 를 실행한다.
+# 푸시하면 바뀐 server-* 만 pve-hackertone 이 ship 하고 helm 한다. 전 슬롯은 굽지 않는다.
 on:
   push:
     branches: [main, jeongright-gang-up-multi]
     paths:
       - "apps/**"
       - "deploy/**"
+      - ".github/workflows/apps.yml"
   workflow_dispatch:
     inputs:
       folders:
-        description: "ship 할 server-* 폴더 (공백 구분)"
+        description: "ship 할 server-* 폴더 (공백 구분). 비우면 ci-plan"
         type: string
-        default: "server-prod server-yjh-dev1"
+        default: ""
 
 jobs:
-  purge:
-    if: github.event_name == 'push'
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      folders: ${{ steps.list.outputs.folders }}
+      helm: ${{ steps.list.outputs.helm }}
     steps:
       - uses: actions/checkout@v4
-      - name: Purge Cloudflare
+        with:
+          fetch-depth: 0
+      - name: Ship contracts
+        run: python3 deploy/scripts/test_ship_contracts.py
+      - id: list
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: python3 deploy/scripts/purge-cache.py
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_FOLDERS: ${{ inputs.folders }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_FOLDERS:-}" ]; then
+            json=$(python3 -c 'import json,os,re,sys; fs=os.environ["INPUT_FOLDERS"].split();
+            [sys.exit("bad folder "+f) for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)];
+            print(json.dumps({"folder":fs,"helm":True}))')
+          else
+            json=$(python3 deploy/scripts/ci-plan.py --changed "${BEFORE:-}" "${SHA}")
+          fi
+          echo "$json"
+          folders=$(python3 -c "import json,sys; print(' '.join(json.loads(sys.argv[1]).get('folder', [])))" "$json")
+          helm=$(python3 -c "import json,sys; print('true' if json.loads(sys.argv[1]).get('helm') else 'false')" "$json")
+          echo "folders=$folders" >> "$GITHUB_OUTPUT"
+          echo "helm=$helm" >> "$GITHUB_OUTPUT"
 
   ship:
-    if: github.event_name == 'workflow_dispatch'
+    needs: plan
+    if: ${{ needs.plan.outputs.folders != '' }}
     runs-on: [self-hosted, hackertone]
     timeout-minutes: 45
     concurrency:
@@ -35,15 +58,26 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Ship folders on pve-hackertone
+      - name: Ship changed slots
+        run: python3 deploy/scripts/apply-apps.py ship ${{ needs.plan.outputs.folders }}
+
+  helm:
+    needs: [plan, ship]
+    if: >-
+      always() &&
+      !cancelled() &&
+      needs.plan.result == 'success' &&
+      needs.plan.outputs.helm == 'true' &&
+      (needs.ship.result == 'success' || needs.ship.result == 'skipped')
+    runs-on: [self-hosted, hackertone]
+    timeout-minutes: 30
+    concurrency:
+      group: apps-helm
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Helm planted values
         env:
-          FOLDERS: ${{ inputs.folders }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          set -eu
-          folders=$(python3 -c 'import os,re,sys; fs=os.environ["FOLDERS"].split();
-          [sys.exit("bad folder "+f) for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)];
-          print(" ".join(fs))')
-          python3 deploy/scripts/apply-apps.py ship $folders
-          python3 deploy/scripts/apply-apps.py helm
+        run: python3 deploy/scripts/apply-apps.py helm

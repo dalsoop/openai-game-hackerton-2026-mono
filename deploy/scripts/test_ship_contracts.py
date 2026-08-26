@@ -321,14 +321,13 @@ class PlatformGodotPipeline(unittest.TestCase):
         apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
         self.assertIn("apply-apps.py ship", apps_yml)
         self.assertIn("apply-apps.py helm", apps_yml)
+        self.assertIn("ci-plan.py", apps_yml)
         self.assertIn("workflow_dispatch", apps_yml)
         self.assertIn("runs-on: [self-hosted, hackertone]", apps_yml)
-        self.assertIn("github.event_name == 'workflow_dispatch'", apps_yml)
-        self.assertIn("github.event_name == 'push'", apps_yml)
+        self.assertIn("group: apps-ship", apps_yml)
+        self.assertIn("group: apps-helm", apps_yml)
         self.assertIn("on:\n  push:", apps_yml)
-        self.assertIn("purge-cache.py", apps_yml)
-        self.assertNotIn("group: apps-build", apps_yml)
-        self.assertNotIn("--all", apps_yml)
+        self.assertNotIn("picked.update(known)", (root / "deploy" / "scripts" / "ci-plan.py").read_text())
         apps_py = (root / "deploy" / "scripts" / "apply-apps.py").read_text()
         self.assertIn('if cmd == "ship":', apps_py)
         self.assertIn("helm_upgrade()", apps_py)
@@ -382,7 +381,7 @@ class HubImages(unittest.TestCase):
             elif pack.is_file() and not existed:
                 pack.unlink()
 
-    def test_plant_formula_change_ships_all_hubs(self) -> None:
+    def test_plant_formula_change_does_not_ship_all_hubs(self) -> None:
         import importlib.util
 
         path = Path(__file__).with_name("ci-plan.py")
@@ -391,8 +390,8 @@ class HubImages(unittest.TestCase):
         spec.loader.exec_module(plan)
         picked, helm = plan.analyze("a", "b", False, changed=["deploy/scripts/plant-apps.py"])
         self.assertTrue(helm)
-        self.assertIn("server-prod", picked)
-        self.assertIn("server-yjh-dev1", picked)
+        self.assertEqual(picked, ["server-board"])
+        self.assertNotIn("server-prod", picked)
 
 
 class HubHealth(unittest.TestCase):

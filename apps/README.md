@@ -2,7 +2,7 @@
 
 폴더 이름이 곧 배포 서브도메인이다.
 
-`apps/server-*` 만 배포된다. 올린 슬롯만 `apply-apps.py ship` 한 뒤 `helm` 한다.
+`apps/server-*` 만 배포된다. main에 푸시하면 바뀐 폴더만 `pve-hackertone`이 올린다.
 
 ```text
 game-pjh-gang-up/   다굴 Godot 원본. 크리엘(pjh). 수정하지 않음
@@ -23,6 +23,6 @@ server-board/       배포 보드. https://server-board.external.kr/
 
 모드는 로비에서 고른다. 폴더를 모드마다 쪼개지 않는다.
 
-`python3 deploy/scripts/apply-apps.py ship <folder>` 가 Godot 웹 익스포트·허브 이미지를 올리고, `helm` 이 태그를 심는다. Next 슬롯은 `godot:build` 후 `public/godot`에 복사한 팩을 이미지에 넣는다. wasm/pck는 git에 넣지 않는다.
+푸시 후 `apply-apps.py ship`이 Godot 웹 익스포트·허브 이미지를 올리고, `helm`이 태그를 심는다. Next 슬롯은 `godot:build` 후 `public/godot`에 복사한 팩을 이미지에 넣는다. wasm/pck는 git에 넣지 않는다.
 
 상태는 `https://server-board.external.kr/` 이다. 파란 구슬은 노드에 파일이 있는 슬롯이다.

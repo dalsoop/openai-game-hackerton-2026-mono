@@ -13,4 +13,4 @@ description: >-
 
 `game-*` 는 올리지 않는다. 방 서버는 `hub.enabled` 폴더마다 Dockerfile 이미지와 프로세스가 따로다. `dev1`/`dev2`/`dev3`/`prod`는 웹과 허브가 켜져 있다.
 
-`python3 deploy/scripts/apply-apps.py ship <folder>` 다음 `python3 deploy/scripts/apply-apps.py helm`. GitHub Actions는 이미지를 만들지 않는다. wasm/pck는 git에 넣지 않는다.
+`apps/server-*`를 main에 푸시하면 `pve-hackertone`이 바뀐 폴더만 ship 하고 helm 한다. wasm/pck는 git에 넣지 않는다.
