@@ -165,6 +165,9 @@ func push_snap(snap: Dictionary) -> void:
         _seed_prediction(snap)
 
 func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
+    # 대기(카운트다운)·종료 중엔 서버가 입력을 무시한다 — 예측도 얼려서 유령 이동을 막는다.
+    if start_countdown > 0.0 or result != &"playing":
+        return _input_seq
     _input_seq += 1
     var mx := move.x
     var my := move.y

@@ -354,4 +354,23 @@ describe("총알 정합 W9", () => {
     expect(near.hp).toBeCloseTo(hpN - 20 * PROJECTILE_SPLASH_MUL, 5);
     expect(a.hp).toBeCloseTo(40 + 20 * PROJECTILE_LEECH_MUL, 5);
   });
+
+  it("피격은 hit_spark, 회피는 afterimage 이펙트를 남긴다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    sim.countdownHeld = false;
+    const victim = sim.heroes.get(1);
+    expect(victim).toBeTruthy();
+    if (!victim) {return;}
+    victim.spawnProtect = 0;
+    const hitter = sim as unknown as {
+      hurtHero(owner: number, v: typeof victim, amount: number): void;
+    };
+    hitter.hurtHero(0, victim, 10);
+    expect(sim.effects.items.some((e) => e.kind === "hit_spark")).toBe(true);
+    victim.evadeTime = 0.2;
+    hitter.hurtHero(0, victim, 10);
+    expect(sim.effects.items.some((e) => e.kind === "afterimage")).toBe(true);
+  });
+
 });

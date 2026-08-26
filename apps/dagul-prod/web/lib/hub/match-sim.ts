@@ -26,8 +26,8 @@ import {
 } from "./match-zone.js";
 import type { SafeZoneState } from "./match-zone.js";
 import {
-  addChargeBreakEffect, addMobilityDashEffects, createEffectStore, decayEffects,
-  type EffectStore,
+  addChargeBreakEffect, addEvadeEffect, addHeroHitEffect, addMobilityDashEffects,
+  createEffectStore, decayEffects, type EffectStore,
 } from "./match-effects.js";
 import {
   accumulateComboDamage, applyControl, applyGuard, ccSeedFields, comboAmplifier, movementControl,
@@ -850,6 +850,7 @@ export class MatchSim {
     if (!victim.alive || victim.burrowed || victim.spawnProtect > 0) {return;}
     if (victim.evadeTime > 0) {
       victim.evadeTime = 0;
+      addEvadeEffect(this.effects, victim.x, victim.y);
       return;
     }
     if (victim.chargingSkill) {
@@ -859,6 +860,14 @@ export class MatchSim {
     }
     const attacker = this.heroes.get(owner);
     const scaled = scaleGunHit(this, attacker, victim, amount, source, ctx);
+    // 원본 damage_system.gd:350 — 피격 임팩트 연출 (반경 clamp 32~125).
+    addHeroHitEffect(this.effects, {
+      x: ctx.impactX ?? victim.x, y: ctx.impactY ?? victim.y,
+      amount: scaled.amount, knockback: ctx.knockback ?? 0, source,
+      kind: ctx.effectKind ?? "hit_spark", label: ctx.label ?? "",
+      launchX: 0, launchY: 0,
+      fromX: attacker?.x ?? victim.x, fromY: attacker?.y ?? victim.y,
+    });
     const event = applyScoredDamage(this.heroes, owner, victim, scaled.amount, this.streakState);
     if (attacker) {
       applyHitUltCharge(attacker, victim, scaled.amount, source, owner === victim.slot);

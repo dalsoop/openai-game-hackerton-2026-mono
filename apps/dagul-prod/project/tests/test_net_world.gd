@@ -17,6 +17,7 @@ func run(t) -> void:
 	_local_fire_shake_decays(t)
 	_new_snap_bullet_emits_gun_fire(t)
 	_interp_velocity_matches_tick_span(t)
+	_prediction_freezes_in_countdown(t)
 	_same_snap_present_skips_reapply(t)
 	_events_snap_gun_fire_once(t)
 	_events_snap_skips_bullet_infer(t)
@@ -301,6 +302,25 @@ func _remote_lerp_vel_x(tick_span: int, phys_speed: float) -> float:
 	if nw.heroes.is_empty():
 		return -1.0
 	return Vector2(nw.heroes[0]["vel"]).x
+
+func _prediction_freezes_in_countdown(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var snap := _center_snap(2000.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.START_COUNTDOWN] = 2.0
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		t.check("카운트다운 스냅이 히어로를 만든다", false)
+		return
+	var before: Vector2 = nw.heroes[0]["pos"]
+	for i in range(30):
+		nw.predict_local(Vector2.RIGHT, false, before + Vector2(100, 0), 1.0 / 60.0)
+	t.check("카운트다운 중 예측 이동이 얼어 있다", Vector2(nw.heroes[0]["pos"]).distance_to(before) < 1.0)
+	nw.start_countdown = 0.0
+	for i in range(30):
+		nw.predict_local(Vector2.RIGHT, false, before + Vector2(400, 0), 1.0 / 60.0)
+	t.check("카운트다운 해제 후 예측이 움직인다", Vector2(nw.heroes[0]["pos"]).x > before.x + 10.0)
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {
