@@ -39,10 +39,10 @@ function useHubExternalErrors(
   setError: (message: string | null) => void,
 ): void {
   useEffect(() => {
-    if (roomError) {setError(roomError.message);}
+    if (roomError) {setHubError(setError, roomError.message);}
   }, [roomError, setError]);
   useEffect(() => {
-    if (lobbyErr) {setError(lobbyErr.message);}
+    if (lobbyErr) {setHubError(setError, lobbyErr.message);}
   }, [lobbyErr, setError]);
 }
 
