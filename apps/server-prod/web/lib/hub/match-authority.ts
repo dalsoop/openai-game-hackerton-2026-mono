@@ -20,6 +20,7 @@ export type SnapPlayer = {
   animal: number;
   characterId: string;
   cpu: boolean;
+  kills: number;
 };
 
 export function packAuthoritySnap(
@@ -45,6 +46,7 @@ export function packAuthoritySnap(
       weapon: KO.WEAPON_PISTOL,
       ack: h.ack,
       animal: h.animal,
+      kills: h.kills,
       characterId: h.characterId,
       cpu: h.cpu,
     });

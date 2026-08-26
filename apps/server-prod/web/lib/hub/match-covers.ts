@@ -105,6 +105,11 @@ export function clampArena(x: number, y: number): { x: number; y: number } {
   };
 }
 
+export const FIRE_SPEED = 1000;
+export const FIRE_TTL = 0.44;
+/** burst 권총 normal_range 와 같다. 이보다 멀리서 쏘면 탄이 만료된다. */
+export const EFFECTIVE_RANGE = FIRE_SPEED * FIRE_TTL;
+
 /** 레거시 _reset_heroes 의 SPAWN_HERO_RADIUS — 가장자리 스폰이라 개전까지 거리가 남는다. */
 export const SPAWN_RADIUS = { x: 3360, y: 1940 };
 
