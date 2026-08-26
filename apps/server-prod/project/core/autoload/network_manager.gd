@@ -19,11 +19,11 @@ const SeatCodec := preload("res://core/contract/seat_codec.gd")  # lint-gd: publ
 const HubStateSync := preload("res://core/contract/hub_state_sync.gd")  # lint-gd: public-api
 
 const STATUS_LOBBY := "로비"  # lint-gd: public-api
-const STATUS_OFFLINE := "오프라인 로컬"  # lint-gd: public-api
+const STATUS_IDLE := "대기"  # lint-gd: public-api
 
 var player_name := "플레이어"  # lint-gd: public-api
 var mode := WebContract.DEFAULT_MODE  # lint-gd: public-api
-var status := STATUS_OFFLINE  # lint-gd: public-api
+var status := STATUS_IDLE  # lint-gd: public-api
 var players: Array = []  # lint-gd: public-api
 var room: Dictionary = {}  # lint-gd: public-api
 var you := -1  # lint-gd: public-api
