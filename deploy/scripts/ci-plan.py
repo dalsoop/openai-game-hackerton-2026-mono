@@ -63,9 +63,6 @@ def analyze(
             name = Path(line).name
             if name in {"plant-apps.py", "slots.json"}:
                 picked.add("server-board")
-            # 태그 공식이 바뀌면 클린 트리 태그와 클러스터 태그가 전부 갈라진다.
-            if name == "plant-apps.py":
-                picked.update(known)
             continue
         if parts[0] == ".github":
             helm = True

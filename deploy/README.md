@@ -1,10 +1,10 @@
 # deploy/
 
-정본은 `apply-apps.py`이다. 이 Mac에서 PVE SSH가 되면 로컬에서 돌리고, 아니면 `pve-hackertone` 러너에 `workflow_dispatch`로 같은 명령을 보낸다. 푸시만으로는 이미지를 만들지 않는다. wasm/pck는 git에 넣지 않는다.
+정본은 `apply-apps.py`이다. main에 `apps/server-*`가 푸시되면 `pve-hackertone`이 바뀐 폴더만 ship 하고 helm 한다. wasm/pck는 git에 넣지 않는다.
 
 - 보드: `https://server-board.external.kr/`
-- 올리기: Actions `Apps`를 `workflow_dispatch`로 실행. 폴더만 넘긴다.
-- 퍼지: `helm`이 끝난 뒤 자동. main에 `apps/`·`deploy/`가 푸시되면 Actions도 한 번 더 지운다.
+- 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch`.
+- 퍼지: `helm`이 끝난 뒤 자동.
 
 Helm은 이미지를 만들지 않는다. 바꾼 슬롯만 ship 한 뒤 helm 한다.
 
