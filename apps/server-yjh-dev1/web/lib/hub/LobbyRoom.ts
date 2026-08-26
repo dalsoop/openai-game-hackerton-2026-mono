@@ -1,6 +1,6 @@
 import { Room, type Client } from "colyseus";
 import { HUB_CONFIG, KO } from "./config.js";
-import { HUB_MSG, PLAY_MSG } from "../contract/wire.js";
+import { MSG } from "../contract/wire.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
 import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
@@ -38,15 +38,15 @@ export class LobbyRoom extends Room implements LobbyHandle {
   }
 
   messages = {
-    [HUB_MSG.START]: (client: Client): void => handleStart(this, this.bag, client),
-    [PLAY_MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => relayInput(this, client, data),
-    [PLAY_MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void =>
+    [MSG.START]: (client: Client): void => handleStart(this, this.bag, client),
+    [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => relayInput(this, client, data),
+    [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void =>
       relaySnap(this, this.bag, client, data),
-    [HUB_MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
-    [HUB_MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
+    [MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
+    [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
       handleSetGame(this, client, data),
-    [HUB_MSG.PING]: (client: Client, data: unknown): void => {client.send(HUB_MSG.PONG, data);},
-    [HUB_MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
+    [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
+    [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
   };
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { Seat, clampPackPct } from "@/lib/domain/roster";
 import {
-  Seat, clampPackPct, connectedSeatsPacked, overlayOwnPackPct, packKind, shouldSendPackPct, slotBadge,
-} from "@dalsoop/hub-kernel";
+  connectedSeatsPacked, overlayOwnPackPct, packKind, shouldSendPackPct, slotBadge,
+} from "@/lib/domain/waiting-room-pack";
 import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 
 function seat(

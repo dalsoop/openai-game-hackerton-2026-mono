@@ -11,7 +11,7 @@ import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-add
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
 import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
-import type { RosterSnapshot } from "@dalsoop/hub-kernel";
+import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
 export type { RoomEndKind };
@@ -64,7 +64,7 @@ export function useGameRoom(
             : joinRequest.kind === "resume"
               ? await client.reconnect(localStorage.getItem(HANDOFF.RESUME) ?? "")
               : await client.joinById(joinRequest.id, { name: settings.name });
-          rememberHubPin(r.connection.url, r.roomId);
+          rememberHubPin(r.connection?.url, r.roomId);
           persistMatchForEngine(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({
               roomId: r.roomId,

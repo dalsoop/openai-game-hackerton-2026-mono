@@ -1,7 +1,7 @@
 import type { Client } from "colyseus";
-import { clampPackPct, shouldSendPackPct } from "@dalsoop/hub-kernel";
+import { clampPackPct, shouldSendPackPct } from "@/lib/domain/waiting-room-pack";
 import { HUB_CONFIG, KO } from "./config.js";
-import { HUB_MSG, CLOSE_CODE } from "../contract/wire.js";
+import { MSG, CLOSE_CODE } from "../contract/wire.js";
 import { asGameId, defaultModeOf } from "../games/catalog.js";
 import type { LobbyState } from "./lobby-state.js";
 import { seatsPayloadOf } from "./lobby-seats.js";
@@ -28,7 +28,7 @@ export type LobbyHandle = {
 
 export function handleRoomToggle(room: LobbyHandle, client: Client): void {
   if (client.sessionId !== room.state.hostSessionId) {
-    client.send(HUB_MSG.ERROR, { msg: KO.HOST_ONLY_TOGGLE });
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_TOGGLE });
     return;
   }
   room.state.open = !room.state.open;
@@ -36,7 +36,7 @@ export function handleRoomToggle(room: LobbyHandle, client: Client): void {
   if (room.state.open) {return;}
   for (const c of room.clients) {
     if (c.sessionId === room.state.hostSessionId) {continue;}
-    c.send(HUB_MSG.KICKED, { msg: KO.KICKED_MSG });
+    c.send(MSG.KICKED, { msg: KO.KICKED_MSG });
     c.leave(CLOSE_CODE.KICKED);
   }
 }
@@ -44,7 +44,7 @@ export function handleRoomToggle(room: LobbyHandle, client: Client): void {
 export function handleSetGame(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
   if (room.state.phase !== "lobby") {return;}
   if (client.sessionId !== room.state.hostSessionId) {
-    client.send(HUB_MSG.ERROR, { msg: KO.HOST_ONLY_GAME });
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_GAME });
     return;
   }
   const game = asGameId(data.game);
@@ -68,7 +68,7 @@ export function burstIdle(room: LobbyHandle): void {
   const payload = { msg: KO.IDLE_START, reason: "idle" };
   const clients = [...room.clients];
   for (const c of clients) {
-    c.send(HUB_MSG.KICKED, payload);
+    c.send(MSG.KICKED, payload);
   }
   setTimeout(() => {
     for (const c of clients) {
@@ -101,7 +101,7 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
 export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): void {
   if (room.state.phase !== "lobby") {return;}
   if (client.sessionId !== room.state.hostSessionId) {
-    client.send(HUB_MSG.ERROR, { msg: KO.HOST_ONLY_START });
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_START });
     return;
   }
   clearIdleTimer(room, bag);
@@ -121,7 +121,7 @@ function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {
   }
   bag.gameTimer = room.clock.setTimeout(() => {
     if (room.state.phase === "playing" && !bag.lastSnap) {
-      room.broadcast(HUB_MSG.ERROR, { msg: KO.HOST_BOOT_FAIL });
+      room.broadcast(MSG.ERROR, { msg: KO.HOST_BOOT_FAIL });
       resetToLobby(room, bag);
     }
   }, HUB_CONFIG.hostBootTimeoutMs);

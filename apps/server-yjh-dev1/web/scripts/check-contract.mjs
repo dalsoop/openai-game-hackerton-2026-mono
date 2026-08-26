@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { readCatalogPacks } from "./catalog-packs.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const tsPath = path.join(here, "..", "..", "..", "..", "packages", "hub-kernel", "src", "contract", "wire.ts");
+const tsPath = path.join(here, "..", "lib", "contract", "wire.ts");
 const catalogPath = path.join(here, "..", "lib", "games", "catalog.ts");
 const gdPath = path.join(here, "..", "..", "project", "core", "contract", "web_contract.gd");
 

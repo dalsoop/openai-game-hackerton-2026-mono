@@ -5,7 +5,7 @@ import { DOM_EVT, MSG } from "@/lib/contract";
 import { encodeBridgePacket } from "@/lib/hub/page-bridge";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import type { MatchInfo } from "@/types";
-import type { RosterSnapshot } from "@dalsoop/hub-kernel";
+import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { Room } from "@colyseus/sdk";
 
 const inbound = new Map<string, (raw: unknown) => void>();

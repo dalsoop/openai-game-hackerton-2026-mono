@@ -56,7 +56,7 @@ vi.mock("@colyseus/react", () => ({
         if (!cancelled) {setError(err);}
       });
       return (): void => {cancelled = true;};
-    }, [enabled, factory]);
+    }, [enabled]);
     return { room, error };
   },
 }));

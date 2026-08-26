@@ -1,6 +1,7 @@
 "use client";
 import type { JSX } from "react";
-import { slotBadge, type Seat, type SlotBadge } from "@dalsoop/hub-kernel";
+import { slotBadge, type SlotBadge } from "@/lib/domain/waiting-room-pack";
+import type { Seat } from "@/lib/domain/roster";
 import { useTranslations } from "next-intl";
 
 interface SlotCardProps {

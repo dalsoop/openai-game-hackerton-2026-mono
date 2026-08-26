@@ -12,9 +12,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@dalsoop/hub-kernel": [
-        "../../../packages/hub-kernel/src/index.ts"
       ]
     }
   },

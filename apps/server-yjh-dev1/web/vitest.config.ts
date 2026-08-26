@@ -15,7 +15,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "."),
-      "@dalsoop/hub-kernel": path.resolve(import.meta.dirname, "../../../packages/hub-kernel/src/index.ts"),
     },
   },
 });

@@ -3,7 +3,6 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY web/package.json ./
 COPY web/package-lock.json ./
-COPY .docker-hub-kernel /packages/hub-kernel
 RUN test -s package-lock.json && grep -q '"lockfileVersion"' package-lock.json
 RUN npm ci
 COPY web/ ./
@@ -16,7 +15,6 @@ FROM node:22-alpine
 WORKDIR /app
 COPY web/package.json ./
 COPY web/package-lock.json ./
-COPY .docker-hub-kernel /packages/hub-kernel
 RUN test -s package-lock.json && grep -q '"lockfileVersion"' package-lock.json
 RUN npm ci --omit=dev
 COPY --from=build /app/.next ./.next
