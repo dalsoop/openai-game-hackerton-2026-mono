@@ -33,8 +33,8 @@ export function portraitImageStyle(portrait: CharacterPortrait, size: number): C
     width: cols * size,
     height: rows * size,
     maxWidth: "none",
-    marginLeft: -(col * size),
-    marginTop: -(row * size),
+    marginLeft: col === 0 ? 0 : -(col * size),
+    marginTop: row === 0 ? 0 : -(row * size),
     imageRendering: "pixelated",
   };
 }

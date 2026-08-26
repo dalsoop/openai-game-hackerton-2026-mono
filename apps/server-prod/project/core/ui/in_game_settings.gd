@@ -1,6 +1,6 @@
 class_name InGameSettings
 extends CanvasLayer
-## 매치 중 설정. 조작 모드·효과음·나가기만 다룬다. 허브 소켓은 모른다.
+## 매치 중 설정. 조작 모드·효과음·온보딩·나가기를 다룬다. 허브 소켓은 모른다.
 
 const Store := preload("res://core/ui/settings_store.gd")
 const Ui := preload("res://core/ui/ui_theme.gd")
@@ -8,6 +8,7 @@ const Ui := preload("res://core/ui/ui_theme.gd")
 signal open_changed(open: bool)
 signal mode_picked(mode: String)
 signal sound_changed(on: bool)
+signal onboarding_requested
 signal leave_requested
 
 var is_open := false
@@ -19,6 +20,8 @@ var _panel: PanelContainer
 var _desc: Label
 var _group: ButtonGroup
 var _mode_btns: Dictionary = {}
+var _onboard_check: CheckButton
+var _onboard_guard := false
 
 
 func _ready() -> void:
@@ -44,6 +47,8 @@ func set_open(open: bool) -> void:
 		_dimmer.visible = open
 	if _panel != null:
 		_panel.visible = open
+	if open:
+		_sync_onboard_check()
 	open_changed.emit(open)
 
 
@@ -133,6 +138,16 @@ func _fill_sound_and_leave(col: VBoxContainer) -> void:
 	sound_check.button_pressed = Store.load_sound_on()
 	sound_check.toggled.connect(func(on: bool) -> void: sound_changed.emit(on))
 	col.add_child(sound_check)
+	col.add_child(Ui.lbl("조작 안내", 14, Ui.MUTED))
+	_onboard_check = CheckButton.new()
+	_onboard_check.text = "매치 시작 시 다시 보기"
+	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+		_onboard_check.add_theme_color_override(state, Ui.INK)
+	_onboard_check.toggled.connect(_on_onboard_toggled)
+	col.add_child(_onboard_check)
+	var show_btn := Ui.btn("지금 보기", Ui.BTN_MUTED, Vector2(0, 44))
+	show_btn.pressed.connect(_on_show_onboarding)
+	col.add_child(show_btn)
 	var leave_btn := Ui.btn("나가기", Ui.ERROR, Vector2(0, 48))
 	leave_btn.pressed.connect(func() -> void: leave_requested.emit())
 	col.add_child(leave_btn)
@@ -144,6 +159,27 @@ func _fill_sound_and_leave(col: VBoxContainer) -> void:
 func _on_dimmer(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		set_open(false)
+
+
+func _sync_onboard_check() -> void:
+	if _onboard_check == null:
+		return
+	_onboard_guard = true
+	_onboard_check.button_pressed = not Store.load_onboarding_hide()
+	_onboard_guard = false
+
+
+func _on_onboard_toggled(on: bool) -> void:
+	if _onboard_guard:
+		return
+	Store.save_onboarding_hide(not on)
+	if on:
+		_on_show_onboarding()
+
+
+func _on_show_onboarding() -> void:
+	set_open(false)
+	onboarding_requested.emit()
 
 
 func _on_mode_pressed(mode: String) -> void:

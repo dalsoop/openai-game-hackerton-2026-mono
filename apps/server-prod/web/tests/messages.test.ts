@@ -1,6 +1,7 @@
 // KO 사용자 문구 정합 — 안내문 계약의 회귀 방지.
 import { describe, expect, it } from "vitest";
 import { KO, HUB_CONFIG } from "@/lib/hub/config";
+import { listCharacters } from "@/lib/characters";
 import ko from "../messages/ko.json";
 import en from "../messages/en.json";
 
@@ -40,6 +41,24 @@ describe("create 문구 — ko/en 키 대칭", () => {
       expect(ko.create[key].length).toBeGreaterThan(0);
       expect(en.create[key].length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("캐릭터 표시 키 — 카탈로그 titleKey 가 ko/en 에 있다", () => {
+  it("정본 항목마다 양쪽 로케일 문구가 비어 있지 않다", () => {
+    const read = (bag: Record<string, unknown>, dotted: string): unknown =>
+      dotted.split(".").reduce<unknown>((cur, key) => (
+        cur && typeof cur === "object" ? (cur as Record<string, unknown>)[key] : undefined
+      ), bag);
+    for (const item of listCharacters()) {
+      const koVal = read(ko as unknown as Record<string, unknown>, item.titleKey);
+      const enVal = read(en as unknown as Record<string, unknown>, item.titleKey);
+      expect(typeof koVal, item.titleKey).toBe("string");
+      expect(typeof enVal, item.titleKey).toBe("string");
+      expect(String(koVal).length, item.titleKey).toBeGreaterThan(0);
+      expect(String(enVal).length, item.titleKey).toBeGreaterThan(0);
+    }
+    expect(Object.keys(ko.characters).sort()).toEqual(Object.keys(en.characters).sort());
   });
 });
 

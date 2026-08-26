@@ -104,6 +104,20 @@ describe("Roster.fromSnapshot", () => {
     );
     expect(roster.seats[0]?.characterId).toBe("unknown");
   });
+
+  it("등재된 characterId 는 유지하고 미등재는 기본값이다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({
+        players: [
+          { slot: 0, sessionId: "a", name: "하나", connected: true, characterId: "a4" },
+          { slot: 1, sessionId: "b", name: "둘", connected: true, characterId: "??" },
+        ],
+      }),
+      "a",
+    );
+    expect(roster.seats[0]?.characterId).toBe("a4");
+    expect(roster.seats[1]?.characterId).toBe("unknown");
+  });
 });
 
 describe("Roster 엣지 케이스", () => {

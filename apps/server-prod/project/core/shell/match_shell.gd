@@ -222,6 +222,12 @@ func _attach_settings() -> void:
 	settings.connect("mode_picked", _on_control_mode)
 	settings.connect("sound_changed", _on_sound)
 	settings.connect("leave_requested", _leave_match)
+	settings.connect("onboarding_requested", _on_show_onboarding)
+
+
+func _on_show_onboarding() -> void:
+	if module != null and module.has_method("show_onboarding"):
+		module.show_onboarding()
 
 
 func _on_control_mode(mode: String) -> void:
