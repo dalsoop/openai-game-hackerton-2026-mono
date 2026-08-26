@@ -1,6 +1,7 @@
 // 게임 페이즈 순수 전이 로직 — 훅(useGameFlow)과 테스트가 같이 쓰는 SSOT.
 // React 의존 없음: 같은 입력엔 같은 출력 (tests/game-flow-state.test.ts 가 전수 검증).
 import type { GamePhase, HubStatus } from "../types";
+import { shouldShowReconnect, type DropReason } from "./hub/room-end";
 export type { DropReason, RoomEndKind } from "./hub/room-end";
 export {
   canOfferReconnect,
@@ -10,6 +11,27 @@ export {
   shouldMarkRoomDropped,
   shouldShowReconnect,
 } from "./hub/room-end";
+
+export type JoinKind = "create" | "join" | "resume";
+
+/** 홈이 그리는 화면. phase 와 hub.status 가 어긋나도 빈 화면이 되면 안 된다. */
+export type HomeSurface =
+  | "reconnect"
+  | "playing"
+  | "intro"
+  | "resuming"
+  | "matchmaking"
+  | "lobby"
+  | "room";
+
+/** /create 가 그리는 화면. form/pending/redirect 말고 null 이 되면 안 된다. */
+export type CreateSurface = "form" | "pending" | "redirect";
+
+export interface HomeSurfaceFlags {
+  joiningKind?: JoinKind | null;
+  resuming?: boolean;
+  dropReason?: DropReason | null;
+}
 
 /** 인트로(시작하기) 화면에서만 켠다. */
 export function lobbyBgmOn(phase: GamePhase): boolean {
@@ -69,4 +91,39 @@ export function phaseOnMount(resumed: boolean): GamePhase | null {
 /** 유즈맵 팩 받기는 대기실(방 입장 후)에서만 시작한다. 로비에서 돌리면 idle 이 '준비 중'으로 남는다. */
 export function packLoadStartsInRoom(phase: GamePhase): boolean {
   return phase === "room";
+}
+
+/**
+ * 홈 화면 — 허브 상태를 우선한다.
+ * 페이즈만 먼저 바뀌어도(나가기·시작·매치 종료) 이전 실화면을 붙든다.
+ */
+export function homeSurface(
+  phase: GamePhase,
+  status: HubStatus,
+  flags: HomeSurfaceFlags = {},
+): HomeSurface {
+  if (shouldShowReconnect(status, phase, flags.dropReason ?? null)) {return "reconnect";}
+  if (status === "playing") {return "playing";}
+  if (status === "in-room") {return "room";}
+  if (flags.resuming) {return "resuming";}
+  if (matchmakePending(flags.joiningKind, status)) {return "matchmaking";}
+  if (status === "offline") {return "intro";}
+  return "lobby";
+}
+
+/** /create — 방이 생기기 전에는 폼 또는 대기. 홈으로 보낼 때만 redirect. */
+export function createSurface(
+  phase: GamePhase,
+  status: HubStatus,
+  joiningKind: JoinKind | null | undefined,
+  resuming = false,
+): CreateSurface {
+  if (phase === "intro" || status === "offline") {return "redirect";}
+  if (phase === "room" || phase === "playing" || status === "in-room" || status === "playing") {
+    return "redirect";
+  }
+  if (resuming || status === "connecting" || matchmakePending(joiningKind, status)) {
+    return "pending";
+  }
+  return "form";
 }

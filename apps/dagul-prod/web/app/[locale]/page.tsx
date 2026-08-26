@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
-import { matchmakePending, shouldShowReconnect } from "@/lib/game-flow-state";
+import { homeSurface } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
   ConnectingPhase,
@@ -26,49 +26,6 @@ function connLabel(status: HubStatus, t: Translate): string {
   return t("connection.connected");
 }
 
-
-function LobbyGate({
-  hub,
-  entering,
-  onBackToIntro,
-}: {
-  hub: ReturnType<typeof useGameFlowContext>["hub"];
-  entering: boolean;
-  onBackToIntro: () => void;
-}): JSX.Element {
-  const t = useTranslations();
-  if (hub.resuming) {
-    return (
-      <>
-        <ConnectingPhase message={t("game.resuming")} />
-        <div className="center-row">
-          <button className="btn-text" onClick={onBackToIntro}>
-            {t("game.startFresh")}
-          </button>
-        </div>
-      </>
-    );
-  }
-  if (entering) {
-    const pending = hub.joiningKind === "create" ? t("create.pending") : t("lobby.joining");
-    return <ConnectingPhase message={pending} />;
-  }
-  return (
-    <LobbyPhase
-      rooms={hub.rooms}
-      status={hub.status}
-      myRoom={hub.myRoom}
-      onJoinRoom={hub.joinRoom}
-      onRefresh={hub.refreshRooms}
-      refreshing={hub.refreshingRooms}
-      onBackToIntro={onBackToIntro}
-      connClass={CONNECTION_CLASS[hub.status]}
-      connText={connLabel(hub.status, t)}
-      rttMs={hub.rttMs}
-      rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
-    />
-  );
-}
 
 function LocaleSwitch(): JSX.Element {
   const t = useTranslations("locale");
@@ -113,11 +70,14 @@ export default function Home(): JSX.Element {
     reloadDeploy,
   } = useGameFlowContext();
 
-  const entering = matchmakePending(hub.joiningKind, hub.status);
+  const surface = homeSurface(phase, hub.status, {
+    joiningKind: hub.joiningKind,
+    resuming: hub.resuming,
+    dropReason: hub.dropReason,
+  });
 
   // 튕김·강퇴는 회색 캔버스 대신 재접속 모달만 보여 준다.
-  const bounced = shouldShowReconnect(hub.status, phase, hub.dropReason);
-  if (bounced) {
+  if (surface === "reconnect") {
     return (
       <div className="page-shell">
         <header className="hero" />
@@ -130,7 +90,7 @@ export default function Home(): JSX.Element {
     );
   }
 
-  if (phase === "playing") {
+  if (surface === "playing") {
     return (
       <PlayingPhase
         game={asGameId(matchInfo.gameId ?? hub.gameId)}
@@ -143,7 +103,7 @@ export default function Home(): JSX.Element {
 
   return (
     <div className="page-shell">
-      {phase === "intro" && (
+      {surface === "intro" && (
         <header className="hero intro-top">
           <LocaleSwitch />
         </header>
@@ -151,7 +111,7 @@ export default function Home(): JSX.Element {
 
       <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
 
-      {phase === "intro" && (
+      {surface === "intro" && (
         <OfflinePhase
           nickname={name}
           hasSavedName={hasSavedName}
@@ -161,13 +121,44 @@ export default function Home(): JSX.Element {
         />
       )}
 
-      {phase === "lobby" && hub.status !== "in-room" && (
+      {surface === "resuming" && (
         <div className="fade-in">
-          <LobbyGate hub={hub} entering={entering} onBackToIntro={backToIntro} />
+          <ConnectingPhase message={t("game.resuming")} />
+          <div className="center-row">
+            <button className="btn-text" onClick={backToIntro}>
+              {t("game.startFresh")}
+            </button>
+          </div>
         </div>
       )}
 
-      {phase === "room" && hub.status === "in-room" && (
+      {surface === "matchmaking" && (
+        <div className="fade-in">
+          <ConnectingPhase
+            message={hub.joiningKind === "create" ? t("create.pending") : t("lobby.joining")}
+          />
+        </div>
+      )}
+
+      {surface === "lobby" && (
+        <div className="fade-in">
+          <LobbyPhase
+            rooms={hub.rooms}
+            status={hub.status}
+            myRoom={hub.myRoom}
+            onJoinRoom={hub.joinRoom}
+            onRefresh={hub.refreshRooms}
+            refreshing={hub.refreshingRooms}
+            onBackToIntro={backToIntro}
+            connClass={CONNECTION_CLASS[hub.status]}
+            connText={connLabel(hub.status, t)}
+            rttMs={hub.rttMs}
+            rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
+          />
+        </div>
+      )}
+
+      {surface === "room" && (
         <InRoomPhase
           roomOpen={hub.roomOpen}
           onToggleRoom={hub.toggleRoom}

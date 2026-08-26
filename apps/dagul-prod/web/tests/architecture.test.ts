@@ -127,11 +127,20 @@ describe("계약: 오토로드는 /root 노드", () => {
   });
 });
 
+describe("계약: 홈 화면은 homeSurface", () => {
+  it("page.tsx 는 phase×status AND 게이트 대신 homeSurface 를 쓴다", () => {
+    const src = sourceOf(join(ROOT, "app/[locale]/page.tsx"));
+    expect(src).toContain("homeSurface");
+    expect(src).not.toContain("phase === \"lobby\" && hub.status !== \"in-room\"");
+    expect(src).not.toContain("phase === \"room\" && hub.status === \"in-room\"");
+  });
+});
+
 describe("계약: 방 만들기 네비게이션", () => {
   it("제출 직후 홈으로 보내지 않는다 — 방이 생길 때까지 /create 에 머문다", () => {
     const src = sourceOf(join(ROOT, "hooks/useCreateRoomPage.ts"));
     const submit = src.slice(src.indexOf("const onSubmit"), src.indexOf("const onBack"));
-    expect(src).toContain("matchmakePending");
+    expect(src).toContain("createSurface");
     expect(submit).toContain("createRoom");
     expect(submit).not.toContain("router.push");
     expect(submit).not.toContain("router.replace");
@@ -144,6 +153,9 @@ describe("계약: 웹 캔버스 키 포커스", () => {
     expect(runtime).toContain("bindCanvasKeyboardFocus");
     expect(runtime).toContain("captureAudioContexts");
     expect(runtime).toContain("bindAudioUnlock");
+    expect(runtime).not.toContain("unlockGodotAudioAfterBoot");
+    expect(sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"))).not.toContain("setTimeout");
+    expect(sourceOf(join(ROOT, "components/GodotCanvas.tsx"))).toContain('id="canvas"');
     expect(runtime).toContain("focusCanvas: true");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("visibilitychange");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("pointerdown");

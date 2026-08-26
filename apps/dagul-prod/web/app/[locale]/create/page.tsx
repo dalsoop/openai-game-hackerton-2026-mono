@@ -15,9 +15,7 @@ export default function CreatePage(): JSX.Element {
 
   return (
     <div className="page-shell">
-      {creating ? (
-        <ConnectingPhase message={t("create.pending")} />
-      ) : ready ? (
+      {ready ? (
         <CreateRoom
           listings={listings}
           onSubmit={onSubmit}
@@ -25,7 +23,9 @@ export default function CreatePage(): JSX.Element {
           connClass={CONNECTION_CLASS[hub.status]}
           connText={hub.status === "connecting" ? t("connection.connecting") : t("connection.connected")}
         />
-      ) : null}
+      ) : (
+        <ConnectingPhase message={creating ? t("create.pending") : t("connection.connecting")} />
+      )}
     </div>
   );
 }
