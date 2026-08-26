@@ -1,4 +1,4 @@
-import { asCharacterId } from "@/lib/characters";
+import { asCharacterId } from "../characters/index.js";
 
 export function clampPackPct(raw: unknown): number {
   const n = Math.round(Number(raw));

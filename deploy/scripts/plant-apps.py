@@ -136,6 +136,7 @@ def hub_image_tag(folder: Path) -> str:
             ctx / "app",
             ctx / "lib",
             ctx / "public",
+            ctx / "scripts",
             ctx / "server.ts",
             folder / "project" / "games",
             folder / "project" / "core",

@@ -298,6 +298,8 @@ class HelmContract(unittest.TestCase):
         self.assertIn("lockfileVersion", prod_df)
         self.assertIn("tsc-alias", prod_df)
         self.assertIn("tsc-alias", yjh_df)
+        self.assertIn("rewrite-dist-aliases.mjs", prod_df)
+        self.assertIn("rewrite-dist-aliases.mjs", yjh_df)
         self.assertNotIn('"--no-cache"', apps_py)
         self.assertIn('["docker", "build"', apps_py)
         self.assertIn('["docker", "push"', apps_py)

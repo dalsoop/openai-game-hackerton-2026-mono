@@ -21,6 +21,50 @@ const TAG_CLASS: Record<SlotBadge, string> = {
   waiting: "ok",
 };
 
+function SlotCharacterPicker({
+  characterId,
+  title,
+  canPick,
+  pickLabel,
+  prevLabel,
+  nextLabel,
+  onSetCharacter,
+}: {
+  characterId: string;
+  title: string;
+  canPick: boolean;
+  pickLabel: string;
+  prevLabel: string;
+  nextLabel: string;
+  onSetCharacter?: (characterId: string) => void;
+}): JSX.Element {
+  return (
+    <div className="slot-char" aria-label={pickLabel}>
+      {canPick ? (
+        <button
+          type="button"
+          className="slot-char-btn"
+          aria-label={prevLabel}
+          onClick={() => {onSetCharacter?.(stepCharacterId(characterId, -1));}}
+        >
+          {"<"}
+        </button>
+      ) : null}
+      <CharacterPortrait characterId={characterId} size={44} title={title} />
+      {canPick ? (
+        <button
+          type="button"
+          className="slot-char-btn"
+          aria-label={nextLabel}
+          onClick={() => {onSetCharacter?.(stepCharacterId(characterId, 1));}}
+        >
+          {">"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function SlotCard({ index, player, you, onSetCharacter }: SlotCardProps): JSX.Element {
   const t = useTranslations("room");
   const tx = useTranslations();
@@ -42,29 +86,15 @@ export default function SlotCard({ index, player, you, onSetCharacter }: SlotCar
       {player && badge ? (
         <>
           {character ? (
-            <div className="slot-char" aria-label={t("pickCharacter")}>
-              {canPick ? (
-                <button
-                  type="button"
-                  className="slot-char-btn"
-                  aria-label={t("prevCharacter")}
-                  onClick={() => {onSetCharacter?.(stepCharacterId(character.id, -1));}}
-                >
-                  {"<"}
-                </button>
-              ) : null}
-              <CharacterPortrait characterId={character.id} size={44} title={tx(character.titleKey)} />
-              {canPick ? (
-                <button
-                  type="button"
-                  className="slot-char-btn"
-                  aria-label={t("nextCharacter")}
-                  onClick={() => {onSetCharacter?.(stepCharacterId(character.id, 1));}}
-                >
-                  {">"}
-                </button>
-              ) : null}
-            </div>
+            <SlotCharacterPicker
+              characterId={character.id}
+              title={tx(character.titleKey)}
+              canPick={canPick}
+              pickLabel={t("pickCharacter")}
+              prevLabel={t("prevCharacter")}
+              nextLabel={t("nextCharacter")}
+              onSetCharacter={onSetCharacter}
+            />
           ) : null}
           {character ? <div className="slot-char-name">{tx(character.titleKey)}</div> : null}
           <div className={`slot-name c${index + 1}`}>
