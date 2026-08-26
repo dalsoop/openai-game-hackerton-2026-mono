@@ -5,6 +5,13 @@
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: 'Galmuri11';
+  src: url('/fonts/Galmuri11-Bold.ttf') format('truetype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   color-scheme: dark;
@@ -260,11 +267,11 @@ body.wait #wait { display: block; }
 .lobby-create-link { margin:0 0 8px; }
 .create-heading { font-size:clamp(22px,3vw,32px); font-weight:800; letter-spacing:-.03em; margin:8px 0 8px; }
 .create-blurb { color:var(--tx-1); margin-bottom:24px; }
-.create-form { display:flex; flex-direction:column; gap:20px; max-width:720px; }
+.create-form { display:flex; flex-direction:column; gap:20px; max-width:480px; }
 .create-fieldset { border:0; }
 .create-field { display:flex; flex-direction:column; gap:8px; }
 .create-field .sec-title { margin:0; }
-.game-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+.game-list { display:grid; grid-template-columns:1fr; gap:12px; }
 .game-card { position:relative; display:flex; flex-direction:column; background:var(--bg-1); border:1.5px solid var(--line); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s; }
 .game-card:hover { transform:translateY(-3px); border-color:var(--tx-2); box-shadow:var(--shadow); }
 .game-card:has(input:checked) { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc), var(--shadow); }
