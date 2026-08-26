@@ -15,11 +15,14 @@ interface GodotCanvasProps {
   game: string;
   matchInfo: MatchInfo;
   visible: boolean;
+  pendingNames?: readonly string[];
   onMatchEnd?: (detail: Record<string, unknown>) => void;
   onError?: () => void;
 }
 
-export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onError }: GodotCanvasProps): JSX.Element | null {
+export default function GodotCanvas({
+  game, matchInfo, visible, pendingNames = [], onMatchEnd, onError,
+}: GodotCanvasProps): JSX.Element | null {
   // 런타임 오류 키는 game.errors.* (정본). godot 네임스페이스에서 읽으면
   // godot.game.errors.matchSignalMissing 같은 깨진 경로가 그대로 보인다.
   const t = useTranslations();
@@ -51,6 +54,16 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
               style={{ width: `${pct}%` }}
             />
           </div>
+        </div>
+      )}
+      {pendingNames.length > 0 && snap.state !== "error" && (
+        <div className="gc-match-wait" role="status">
+          <h2>{t("game.matchWait.title")}</h2>
+          <ul>
+            {pendingNames.map((name) => (
+              <li key={name}>{t("game.matchWait.playerPending", { name })}</li>
+            ))}
+          </ul>
         </div>
       )}
       {snap.state === "error" && (

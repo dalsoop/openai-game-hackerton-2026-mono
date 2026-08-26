@@ -9,6 +9,7 @@ import type { MatchInfo } from "@/types";
 interface PlayingPhaseProps {
   game: string;
   matchInfo: MatchInfo;
+  pendingNames?: readonly string[];
   onMatchEnd: (detail: Record<string, unknown>) => void;
   onError: () => void;
 }
@@ -16,6 +17,7 @@ interface PlayingPhaseProps {
 export function PlayingPhase({
   game,
   matchInfo,
+  pendingNames = [],
   onMatchEnd,
   onError,
 }: PlayingPhaseProps): JSX.Element {
@@ -24,6 +26,7 @@ export function PlayingPhase({
       visible
       game={game}
       matchInfo={matchInfo}
+      pendingNames={pendingNames}
       onMatchEnd={onMatchEnd}
       onError={onError}
     />

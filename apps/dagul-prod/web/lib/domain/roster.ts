@@ -13,6 +13,7 @@ export interface SeatSnapshot {
   readonly connected: boolean;
   readonly packPct?: number;
   readonly characterId?: string;
+  readonly matchReady?: boolean;
 }
 
 export interface RosterSnapshot {
@@ -20,6 +21,9 @@ export interface RosterSnapshot {
   readonly open?: boolean;
   readonly createdAtMs?: number;
   readonly idleUntilSec?: number;
+  readonly loadHeld?: boolean;
+  /** 중첩 matchReady 지문. 선택자 동등 비교용. */
+  readonly readySig?: string;
   readonly phase: string;
   readonly hostSessionId: string;
   readonly players: readonly SeatSnapshot[];
@@ -34,6 +38,7 @@ export class Seat {
     readonly connected: boolean,
     readonly packPct: number,
     readonly characterId: string,
+    readonly matchReady = false,
   ) {}
 }
 
@@ -54,6 +59,7 @@ export class Roster {
         p.connected,
         clampPackPct(p.packPct),
         asCharacterId(p.characterId),
+        Boolean(p.matchReady),
       ));
     const me = seats.find((s) => s.playerId === mySessionId) ?? null;
     return new Roster(seats, me, snap.phase === "playing");

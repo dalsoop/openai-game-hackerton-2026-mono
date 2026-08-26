@@ -17,6 +17,10 @@
       "preparing": "Preparing Download"
     },
     "downloadingAsset": "Receiving game assets. You can start when complete.",
+    "matchWait": {
+      "title": "Waiting until everyone has loaded",
+      "playerPending": "{name} is loading"
+    },
     "serverConnecting": "Connecting to server...",
     "serverConnectFailed": "Cannot connect to server.",
     "reconnect": "Rejoin",

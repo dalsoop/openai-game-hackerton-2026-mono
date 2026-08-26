@@ -38,4 +38,19 @@ describe("GodotCanvas 부팅 진행률", () => {
     expect(screen.getByText("로딩 중 42%")).toBeTruthy();
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("42");
   });
+
+  it("아직 ready 가 아닌 좌석 이름을 보여 준다", () => {
+    render(
+      <NextIntlClientProvider locale="ko" messages={ko}>
+        <GodotCanvas
+          visible
+          game="dagul"
+          matchInfo={{ roomId: "r1", name: "호스트", slot: 0, resumeToken: "" }}
+          pendingNames={["게스트"]}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("모두 로딩될 때까지 기다립니다")).toBeTruthy();
+    expect(screen.getByText("게스트 로딩 중")).toBeTruthy();
+  });
 });

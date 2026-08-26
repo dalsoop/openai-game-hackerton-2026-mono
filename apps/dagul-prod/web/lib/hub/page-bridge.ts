@@ -65,11 +65,13 @@ export interface HubWire {
 export interface HubStateInput {
   readonly phase?: string;
   readonly hostSessionId?: string;
+  readonly loadHeld?: boolean;
   readonly players?: readonly {
     readonly slot: number;
     readonly sessionId: string;
     readonly name: string;
     readonly connected: boolean;
+    readonly matchReady?: boolean;
   }[];
 }
 
@@ -86,12 +88,14 @@ export function encodeHubState(
       sessionId: p.sessionId,
       name: p.name,
       connected: p.connected,
+      matchReady: Boolean(p.matchReady),
     }))
     : [];
   return {
     phase: snap.phase ?? "",
     hostSessionId: snap.hostSessionId ?? "",
     sessionId,
+    loadHeld: Boolean(snap.loadHeld),
     players,
     ...(rttMs > 0 ? { rttMs } : {}),
   };

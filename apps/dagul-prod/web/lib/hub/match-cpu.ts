@@ -96,6 +96,7 @@ export type CpuBody = {
   animal?: number;
   ultimateCharge?: number;
   fireCd?: number;
+  equipmentCd?: number;
   mobilityCd?: number;
   launchTime?: number;
   preferredRange?: number;

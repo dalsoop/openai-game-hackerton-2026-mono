@@ -95,6 +95,20 @@ describe("Roster.fromSnapshot", () => {
     expect(roster.seats[1]?.packPct).toBe(0);
   });
 
+  it("matchReady 가 없으면 false 로 둔다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({
+        players: [
+          { slot: 0, sessionId: "a", name: "하나", connected: true, matchReady: true },
+          { slot: 1, sessionId: "b", name: "둘", connected: true },
+        ],
+      }),
+      "a",
+    );
+    expect(roster.seats[0]?.matchReady).toBe(true);
+    expect(roster.seats[1]?.matchReady).toBe(false);
+  });
+
   it("캐릭터 id 가 없으면 카탈로그 기본값으로 정규화한다", () => {
     const roster = Roster.fromSnapshot(
       snap({

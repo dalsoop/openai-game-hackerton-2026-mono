@@ -152,12 +152,13 @@ describe("encodeHubState", () => {
     expect(encodeHubState({
       phase: "playing",
       hostSessionId: "h1",
-      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true }],
+      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true, matchReady: true }],
     }, "h1")).toEqual({
       phase: "playing",
       hostSessionId: "h1",
       sessionId: "h1",
-      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true }],
+      loadHeld: false,
+      players: [{ slot: 0, sessionId: "h1", name: "A", connected: true, matchReady: true }],
     });
   });
 

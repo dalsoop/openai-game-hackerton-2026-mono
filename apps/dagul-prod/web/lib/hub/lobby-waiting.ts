@@ -133,6 +133,7 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   clearMatchState(room.state.match);
   room.state.phase = "lobby";
   room.state.seed = 0;
+  room.state.loadHeld = false;
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
   armIdleTimer(room, bag);
@@ -148,6 +149,7 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): v
   room.state.phase = "playing";
   room.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
   bag.loadWaitMs = 0;
+  room.state.loadHeld = true;
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
   sendStartBodies(room, bag);

@@ -1,38 +1,104 @@
 import { describe, expect, it } from "vitest";
-import { allConnectedMatchReady, shouldHoldCountdown } from "@/lib/domain/match-load-ready";
+import {
+  allSeatsMatchReady, lobbyReadySig, matchWaitNames, pendingLoadNames, shouldHoldCountdown,
+} from "@/lib/domain/match-load-ready";
+import { lobbyFieldsOf } from "@/lib/hub/waiting-room-roster";
 import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 import { START_COUNTDOWN, MatchSim } from "@/lib/hub/match-sim";
 import { HUB_CONFIG } from "@/lib/hub/config";
 
-function seat(connected: boolean, matchReady: boolean): { connected: boolean; matchReady: boolean } {
-  return { connected, matchReady };
+function seat(matchReady: boolean): { connected: boolean; matchReady: boolean; name: string } {
+  return { connected: true, matchReady, name: matchReady ? "완료" : "대기" };
 }
 
-describe("allConnectedMatchReady", () => {
-  it("접속 중인 좌석이 전부 ready 여야 한다", () => {
-    expect(allConnectedMatchReady([seat(true, true), seat(true, true)])).toBe(true);
-    expect(allConnectedMatchReady([seat(true, true), seat(true, false)])).toBe(false);
+describe("allSeatsMatchReady", () => {
+  it("자리에 남은 좌석이 전부 ready 여야 한다", () => {
+    expect(allSeatsMatchReady([seat(true), seat(true)])).toBe(true);
+    expect(allSeatsMatchReady([seat(true), seat(false)])).toBe(false);
   });
 
-  it("끊긴 좌석은 로딩 대기에서 뺀다", () => {
-    expect(allConnectedMatchReady([seat(true, true), seat(false, false)])).toBe(true);
+  it("끊긴 좌석도 로딩 대기에서 빼지 않는다", () => {
+    expect(allSeatsMatchReady([
+      { connected: true, matchReady: true, name: "나" },
+      { connected: false, matchReady: false, name: "너" },
+    ])).toBe(false);
   });
 
-  it("접속자가 없으면 바로 푼다", () => {
-    expect(allConnectedMatchReady([])).toBe(true);
-    expect(allConnectedMatchReady([seat(false, false)])).toBe(true);
+  it("접속자가 없어도 자리에 남으면 기다린다. 빈 명단만 바로 푼다", () => {
+    expect(allSeatsMatchReady([])).toBe(true);
+    expect(allSeatsMatchReady([{ connected: false, matchReady: false, name: "유예" }])).toBe(false);
   });
 });
 
 describe("shouldHoldCountdown", () => {
   it("타임아웃 전이면 미완료를 붙잡는다", () => {
-    expect(shouldHoldCountdown([seat(true, false)], 0, 20_000)).toBe(true);
-    expect(shouldHoldCountdown([seat(true, true)], 0, 20_000)).toBe(false);
+    expect(shouldHoldCountdown([seat(false)], 0, 20_000)).toBe(true);
+    expect(shouldHoldCountdown([seat(true)], 0, 20_000)).toBe(false);
   });
 
   it("타임아웃이면 미완료여도 푼다", () => {
-    expect(shouldHoldCountdown([seat(true, false)], 20_000, 20_000)).toBe(false);
-    expect(shouldHoldCountdown([seat(true, false)], 19_999, 20_000)).toBe(true);
+    expect(shouldHoldCountdown([seat(false)], 20_000, 20_000)).toBe(false);
+    expect(shouldHoldCountdown([seat(false)], 19_999, 20_000)).toBe(true);
+  });
+});
+
+describe("pendingLoadNames", () => {
+  it("ready 가 아닌 이름만 남긴다", () => {
+    expect(pendingLoadNames([
+      { name: "호스트", matchReady: true },
+      { name: "게스트", matchReady: false },
+    ])).toEqual(["게스트"]);
+  });
+
+  it("내 좌석은 목록에서 뺀다", () => {
+    expect(pendingLoadNames([
+      { slot: 0, name: "호스트", matchReady: false },
+      { slot: 1, name: "게스트", matchReady: false },
+    ], 0)).toEqual(["게스트"]);
+  });
+});
+
+describe("matchWaitNames", () => {
+  it("장벽이 열리면 빈 목록이다", () => {
+    expect(matchWaitNames([
+      { slot: 0, name: "호스트", matchReady: true },
+      { slot: 1, name: "게스트", matchReady: false },
+    ], 0, false)).toEqual([]);
+  });
+
+  it("장벽이 닫혀 있으면 남만 보여 준다", () => {
+    expect(matchWaitNames([
+      { slot: 0, name: "호스트", matchReady: false },
+      { slot: 1, name: "게스트", matchReady: false },
+    ], 0, true)).toEqual(["게스트"]);
+  });
+});
+
+describe("lobbyReadySig", () => {
+  it("중첩 matchReady 가 바뀌면 지문이 달라진다", () => {
+    const players = [
+      { slot: 0, matchReady: true },
+      { slot: 1, matchReady: false },
+    ];
+    const held = lobbyReadySig(players, true);
+    const open = lobbyReadySig(players, false);
+    expect(held).not.toBe(open);
+    expect(lobbyReadySig([{ slot: 1, matchReady: true }], true)).not.toBe(held);
+  });
+
+  it("lobbyFieldsOf 가 readySig 를 넣는다", () => {
+    const snap = lobbyFieldsOf({
+      phase: "playing",
+      hostSessionId: "h",
+      loadHeld: true,
+      players: [
+        { slot: 0, sessionId: "h", name: "호스트", connected: true, matchReady: false },
+        { slot: 1, sessionId: "g", name: "게스트", connected: true, matchReady: true },
+      ],
+    });
+    expect(snap.readySig).toBe(lobbyReadySig(snap.players, true));
+    expect(snap.readySig).toContain("0:0");
+    expect(snap.readySig).toContain("1:1");
   });
 });
 
@@ -43,12 +109,12 @@ describe("로딩 경로 — 팩 받기와 인게임 ready 는 다르다", () => 
     expect(packPctFromLoader("compiling", 0.1)).toBe(100);
     expect(packPctFromLoader("ready", 0)).toBe(100);
     expect(packPctFromLoader("running", 1)).toBe(100);
-    expect(allConnectedMatchReady([seat(true, false)])).toBe(false);
+    expect(allSeatsMatchReady([seat(false)])).toBe(false);
   });
 
   it("컴파일 완료(100)만으로 카운트다운을 풀지 않는다", () => {
     expect(packPctFromLoader("ready", 1)).toBe(100);
-    expect(shouldHoldCountdown([seat(true, false)], 100, HUB_CONFIG.loadReadyTimeoutMs)).toBe(true);
+    expect(shouldHoldCountdown([seat(false)], 100, HUB_CONFIG.loadReadyTimeoutMs)).toBe(true);
   });
 });
 

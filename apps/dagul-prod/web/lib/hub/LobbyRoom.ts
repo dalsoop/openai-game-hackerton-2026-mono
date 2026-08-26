@@ -15,7 +15,7 @@ import {
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { applyPlayInput, bootAuthority, tickAuthority } from "./lobby-play.js";
+import { applyPlayInput, bootAuthority, tickAuthority, tryReleaseLoadBarrier } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -52,6 +52,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       open: this.state.open,
     });
     armIdleTimer(this, this.bag);
+    this.patchRate = 1000 / HUB_CONFIG.patchHz;
     this.setSimulationInterval((dt) => {tickAuthority(this, this.bag, dt);}, 1000 / 60);
   }
 
@@ -72,7 +73,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
     [MSG.PACK_PCT]: (client: Client, data: Record<string, unknown>): void =>
       handlePackPct(this, client, data),
-    [MSG.READY]: (client: Client): void => handleMatchReady(this, client),
+    [MSG.READY]: (client: Client): void => {
+      handleMatchReady(this, client);
+      tryReleaseLoadBarrier(this, this.bag);
+    },
     [MSG.SNAP_OFF]: (client: Client): void => {
       this.snapOptOut.add(client.sessionId);
     },
@@ -117,7 +121,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const oldClient = this.clients.find((c) => c.sessionId === oldId);
     player.sessionId = client.sessionId;
     player.connected = true;
-    player.matchReady = false;
+    player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();
@@ -151,7 +155,6 @@ export class LobbyRoom extends Room implements LobbyHandle {
       return;
     }
     player.connected = true;
-    player.matchReady = false;
     this.syncHost();
   }
 
@@ -199,14 +202,6 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   stepSim(dtMs = 50): void {
     tickAuthority(this, this.bag, dtMs);
-  }
-
-  testClock(): { held: boolean; countdown: number; loadWaitMs: number } {
-    return {
-      held: this.bag.authority?.sim.countdownHeld ?? false,
-      countdown: this.bag.authority?.sim.countdown ?? -1,
-      loadWaitMs: this.bag.loadWaitMs,
-    };
   }
 
   pushTestInput(sessionId: string, data: Record<string, unknown>): boolean {

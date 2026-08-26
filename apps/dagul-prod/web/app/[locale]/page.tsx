@@ -7,6 +7,7 @@ import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
 import { homeSurface } from "@/lib/game-flow-state";
+import { matchWaitNames } from "@/lib/domain/match-load-ready";
 import {
   OfflinePhase,
   ConnectingPhase,
@@ -95,6 +96,7 @@ export default function Home(): JSX.Element {
       <PlayingPhase
         game={asGameId(matchInfo.gameId ?? hub.gameId)}
         matchInfo={matchInfo}
+        pendingNames={matchWaitNames(hub.players, hub.you, hub.loadHeld)}
         onMatchEnd={matchEnd}
         onError={errorToIntro}
       />

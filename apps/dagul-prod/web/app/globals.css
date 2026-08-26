@@ -357,6 +357,9 @@ body.wait #wait { display: block; }
 .gc-boot-pct { font-size:1.6rem; font-weight:700; letter-spacing:.02em; }
 .gc-boot-bar { margin:16px 0 0; height:8px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; }
 .gc-boot-bar-fill { height:100%; background:var(--acc); border-radius:999px; }
+.gc-match-wait { position:absolute; bottom:10%; left:50%; transform:translateX(-50%); width:min(420px,86vw); color:#fff; text-align:center; pointer-events:none; text-shadow:0 1px 4px #000; }
+.gc-match-wait h2 { font-size:1.05rem; margin:0 0 8px; font-weight:700; }
+.gc-match-wait ul { list-style:none; margin:0; padding:0; font-size:.95rem; opacity:.92; }
 .gc-error-box { position:absolute; text-align:center; padding:2rem; background:rgba(11,14,20,.9); border-radius:12px; }
 .gc-error-msg { color:var(--red); font-size:1rem; margin-bottom:16px; }
 

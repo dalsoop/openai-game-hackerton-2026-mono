@@ -72,3 +72,47 @@ func _runtime_bridge(t) -> void:
 	var ready_at := shell.find("_notify_match_loaded()")
 	t.check("셸이 모듈 start 뒤에 ready 를 보낸다", start_at >= 0 and ready_at > start_at)
 	t.check("계약 MSG_READY 거울", WebContract.MSG_READY == "ready")
+	var retry: Node = load("res://core/autoload/network_manager.gd").new()
+	retry.match_running = true
+	retry.send_ready()
+	t.check("ready 재시도를 켠다", retry.get("_ready_repeat") == true)
+	retry._sync_state({
+		"phase": "playing",
+		"hostSessionId": "h1",
+		"sessionId": "h1",
+		"players": [{ "slot": 0, "sessionId": "h1", "name": "A", "connected": true, "matchReady": true }],
+	})
+	t.check("스키마 ready 면 재시도를 끈다", retry.get("_ready_repeat") == false and retry.match_ready == true)
+	retry.free()
+	var barrier: Node = load("res://core/autoload/network_manager.gd").new()
+	barrier.match_running = true
+	barrier.send_ready()
+	barrier._sync_state({
+		"phase": "playing",
+		"loadHeld": false,
+		"hostSessionId": "h1",
+		"sessionId": "h1",
+		"players": [{ "slot": 0, "sessionId": "h1", "name": "A", "connected": true, "matchReady": false }],
+	})
+	t.check("장벽이 열리면 재시도를 끈다", barrier.get("_ready_repeat") == false)
+	barrier.free()
+	var resume: Node = load("res://core/autoload/network_manager.gd").new()
+	resume.match_running = true
+	resume.send_ready()
+	resume._sync_state({
+		"phase": "playing",
+		"loadHeld": true,
+		"hostSessionId": "h1",
+		"sessionId": "h1",
+		"players": [{ "slot": 0, "sessionId": "h1", "name": "A", "connected": true, "matchReady": true }],
+	})
+	t.check("ack 후 재시도는 꺼진다", resume.get("_ready_repeat") == false)
+	resume._sync_state({
+		"phase": "playing",
+		"loadHeld": true,
+		"hostSessionId": "h1",
+		"sessionId": "h1",
+		"players": [{ "slot": 0, "sessionId": "h1", "name": "A", "connected": true, "matchReady": false }],
+	})
+	t.check("장벽이 닫힌 채 ready 가 빠지면 재시도를 다시 켠다", resume.get("_ready_repeat") == true)
+	resume.free()
