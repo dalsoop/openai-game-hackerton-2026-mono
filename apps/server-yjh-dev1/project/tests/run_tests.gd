@@ -16,6 +16,8 @@ const SUITES := [
 	"res://tests/test_game_state_autoload.gd",
 	"res://tests/test_input_release.gd",
 	"res://tests/test_layout_keys.gd",
+	"res://tests/test_net_world.gd",
+	"res://tests/test_snap_contract.gd",
 	"res://tests/test_network_bridge.gd",
 ]
 
@@ -29,7 +31,7 @@ func _init() -> void:
 func _run_all() -> void:
 	for suite_path in SUITES:
 		var script = load(suite_path)
-		if script == null:
+		if script == null or not script.can_instantiate():
 			check("load " + suite_path, false)
 			continue
 		var suite = script.new()

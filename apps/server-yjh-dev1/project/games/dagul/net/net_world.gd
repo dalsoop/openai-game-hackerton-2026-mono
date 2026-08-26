@@ -1,20 +1,25 @@
 extends RefCounted
 
 const EventLogScript = preload("res://games/dagul/sim/event_log.gd")
+const ArenaGeo = preload("res://games/dagul/sim/arena_geometry.gd")
+const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
+const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 
 const PLAYER_COUNT := 8
-const ARENA_SIZE := Vector2(1600.0, 900.0)
-const ARENA_CENTER := Vector2(800.0, 450.0)
+const ARENA_SIZE := ArenaGeo.ARENA_SIZE
+const ARENA_CENTER := ArenaGeo.ARENA_CENTER
+const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
+const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
 const INTERP_SEC := 0.06
-const MOVE_SPEED := 210.0
+const MOVE_SPEED := 419.0
 const DASH_SPEED := 520.0
 const DASH_COOLDOWN := 1.6
-const ISLAND_RADIUS := 402.0
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
+const SAFE_ZONE_INITIAL_RADIUS := 3304.0
 const SAFE_ZONE_PHASES: Array = []
 
 var is_net := true
@@ -54,10 +59,11 @@ var streak_callout: String = ""
 var streak_subtitle: String = ""
 var streak_callout_ticks: int = 0
 var streak_callout_shutdown: bool = false
+var finish_cine: Dictionary = {}
 var safe_zone_center: Vector2 = ARENA_CENTER
-var safe_zone_radius: float = 420.0
-var safe_zone_from_radius: float = 420.0
-var safe_zone_target_radius: float = 420.0
+var safe_zone_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_from_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_target_radius: float = SAFE_ZONE_INITIAL_RADIUS
 var safe_zone_phase: int = 0
 var safe_zone_phase_time: float = 0.0
 var safe_zone_shrinking: bool = false
@@ -109,6 +115,7 @@ func reset() -> void:
     last_down_ticks = 0
     callout = ""
     callout_ticks = 0
+    finish_cine = {}
     event_log.clear()
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
@@ -120,8 +127,8 @@ static func _f(source: Dictionary, key: String, fallback: float) -> float:
 func push_snap(snap: Dictionary) -> void:
     if snap.is_empty():
         return
-    var next_tick := int(snap.get("tick", -1))
-    if not _snaps.is_empty() and next_tick <= int(_snaps.back().get("tick", -1)):
+    var next_tick := int(snap.get(SnapContract.TICK, -1))
+    if not _snaps.is_empty() and next_tick <= int(_snaps.back().get(SnapContract.TICK, -1)):
         return
     _snaps.append(snap)
     while _snaps.size() > 16:
@@ -153,19 +160,19 @@ func present(_dt: float) -> void:
         _overlay_prediction()
         return
     var latest: Dictionary = _snaps.back()
-    var render_tick := float(int(latest.get("tick", 0))) - INTERP_SEC * SNAP_HZ
+    var render_tick := float(int(latest.get(SnapContract.TICK, 0))) - INTERP_SEC * SNAP_HZ
     var older: Dictionary = _snaps[0]
     var newer: Dictionary = latest
     for i in range(_snaps.size() - 1):
         var a: Dictionary = _snaps[i]
         var b: Dictionary = _snaps[i + 1]
-        if float(int(b.get("tick", 0))) >= render_tick:
+        if float(int(b.get(SnapContract.TICK, 0))) >= render_tick:
             older = a
             newer = b
             break
     apply_snap(newer)
-    var from_tick := float(int(older.get("tick", 0)))
-    var to_tick := float(int(newer.get("tick", 0)))
+    var from_tick := float(int(older.get(SnapContract.TICK, 0)))
+    var to_tick := float(int(newer.get(SnapContract.TICK, 0)))
     var span := maxf(0.0001, to_tick - from_tick)
     var alpha := clampf((render_tick - from_tick) / span, 0.0, 1.0)
     if render_tick > to_tick:
@@ -175,7 +182,7 @@ func present(_dt: float) -> void:
         _lerp_motion(older, newer, alpha)
     _reconcile(newer)
     _overlay_prediction()
-    while _snaps.size() > 2 and float(int(_snaps[1].get("tick", 0))) < render_tick:
+    while _snaps.size() > 2 and float(int(_snaps[1].get(SnapContract.TICK, 0))) < render_tick:
         _snaps.pop_front()
 
 func _seed_prediction(snap: Dictionary) -> void:
@@ -184,8 +191,8 @@ func _seed_prediction(snap: Dictionary) -> void:
     var me := _player_in(snap, local_slot)
     if me.is_empty():
         return
-    _pred_pos = Vector2(_f(me, "x", ARENA_CENTER.x), _f(me, "y", ARENA_CENTER.y))
-    _pred_aim = Vector2(_f(me, "aimX", _pred_pos.x + 1.0), _f(me, "aimY", _pred_pos.y)) - _pred_pos
+    _pred_pos = Vector2(_f(me, SnapContract.P_X, ARENA_CENTER.x), _f(me, SnapContract.P_Y, ARENA_CENTER.y))
+    _pred_aim = Vector2(_f(me, SnapContract.P_AIM_X, _pred_pos.x + 1.0), _f(me, SnapContract.P_AIM_Y, _pred_pos.y)) - _pred_pos
     if _pred_aim.length_squared() < 0.01:
         _pred_aim = Vector2.RIGHT
     else:
@@ -193,61 +200,61 @@ func _seed_prediction(snap: Dictionary) -> void:
     _has_pred = true
 
 func _player_in(snap: Dictionary, slot: int) -> Dictionary:
-    for raw in snap.get("players", []):
+    for raw in snap.get(SnapContract.PLAYERS, []):
         var p: Dictionary = raw
-        if int(p.get("slot", -1)) == slot:
+        if int(p.get(SnapContract.P_SLOT, -1)) == slot:
             return p
     return {}
 
 func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
     var from_map := {}
-    for raw in older.get("players", []):
+    for raw in older.get(SnapContract.PLAYERS, []):
         var p: Dictionary = raw
-        from_map[int(p.get("slot", -1))] = p
+        from_map[int(p.get(SnapContract.P_SLOT, -1))] = p
     var to_map := {}
-    for raw in newer.get("players", []):
+    for raw in newer.get(SnapContract.PLAYERS, []):
         var p: Dictionary = raw
-        to_map[int(p.get("slot", -1))] = p
+        to_map[int(p.get(SnapContract.P_SLOT, -1))] = p
     for hero in heroes:
         var slot := int(hero["slot"])
         if not from_map.has(slot) or not to_map.has(slot):
             continue
         var a: Dictionary = from_map[slot]
         var b: Dictionary = to_map[slot]
-        var from_pos := Vector2(_f(a, "x", 0.0), _f(a, "y", 0.0))
-        var to_pos := Vector2(_f(b, "x", 0.0), _f(b, "y", 0.0))
+        var from_pos := Vector2(_f(a, SnapContract.P_X, 0.0), _f(a, SnapContract.P_Y, 0.0))
+        var to_pos := Vector2(_f(b, SnapContract.P_X, 0.0), _f(b, SnapContract.P_Y, 0.0))
         hero["pos"] = from_pos.lerp(to_pos, alpha)
         hero["vel"] = (to_pos - from_pos) * SNAP_HZ
-        var from_aim := Vector2(_f(a, "aimX", from_pos.x + 1.0), _f(a, "aimY", from_pos.y))
-        var to_aim := Vector2(_f(b, "aimX", to_pos.x + 1.0), _f(b, "aimY", to_pos.y))
+        var from_aim := Vector2(_f(a, SnapContract.P_AIM_X, from_pos.x + 1.0), _f(a, SnapContract.P_AIM_Y, from_pos.y))
+        var to_aim := Vector2(_f(b, SnapContract.P_AIM_X, to_pos.x + 1.0), _f(b, SnapContract.P_AIM_Y, to_pos.y))
         var aim_point := from_aim.lerp(to_aim, alpha)
         if Vector2(hero["pos"]).distance_squared_to(aim_point) > 1.0:
             hero["aim"] = Vector2(hero["pos"]).direction_to(aim_point)
-    var old_bullets: Array = older.get("bullets", [])
-    var new_bullets: Array = newer.get("bullets", [])
+    var old_bullets: Array = older.get(SnapContract.BULLETS, [])
+    var new_bullets: Array = newer.get(SnapContract.BULLETS, [])
     if old_bullets.size() == new_bullets.size() and projectiles.size() == new_bullets.size():
         for i in range(projectiles.size()):
             var ob: Dictionary = old_bullets[i]
             var nb: Dictionary = new_bullets[i]
-            var from_b := Vector2(_f(ob, "x", 0.0), _f(ob, "y", 0.0))
-            var to_b := Vector2(_f(nb, "x", 0.0), _f(nb, "y", 0.0))
+            var from_b := Vector2(_f(ob, SnapContract.P_X, 0.0), _f(ob, SnapContract.P_Y, 0.0))
+            var to_b := Vector2(_f(nb, SnapContract.P_X, 0.0), _f(nb, SnapContract.P_Y, 0.0))
             projectiles[i]["pos"] = from_b.lerp(to_b, alpha)
             projectiles[i]["vel"] = (to_b - from_b) * SNAP_HZ
-    safe_zone_radius = lerpf(_f(older, "zoneR", safe_zone_radius), _f(newer, "zoneR", safe_zone_radius), alpha)
+    safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
-        hero["pos"] = _clamp_island(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
+        hero["pos"] = clamp_arena(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
     for shot in projectiles:
         shot["pos"] = Vector2(shot["pos"]) + Vector2(shot.get("vel", Vector2.ZERO)) * extra
 
 func _reconcile(snap: Dictionary) -> void:
     var me := _player_in(snap, local_slot)
-    if me.is_empty() or not bool(me.get("alive", true)):
+    if me.is_empty() or not bool(me.get(SnapContract.P_ALIVE, true)):
         _has_pred = false
         _pending.clear()
         return
-    var ack := int(me.get("ack", 0))
+    var ack := int(me.get(SnapContract.P_ACK, 0))
     if ack < _acked:
         return
     _acked = ack
@@ -256,7 +263,7 @@ func _reconcile(snap: Dictionary) -> void:
         if int(item.get("seq", 0)) > ack:
             keep.append(item)
     _pending = keep
-    _pred_pos = Vector2(_f(me, "x", _pred_pos.x), _f(me, "y", _pred_pos.y))
+    _pred_pos = Vector2(_f(me, SnapContract.P_X, _pred_pos.x), _f(me, SnapContract.P_Y, _pred_pos.y))
     _has_pred = true
     for item in _pending:
         _step_pred(_f(item, "mx", 0.0), _f(item, "my", 0.0), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), _f(item, "dt", 1.0 / 60.0))
@@ -268,16 +275,15 @@ func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> v
     var mlen := move.length()
     if mlen > 0.05:
         _pred_pos += move / maxf(1.0, mlen) * speed * dt
-    _pred_pos = _clamp_island(_pred_pos)
+    _pred_pos = clamp_arena(_pred_pos)
     if aim.distance_squared_to(_pred_pos) > 1.0:
         _pred_aim = _pred_pos.direction_to(aim)
 
-func _clamp_island(pos: Vector2) -> Vector2:
-    var delta := pos - ARENA_CENTER
-    var length := delta.length()
-    if length > ISLAND_RADIUS:
-        return ARENA_CENTER + delta / length * ISLAND_RADIUS
-    return pos
+static func clamp_arena(pos: Vector2) -> Vector2:
+    return Vector2(
+        clampf(pos.x, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS),
+        clampf(pos.y, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS)
+    )
 
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():
@@ -291,21 +297,17 @@ func _overlay_prediction() -> void:
     me["aim"] = _pred_aim
     heroes[local_slot] = me
 
-func _make_equipment(weapon_name: String, player_name: String) -> Dictionary:
-    return NetSnapParser.make_equipment(weapon_name, player_name)
-
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
-    tick = int(snap.get("tick", tick))
+    SnapContract.apply_header(self, snap)
     var snap_dt := maxf(0.0, float(tick - prev_tick)) / SNAP_HZ
-    match_time = _f(snap, "time", match_time)
     var prev_result := result
     _apply_result(snap)
-    _apply_safe_zone(snap)
+    _derive_zone_target()
     _apply_world_extras(snap)
-    _apply_players(snap.get("players", []))
-    _apply_bullets(snap.get("bullets", []))
-    _apply_loot(snap.get("loot", []))
+    _apply_players(snap.get(SnapContract.PLAYERS, []))
+    _apply_bullets(snap.get(SnapContract.BULLETS, []))
+    _apply_loot(snap.get(SnapContract.LOOT, []))
     _decay_effects(snap_dt)
     if last_down_ticks > 0:
         last_down_ticks = maxi(0, last_down_ticks - maxi(1, tick - prev_tick))
@@ -313,8 +315,8 @@ func apply_snap(snap: Dictionary) -> void:
         _on_match_ended()
 
 func _apply_result(snap: Dictionary) -> void:
-    var snap_result := str(snap.get("result", "playing"))
-    winner_slot = int(snap.get("winner", -1))
+    var snap_result := str(snap.get(SnapContract.RESULT, "playing"))
+    winner_slot = int(snap.get(SnapContract.WINNER, winner_slot))
     if snap_result == "playing":
         result = &"playing"
         result_reason = &""
@@ -326,23 +328,11 @@ func _apply_result(snap: Dictionary) -> void:
         result = &"won" if winner_slot == local_slot else &"lost"
         result_reason = &"last_survivor"
 
-func _apply_safe_zone(snap: Dictionary) -> void:
-    safe_zone_radius = _f(snap, "zoneR", safe_zone_radius)
-    safe_zone_shrinking = bool(snap.get("shrinking", false))
+func _derive_zone_target() -> void:
     if safe_zone_shrinking:
         safe_zone_target_radius = maxf(SAFE_ZONE_MIN_RADIUS, safe_zone_radius * 0.62)
     else:
         safe_zone_target_radius = safe_zone_radius
-    if snap.has("zoneCX") and snap.has("zoneCY"):
-        safe_zone_center = Vector2(_f(snap, "zoneCX", ARENA_CENTER.x), _f(snap, "zoneCY", ARENA_CENTER.y))
-    else:
-        safe_zone_center = ARENA_CENTER
-    if snap.has("zonePhase"):
-        safe_zone_phase = int(snap["zonePhase"])
-    if snap.has("startCountdown"):
-        start_countdown = _f(snap, "startCountdown", 0.0)
-    if snap.has("wantedSlot"):
-        wanted_slot = int(snap["wantedSlot"])
 
 func _on_match_ended() -> void:
     if winner_slot >= 0 and winner_slot < heroes.size():
@@ -370,14 +360,14 @@ func _apply_players(list: Array) -> void:
     var next: Array[Dictionary] = []
     for raw in list:
         var p: Dictionary = raw
-        var slot := int(p.get("slot", next.size()))
+        var slot := int(p.get(SnapContract.P_SLOT, next.size()))
         var old: Dictionary = prev.get(slot, {})
         _check_death(p, old, slot)
         next.append(_build_hero(p, old, slot))
     heroes = next
 
 func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
-    var alive := bool(p.get("alive", true))
+    var alive := bool(p.get(SnapContract.P_ALIVE, true))
     var was_alive := bool(old.get("alive", true))
     if not was_alive or alive:
         return
@@ -385,45 +375,21 @@ func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     _deaths[slot] = deaths
     last_down_slot = slot
     last_down_ticks = 18
-    var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
+    var pos := Vector2(_f(p, SnapContract.P_X, 0.0), _f(p, SnapContract.P_Y, 0.0))
     impact_pos = pos
     impact_ticks = maxi(impact_ticks, 10)
     event_log.emit(tick, &"hero_downed", slot, -1, {})
     _add_effect(&"death_burst", pos, 120.0, 0.32, Color("#ff3349"))
 
 func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
-    var pos := Vector2(_f(p, "x", 0.0), _f(p, "y", 0.0))
-    var old_pos: Vector2 = old.get("pos", pos)
-    var vel := (pos - old_pos) * SNAP_HZ
-    var aim_point := Vector2(_f(p, "aimX", pos.x + 1.0), _f(p, "aimY", pos.y))
-    var aim := Vector2(old.get("aim", Vector2.RIGHT))
-    if pos.distance_squared_to(aim_point) > 1.0:
-        aim = pos.direction_to(aim_point)
-    var alive := bool(p.get("alive", true))
+    var hero := SnapContract.unpack_player(p, old, slot, SNAP_HZ)
     var deaths := int(_deaths.get(slot, 0))
-    var player_name := str(p.get("name", "P%d" % (slot + 1)))
-    var kills := int(p.get("kills", 0))
-    return {
-        "slot":slot, "alive":alive, "eliminated":not alive,
-        "pos":pos, "vel":vel, "aim":aim,
-        "hp":_f(p, "hp", 0.0), "max_hp":100.0,
-        "kills":kills, "deaths":deaths,
-        "score":float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0),
-        "eliminations":kills, "damage_dealt":0.0, "core_damage":0.0,
-        "ultimates":0, "equipment_hits":0,
-        "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
-        "display_name":player_name,
-        "cpu":bool(p.get("cpu", false)), "parked":bool(p.get("parked", false)),
-        "ultimate_charge":0.0, "mobility_cd":0.0,
-        "medkits":1 if str(p.get("item", "")) != "" else 0,
-        "cc_time":0.0, "stun_time":0.0, "root_time":0.0,
-        "guard_time":0.0, "super_armor_time":0.0,
-        "charging_skill":false, "charge_time":0.0,
-        "kill_streak":0, "best_kill_streak":0,
-        "launch_trail":[], "launch_trail_fade":0.0,
-        "launch_time":0.0, "launch_vel":Vector2.ZERO,
-        "action":&"READY"
-    }
+    var kills := int(hero["kills"])
+    var alive := bool(hero["alive"])
+    hero["deaths"] = deaths
+    hero["eliminations"] = kills
+    hero["score"] = float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0)
+    return hero
 
 func _apply_bullets(list: Array) -> void:
     var next := NetSnapParser.parse_bullets(list, _prev_bullets, SNAP_HZ)

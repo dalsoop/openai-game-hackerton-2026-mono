@@ -138,21 +138,36 @@ func _apply_peer_command(slot: int, cmd: Dictionary) -> void:
 	var h: Dictionary = w.heroes[slot]
 	if bool(h["eliminated"]) or not bool(h["alive"]):
 		return
+	if bool(cmd.get("finish", false)):
+		w.ult_effect.try_begin_finish(slot)
+		return
 	if bool(h.get("downed", false)):
-		var crawl := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
-		if crawl.length_squared() > 1.0:
-			crawl = crawl.normalized()
-		h["vel"] = crawl * hero_move_speed(slot) * 0.16
-		w.heroes[slot] = h
+		_apply_peer_downed(slot, h, cmd)
 		return
 	if float(h["stun_time"]) > 0.0 or float(h["launch_time"]) > 0.0:
 		return
 	if bool(h.get("burrowed", false)) or bool(h.get("dog_rush", false)):
+		if bool(cmd.get("ultimate", false)):
+			w.ult_animal.try_ultimate(slot, _peer_aim(cmd, h))
 		return
+	_apply_peer_motion(slot, h, cmd)
+	_apply_peer_actions(slot, cmd)
+
+func _apply_peer_downed(slot: int, h: Dictionary, cmd: Dictionary) -> void:
+	var crawl := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
+	if crawl.length_squared() > 1.0:
+		crawl = crawl.normalized()
+	h["vel"] = crawl * hero_move_speed(slot) * 0.16
+	w.heroes[slot] = h
+
+func _peer_aim(cmd: Dictionary, h: Dictionary) -> Vector2:
+	return Vector2(float(cmd.get("aimX", h["pos"].x + 1.0)), float(cmd.get("aimY", h["pos"].y)))
+
+func _apply_peer_motion(slot: int, h: Dictionary, cmd: Dictionary) -> void:
 	var move := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
 	if move.length_squared() > 1.0:
 		move = move.normalized()
-	var aim_pos := Vector2(float(cmd.get("aimX", h["pos"].x + 1.0)), float(cmd.get("aimY", h["pos"].y)))
+	var aim_pos := _peer_aim(cmd, h)
 	if Vector2(h["pos"]).distance_squared_to(aim_pos) > 4.0:
 		h["facing"] = Vector2(h["pos"]).direction_to(aim_pos)
 		h["aim"] = h["facing"]
@@ -165,11 +180,42 @@ func _apply_peer_command(slot: int, cmd: Dictionary) -> void:
 		control_speed *= 0.76
 	h["vel"] = move * hero_move_speed(slot) * control_speed
 	w.heroes[slot] = h
+
+func _apply_peer_actions(slot: int, cmd: Dictionary) -> void:
+	var h: Dictionary = w.heroes[slot]
 	if bool(cmd.get("dash", false)) and float(h["mobility_cd"]) <= 0.0:
 		w.act_item.try_mobility(slot, Vector2(h["facing"]))
+		return
 	if bool(cmd.get("use", false)) and int(h.get("medkits", 0)) > 0:
 		w.act_item.try_use_medkit(slot)
-	if bool(cmd.get("fire", false)):
+		h = w.heroes[slot]
+	if bool(cmd.get("reload", false)) and not w.roul.hero_has_timed(h, "turtle"):
+		w.dmg.try_start_reload(slot)
+		h = w.heroes[slot]
+	if bool(cmd.get("ultimate", false)) and not w.roul.hero_has_timed(h, "turtle"):
+		w.ult_animal.try_ultimate(slot, _peer_aim(cmd, h))
+		h = w.heroes[slot]
+	_apply_peer_hop(slot, h, cmd)
+	_apply_peer_fire(slot, cmd)
+
+func _apply_peer_hop(slot: int, h: Dictionary, cmd: Dictionary) -> void:
+	if not bool(cmd.get("hop", false)) or w.roul.hero_has_timed(h, "turtle"):
+		return
+	var hop_ready: bool = float(h.get("hop_time", 0.0)) <= 0.0 and float(h.get("hop_lock", 0.0)) <= 0.0
+	if not hop_ready or float(h["root_time"]) > 0.0:
+		return
+	h["hop_time"] = w.HOP_AIR
+	h["hop_max"] = w.HOP_AIR
+	h["hop_height"] = w.HOP_LIFT_DEFAULT
+	w.heroes[slot] = h
+
+func _apply_peer_fire(slot: int, cmd: Dictionary) -> void:
+	var h: Dictionary = w.heroes[slot]
+	var fire_mode := str(h["equipment"].get("fire_mode", "auto"))
+	var want_fire := bool(cmd.get("fire", false))
+	if fire_mode != "auto":
+		want_fire = bool(cmd.get("firePressed", false))
+	if want_fire:
 		w.dmg.try_normal_attack(slot, Vector2(h["facing"]))
 
 func _stop_missing_peers(consumed: Array) -> void:
