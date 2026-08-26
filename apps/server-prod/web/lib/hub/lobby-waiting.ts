@@ -142,6 +142,7 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): v
 }
 
 function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {
+  // 계약: CPU 좌석 정보는 START 에 없고 SNAP 으로만 전달된다 (seats 는 실접속 플레이어만 담는다).
   const seats = seatsPayloadOf(room.state.players);
   for (const body of startBodies(
     [...room.state.players], room.state.hostSessionId, room.state.seed, room.state.mode, seats,

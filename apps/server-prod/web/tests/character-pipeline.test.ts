@@ -15,7 +15,7 @@ function sheetId(index: number): string {
 }
 
 describe("대기실 id → 권위 animal", () => {
-  it("사람 랜덤 픽은 플레이어블 bind 로 풀고, CPU 빈 칸은 슬롯 나머지다", () => {
+  it("사람 랜덤 픽은 플레이어블 bind 로 풀고, CPU 빈 칸은 사람 픽을 피해 슬롯 결정론이다", () => {
     const sim = new MatchSim([
       { slot: 0, name: "나", characterId: defaultCharacterId() },
       { slot: 1, name: "CPU2", cpu: true },
@@ -24,8 +24,16 @@ describe("대기실 id → 권위 animal", () => {
     expect(human?.animal).toBeGreaterThanOrEqual(0);
     expect(human?.animal).toBeLessThan(12);
     expect(human?.characterId).not.toBe(defaultCharacterId());
-    expect(sim.heroes.get(1)?.animal).toBe(1);
-    expect(sim.heroes.get(1)?.characterId).toBe(sheetId(1));
+    const cpu = sim.heroes.get(1);
+    expect(cpu?.characterId).not.toBe("");
+    expect(cpu?.characterId).not.toBe(human?.characterId);
+    // 사람 픽이 겹치지 않을 때는 slot 기반 그대로다
+    const fixed = new MatchSim([
+      { slot: 0, name: "나", characterId: sheetId(5) },
+      { slot: 1, name: "CPU2", cpu: true },
+    ]);
+    expect(fixed.heroes.get(1)?.animal).toBe(1);
+    expect(fixed.heroes.get(1)?.characterId).toBe(sheetId(1));
   });
 
   it("시트 id 는 indexBind 숫자로 시드된다", () => {
@@ -75,7 +83,11 @@ describe("대기실 id → 권위 animal", () => {
       expect(guest.animal).toBeGreaterThanOrEqual(0);
       expect(guest.animal).toBeLessThan(12);
     }
-    expect(auth.sim.heroes.get(2)?.cpu).toBe(true);
-    expect(auth.sim.heroes.get(2)?.animal).toBe(2);
+    const cpu2 = auth.sim.heroes.get(2);
+    expect(cpu2?.cpu).toBe(true);
+    expect(cpu2?.animal).toBeGreaterThanOrEqual(0);
+    expect(cpu2?.animal).toBeLessThan(12);
+    expect(cpu2?.characterId).not.toBe(id);
+    expect(cpu2?.characterId).not.toBe(guest?.characterId);
   });
 });

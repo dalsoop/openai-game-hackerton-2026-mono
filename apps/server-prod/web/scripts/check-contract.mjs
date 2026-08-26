@@ -59,7 +59,7 @@ for (const [label, tsVal, gdName] of pairs) {
   else if (tsVal !== gdVal) fail(`${label}: 정본 "${tsVal}" ≠ 거울 "${gdVal}"`);
 }
 
-const MSG_KEYS = ["START", "INPUT", "HOST_SNAP", "SNAP", "PEER_INPUT", "GUN_FIRE", "ERROR", "SET_CHARACTER", "STATE", "LEAVE"];
+const MSG_KEYS = ["START", "INPUT", "SNAP", "GUN_FIRE", "ERROR", "SET_CHARACTER", "STATE", "LEAVE"];
 const msgBlock = ts.match(/export const MSG = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
 for (const key of MSG_KEYS) {
   const tsVal = msgBlock.match(new RegExp(`(?:^|[\\s,{])${key}: "([^"]+)"`))?.[1];

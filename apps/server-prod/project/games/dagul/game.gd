@@ -3,11 +3,7 @@ extends GameModule
 ## 셸/네트워크/방 지식 없음: ctx 로 받은 자원만 쓴다.
 
 const CharacterCatalogScript = preload("res://core/contract/character_catalog.gd")
-const CharacterViewScript = preload("res://core/contract/character_view.gd")
-const WorldScript = preload("res://games/dagul/sim/game_world.gd")
 const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
-const GameServerScript = preload("res://games/dagul/net/game_server.gd")
-const GameClientScript = preload("res://games/dagul/net/game_client.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
 const KillFanfareScript = preload("res://games/dagul/render/kill_fanfare.gd")
 const MODE := "full"
@@ -15,8 +11,6 @@ const TICK := 1.0 / 60.0
 
 var world
 var seed_value: int = 2222
-var _host_ctrl: NetworkHost = null
-var _game_client: GameClient = null
 var _sfx: SfxManager = null
 var _tutorial: TutorialOverlay = null
 var _fanfare = null
@@ -88,13 +82,6 @@ func stop() -> void:
 		var node: Node = (audio as SceneTree).root.get_node_or_null("/root/Audio")
 		if node != null and node.has_method("stop_music"):
 			node.stop_music(0.2)
-	if _host_ctrl != null:
-		_host_ctrl.disconnect_signals()
-		_host_ctrl = null
-	if _game_client != null:
-		_game_client.disconnect_from_server()
-		_game_client.queue_free()
-		_game_client = null
 
 func push_snap(snap: Dictionary) -> void:
 	if world != null and bool(world.get("is_net")):
@@ -119,39 +106,10 @@ func become_guest(ctx: Dictionary) -> void:
 		you = int(world.get("local_slot", 0))
 		mode = str(world.get("mode", MODE))
 	_is_host = false
-	if _host_ctrl != null:
-		_host_ctrl.disconnect_signals()
-		_host_ctrl = null
 	_start_as_guest(you, mode)
 	_bind_view(ctx)
 
-func start_dedicated(root: Node) -> void:
-	var server_node := GameServerScript.new()
-	server_node.name = "GameServer"
-	root.add_child(server_node)
-	print("Dedicated server mode active")
-
 # --- 월드 생성 ---
-
-func _start_as_host(you: int, mode: String, seats: Array, ctx: Dictionary) -> void:
-	if _host_ctrl != null:
-		_host_ctrl.disconnect_signals()
-	var host_world = WorldScript.new(seed_value)
-	host_world.set_mode(mode)
-	host_world.local_slot = you
-	host_world.is_net = true
-	host_world.reset()
-	for p in seats:
-		var s := int(p.get("slot", -1))
-		if s < 0 or bool(p.get("dropped", false)):
-			continue
-		host_world.human_slots[s] = true
-		if s < host_world.heroes.size():
-			host_world.heroes[s]["display_name"] = str(p.get("name", ""))
-			CharacterViewScript.apply_id(host_world.heroes[s], str(p.get("character_id", "")))
-	world = host_world
-	_host_ctrl = NetworkHost.new(ctx["hub"], world)
-	_host_ctrl.connect_signals()
 
 func _bind_view(ctx: Dictionary) -> void:
 	if world == null or not ctx.has("world_view"):
@@ -159,14 +117,6 @@ func _bind_view(ctx: Dictionary) -> void:
 	ctx["world_view"].world = world
 	if ctx.has("hud"):
 		ctx["hud"].world = world
-
-func _adopt_live_world(prior) -> void:
-	if world == null or prior == null:
-		return
-	for key in ["tick", "match_time", "result", "winner_slot", "heroes", "projectiles", "cores", "zones", "deployables", "covers", "knockouts", "crates", "crate_orbs", "mid_tower", "health_pickups", "safe_zone_center", "safe_zone_radius", "safe_zone_shrinking", "safe_zone_phase", "start_countdown", "wanted_slot"]:
-		if prior.get(key) == null:
-			continue
-		world.set(key, prior.get(key))
 
 func _start_as_guest(you: int, mode: String) -> void:
 	var net_world = NetWorldScript.new()
@@ -257,10 +207,7 @@ func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2
 	var aim_world: Vector2 = command.get("aim", Vector2.ZERO)
 	var seq: int = int(world.predict_local(move, bool(command.get("mobility", false)), aim_world, TICK))
 	var packet := _peer_input_packet(command, seq)
-	if _game_client != null and _game_client.is_connected_to_server():
-		_game_client.send_input(packet)
-	else:
-		hub.send_input(packet)
+	hub.send_input(packet)
 	_apply_recoil_mouse(world_view)
 
 func _peer_input_packet(command: Dictionary, seq: int) -> Dictionary:

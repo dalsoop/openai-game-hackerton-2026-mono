@@ -36,6 +36,3 @@ func push_snap(snap: Dictionary) -> void:
 
 func stop() -> void:
 	pass
-
-func start_dedicated(_root: Node) -> void:
-	pass

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
-import { MSG } from "@/lib/contract";
+import { HANDOFF, MSG } from "@/lib/contract";
 import { type RosterSnapshot } from "@/lib/domain/roster";
 import { waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
 import { useMyRoom } from "@/hooks/useMyRoom";
@@ -16,8 +16,8 @@ import { useHubCommands } from "@/hooks/useHubCommands";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import { useRoomRtt } from "@/hooks/useRoomRtt";
-import { hubHttpEndpoint } from "@/lib/hub/public-address";
-import { shouldMarkRoomDropped } from "@/lib/hub/room-end";
+import { forgetHubPin, hubHttpEndpoint } from "@/lib/hub/public-address";
+import { dropReasonFromKick, shouldMarkRoomDropped } from "@/lib/hub/room-end";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import { useSendPackPct } from "@/hooks/useSendPackPct";
@@ -96,7 +96,19 @@ export function useHub(): UseHubResult {
   useRoomMessage(room, MSG.ERROR, (msg: { msg?: string }) => {
     setError(msg.msg ?? null);
   });
-  useRoomMessage(room, MSG.KICKED, onKicked);
+  // 좌석이 다른 창으로 넘어간 경우, 이 탭의 재개 토큰을 폐기해 refresh 후 자동 재개를 막는다.
+  const handleKicked = useCallback((raw?: unknown) => {
+    if (dropReasonFromKick(raw) === "takeover") {
+      try {
+        sessionStorage.removeItem(HANDOFF.RESUME);
+        sessionStorage.removeItem(HANDOFF.FROM_HUB);
+        sessionStorage.removeItem(HANDOFF.MATCH);
+      } catch { /* sessionStorage 불가 환경 — 재개 시도는 서버가 거부한다 */ }
+      forgetHubPin();
+    }
+    onKicked(raw);
+  }, [onKicked]);
+  useRoomMessage(room, MSG.KICKED, handleKicked);
   useHubExternalErrors(roomError, lobbyErr, setError);
 
   // 파생 사실은 도메인(Roster)이 계산한다.

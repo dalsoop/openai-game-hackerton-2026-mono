@@ -1,21 +1,23 @@
 extends RefCounted
-## 무기 서명 매핑 — 12동물 슬롯×장비·비주얼·계열 정합성.
+## 무기 서명 매핑 — 12동물(animal)×장비·비주얼·계열 정합성.
 ## class_name 은 --script 단독 실행에서 글로벌 캐시에 없다. preload 가 정본이다.
 
 const GunSignature := preload("res://games/dagul/sim/gun_signature.gd")
 
 func run(t) -> void:
-	# 12동물 전 슬롯이 서명 무기를 갖는다
+	# 12동물 전부가 서명 무기를 갖는다
 	var all_mapped := true
-	for slot in range(12):
-		if GunSignature.equipment_for_animal(slot) == "":
+	for animal in range(12):
+		if GunSignature.equipment_for_animal(animal) == "":
 			all_mapped = false
-	t.check("all 12 slots mapped", all_mapped)
+	t.check("all 12 animals mapped", all_mapped)
 
-	# 서명 판정 — 슬롯과 장비가 일치할 때만 참
-	t.check("signature matches own slot", GunSignature.is_signature(0, "burst"))
+	# 서명 판정 — 동물과 장비가 일치할 때만 참
+	t.check("signature matches own animal", GunSignature.is_signature(0, "burst"))
 	t.check("signature rejects other equipment", GunSignature.is_signature(0, "blade") == false)
-	t.check("signature rejects out-of-range slot", GunSignature.is_signature(99, "burst") == false)
+	# 범위 밖 값은 posmod 로 0..11 에 감긴다: 99 → animal 3 (brawler)
+	t.check("animal wraps via posmod (99->3)", GunSignature.is_signature(99, "brawler"))
+	t.check("wrapped animal rejects non-signature", GunSignature.is_signature(99, "burst") == false)
 
 	# 비주얼·계열은 등록된 장비만, 미등록은 폴백("burst")
 	t.check("visual has frame+gun", GunSignature.visual_for_equipment("spear").has("frame") and GunSignature.visual_for_equipment("spear").has("gun"))

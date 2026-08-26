@@ -24,7 +24,6 @@ export function usePageBridge(
   }, [room, matchInfo]);
 
   useRoomMessage(room, MSG.SNAP, (raw: unknown) => {postToEngine(MSG.SNAP, raw);});
-  useRoomMessage(room, MSG.PEER_INPUT, (raw: unknown) => {postToEngine(MSG.PEER_INPUT, raw);});
   useRoomMessage(room, MSG.GUN_FIRE, (raw: unknown) => {postToEngine(MSG.GUN_FIRE, raw);});
   useRoomMessage(room, MSG.ERROR, (raw: unknown) => {postToEngine(MSG.ERROR, raw);});
 

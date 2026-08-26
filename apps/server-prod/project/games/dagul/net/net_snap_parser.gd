@@ -92,8 +92,10 @@ static func parse_knockouts(snap: Dictionary) -> Array[Dictionary]:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var ko: Dictionary = raw
+		var ko_slot := int(ko.get("slot", -1))
 		result.append({
-			"slot": int(ko.get("slot", -1)),
+			"slot": ko_slot,
+			"animal": int(ko.get("animal", ko_slot)),
 			"pos": _snap_vec(ko),
 			"time": _f(ko, "time", 0.0),
 			"max_time": _f(ko, "max_time", 2.15),

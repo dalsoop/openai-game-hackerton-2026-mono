@@ -52,6 +52,13 @@ export function packAuthoritySnap(
   const bullets = [...sim.bullets.values()].map((b) => ({
     id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, owner: b.owner,
   }));
+  // 부팅 후 불변이라 매 스냅 포함 — Godot parse_covers 필드명(x·y·w·h) 그대로.
+  const covers = sim.covers.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h }));
+  // Godot parse_knockouts 필드명 — time 은 감소, max_time 은 초기 총 시간.
+  const knockouts = sim.knockouts.map((k) => ({
+    slot: k.slot, animal: k.animal, x: k.x, y: k.y, time: k.time, max_time: k.maxTime,
+  }));
+  // zones·deployables·cores·crates·crate_orbs·loot·mid_tower 는 허브 시뮬 미구현 — SnapContract 소비측은 빈 폴백.
   return {
     tick: sim.tick,
     time: sim.tick / 60,
@@ -62,11 +69,13 @@ export function packAuthoritySnap(
     zoneCX: ARENA_CENTER.x,
     zoneCY: ARENA_CENTER.y,
     zonePhase: 0,
-    startCountdown: 0,
+    startCountdown: sim.countdown,
     wantedSlot: -1,
     mode,
     players,
     bullets,
+    covers,
+    knockouts,
   };
 }
 

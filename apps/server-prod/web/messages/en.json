@@ -26,6 +26,8 @@
     "droppedBody": "You left the room. You can rejoin.",
     "idleTitle": "Room closed",
     "idleBody": "The room closed because nobody started in time.",
+    "takeoverTitle": "Signed in from another window",
+    "takeoverBody": "This screen was deactivated because you joined from a new window.",
     "back": "Back",
     "resuming": "Reconnecting to your previous session...",
     "startFresh": "Start fresh",

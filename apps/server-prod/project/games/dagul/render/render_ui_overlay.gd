@@ -205,14 +205,14 @@ func draw_finish_prompts() -> void:
 		var cap := pos + Vector2(0.0, -78.0 + bob)
 		draw_keycap(cap, "F")
 
-func _draw_finish_actor(pos: Vector2, animal: int, face_right: bool, scale: float, spin: float, opacity: float, flash: float) -> void:
+func _draw_finish_actor(pos: Vector2, slot: int, animal: int, face_right: bool, scale: float, spin: float, opacity: float, flash: float) -> void:
 	var tint := Color(3.2, 3.2, 3.2, opacity) if flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
 	var flip := 1.0 if face_right else -1.0
 	r.draw_set_transform(pos, spin, Vector2(flip * scale, scale))
 	if r.animal_atlas != null:
 		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-40.0, -40.0), Vector2(80.0, 80.0)), r._animal_src_rect(animal), tint)
 	else:
-		r.draw_circle(Vector2.ZERO, 28.0, Color(r._slot_color(animal), opacity))
+		r.draw_circle(Vector2.ZERO, 28.0, Color(r._slot_color(slot), opacity))
 	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func draw_finish_cine() -> void:
@@ -243,13 +243,13 @@ func draw_finish_cine() -> void:
 	var vic_an := int(vic_h.get("animal", vic))
 	var atk_pos := mid + Vector2(-150.0 + float(cine.get("atk_x", 0.0)), 28.0)
 	var vic_pos := mid + Vector2(150.0, 36.0) + Vector2(float(cine.get("vic_x", 0.0)), float(cine.get("vic_y", 0.0)))
-	_draw_finish_actor(atk_pos, atk_an, true, 1.55, 0.0, 1.0, 0.0)
+	_draw_finish_actor(atk_pos, atk, atk_an, true, 1.55, 0.0, 1.0, 0.0)
 	var cine_spin := float(cine.get("vic_spin", 0.0))
 	if not bool(cine.get("hit", false)):
 		cine_spin = 0.85
 	var fade := 1.0
 	if bool(cine.get("hit", false)):
 		fade = clampf(1.0 - float(cine.get("fly", 0.0)) / 0.95, 0.15, 1.0)
-	_draw_finish_actor(vic_pos, vic_an, false, 1.45, cine_spin, fade, 0.4 if bool(cine.get("hit", false)) else 0.0)
+	_draw_finish_actor(vic_pos, vic, vic_an, false, 1.45, cine_spin, fade, 0.4 if bool(cine.get("hit", false)) else 0.0)
 	if not bool(cine.get("hit", false)):
 		r.draw_string(GameFont.get_font(), mid + Vector2(-110.0, -176.0), "F / ESC", HORIZONTAL_ALIGNMENT_CENTER, 220.0, 14, Color("#fff4d2"))

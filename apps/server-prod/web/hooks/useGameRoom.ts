@@ -9,6 +9,7 @@ import { MSG, HANDOFF } from "@/lib/contract";
 import { ROOM_NAME } from "@/lib/hub/config";
 import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-address";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
+import { seatClaimNow } from "@/lib/guest-identity";
 import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
 import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
 import type { RosterSnapshot } from "@/lib/domain/roster";
@@ -62,15 +63,17 @@ export function useGameRoom(
           const client = getClient(
             matchmakePin(joinRequest.kind, joinRequest.kind === "join" ? joinRequest.id : undefined),
           );
+          // 좌석 이어받기 증명(쿠키) — 같은 브라우저의 새 창이 기존 좌석을 넘겨받게 한다.
+          const claim = seatClaimNow() ?? {};
           const r = joinRequest.kind === "create"
-            ? await client.create(ROOM_NAME, { name: settings.name, game: settings.game, title: settings.title })
+            ? await client.create(ROOM_NAME, { name: settings.name, game: settings.game, title: settings.title, ...claim })
             : joinRequest.kind === "resume"
               ? await ((): Promise<Room<RosterSnapshot>> => {
                   const token = sessionStorage.getItem(HANDOFF.RESUME) ?? "";
                   resumeAttemptToken.current = token;
                   return client.reconnect(token);
                 })()
-              : await client.joinById(joinRequest.id, { name: settings.name });
+              : await client.joinById(joinRequest.id, { name: settings.name, ...claim });
           rememberHubPin(r.connection.url, r.roomId);
           persistMatchForEngine(r as unknown as BridgeableRoom, (payload): void => {
             setMatchInfo({

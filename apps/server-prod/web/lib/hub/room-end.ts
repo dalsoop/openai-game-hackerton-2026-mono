@@ -5,7 +5,7 @@ import { CLOSE_CODE } from "../contract/wire";
 import type { GamePhase, HubStatus } from "../../types";
 
 /** 모달 문구·재접속 가능 여부. 자발적 퇴장은 여기에 넣지 않는다. */
-export type DropReason = "offline" | "kicked" | "dropped" | "idle";
+export type DropReason = "offline" | "kicked" | "dropped" | "idle" | "takeover";
 
 /** onLeave 가 남기는 종료 종류. 핸드오프는 방이 살아 있다. */
 export type RoomEndKind = "handoff" | "consented" | "drop";
@@ -22,7 +22,9 @@ export function shouldMarkRoomDropped(kind: RoomEndKind): boolean {
 
 export function dropReasonFromKick(raw: unknown): DropReason {
   if (raw && typeof raw === "object" && "reason" in raw) {
-    if ((raw as { reason?: unknown }).reason === "idle") {return "idle";}
+    const reason = (raw as { reason?: unknown }).reason;
+    if (reason === "idle") {return "idle";}
+    if (reason === "takeover") {return "takeover";}
   }
   return "kicked";
 }

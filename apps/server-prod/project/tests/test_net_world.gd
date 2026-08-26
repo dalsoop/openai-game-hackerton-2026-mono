@@ -4,7 +4,6 @@ extends RefCounted
 
 const NetWorldScript := preload("res://games/dagul/net/net_world.gd")
 const ArenaGeo := preload("res://games/dagul/sim/arena_geometry.gd")
-const WorldScript := preload("res://games/dagul/sim/game_world.gd")
 const SnapContract := preload("res://games/dagul/net/snap_contract.gd")
 const Parser := preload("res://games/dagul/net/net_snap_parser.gd")
 
@@ -13,7 +12,6 @@ func run(t) -> void:
 	t.check("게스트 아레나 중심이 시뮬과 같다", NetWorldScript.ARENA_CENTER == ArenaGeo.ARENA_CENTER)
 	_prediction_stays_on_full_map(t)
 	_snap_hp_and_mag(t)
-	_peer_reload_reaches_host(t)
 	_peer_fire_follows_aim(t)
 	_guest_bullets_keep_own_velocity(t)
 	_local_fire_shake_decays(t)
@@ -46,23 +44,6 @@ func _snap_hp_and_mag(t) -> void:
 	t.check("스냅 maxHp 가 HUD 분모가 된다", is_equal_approx(float(me["max_hp"]), 176.0))
 	t.check("스냅 mag 가 HUD 탄창이 된다", int(me["mag"]) == 7)
 	t.check("스냅 magMax 가 장비 탄창이다", int(me["equipment"].get("mag_size", 0)) == 18)
-
-func _peer_reload_reaches_host(t) -> void:
-	var world = WorldScript.new(2222)
-	world.reset()
-	world.local_slot = 0
-	world.human_slots[1] = true
-	var h: Dictionary = world.heroes[1]
-	h["mag"] = 0
-	world.heroes[1] = h
-	var pos: Vector2 = h["pos"]
-	world.peer_commands[1] = {
-		"mx": 0.0, "my": 0.0,
-		"aimX": pos.x + 10.0, "aimY": pos.y,
-		"reload": true,
-	}
-	world.mov.apply_peer_humans()
-	t.check("호스트가 게스트 리로드를 적용한다", float(world.heroes[1]["reload_left"]) > 0.0)
 
 func _peer_fire_follows_aim(t) -> void:
 	var nw = NetWorldScript.new()

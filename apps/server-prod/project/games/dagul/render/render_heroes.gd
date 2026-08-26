@@ -24,7 +24,7 @@ func draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> v
 		r.draw_circle(Vector2.ZERO, radius_x * float(ring[0]), Color(0.0, 0.0, 0.0, float(ring[1]) * alpha_mul * opacity))
 	r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0, lean: float = 0.0) -> void:
+func draw_hero_sprite(pos: Vector2, slot: int, animal: int, aim: Vector2, opacity: float = 1.0, hop_lift: float = 0.0, hop_scale: Vector2 = Vector2.ONE, hit_flash: float = 0.0, lean: float = 0.0) -> void:
 	var hit_tint: Color = Color(3.4, 3.4, 3.4, opacity) if hit_flash > 0.0 else Color(1.0, 1.0, 1.0, opacity)
 	if hit_flash <= 0.0 and world != null and pos.distance_to(Vector2(world.safe_zone_center)) > float(world.safe_zone_radius):
 		var zone_flicker := 0.78 + 0.12 * sin(float(world.tick) * 0.34 + float(slot))
@@ -34,16 +34,16 @@ func draw_hero_sprite(pos: Vector2, slot: int, aim: Vector2, opacity: float = 1.
 	var sprite_pos: Vector2 = pos + Vector2(0.0, -hop_lift)
 	var flip: float = -1.0 if aim.x < -0.05 else 1.0
 	var draw_scale: Vector2 = Vector2(flip * hop_scale.x, hop_scale.y)
-	if slot < 0 and r.unknown_character_tex != null:
+	if animal < 0 and r.unknown_character_tex != null:
 		r.draw_set_transform(sprite_pos, lean, draw_scale)
 		r.draw_texture_rect(r.unknown_character_tex, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), false, hit_tint)
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	elif r.animal_atlas != null:
 		r.draw_set_transform(sprite_pos, lean, draw_scale)
-		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), r._animal_src_rect(slot), hit_tint)
+		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-36.0, -36.0), Vector2(72.0, 72.0)), r._animal_src_rect(animal), hit_tint)
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
-		var tex = r._zodiac_texture(slot)
+		var tex = r._zodiac_texture(animal)
 		if tex != null:
 			r.draw_set_transform(sprite_pos, lean, draw_scale)
 			r.draw_texture_rect(tex, Rect2(Vector2(-33.0, -33.0), Vector2(66.0, 66.0)), false, hit_tint)
@@ -99,8 +99,8 @@ func draw_flee_mark(body_pos: Vector2, hero: Dictionary) -> void:
 		r.draw_circle(mark, 16.0, Color("#ffcc33"))
 	r.draw_string(GameFont.get_font(), mark + Vector2(-30.0, 28.0), "도망", HORIZONTAL_ALIGNMENT_CENTER, 60.0, 12, Color("#ffe066"))
 
-func draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
-	var tag := display_name if display_name != "" else "P%d %s" % [slot + 1, r._zodiac_name(slot)]
+func draw_nametag(pos: Vector2, slot: int, animal: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
+	var tag := display_name if display_name != "" else "P%d %s" % [slot + 1, r._zodiac_name(animal)]
 	r.draw_string(GameFont.get_font(), pos + Vector2(-71.0, -78.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(0.0, 0.0, 0.0, 0.85 * opacity))
 	r.draw_string(GameFont.get_font(), pos + Vector2(-72.0, -79.0), tag, HORIZONTAL_ALIGNMENT_CENTER, 144.0, 14, Color(1.0, 1.0, 1.0, opacity))
 	var bar := Rect2(pos + Vector2(-46.0, -64.0), Vector2(92.0, 16.0))
@@ -116,12 +116,13 @@ func draw_nametag(pos: Vector2, slot: int, hp_ratio: float, opacity: float = 1.0
 func draw_knockouts() -> void:
 	for knockout in world.knockouts:
 		var knockout_slot := int(knockout["slot"])
+		var knockout_animal := int(knockout.get("animal", knockout_slot))
 		var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
 		var knockout_pos: Vector2 = knockout["pos"]
 		var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
 		var knockout_trail: Array = knockout.get("trail", [])
 		_draw_knockout_trail(knockout_trail, knockout_slot, knockout_fade, knockout_pos, spin)
-		_draw_knockout_body(knockout_slot, knockout_pos, spin, knockout_fade)
+		_draw_knockout_body(knockout_slot, knockout_animal, knockout_pos, spin, knockout_fade)
 
 func _draw_knockout_trail(knockout_trail: Array, knockout_slot: int, knockout_fade: float, knockout_pos: Vector2, spin: float) -> void:
 	if r.knockout_trail_atlas != null and not knockout_trail.is_empty():
@@ -138,13 +139,13 @@ func _draw_knockout_trail(knockout_trail: Array, knockout_slot: int, knockout_fa
 	else:
 		r._draw_motion_trail(knockout_trail, r._slot_color(knockout_slot), 9.0, knockout_fade)
 
-func _draw_knockout_body(knockout_slot: int, knockout_pos: Vector2, spin: float, knockout_fade: float) -> void:
+func _draw_knockout_body(knockout_slot: int, knockout_animal: int, knockout_pos: Vector2, spin: float, knockout_fade: float) -> void:
 	if r.animal_atlas != null:
 		r.draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
-		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), r._animal_src_rect(knockout_slot), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
+		r.draw_texture_rect_region(r.animal_atlas, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), r._animal_src_rect(knockout_animal), Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
-		var tex = r._zodiac_texture(knockout_slot)
+		var tex = r._zodiac_texture(knockout_animal)
 		if tex != null:
 			r.draw_set_transform(knockout_pos, spin * 5.0, Vector2.ONE)
 			r.draw_texture_rect(tex, Rect2(Vector2(-30.0, -30.0), Vector2(60.0, 60.0)), false, Color(1.0, 1.0, 1.0, 0.72 * knockout_fade))
@@ -173,8 +174,9 @@ func draw_smoke_lost_self(hero: Dictionary) -> void:
 	var wob := Vector2(sin(float(world.tick) * 0.21) * 54.0, cos(float(world.tick) * 0.17) * 46.0)
 	var ghost: Vector2 = pos + wob
 	var aim := Vector2(hero.get("aim", Vector2.RIGHT))
-	var animal := int(hero.get("animal", 0))
-	draw_hero_sprite(ghost, animal, aim, 0.28, 0.0, Vector2(1.05, 0.92), 0.0)
+	var slot := int(hero.get("slot", 0))
+	var animal := int(hero.get("animal", slot))
+	draw_hero_sprite(ghost, slot, animal, aim, 0.28, 0.0, Vector2(1.05, 0.92), 0.0)
 
 func draw_wool_shields() -> void:
 	if world == null:
@@ -313,7 +315,7 @@ func draw_snake_skins() -> void:
 		var aim: Vector2 = skin.get("aim", Vector2.RIGHT)
 		var flash := float(skin.get("flash", 0.0))
 		var sc := float(skin.get("scale", 1.5))
-		draw_hero_sprite(pos, 5, aim, 0.78, 0.0, Vector2(1.02 * sc, 0.92 * sc), flash)
+		draw_hero_sprite(pos, int(skin.get("owner", -1)), 5, aim, 0.78, 0.0, Vector2(1.02 * sc, 0.92 * sc), flash)
 		var hp_now := float(skin.get("hp", 0.0))
 		var hp_max := float(skin.get("max_hp", 1.0))
 		var hp_ratio := clampf(hp_now / maxf(1.0, hp_max), 0.0, 1.0)
@@ -467,7 +469,7 @@ func _draw_hero_tag(body_pos: Vector2, slot: int, hero: Dictionary, ghost: float
 	var tag := str(hero.get("display_name", ""))
 	if tag == "":
 		tag = "P%d %s" % [slot + 1, animal_name]
-	draw_nametag(body_pos, slot, hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
+	draw_nametag(body_pos, slot, int(hero.get("animal", slot)), hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
 	if int(hero.get("kill_streak", 0)) >= 2:
 		r.draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
 
@@ -516,9 +518,9 @@ func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, h
 		return
 	var animal := int(hero.get("animal", slot))
 	if is_down:
-		_draw_downed_hero(pos, animal, aim, hero)
+		_draw_downed_hero(pos, slot, animal, aim, hero)
 	else:
-		draw_hero_sprite(pos + Vector2(0.0, comb_nudge), animal, aim, ghost, hop_lift, hop_scale, hit_flash, lean)
+		draw_hero_sprite(pos + Vector2(0.0, comb_nudge), slot, animal, aim, ghost, hop_lift, hop_scale, hit_flash, lean)
 		r._draw_hero_gun(body_pos, slot, aim, ghost, body_squash)
 		draw_flee_mark(body_pos, hero)
 		draw_dog_alert(body_pos, hero)
@@ -537,10 +539,10 @@ func _draw_turtle_body(pos: Vector2, aim: Vector2) -> void:
 	r.draw_circle(pos + Vector2(0.0, 6.0), 28.0, Color("#3d8f4a"))
 	r.draw_circle(pos + Vector2(0.0, 6.0), 16.0, Color("#6ef3a5"))
 
-func _draw_downed_hero(pos: Vector2, animal: int, aim: Vector2, hero: Dictionary) -> void:
+func _draw_downed_hero(pos: Vector2, slot: int, animal: int, aim: Vector2, hero: Dictionary) -> void:
 	if not draw_down_sprite(pos + Vector2(0.0, -2.0), animal, 0.98, 0.0, 82.0):
 		r.draw_set_transform(pos + Vector2(0.0, 10.0), 1.25, Vector2(1.0, 0.72))
-		draw_hero_sprite(Vector2.ZERO, animal, aim, 0.95, 0.0, Vector2.ONE, 0.15)
+		draw_hero_sprite(Vector2.ZERO, slot, animal, aim, 0.95, 0.0, Vector2.ONE, 0.15)
 		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var bleed := clampf(float(hero.get("down_left", 0.0)) / 5.0, 0.0, 1.0)
 	r.draw_arc(pos, 34.0, -PI * 0.5, -PI * 0.5 + TAU * bleed, 28, Color("#ff8d93"), 4.0)
@@ -557,7 +559,7 @@ func _draw_ult_clone(clone: Dictionary, pos: Vector2, slot: int, aim: Vector2, a
 	var caim: Vector2 = clone.get("aim", aim)
 	var chop := hop_lift
 	var cbody: Vector2 = cpos + Vector2(0.0, -chop)
-	draw_hero_sprite(cpos, animal, caim, 0.94, chop, hop_scale, 0.0)
+	draw_hero_sprite(cpos, slot, animal, caim, 0.94, chop, hop_scale, 0.0)
 	r._draw_hero_gun(cbody, slot, caim, 0.94, body_squash)
 
 func _draw_hero_buff_icons(body_pos: Vector2, timed_ids: Array) -> void:

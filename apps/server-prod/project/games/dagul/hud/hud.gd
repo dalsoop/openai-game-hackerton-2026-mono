@@ -135,7 +135,7 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
         var name_color := Color("#e8ffe8") if alive else Color("#4d6050")
         var row_name := str(hero.get("display_name", ""))
         if row_name == "":
-            row_name = "P%d %s" % [slot + 1, _zodiac_name(slot)]
+            row_name = "P%d %s" % [slot + 1, _zodiac_name(int(hero.get("animal", slot)))]
         _text(Vector2(50.0, row_y), row_name, 15, name_color, 128.0)
         var state := "K %d" % int(hero["kills"]) if alive else "OUT"
         var state_color := Color("#fff36a") if alive else Color("#5a6b5a")

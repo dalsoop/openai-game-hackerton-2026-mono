@@ -130,6 +130,33 @@ describe("정본 카탈로그 공개 API", () => {
     expect(cpu.animal).toBe(5);
   });
 
+  it("CPU 는 usedIds 를 피해 slot 결정론으로 고르고 풀 고갈 시에만 중복 폴백한다", () => {
+    const key = matchBindKey();
+    const prefix = canon.sheets?.[0]?.idPrefix ?? "a";
+    const taken = new Set([`${prefix}1`]);
+    const cpu = assignSeatIdentity(undefined, { cpu: true, slot: 1, usedIds: taken });
+    expect(cpu.characterId).not.toBe(`${prefix}1`);
+    expect(characterBindNumber(cpu.characterId, key)).toBe(cpu.animal);
+    // 같은 입력이면 같은 결과 (결정론)
+    const again = assignSeatIdentity(undefined, { cpu: true, slot: 1, usedIds: taken });
+    expect(again.characterId).toBe(cpu.characterId);
+    // 풀 전체가 사용됐으면 빈 id 가 아니라 중복 허용 폴백
+    const pool = listCharacters().filter((row) => typeof row.binds?.[key] === "number");
+    const all = new Set(pool.map((row) => row.id));
+    const exhausted = assignSeatIdentity(undefined, { cpu: true, slot: 3, usedIds: all });
+    expect(exhausted.characterId).not.toBe("");
+    expect(all.has(exhausted.characterId)).toBe(true);
+  });
+
+  it("pool.length===0 폴백은 현재 카탈로그 데이터로 도달 불가능하다", () => {
+    const key = matchBindKey();
+    const pool = listCharacters().filter((row) => typeof row.binds?.[key] === "number");
+    expect(pool.length).toBeGreaterThan(0);
+    for (let slot = 0; slot < 8; slot++) {
+      expect(assignSeatIdentity(undefined, { cpu: true, slot }).characterId).not.toBe("");
+    }
+  });
+
   it("정본 길이는 entries + 시트 칸이다", () => {
     const cells = (canon.sheets ?? []).reduce((n, s) => n + s.cols * s.rows, 0);
     expect(listCharacters()).toHaveLength((canon.entries ?? []).length + cells);

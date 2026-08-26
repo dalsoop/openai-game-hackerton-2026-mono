@@ -7,7 +7,7 @@ extends RefCounted
 ## 멀티 수송(방·릴레이·재접속)은 core+서버 소유 — 게임은 월드만 소유한다.
 ##
 ## ctx (셸이 만들어 넘기는 공유 자원):
-##   hub: Node          — NetworkManager (send_input(Dictionary)/send_snap/players/rtt_ms)
+##   hub: Node          — NetworkManager (send_input(Dictionary)/players/rtt_ms)
 ##   world_view: Node2D — 렌더 루트 (게임 씬 소유)
 ##   camera: Camera2D
 ##   hud: Control       — 인게임 HUD 오버레이 (게임 씬 소유)
@@ -45,8 +45,4 @@ func become_guest(_ctx: Dictionary) -> void:
 
 ## 매치 종료·이탈 시 정리.
 func stop() -> void:
-	pass
-
-## 데디케이티드 서버 모드 (--server) — 지원 게임만 구현.
-func start_dedicated(_root: Node) -> void:
 	pass
