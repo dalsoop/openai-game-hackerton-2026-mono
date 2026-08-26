@@ -295,6 +295,9 @@ class HelmContract(unittest.TestCase):
         yjh_df = (APPS / "server-yjh-dev1" / "web" / "Dockerfile").read_text()
         self.assertIn("COPY .docker-hub-kernel /packages/hub-kernel", prod_df)
         self.assertIn("COPY .docker-hub-kernel /packages/hub-kernel", yjh_df)
+        self.assertIn("COPY web/package-lock.json ./", prod_df)
+        self.assertIn("lockfileVersion", prod_df)
+        self.assertIn('"--no-cache"', apps_py)
         self.assertIn("--no-rebuild", apps_py)
         self.assertIn('if "--rebuild" in args', apps_py)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
