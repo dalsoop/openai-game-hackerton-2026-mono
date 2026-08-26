@@ -338,5 +338,6 @@ export function gunReach(h: GunHero): number {
 }
 
 export const seedGun = gunSeedFields;
+export const seed = gunSeedFields;
 export const tick = tickGun;
 export const apply = applyGunInput;

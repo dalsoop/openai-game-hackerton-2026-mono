@@ -221,7 +221,7 @@ describe("스냅 계약", () => {
     sim.pushInput(0, { use: true, seq: 1 });
     sim.step();
     expect(h.medkits).toBe(1);
-    expect(h.hp).toBeCloseTo(50 + 176 * 0.30, 1);
+    expect(h.hp).toBeCloseTo(50 + h.maxHp * 0.30, 1);
     // 같은 입력 유지 — 에지 검출로 추가 소비 없음
     sim.step();
     expect(h.medkits).toBe(1);

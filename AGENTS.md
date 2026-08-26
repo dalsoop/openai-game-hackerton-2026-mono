@@ -16,12 +16,11 @@
 
 | 둘 곳 | 내용 |
 |---|---|
-| `apps/server-yjh-dev1/` | 정한 개발환경 1. 지금 다굴 |
+| `apps/dagul-prod/` | 제출·운영. 지금 다굴 정본 |
 | `apps/server-pjh-dev1/` | 크리엘 개발환경 1. 지금 다굴 |
 | `apps/server-pig-dev1/` | Figix 개발환경 1. 지금 다굴 |
 | `apps/server-board/` | 배포 보드. `https://server-board.external.kr/` |
 | `apps/server-*-dev2/` · `*-dev3/` | 그 사람의 개발환경 2·3 |
-| `apps/dagul-prod/` | 제출·운영 |
 | `apps/game-pjh-gang-up/` | 원본. 읽기만 |
 | `docs/` | 제품 설계 (`DESIGN.md`, `FEEL-TUNING.md`) |
 | `deploy/` | Helm·`apply-apps.py`. 클러스터 YAML은 `apps/`에 두지 않는다 |
@@ -37,7 +36,7 @@ src/              # 방 서버가 이 폴더에 있을 때만
 
 방 서버는 `server-*` 폴더마다 따로다. 보드만 허브가 없다. 이미지는 그 폴더 Dockerfile이다.
 
-`dev2`/`dev3`/`prod`도 `web.enabled`가 켜져 있다. 각자 `dev1`과 같은 `project/`를 쓴다. `prod`는 `yjh-dev1`과 같다.
+`dev2`/`dev3`/`prod`도 `web.enabled`가 켜져 있다. 제출 슬롯은 `apps/dagul-prod/`다.
 
 ## 모노레포 규칙
 
@@ -51,14 +50,14 @@ src/              # 방 서버가 이 폴더에 있을 때만
 - 새 기능 전 `docs/DESIGN.md` 와 맞는지 본다.
 - 조작감 숫자를 바꾸면 `docs/FEEL-TUNING.md`에 한 줄.
 - Godot이 로드되지 않으면 머지하지 않는다.
-- `yjh`/`pjh`/`pig` `dev1`의 게임플레이를 같이 맞출 때는 `project/`만 복사한다. 웹보내기는 CI가 만든다.
+- `pjh`/`pig` `dev1`의 게임플레이를 같이 맞출 때는 `project/`만 복사한다. 웹보내기는 CI가 만든다.
 
 ## 로컬
 
 ```bash
-godot --path apps/server-yjh-dev1/project
-cd apps/server-yjh-dev1/web && npm run godot:build && npm run godot:link
-cd apps/server-yjh-dev1 && ./dev.sh
+godot --path apps/dagul-prod/project
+cd apps/dagul-prod/web && npm run godot:build && npm run godot:link
+cd apps/dagul-prod && ./dev.sh
 cd deploy/usability && node cli.mjs smoke
 ```
 
@@ -68,7 +67,7 @@ cd deploy/usability && node cli.mjs smoke
 
 PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.
 
-새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 후 푸시하면 그 폴더만 올라간다.
+새 게임 추가: `apps/server-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 후 푸시하면 그 폴더만 올라간다.
 
 ## GDScript 코드 규칙
 - 커밋 게이트(최초 1회): `git config core.hooksPath .githooks` — 배포 계약(`test_ship_contracts`). GD가 있으면 파스+유닛테스트도 차단한다. wasm/pck는 git에 넣지 않고 `apply-apps.py ship` 이 만든다.
@@ -83,14 +82,14 @@ PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가�
 6. **모듈 패턴**: 큰 클래스는 RefCounted 모듈로 분리하고 파사드가 조합한다.
    - sim/: GangGameWorld(파사드) + 19개 모듈
    - render/: debug_renderer(파사드) + 4개 모듈
-7. **검증**: `python3 lint_gd.py apps/server-yjh-dev1/project/scripts` + Godot 파싱 에러 0건
+7. **검증**: `python3 lint_gd.py apps/dagul-prod/project` + Godot 파싱 에러 0건
 8. **human_slots**: 로컬 매치에서 반드시 `world.human_slots[world.local_slot] = true` 설정
-9. **정본**: `apps/server-yjh-dev1/`이 정본. 다른 슬롯은 여기서 복사한다.
+9. **정본**: `apps/dagul-prod/`가 제출 정본. 다른 슬롯은 여기서 복사한다.
 
 ## 온라인 단일 구성 · 정본 지도 (lint_gd.py + check-contract 가 강제)
 
 로비/방/대기실은 웹(React+Colyseus)이, 인게임은 Godot가 담당한다. 오프라인 모드·채팅 없음.
-웹 플랫폼 위치: `apps/server-yjh-dev1/web/` (허브+로비+Godot 로딩을 한 프로세스로 서빙).
+웹 플랫폼 위치: `apps/dagul-prod/web/` (허브+로비+Godot 로딩을 한 프로세스로 서빙).
 
 | 역할 | 정본 (여기만 수정) | 금지 사항 |
 |---|---|---|
@@ -115,4 +114,4 @@ games/<id>/  game.gd(계약 구현) + sim/ render/ hud/ net/ camera/ input/ audi
 ```
 
 - 새 게임 추가 = `games/<id>/` 폴더 + `game.gd` 구현. core 는 한 줄도 바꾸지 않는다.
-- 검증: `python3 lint_gd.py apps/server-yjh-dev1/project` · `npm run check:contract` · `npm run smoke`
+- 검증: `python3 lint_gd.py apps/dagul-prod/project` · `npm run check:contract` · `npm run smoke`

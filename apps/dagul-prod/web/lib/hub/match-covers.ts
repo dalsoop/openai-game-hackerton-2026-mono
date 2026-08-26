@@ -157,3 +157,6 @@ export function tickKnockouts(list: SimKnockout[], dt: number): void {
     if (list[i].time <= 0) {list.splice(i, 1);}
   }
 }
+export const seed = buildTiledCovers;
+export const tick = tickKnockouts;
+export const apply = spawnKnockout;

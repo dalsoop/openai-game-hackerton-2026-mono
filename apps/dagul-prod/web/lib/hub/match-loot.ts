@@ -198,3 +198,6 @@ export function packLootSnap(pickups: readonly LootPickup[]): Array<Record<strin
 export function packItemField(medkits: number): string {
   return medkits > 0 ? "medkit" : "";
 }
+export const seed = buildHealthPickups;
+export const tick = updateHealthPickups;
+export const apply = handleUseInput;

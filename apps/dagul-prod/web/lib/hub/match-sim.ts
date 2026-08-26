@@ -1,4 +1,4 @@
-import { seedSeatIdentities } from "../characters/index.js";
+import { idForBind, matchBindKey, seedSeatIdentities } from "../characters/index.js";
 import {
   ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena,
   nudgeOutOfCover, pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
@@ -73,6 +73,7 @@ export * from "./match-zone.js";
 export const MOVE_SPEED = 419;
 export const FIRE_INTERVAL = 0.105;
 export const BULLET_RADIUS = 5;
+/** equipment_registry.gd combat_stats_for("brawler").max_hp — 전역 기본이 아님. */
 export const HERO_MAX_HP = 176;
 export const MAG_SIZE = 18;
 export const RELOAD_TIME = 1.15;
@@ -206,7 +207,7 @@ export class MatchSim {
   private readonly cpuFleet: CpuFleet;
   private readonly rng: MatchRng;
   /** 권위 매치에서만 true — 사람 입력이 오기 전까지 카운트다운을 깎지 않는다. */
-  countdownHeld = true;
+  countdownHeld = false;
   private timeLimitWarningEmitted = false;
 
   /** seed — 방 시드(room.state.seed). 0/미지정이면 CpuFleet 이 고정 폴백 시드를 쓴다. */
@@ -218,12 +219,18 @@ export class MatchSim {
     this.crates = spawnBreakableCrates(this.covers);
     const count = Math.max(1, seats.length);
     this.cores = spawnCores(this.covers, PLAYER_COUNT);
-    const identities = seedSeatIdentities(seats);
-    for (const seat of seats) {
+    const bindKey = matchBindKey();
+    const pinned = seats.map((seat) => {
+      if (seat.cpu || (seat.characterId != null && seat.characterId !== "")) {return seat;}
+      const characterId = idForBind(bindKey, seat.slot);
+      return characterId ? { ...seat, characterId } : seat;
+    });
+    const identities = seedSeatIdentities(pinned);
+    for (const seat of pinned) {
       const slot = seat.slot;
       if (slot < 0) {continue;}
       const pos = nudgeOutOfCover(spawnPoint(slot, count), this.covers);
-      const seeded = identities.get(slot) ?? { characterId: "", animal: 0 };
+      const seeded = identities.get(slot) ?? { characterId: "", animal: slot };
       const animal = seeded.animal;
       const eq = makeEquipment(startEquipmentId(mode, animal));
       const faceX = ARENA_SIZE.x * 0.5 - pos.x;
@@ -275,9 +282,9 @@ export class MatchSim {
         facing: { x: facingX, y: facingY },
         aim: { x: facingX, y: facingY },
         vel: { x: 0, y: 0 },
-        hp: HERO_MAX_HP,
-        maxHp: HERO_MAX_HP,
-        baseMaxHp: HERO_MAX_HP,
+        hp: eq.maxHp,
+        maxHp: eq.maxHp,
+        baseMaxHp: eq.maxHp,
         animal,
         downed: false,
         eliminated: false,

@@ -1,4 +1,0 @@
-max-line-length: 200
-max-returns: 10
-max-file-lines: 700
-disable: class-definitions-order

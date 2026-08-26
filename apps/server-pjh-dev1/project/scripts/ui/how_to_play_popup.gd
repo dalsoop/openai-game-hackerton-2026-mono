@@ -13,8 +13,7 @@ static func build(close_callback: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
 	col.add_theme_constant_override("separation", 10)
-	col.add_child(UiTheme.lbl("조작 안내", 14, UiTheme.MUTED))
-	col.add_child(UiTheme.lbl("조작법", 28, UiTheme.INK))
+	col.add_child(UiTheme.lbl("도움말", 28, UiTheme.INK))
 	for line in [
 		"WASD  이동   ·   마우스  조준",
 		"좌클릭  기본 공격   ·   우클릭  장비 스킬",

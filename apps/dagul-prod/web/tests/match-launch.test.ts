@@ -28,6 +28,7 @@ import {
   tick as tickKnockouts,
   tickLaunchKnockouts,
 } from "@/lib/hub/match-launch-knockout";
+import { ARENA_CENTER } from "@/lib/hub/match-covers";
 
 const DT = 1 / 60;
 const NO_COVERS: readonly never[] = [];
@@ -375,10 +376,10 @@ describe("tick/seed/apply 진입점", () => {
 
   it("넉아웃 seed 는 빈 리스트, apply/tick 은 death_velocity 시체 물리", () => {
     expect(seedKnockouts()).toEqual([]);
-    const k = applyKnockout(3, { x: 10, y: 20 }, { x: 100, y: 0 }, { x: 0, y: 1 });
+    const k = applyKnockout(3, { x: ARENA_CENTER.x, y: ARENA_CENTER.y }, { x: 100, y: 0 }, { x: 0, y: 1 });
     expect(k.vel).toEqual({ x: 0, y: 1550 });
     const list = [k];
     tickKnockouts(list, DT, 1, NO_COVERS);
-    expect(k.pos.y).toBeCloseTo(20 + 1550 * DT, 9);
+    expect(k.pos.y).toBeCloseTo(ARENA_CENTER.y + 1550 * DT, 9);
   });
 });

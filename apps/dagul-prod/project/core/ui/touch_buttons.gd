@@ -20,7 +20,7 @@ static func make_button(text: String, bg: Color) -> Button:
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	return b
 
-static func build(hud_node: Node, on_exit: Callable) -> Dictionary:
+static func build(hud_node: Node, on_exit: Callable, on_rematch: Callable) -> Dictionary:
 	var layer := CanvasLayer.new()
 	layer.name = "TouchMenu"
 	layer.layer = 3
@@ -33,9 +33,17 @@ static func build(hud_node: Node, on_exit: Callable) -> Dictionary:
 	exit_btn.offset_bottom = 58
 	exit_btn.pressed.connect(on_exit)
 	layer.add_child(exit_btn)
-	return {"exit": exit_btn}
+	var rematch_btn := make_button("재경기", UiTheme.BLUE)
+	rematch_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	rematch_btn.offset_left = -110
+	rematch_btn.offset_right = 110
+	rematch_btn.offset_top = -160
+	rematch_btn.offset_bottom = -104
+	rematch_btn.pressed.connect(on_rematch)
+	layer.add_child(rematch_btn)
+	return {"exit": exit_btn, "rematch": rematch_btn}
 
-static func sync(exit_btn: Button, touch, phase: StringName, world) -> void:
+static func sync(exit_btn: Button, rematch_btn: Button, touch, phase: StringName, world, net_active: bool) -> void:
 	if exit_btn == null:
 		return
 	var playing: bool = phase == &"play"
@@ -43,5 +51,6 @@ static func sync(exit_btn: Button, touch, phase: StringName, world) -> void:
 	var finished: bool = world != null and world.get("result") != null and world.result != &"playing"
 	exit_btn.visible = playing and (touch_on or finished)
 	exit_btn.text = "대기실로" if finished else "나가기"
+	rematch_btn.visible = playing and finished and not net_active
 	if touch != null and touch.has_method("set_playing"):
 		touch.set_playing(playing and not finished)

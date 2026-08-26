@@ -7,7 +7,7 @@ import json
 RELEASE = "hackertone-games"
 NAMESPACE = "hackertone-games-dev1"
 HELM_APPLY_TIMEOUT = "5m"
-SMOKE_FOLDERS = ("dagul-prod", "server-yjh-dev1")
+SMOKE_FOLDERS = ("dagul-prod",)
 
 
 def helm_value_flags(values: str, games: str, env: str) -> list[str]:

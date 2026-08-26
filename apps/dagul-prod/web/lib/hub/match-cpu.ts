@@ -527,3 +527,6 @@ export class CpuFleet {
     return tickCpu(mind, hero, bodies, this.rng, CPU_FIXED_DT, { zone });
   }
 }
+export const seed = seedCpu;
+export const tick = tickCpu;
+export const apply = applyCpu;

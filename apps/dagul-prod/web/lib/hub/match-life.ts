@@ -288,3 +288,6 @@ export function crawlDowned(
   hero.x = next.x;
   hero.y = next.y;
 }
+export const seed = lifeSeedFields;
+export const tick = tickDowns;
+export const apply = applyHeroDamage;

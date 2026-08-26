@@ -101,3 +101,6 @@ export function resetDeadStreaks(heroes: Iterable<ScoreHero>): void {
     if (!h.alive) {h.killStreak = 0;}
   }
 }
+export const seed = scoreSeedFields;
+export const apply = applyScoredDamage;
+export const tick = resetDeadStreaks;
