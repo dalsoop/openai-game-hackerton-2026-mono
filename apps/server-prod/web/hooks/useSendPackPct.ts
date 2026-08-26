@@ -1,9 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef } from "react";
 import type { Room } from "@colyseus/sdk";
-import { MSG } from "@/lib/contract";
-import { clampPackPct } from "@/lib/domain/waiting-room-pack";
-import { shouldSendPackPct } from "@/lib/hub/loader-pack-pct";
+import { HUB_MSG } from "@/lib/contract";
+import { clampPackPct, shouldSendPackPct } from "@dalsoop/hub-kernel";
 
 export function useSendPackPct(room: Room | undefined, resetKey: string): (pct: number) => void {
   const last = useRef<number | null>(null);
@@ -14,6 +13,6 @@ export function useSendPackPct(room: Room | undefined, resetKey: string): (pct: 
     const next = clampPackPct(pct);
     if (!shouldSendPackPct(last.current, next)) {return;}
     last.current = next;
-    room?.send(MSG.PACK_PCT, { pct: next });
+    room?.send(HUB_MSG.PACK_PCT, { pct: next });
   }, [room]);
 }

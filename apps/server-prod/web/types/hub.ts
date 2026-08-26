@@ -1,6 +1,7 @@
 import type { MatchInfo } from "./game";
 import type { MyRoomIdentity } from "@/lib/room-membership";
 import type { DropReason } from "@/lib/game-flow-state";
+import type { Seat } from "@dalsoop/hub-kernel";
 /**
  * 허브/방 관련 타입 정의
  * Colyseus WebSocket 통합 타입
@@ -45,18 +46,6 @@ export interface HubRoom {
 }
 
 /**
- * 플레이어 정보
- */
-export interface HubPlayer {
-  slot: number;
-  id?: string;
-  name: string;
-  host?: boolean;
-  dropped?: boolean;
-  packPct?: number;
-}
-
-/**
  * 허브 훅 반환 타입
  */
 export interface UseHubResult {
@@ -65,7 +54,7 @@ export interface UseHubResult {
   /** 접속 중인 방의 게임(유즈맵) — 방 밖이면 빈 문자열 */
   gameId: string;
   rooms: HubRoom[];
-  players: HubPlayer[];
+  players: Seat[];
   you: number;
   roomId: string;
   isHost: boolean;

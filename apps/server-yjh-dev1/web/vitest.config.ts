@@ -13,6 +13,9 @@ export default defineConfig({
   // (vite 루트 옵션이다 — test 안에 두면 무시된다)
   esbuild: { jsx: "automatic", tsconfigRaw: { compilerOptions: { jsx: "react-jsx" } } },
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, ".") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "."),
+      "@dalsoop/hub-kernel": path.resolve(import.meta.dirname, "../../../packages/hub-kernel/src/index.ts"),
+    },
   },
 });

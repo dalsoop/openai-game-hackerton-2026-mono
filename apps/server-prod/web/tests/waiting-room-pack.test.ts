@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  allPacksReceived, clampPackPct, overlayOwnPackPct, packSeatTag, packSeatsOf, waitingRoomPackView,
-} from "@/lib/domain/waiting-room-pack";
-import { packPctFromLoader, shouldSendPackPct } from "@/lib/hub/loader-pack-pct";
+  Seat, clampPackPct, connectedSeatsPacked, overlayOwnPackPct, packKind, shouldSendPackPct, slotBadge,
+} from "@dalsoop/hub-kernel";
+import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
+
+function seat(
+  slot: number, name: string, connected: boolean, packPct: number, isHost = false,
+): Seat {
+  return new Seat(slot, `p${slot}`, name, isHost, connected, packPct);
+}
 
 describe("대기실 팩 도메인", () => {
   it("퍼센트를 0..100 정수로 자른다", () => {
@@ -13,41 +19,37 @@ describe("대기실 팩 도메인", () => {
   });
 
   it("접속 중인 좌석만 100 이어야 팩을 다 받은 것이다", () => {
-    expect(allPacksReceived(packSeatsOf([
-      { slot: 0, dropped: false, packPct: 100 },
-      { slot: 1, dropped: true, packPct: 0 },
-    ]))).toBe(true);
-    expect(allPacksReceived(packSeatsOf([
-      { slot: 0, connected: true, packPct: 40 },
-      { slot: 1, connected: true, packPct: 100 },
-    ]))).toBe(false);
+    expect(connectedSeatsPacked([
+      seat(0, "나", true, 100),
+      seat(1, "너", false, 0),
+    ])).toBe(true);
+    expect(connectedSeatsPacked([
+      seat(0, "나", true, 40),
+      seat(1, "너", true, 100),
+    ])).toBe(false);
   });
 
   it("내 좌석만 로컬 팩 진행률로 덮는다", () => {
-    const seats = overlayOwnPackPct(packSeatsOf([
-      { slot: 0, name: "나", packPct: 0 },
-      { slot: 1, name: "너", packPct: 10 },
-    ]), 0, 80);
-    expect(seats[0]?.pct).toBe(80);
-    expect(seats[1]?.pct).toBe(10);
-  });
-
-  it("목록과 칸에 같은 퍼센트를 붙인다", () => {
-    const view = waitingRoomPackView([
-      { slot: 0, name: "나", packPct: 0 },
-      { slot: 1, name: "너", packPct: 10 },
+    const seats = overlayOwnPackPct([
+      seat(0, "나", true, 0),
+      seat(1, "너", true, 10),
     ], 0, 80);
-    expect(view.seats[0]?.pct).toBe(80);
-    expect(view.players[0]?.packPct).toBe(80);
-    expect(view.players[1]?.packPct).toBe(10);
+    expect(seats[0]?.packPct).toBe(80);
+    expect(seats[1]?.packPct).toBe(10);
   });
 
-  it("칸 태그는 팩 단계와 역할을 나눈다", () => {
-    expect(packSeatTag(true, 0, false)).toBe("reconnect");
-    expect(packSeatTag(false, 0, false)).toBe("pending");
-    expect(packSeatTag(false, 40, false)).toBe("progress");
-    expect(packSeatTag(false, 100, true)).toBe("host");
-    expect(packSeatTag(false, 100, false)).toBe("waiting");
+  it("칸 배지는 단절을 팩보다 먼저 본다", () => {
+    expect(slotBadge(seat(0, "나", false, 0))).toBe("reconnect");
+    expect(slotBadge(seat(0, "나", true, 0))).toBe("pending");
+    expect(slotBadge(seat(0, "나", true, 40))).toBe("progress");
+    expect(slotBadge(seat(0, "나", true, 100, true))).toBe("host");
+    expect(slotBadge(seat(0, "나", true, 100))).toBe("waiting");
+  });
+
+  it("팩 단계는 퍼센트만 본다", () => {
+    expect(packKind(0)).toBe("pending");
+    expect(packKind(40)).toBe("progress");
+    expect(packKind(100)).toBe("ready");
   });
 });
 

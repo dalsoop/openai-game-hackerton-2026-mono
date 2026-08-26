@@ -1,6 +1,6 @@
 // 아키텍처 계약 테스트 — lint 규칙과 같은 계약을 소스 스캔으로 이중 검증한다.
 // lint 설정이 실수로 풀려도 이 테스트가 지킨다.
-import { readFileSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
@@ -164,6 +164,15 @@ describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
     expect(e2e).toContain("reconnectHits");
     expect(e2e).toContain("__e2eJsReconnect");
     expect(e2e).toContain("godotOwned");
+  });
+});
+
+describe("계약: 좌석·팩 정본은 커널", () => {
+  it("앱 lib/domain 에 roster·waiting-room-pack 복제가 없다", () => {
+    const dir = join(ROOT, "lib", "domain");
+    const domain = existsSync(dir) ? walk(dir, (n) => n.endsWith(".ts")).map(rel) : [];
+    expect(domain.some((p) => p.endsWith("roster.ts"))).toBe(false);
+    expect(domain.some((p) => p.endsWith("waiting-room-pack.ts"))).toBe(false);
   });
 });
 

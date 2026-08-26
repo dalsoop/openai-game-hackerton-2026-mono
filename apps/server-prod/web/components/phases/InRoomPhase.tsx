@@ -4,11 +4,10 @@
 import type { JSX } from "react";
 import Room from "@/components/Room";
 import WaitingRoomPackList from "@/components/WaitingRoomPackList";
-import { waitingRoomPackView } from "@/lib/domain/waiting-room-pack";
-import type { HubPlayer } from "@/types";
+import { overlayOwnPackPct, type Seat } from "@dalsoop/hub-kernel";
 
 interface InRoomPhaseProps {
-  players: HubPlayer[];
+  players: Seat[];
   you: number;
   isHost: boolean;
   gameId: string;
@@ -36,12 +35,12 @@ export function InRoomPhase({
   onSetGame,
   onToggleRoom,
 }: InRoomPhaseProps): JSX.Element {
-  const view = waitingRoomPackView(players, you, ownPackPct);
+  const seats = overlayOwnPackPct(players, you, ownPackPct);
 
   return (
     <>
       <Room
-        players={view.players}
+        players={seats}
         you={you}
         isHost={isHost}
         gameId={gameId}
@@ -53,7 +52,7 @@ export function InRoomPhase({
         onToggleRoom={onToggleRoom}
         canStart={canStart}
       />
-      <WaitingRoomPackList seats={view.seats} you={you} />
+      <WaitingRoomPackList seats={seats} you={you} />
     </>
   );
 }

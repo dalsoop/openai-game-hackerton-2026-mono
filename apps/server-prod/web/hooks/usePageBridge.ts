@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { Room } from "@colyseus/sdk";
 import { useRoomMessage } from "@colyseus/react";
 import { MSG, ROOM_LEAVE } from "@/lib/contract";
-import type { RosterSnapshot } from "@/lib/domain/roster";
+import type { RosterSnapshot } from "@dalsoop/hub-kernel";
 import { attachPageBridge, encodeHubState, postToEngine } from "@/lib/hub/page-bridge";
 import type { MatchInfo } from "@/types";
 

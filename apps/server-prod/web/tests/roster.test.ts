@@ -1,6 +1,6 @@
 // Roster 도메인 값객체 단위 테스트 — 좌석 배정의 핵심 파생 규칙을 검증한다.
 import { describe, expect, it } from "vitest";
-import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
+import { Roster, type RosterSnapshot } from "@dalsoop/hub-kernel";
 
 function snap(partial: Partial<RosterSnapshot>): RosterSnapshot {
   return {

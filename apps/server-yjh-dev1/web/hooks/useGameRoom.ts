@@ -10,7 +10,7 @@ import { ROOM_NAME } from "@/lib/hub/config";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
 import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
-import type { RosterSnapshot } from "@/lib/domain/roster";
+import type { RosterSnapshot } from "@dalsoop/hub-kernel";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
 export type { RoomEndKind };
