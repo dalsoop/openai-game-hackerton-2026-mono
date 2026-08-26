@@ -1,5 +1,5 @@
 import type { Client } from "colyseus";
-import { clampPackPct, shouldSendPackPct } from "@/lib/domain/waiting-room-pack";
+import { clampPackPct, shouldSendPackPct } from "../domain/waiting-room-pack.js";
 import { HUB_CONFIG, KO } from "./config.js";
 import { MSG, CLOSE_CODE } from "../contract/wire.js";
 import { asCharacterId } from "../characters/index.js";
