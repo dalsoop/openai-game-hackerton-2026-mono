@@ -14,6 +14,28 @@ static func normalize(raw: String) -> String:
 	return _default_id()
 
 
+static func is_random(raw: String) -> bool:
+	var id := normalize(raw)
+	for item in all():
+		if str(item.get("id", "")) == id:
+			return str(item.get("pick", "")) == "random"
+	return false
+
+
+static func resolve_playable(raw: String, key: String = "animal") -> String:
+	var id := normalize(raw)
+	if not is_random(id) and bind_int(id, key) >= 0:
+		return id
+	var pool: Array = []
+	for item in all():
+		var binds: Dictionary = item.get("binds", {})
+		if binds.has(key):
+			pool.append(str(item.get("id", "")))
+	if pool.is_empty():
+		return id
+	return str(pool[randi() % pool.size()])
+
+
 static func bind_int(raw: String, key: String) -> int:
 	var id := normalize(raw)
 	for item in all():

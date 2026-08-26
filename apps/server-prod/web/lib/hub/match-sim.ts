@@ -1,4 +1,4 @@
-import { characterBindNumber } from "../characters/index.js";
+import { characterBindNumber, resolveMatchCharacterId } from "../characters/index.js";
 
 /** 허브 권위 시뮬 — 방장 Godot 이 아니라 방이 월드의 원본이다. */
 
@@ -109,7 +109,10 @@ export class MatchSim {
         magMax: MAG_SIZE,
         fireCd: 0,
         ack: 0,
-        animal: characterBindNumber(seat.characterId ?? "", "animal") ?? (seat.cpu ? slot % 12 : -1),
+        animal: characterBindNumber(
+          seat.cpu ? (seat.characterId ?? "") : resolveMatchCharacterId(seat.characterId),
+          "animal",
+        ) ?? (seat.cpu ? slot % 12 : 0),
         cpu: Boolean(seat.cpu),
       });
     }

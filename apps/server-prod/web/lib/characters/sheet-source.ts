@@ -5,6 +5,7 @@ export interface CharacterEntryData {
   readonly titleKey: string;
   readonly portrait: CharacterPortrait;
   readonly binds?: Readonly<Record<string, number | string>>;
+  readonly pick?: "random";
 }
 
 export interface CharacterSheetData {

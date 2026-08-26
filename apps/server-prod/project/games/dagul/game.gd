@@ -147,11 +147,10 @@ func _start_as_host(you: int, mode: String, seats: Array, ctx: Dictionary) -> vo
 		host_world.human_slots[s] = true
 		if s < host_world.heroes.size():
 			host_world.heroes[s]["display_name"] = str(p.get("name", ""))
-			var animal := CharacterCatalogScript.bind_int(str(p.get("character_id", "")), "animal")
+			var cid := CharacterCatalogScript.resolve_playable(str(p.get("character_id", "")))
+			var animal := CharacterCatalogScript.bind_int(cid, "animal")
 			if animal >= 0:
 				host_world.set_hero_animal(s, animal)
-			else:
-				host_world.heroes[s]["animal"] = -1
 	world = host_world
 	_host_ctrl = NetworkHost.new(ctx["hub"], world)
 	_host_ctrl.connect_signals()

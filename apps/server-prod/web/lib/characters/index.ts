@@ -33,3 +33,15 @@ export function characterBindNumber(id: string, key: string): number | undefined
 export function stepCharacterId(id: string, delta: number): string {
   return registry.step(id, delta);
 }
+
+export function isRandomCharacterId(id: string): boolean {
+  return registry.isRandomPick(id);
+}
+
+export function resolveMatchCharacterId(
+  raw: unknown,
+  bindKey = "animal",
+  roll?: (max: number) => number,
+): string {
+  return registry.resolveForMatch(raw, bindKey, roll);
+}

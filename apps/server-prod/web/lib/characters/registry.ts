@@ -35,6 +35,26 @@ export class CharacterRegistry {
     return typeof value === "number" && Number.isFinite(value) ? value : undefined;
   }
 
+  idsWithBind(key: string): readonly string[] {
+    return this.list()
+      .filter((item) => typeof item.binds?.[key] === "number")
+      .map((item) => item.id);
+  }
+
+  isRandomPick(id: string): boolean {
+    return this.find(this.normalize(id))?.pick === "random";
+  }
+
+  resolveForMatch(raw: unknown, key: string, roll: (max: number) => number = (max) => Math.floor(Math.random() * max)): string {
+    const id = this.normalize(raw);
+    if (!this.isRandomPick(id) && this.bindNumber(id, key) !== undefined) {
+      return id;
+    }
+    const pool = this.idsWithBind(key);
+    if (pool.length === 0) {return id;}
+    return pool[roll(pool.length)] ?? id;
+  }
+
   step(id: string, delta: number): string {
     const items = this.list();
     if (items.length === 0) {return this.fallbackId;}
