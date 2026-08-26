@@ -49,14 +49,8 @@ body {
 	const bar = document.getElementById('bar');
 	const pct = document.getElementById('pct');
 	const loading = document.getElementById('loading');
-	const engine = new Engine({
-		args: $GODOT_ARGS,
-		canvasResizePolicy: $GODOT_CANVAS_RESIZE_POLICY,
-		executable: "$GODOT_BASENAME",
-		experimentalVK: $GODOT_EXPERIMENTAL_VK,
-		fileSizes: $GODOT_FILE_SIZES,
-		focusCanvas: true,
-	});
+	const GODOT_CONFIG = $GODOT_CONFIG;
+	const engine = new Engine(GODOT_CONFIG);
 	engine.setProgressFunc(function(current, total) {
 		if (total > 0) {
 			var p = Math.round(current / total * 100);
