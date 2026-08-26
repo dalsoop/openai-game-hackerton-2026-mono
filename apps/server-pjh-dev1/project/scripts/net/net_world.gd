@@ -1,20 +1,23 @@
 extends RefCounted
 
 const EventLogScript = preload("res://scripts/sim/event_log.gd")
+const ArenaGeo = preload("res://scripts/sim/arena_geometry.gd")
 
 const PLAYER_COUNT := 8
-const ARENA_SIZE := Vector2(1600.0, 900.0)
-const ARENA_CENTER := Vector2(800.0, 450.0)
+const ARENA_SIZE := ArenaGeo.ARENA_SIZE
+const ARENA_CENTER := ArenaGeo.ARENA_CENTER
+const ARENA_MARGIN := ArenaGeo.ARENA_MARGIN
+const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
 const SNAP_HZ := 20.0
 const INTERP_SEC := 0.06
-const MOVE_SPEED := 210.0
+const MOVE_SPEED := 419.0
 const DASH_SPEED := 520.0
 const DASH_COOLDOWN := 1.6
-const ISLAND_RADIUS := 402.0
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
+const SAFE_ZONE_INITIAL_RADIUS := 3304.0
 const SAFE_ZONE_PHASES: Array = []
 
 var is_net := true
@@ -54,10 +57,11 @@ var streak_callout: String = ""
 var streak_subtitle: String = ""
 var streak_callout_ticks: int = 0
 var streak_callout_shutdown: bool = false
+var finish_cine: Dictionary = {}
 var safe_zone_center: Vector2 = ARENA_CENTER
-var safe_zone_radius: float = 420.0
-var safe_zone_from_radius: float = 420.0
-var safe_zone_target_radius: float = 420.0
+var safe_zone_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_from_radius: float = SAFE_ZONE_INITIAL_RADIUS
+var safe_zone_target_radius: float = SAFE_ZONE_INITIAL_RADIUS
 var safe_zone_phase: int = 0
 var safe_zone_phase_time: float = 0.0
 var safe_zone_shrinking: bool = false
@@ -237,7 +241,7 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
 
 func _extrapolate(extra: float) -> void:
     for hero in heroes:
-        hero["pos"] = _clamp_island(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
+        hero["pos"] = clamp_arena(Vector2(hero["pos"]) + Vector2(hero["vel"]) * extra)
     for shot in projectiles:
         shot["pos"] = Vector2(shot["pos"]) + Vector2(shot.get("vel", Vector2.ZERO)) * extra
 
@@ -268,16 +272,15 @@ func _step_pred(mx: float, my: float, _dash: bool, aim: Vector2, dt: float) -> v
     var mlen := move.length()
     if mlen > 0.05:
         _pred_pos += move / maxf(1.0, mlen) * speed * dt
-    _pred_pos = _clamp_island(_pred_pos)
+    _pred_pos = clamp_arena(_pred_pos)
     if aim.distance_squared_to(_pred_pos) > 1.0:
         _pred_aim = _pred_pos.direction_to(aim)
 
-func _clamp_island(pos: Vector2) -> Vector2:
-    var delta := pos - ARENA_CENTER
-    var length := delta.length()
-    if length > ISLAND_RADIUS:
-        return ARENA_CENTER + delta / length * ISLAND_RADIUS
-    return pos
+static func clamp_arena(pos: Vector2) -> Vector2:
+    return Vector2(
+        clampf(pos.x, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS),
+        clampf(pos.y, ARENA_MARGIN + HERO_RADIUS, ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS)
+    )
 
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():
@@ -291,8 +294,8 @@ func _overlay_prediction() -> void:
     me["aim"] = _pred_aim
     heroes[local_slot] = me
 
-func _make_equipment(weapon_name: String, player_name: String) -> Dictionary:
-    return NetSnapParser.make_equipment(weapon_name, player_name)
+func _make_equipment(weapon_name: String, player_name: String, mag_size: int = 0) -> Dictionary:
+    return NetSnapParser.make_equipment(weapon_name, player_name, mag_size)
 
 func apply_snap(snap: Dictionary) -> void:
     var prev_tick := tick
@@ -406,15 +409,18 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int) -> Dictionary:
     return {
 		"slot":slot, "alive":alive, "eliminated":not alive, "animal":int(p.get("animal", slot)), "emote":int(p.get("emote", -1)), "emote_time":_f(p, "emoteTime", 0.0),
         "pos":pos, "vel":vel, "aim":aim,
-        "hp":_f(p, "hp", 0.0), "max_hp":100.0,
+        "hp":_f(p, "hp", 0.0), "max_hp":_f(p, "maxHp", 100.0),
+        "mag":int(p.get("mag", 0)),
+        "reload_left":_f(p, "reloadLeft", 0.0),
+        "ultimate_charge":_f(p, "ult", 0.0),
         "kills":kills, "deaths":deaths,
         "score":float(kills) * 100.0 + (500.0 if alive and result != &"playing" and slot == winner_slot else 0.0),
         "eliminations":kills, "damage_dealt":0.0, "core_damage":0.0,
         "ultimates":0, "equipment_hits":0,
-        "equipment":_make_equipment(str(p.get("weapon", "")), player_name),
+        "equipment":_make_equipment(str(p.get("weapon", "")), player_name, int(p.get("magMax", 0))),
         "display_name":player_name,
         "cpu":bool(p.get("cpu", false)), "parked":bool(p.get("parked", false)),
-        "ultimate_charge":0.0, "mobility_cd":0.0,
+        "mobility_cd":0.0,
         "medkits":1 if str(p.get("item", "")) != "" else 0,
         "cc_time":0.0, "stun_time":0.0, "root_time":0.0,
         "guard_time":0.0, "super_armor_time":0.0,

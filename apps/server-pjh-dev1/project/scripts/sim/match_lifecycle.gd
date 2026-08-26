@@ -101,6 +101,8 @@ func update_timers(dt: float) -> void:
 		h["muzzle_time"] = maxf(0.0, float(h.get("muzzle_time", 0.0)) - dt)
 		h["dmg_orb_time"] = maxf(0.0, float(h.get("dmg_orb_time", 0.0)) - dt)
 		h["spawn_protect_time"] = maxf(0.0, float(h.get("spawn_protect_time", 0.0)) - dt)
+		if bool(h.get("alive", false)) and not bool(h.get("eliminated", false)):
+			h["ultimate_charge"] = minf(w.ULTIMATE_MAX, float(h.get("ultimate_charge", 0.0)) + w.ULT_CHARGE_PER_SEC * dt)
 		w.heroes[i] = h
 		w.roul.tick_roulette(i, dt)
 		h = w.heroes[i]
