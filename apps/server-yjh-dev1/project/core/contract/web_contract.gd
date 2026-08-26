@@ -26,8 +26,6 @@ const EVT_MATCH_START := "godot-match-start"
 const EVT_MATCH_END := "godot-match-end"
 const EVT_TO_ENGINE := "gangup-to-engine"
 const EVT_FROM_ENGINE := "gangup-from-engine"
-const EVT_PAGE_HIDDEN := "godot-page-hidden"
-const EVT_PAGE_VISIBLE := "godot-page-visible"
 
 const DEFAULT_GAME := "dagul"
 const DEFAULT_MODE := "full"

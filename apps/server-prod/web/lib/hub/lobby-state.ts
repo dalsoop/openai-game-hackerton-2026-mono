@@ -17,5 +17,7 @@ export class LobbyState extends Schema {
   @type("string") mode = defaultModeOf(asGameId(undefined));
   @type("number") seed = 0;
   @type("number") createdAtMs = 0;
+  /** 대기실 유휴 마감 unix 초. 0 이면 타이머 없음. float32 ms 를 쓰지 않는다. */
+  @type("uint32") idleUntilSec = 0;
   @type([PlayerSchema]) players = new ArraySchema<PlayerSchema>();
 }

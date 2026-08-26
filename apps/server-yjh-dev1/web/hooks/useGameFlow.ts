@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
+import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, downloadStartsInRoom, phaseOnMount } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
@@ -25,15 +26,18 @@ export interface UseGameFlowResult {
   leaveToLobby: () => void;
   matchEnd: () => void;
   errorToIntro: () => void;
+  deployStale: boolean;
+  reloadDeploy: () => void;
 }
 
-export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
+export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowResult {
   const { nickname, saveNickname, clearNickname } = useSession();
   const hub = useHub();
   // 유즈맵 — 접속한 방의 게임을 따라간다 (없으면 기본 게임).
   const loader = useGodotLoader(asGameId(hub.gameId));
   const [phase, setPhase] = useState<GamePhase>("intro");
   const [name, setName] = useState(nickname || "");
+  const revision = useDeployRevision(buildId);
 
   const displayName = displayNameOf(name, defaultPlayer);
   // START 이후에도 React 방이 살아 있다. matchInfo 가 있으면 그 확정본을 쓴다.
@@ -131,5 +135,7 @@ export function useGameFlow(defaultPlayer: string): UseGameFlowResult {
     leaveToLobby,
     matchEnd,
     errorToIntro,
+    deployStale: revision.stale,
+    reloadDeploy: revision.reload,
   };
 }

@@ -5,20 +5,44 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
-import zipfile
+import json
 import re
 from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-from export_html_contract import assert_export_html  # noqa: E402
+from export_web import (  # noqa: E402
+    export_platform_web,
+    export_web,
+    platform_web_pipeline,
+)
+from helm_contract import (  # noqa: E402
+    NAMESPACE,
+    SMOKE_FOLDERS,
+    create_url,
+    deploy_image_tags,
+    health_url,
+    helm_diff_cmd,
+    helm_upgrade_cmd,
+    image_drift,
+    matchmake_create_ok,
+    parse_deploy_env,
+    planted_hub_ids,
+    planted_hub_tags,
+    planted_redis_slots,
+    redis_url_ok,
+)
 from hub_images import folder_from_hub_ref, missing_hub_refs  # noqa: E402
+from status import hub_health_ok, probe  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
@@ -175,6 +199,35 @@ def godot_bin() -> str:
     raise SystemExit("godot 4.7.1 이 없다. GODOT 경로를 지정한다.")
 
 
+def platform_web_pipeline(folder: str) -> bool:
+    web = parse_folder(plant_mod(), folder).get("web") or {}
+    return str(web.get("pipeline", "")) == "platform"
+
+
+def export_platform_web(folder: str) -> None:
+    """Next 슬롯: deploy/scripts/build-godot.sh → public/godot 복사."""
+    ensure_templates()
+    godot = godot_bin()
+    web = APPS / folder / "web"
+    script = ROOT / "deploy" / "scripts" / "build-godot.sh"
+    env = os.environ.copy()
+    env["GODOT_BIN"] = godot
+    env["GODOT"] = godot
+    print(f"export platform {folder} with {godot}")
+    subprocess.run(["bash", str(script), str(APPS / folder)], env=env, check=True)
+    subprocess.run(["node", str(web / "scripts" / "publish-godot-assets.mjs")], cwd=str(web), check=True)
+    packs = list((web / "public" / "godot").glob("*/index.pck"))
+    if not packs:
+        raise SystemExit(f"{folder}: publish 후 public/godot/*/index.pck 없음")
+    export_dir = APPS / folder / "project" / "web"
+    html = export_dir / "index.html"
+    if html.is_file():
+        shell_file = APPS / folder / "project" / "custom_shell.html"
+        shell = shell_file.read_text(errors="ignore") if shell_file.is_file() else None
+        assert_export_html(folder, html.read_text(errors="ignore"), shell)
+    print(f"platform pack {folder}: " + ", ".join(p.parent.name for p in packs))
+
+
 def export_web(folder: str) -> None:
     mod = plant_mod()
     data = parse_folder(mod, folder)
@@ -182,8 +235,8 @@ def export_web(folder: str) -> None:
     if not web.get("enabled"):
         print(f"skip web export {folder} (disabled)")
         return
-    if web.get("skipExport"):
-        print(f"skip web export {folder} (platform image)")
+    if platform_web_pipeline(folder):
+        export_platform_web(folder)
         return
     project = APPS / folder / "project"
     presets = project / "export_presets.cfg"
@@ -257,6 +310,7 @@ def push_web(folder: str) -> None:
     print(f"pushed {folder} ({digest})")
 
 
+
 def build_hub(folder: str) -> None:
     mod = plant_mod()
     data = parse_folder(mod, folder)
@@ -313,6 +367,152 @@ def ensure_hub_images(mod) -> None:
         build_hub(folder)
 
 
+def _helm_shell(argv: list[str]) -> str:
+    return " ".join(shlex_quote(part) for part in argv)
+
+
+def shlex_quote(part: str) -> str:
+    if re.fullmatch(r"[A-Za-z0-9_./:=+-]+", part):
+        return part
+    return "'" + part.replace("'", "'\\''") + "'"
+
+
+def helm_host(cmd: str) -> subprocess.CompletedProcess:
+    if on_pve():
+        return subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    return subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", "pve-lan", cmd],
+        capture_output=True,
+        text=True,
+    )
+
+
+def helm_has_diff() -> bool:
+    listed = helm_host("helm plugin list")
+    return listed.returncode == 0 and "diff" in listed.stdout
+
+
+def run_helm_argv(argv: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
+    if on_pve():
+        proc = subprocess.run(argv, check=False)
+    else:
+        proc = subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", "pve-lan", _helm_shell(argv)],
+            check=False,
+        )
+    if check and proc.returncode:
+        raise SystemExit(f"helm 실패: {proc.returncode}")
+    return proc
+
+
+def kubectl_json(resource: str) -> dict:
+    proc = remote(
+        f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} get {resource} -o json"
+    )
+    if proc.returncode:
+        raise SystemExit(proc.stderr or proc.stdout or f"kubectl get {resource} 실패")
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"kubectl json 파싱 실패: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SystemExit(f"kubectl json 이 object 가 아니다: {resource}")
+    return data
+
+
+def live_hub_image_lines(deploy_list: dict) -> str:
+    lines = []
+    for item in deploy_list.get("items") or []:
+        name = str((item.get("metadata") or {}).get("name") or "")
+        containers = (
+            ((item.get("spec") or {}).get("template") or {}).get("spec") or {}
+        ).get("containers") or []
+        image = str((containers[0] or {}).get("image") or "") if containers else ""
+        lines.append(f"{name}\t{image}")
+    return "\n".join(lines)
+
+
+def live_deploy_env_lines(deploy: dict) -> str:
+    containers = (
+        ((deploy.get("spec") or {}).get("template") or {}).get("spec") or {}
+    ).get("containers") or []
+    env = (containers[0] or {}).get("env") or [] if containers else []
+    return "\n".join(f"{item.get('name')}={item.get('value') or ''}" for item in env)
+
+
+def post_json(url: str, payload: dict) -> tuple[int, str]:
+    ctx = ssl.create_default_context()
+    raw = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        url,
+        data=raw,
+        method="POST",
+        headers={
+            "User-Agent": "hackertone-helm-verify/1",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12, context=ctx) as res:
+            return res.status, res.read(4096).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read(4096).decode("utf-8", "replace") if exc.fp else str(exc.reason)
+    except Exception as exc:
+        return 0, str(exc)
+
+
+def assert_live_matches_plant() -> None:
+    games = (CHART / "values-games.yaml").read_text()
+    planted = planted_hub_tags(games)
+    live = deploy_image_tags(live_hub_image_lines(kubectl_json("deploy")))
+    drift = image_drift(planted, live)
+    if drift:
+        raise SystemExit("live 이미지가 values-games 태그와 다르다:\n" + "\n".join(drift))
+    slots = planted_redis_slots(games)
+    id_by_folder = planted_hub_ids(games)
+    redis_fail = []
+    for folder, slot_id in sorted(id_by_folder.items()):
+        db = slots.get(slot_id)
+        if db is None:
+            redis_fail.append(f"{folder}: redis.slots.{slot_id} 없음")
+            continue
+        env = parse_deploy_env(live_deploy_env_lines(kubectl_json(f"deploy/{folder}-hub")))
+        url = env.get("REDIS_URL", "")
+        if not redis_url_ok(url, db):
+            redis_fail.append(f"{folder}: REDIS_URL={url or '없음'} expected /{db}")
+    if redis_fail:
+        raise SystemExit("REDIS_URL 슬롯 DB 불일치:\n" + "\n".join(redis_fail))
+    print(f"live tags ok ({len(planted)} hubs)")
+
+
+def assert_smoke_hubs() -> None:
+    failed = []
+    for folder in SMOKE_FOLDERS:
+        status, body = 0, ""
+        for attempt in range(4):
+            status, body = probe(health_url(folder))
+            if 200 <= status < 400 and hub_health_ok(folder, body):
+                break
+            time.sleep(3 * (attempt + 1))
+        else:
+            failed.append(f"{folder} health {status} {body[:120]}")
+            continue
+        created = False
+        last = ""
+        for attempt in range(3):
+            status, body = post_json(create_url(folder), {})
+            last = f"{status} {body[:160]}"
+            if matchmake_create_ok(status, body):
+                created = True
+                break
+            time.sleep(2 * (attempt + 1))
+        if not created:
+            failed.append(f"{folder} create {last}")
+    if failed:
+        raise SystemExit("helm 이후 스모크 실패:\n" + "\n".join(failed))
+    print("smoke create ok " + ",".join(SMOKE_FOLDERS))
+
+
 def helm_upgrade() -> None:
     run_plant()
     mod = plant_mod()
@@ -323,40 +523,34 @@ def helm_upgrade() -> None:
         env_copy = dest / "hackertone-env.yaml"
         subprocess.run(["rsync", "-a", f"{CHART}/", f"{dest}/"], check=True)
         shutil.copy2(ENV, env_copy)
-        helm = [
-            "helm",
-            "upgrade",
-            "--install",
-            "hackertone-games",
+        chart, values, games, envf = (
             str(dest),
-            "-n",
-            "hackertone-games-dev1",
-            "--create-namespace",
-            "-f",
             str(dest / "values.yaml"),
-            "-f",
             str(dest / "values-games.yaml"),
-            "-f",
             str(env_copy),
-            "--set",
-            "env=dev1",
-        ]
-        subprocess.run(helm, check=True)
-    else:
-        helm = (
-            "helm upgrade --install hackertone-games /tmp/hackertone-chart "
-            "-n hackertone-games-dev1 --create-namespace "
-            "-f /tmp/hackertone-chart/values.yaml "
-            "-f /tmp/hackertone-chart/values-games.yaml "
-            "-f /tmp/hackertone-env.yaml "
-            "--set env=dev1"
         )
+    else:
         subprocess.run(
             ["rsync", "-az", "--delete", f"{CHART}/", "pve-lan:/tmp/hackertone-chart/"],
             check=True,
         )
         subprocess.run(["rsync", "-az", str(ENV), "pve-lan:/tmp/hackertone-env.yaml"], check=True)
-        subprocess.run(["ssh", "-o", "BatchMode=yes", "pve-lan", helm], check=True)
+        chart, values, games, envf = (
+            "/tmp/hackertone-chart",
+            "/tmp/hackertone-chart/values.yaml",
+            "/tmp/hackertone-chart/values-games.yaml",
+            "/tmp/hackertone-env.yaml",
+        )
+    if helm_has_diff():
+        print("helm diff")
+        diffed = run_helm_argv(helm_diff_cmd(chart, values, games, envf), check=False)
+        if diffed.returncode >= 2:
+            raise SystemExit("helm diff 실패")
+    else:
+        print("helm diff skip (plugin 없음)")
+    run_helm_argv(helm_upgrade_cmd(chart, values, games, envf))
+    assert_live_matches_plant()
+    assert_smoke_hubs()
     print("helm ok")
 
 
@@ -364,7 +558,11 @@ def main() -> int:
     args = sys.argv[1:]
     if not args:
         print("개발자는 apps/ 를 푸시하면 됩니다. 로컬 전체 적용은 CI와 같습니다.", file=sys.stderr)
-        print("usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|ship [folders...]|helm", file=sys.stderr)
+        print(
+            "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"
+            "ship [folders...]|helm",
+            file=sys.stderr,
+        )
         return 2
     cmd = args[0]
     if cmd == "plant":
@@ -392,11 +590,16 @@ def main() -> int:
                 failed.append(folder)
         if failed:
             raise SystemExit("ship 실패: " + ", ".join(failed))
+        run_plant()
         return 0
     if cmd == "helm":
         helm_upgrade()
         return 0
-    print("usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|ship [folders...]|helm", file=sys.stderr)
+    print(
+        "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"
+        "ship [folders...]|helm",
+        file=sys.stderr,
+    )
     return 2
 
 

@@ -24,6 +24,8 @@
     "kickedBody": "The host removed you from the room.",
     "droppedTitle": "Connection lost",
     "droppedBody": "You left the room. You can rejoin.",
+    "idleTitle": "Room closed",
+    "idleBody": "The room closed because nobody started in time.",
     "back": "Back",
     "resuming": "Reconnecting to your previous session...",
     "startFresh": "Start fresh",
@@ -108,6 +110,10 @@
     "unknown": "An unexpected error occurred.",
     "retry": "Try again",
     "detail": "Error details"
+  },
+  "update": {
+    "available": "A new version is live. Reload to apply it.",
+    "reload": "Reload"
   },
   "games": {
     "dagul": {

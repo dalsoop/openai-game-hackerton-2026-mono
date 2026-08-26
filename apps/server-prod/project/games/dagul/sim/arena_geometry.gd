@@ -1,6 +1,7 @@
 class_name ArenaGeometry
 extends RefCounted
 
+const PlayMapScript := preload("res://games/dagul/sim/play_map.gd")
 const SOURCE_ARENA_SIZE := Vector2(2800.0, 1700.0)
 const ARENA_TILE_SCALE := 1.4
 const ARENA_SIZE := Vector2(7840.0, 4760.0)
@@ -27,18 +28,20 @@ func resolve_cover_motion(old_pos: Vector2, motion: Vector2) -> Vector2:
 		resolved.y = y_candidate.y
 	return resolved
 
+func _map():
+	if w != null and "play_map" in w and w.play_map != null:
+		return w.play_map
+	return PlayMapScript.island_2x2()
+
 func _tile_origins() -> Array:
-	var origins: Array = []
-	for tile_x in range(2):
-		for tile_y in range(2):
-			origins.append(Vector2(float(tile_x) * SOURCE_ARENA_SIZE.x, float(tile_y) * SOURCE_ARENA_SIZE.y) * ARENA_TILE_SCALE)
-	return origins
+	return _map().tile_origins()
 
 func tiled_points(source_points: Array) -> Array:
 	var points: Array = []
+	var scale: float = _map().cell_scale
 	for origin in _tile_origins():
 		for source in source_points:
-			points.append(origin + Vector2(source) * ARENA_TILE_SCALE)
+			points.append(origin + Vector2(source) * scale)
 	return points
 
 func build_tiled_covers() -> Array[Dictionary]:
@@ -56,27 +59,25 @@ func build_tiled_covers() -> Array[Dictionary]:
 		Rect2(1650.0, 1320.0, 120.0, 120.0)
 	]
 	var result: Array[Dictionary] = []
+	var scale: float = _map().cell_scale
 	for origin in _tile_origins():
 		for source_rect in source_rects:
-			result.append({"rect":Rect2(origin + source_rect.position * ARENA_TILE_SCALE, source_rect.size * ARENA_TILE_SCALE)})
+			result.append({"rect":Rect2(origin + source_rect.position * scale, source_rect.size * scale)})
 	return result
 
 func clamp_arena_point(point: Vector2, radius: float) -> Vector2:
-	return Vector2(
-		clampf(point.x, ARENA_MARGIN + radius, ARENA_SIZE.x - ARENA_MARGIN - radius),
-		clampf(point.y, ARENA_MARGIN + radius, ARENA_SIZE.y - ARENA_MARGIN - radius)
-	)
+	return _map().clamp_point(point, radius)
 
 func nudge_out_of_cover(point: Vector2, radius: float) -> Vector2:
 	if not point_in_cover(point, radius):
 		return point
 	var nudged: Vector2 = point
 	for step_index in range(24):
-		nudged = nudged.move_toward(ARENA_CENTER, 28.0)
+		nudged = nudged.move_toward(_map().world_center(), 28.0)
 		nudged = clamp_arena_point(nudged, radius)
 		if not point_in_cover(nudged, radius):
 			return nudged
-	return clamp_arena_point(ARENA_CENTER, radius)
+	return clamp_arena_point(_map().world_center(), radius)
 
 func cover_radius(cover: Dictionary) -> float:
 	var rect: Rect2 = cover["rect"]

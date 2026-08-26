@@ -3,7 +3,7 @@ import { redisConn } from "@/lib/hub/redis-conn";
 
 describe("redisConn", () => {
   it("returns the official URL string even when a slot is set", () => {
-    expect(redisConn("redis://redis:6379", "server-yjh-dev1")).toBe("redis://redis:6379");
+    expect(redisConn("redis://redis:6379/4", "server-yjh-dev1")).toBe("redis://redis:6379/4");
   });
 
   it("does not wrap the URL in an ioredis keyPrefix object", () => {

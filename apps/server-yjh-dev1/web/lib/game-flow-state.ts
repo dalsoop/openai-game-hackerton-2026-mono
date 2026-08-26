@@ -1,9 +1,15 @@
 // 게임 페이즈 순수 전이 로직 — 훅(useGameFlow)과 테스트가 같이 쓰는 SSOT.
 // React 의존 없음: 같은 입력엔 같은 출력 (tests/game-flow-state.test.ts 가 전수 검증).
 import type { GamePhase, HubStatus } from "@/types";
-
-/** 튕김·강퇴 이유 — 재접속 모달 문구 분기. */
-export type DropReason = "offline" | "kicked" | "dropped";
+export type { DropReason, RoomEndKind } from "./hub/room-end";
+export {
+  canOfferReconnect,
+  dropReasonFromKick,
+  reconnectJoinId,
+  roomEndKindFromCode,
+  shouldMarkRoomDropped,
+  shouldShowReconnect,
+} from "./hub/room-end";
 
 /** 허브 상태가 화면 페이즈를 몰아간다 — 아니면 현재 유지. */
 export function phaseFromHubStatus(status: HubStatus, current: GamePhase): GamePhase {
@@ -29,27 +35,6 @@ export function displayNameOf(name: string, defaultPlayer: string): string {
 /** 연결 끊김 모달 표시 여부 — 인트로(접속 전)는 모달 대상이 아니다. */
 export function shouldShowConnectionLost(status: HubStatus, phase: GamePhase): boolean {
   return status === "offline" && phase !== "intro";
-}
-
-/** 회색 화면 대신 재접속 모달을 띄울지 — 강퇴·강제 퇴장·오프라인. */
-export function shouldShowReconnect(
-  status: HubStatus,
-  phase: GamePhase,
-  dropReason: DropReason | null,
-): boolean {
-  if (dropReason) {return true;}
-  return shouldShowConnectionLost(status, phase);
-}
-
-/** Godot 양도(onLeave handoff)는 튕김이 아니다. 강제 퇴장만 dropReason 을 남긴다. */
-export function shouldMarkRoomDropped(kind: "handoff" | "drop"): boolean {
-  return kind === "drop";
-}
-
-/** 재접속 대상 방 — 강퇴·빈 id 는 로비만. */
-export function reconnectJoinId(reason: DropReason | null, lastRoomId: string): string | null {
-  if (reason === "kicked" || lastRoomId === "") {return null;}
-  return lastRoomId;
 }
 
 /** React 가 허브 reconnect 의 유일한 호출자다. FROM_HUB 는 엔진 부팅 신호일 뿐. */

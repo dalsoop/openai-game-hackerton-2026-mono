@@ -34,6 +34,9 @@ if git diff --cached --name-only | grep -q "\.gd$"; then
   }
 fi
 
+echo "▶ 배포 계약: test_ship_contracts"
+python3 deploy/scripts/test_ship_contracts.py
+
 # 웹 게이트 — 스테이지에 web 코드가 있으면 풀 체인 (다 고쳐야만 커밋)
 if git diff --cached --name-only | grep -qE "^apps/server-yjh-dev1/web/.*\.(ts|tsx|mjs|json)$"; then
   echo "▶ WEB 게이트: tsc + eslint + vitest"

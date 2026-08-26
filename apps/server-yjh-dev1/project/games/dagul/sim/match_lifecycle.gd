@@ -43,6 +43,7 @@ func update_timers(dt: float) -> void:
 		h = w.heroes[i]
 
 func _hero_timer_cools(h: Dictionary, dt: float) -> void:
+	h["emote_time"] = maxf(0.0, float(h.get("emote_time", 0.0)) - dt)
 	h["fire_cd"] = maxf(0.0, float(h["fire_cd"]) - dt)
 	h["spray_idle"] = float(h.get("spray_idle", 0.0)) + dt
 	if float(h["spray_idle"]) > 0.14:

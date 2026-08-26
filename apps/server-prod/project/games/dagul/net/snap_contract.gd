@@ -3,6 +3,7 @@ extends RefCounted
 ## 호스트 패킹과 게스트 언팩이 같은 키만 쓴다. 필드 추가는 여기 한곳.
 
 const NetSnapParser := preload("res://games/dagul/net/net_snap_parser.gd")
+const PlayMapScript := preload("res://games/dagul/sim/play_map.gd")
 
 const TICK := "tick"
 const TIME := "time"
@@ -47,12 +48,14 @@ const P_ULT := "ult"
 const P_ANIMAL := "animal"
 const P_ITEM := "item"
 const P_KILLS := "kills"
+const P_EMOTE := "emote"
+const P_EMOTE_TIME := "emoteTime"
 const P_ACK := "ack"
 
 const PLAYER_KEYS: Array[String] = [
 	P_SLOT, P_NAME, P_CPU, P_PARKED, P_X, P_Y, P_AIM_X, P_AIM_Y,
 	P_HP, P_MAX_HP, P_ALIVE, P_WEAPON, P_MAG, P_MAG_MAX, P_RELOAD,
-	P_ULT, P_ANIMAL, P_ITEM, P_KILLS, P_ACK,
+	P_ULT, P_ANIMAL, P_ITEM, P_KILLS, P_EMOTE, P_EMOTE_TIME, P_ACK,
 ]
 
 static func pack_header(world) -> Dictionary:
@@ -97,6 +100,8 @@ static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 		P_ANIMAL: int(h.get("animal", slot)),
 		P_ITEM: "medkit" if int(h.get("medkits", 0)) > 0 else "",
 		P_KILLS: int(h["kills"]),
+		P_EMOTE: int(h.get("emote", -1)),
+		P_EMOTE_TIME: float(h.get("emote_time", 0.0)),
 		P_ACK: ack,
 	}
 
@@ -131,6 +136,8 @@ static func _apply_player_vitals(hero: Dictionary, p: Dictionary, player_name: S
 	hero["cpu"] = bool(p.get(P_CPU, false))
 	hero["parked"] = bool(p.get(P_PARKED, false))
 	hero["medkits"] = 1 if str(p.get(P_ITEM, "")) != "" else 0
+	hero["emote"] = int(p.get(P_EMOTE, -1))
+	hero["emote_time"] = _f(p, P_EMOTE_TIME, 0.0)
 
 static func _player_view_defaults() -> Dictionary:
 	return {
@@ -141,6 +148,7 @@ static func _player_view_defaults() -> Dictionary:
 		"cc_time": 0.0, "stun_time": 0.0, "root_time": 0.0,
 		"guard_time": 0.0, "super_armor_time": 0.0,
 		"charging_skill": false, "charge_time": 0.0,
+		"emote": -1, "emote_time": 0.0,
 		"kill_streak": 0, "best_kill_streak": 0,
 		"launch_trail": [], "launch_trail_fade": 0.0,
 		"launch_time": 0.0, "launch_vel": Vector2.ZERO,

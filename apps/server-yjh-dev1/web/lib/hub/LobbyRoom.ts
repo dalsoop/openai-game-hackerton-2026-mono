@@ -7,6 +7,7 @@ import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
 import { matchJustEnded, startBodies } from "./lobby-relay.js";
 import { shouldRelaySnap } from "./snap-relay.js";
+import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
 
 export { PlayerSchema, LobbyState } from "./lobby-state.js";
 
@@ -34,7 +35,7 @@ export class LobbyRoom extends Room {
       phase: this.state.phase,
       open: this.state.open,
     });
-    this.idleTimer = this.clock.setTimeout(() => {this.burstIdle();}, HUB_CONFIG.idleStartMs);
+    this.armIdleTimer();
   }
 
   messages = {
@@ -67,6 +68,7 @@ export class LobbyRoom extends Room {
   onReconnect(client: Client): void {
     const player = this.playerOf(client.sessionId);
     if (player) {player.connected = true;}
+    this.syncHost();
   }
 
   onLeave(client: Client, _code?: number): void {
@@ -76,6 +78,7 @@ export class LobbyRoom extends Room {
   private async holdSeat(client: Client): Promise<void> {
     const player = this.playerOf(client.sessionId);
     if (player) {player.connected = false;}
+    this.syncHost();
     try {
       await this.allowReconnection(client, graceSeconds(this.state.phase));
       return;
@@ -140,12 +143,28 @@ export class LobbyRoom extends Room {
 
   private burstIdle(): void {
     if (this.state.phase !== "lobby") {return;}
-    this.broadcast(MSG.ERROR, { msg: KO.IDLE_START });
-    void this.disconnect();
+    const payload = { msg: KO.IDLE_START, reason: "idle" };
+    const clients = [...this.clients];
+    for (const c of clients) {
+      c.send(MSG.KICKED, payload);
+    }
+    // leave 를 같은 틱에 하면 테스트·클라가 KICKED 를 놓친다.
+    setTimeout(() => {
+      for (const c of clients) {
+        c.leave(CLOSE_CODE.KICKED);
+      }
+    }, 0);
+  }
+
+  private armIdleTimer(): void {
+    this.clearIdleTimer();
+    this.state.idleUntilSec = idleUntilSecOf(nowUnixSec());
+    this.idleTimer = this.clock.setTimeout(() => {this.burstIdle();}, HUB_CONFIG.idleStartMs);
   }
 
   private clearIdleTimer(): void {
     if (this.idleTimer) {this.idleTimer.clear(); this.idleTimer = null;}
+    this.state.idleUntilSec = 0;
   }
 
   private handleStart(client: Client): void {
@@ -204,6 +223,7 @@ export class LobbyRoom extends Room {
     this.state.phase = "lobby";
     this.state.seed = 0;
     void this.setMetadata({ ...this.metadata, phase: this.state.phase });
+    this.armIdleTimer();
   }
 
   private syncHost(): void {

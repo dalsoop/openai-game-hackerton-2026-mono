@@ -95,8 +95,15 @@ export class GodotRuntime {
   // 로비 단계 백그라운드 프리로드 — wasm·pck·side 를 받아 wasm 을 컴파일해 둔다.
   // 호출이 겹쳐도 preloadPromise 로 1회만 수행된다 (재호출은 같은 결과를 기다린다).
   preload(): Promise<void> {
-    this.preloadPromise ??= this.doPreload().catch((e: unknown): void => {
-      this.preloadPromise = null; // 실패는 재시도 가능하게
+    if (this.snap.state === "running") {return this.preloadPromise ?? Promise.resolve();}
+    if (
+      this.preloadPromise &&
+      (this.snap.state === "downloading" || this.snap.state === "compiling")
+    ) {
+      return this.preloadPromise;
+    }
+    this.preloadPromise = this.doPreload().catch((e: unknown): void => {
+      this.preloadPromise = null;
       this.update({ state: "error", error: e instanceof Error ? e.message : String(e) });
     });
     return this.preloadPromise;
@@ -107,7 +114,12 @@ export class GodotRuntime {
     this.update({ state: "downloading", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null });
 
     const fresh = await this.store.loadManifest(this.pack);
-    if (this.manifest?.version === fresh.version && this.wasmModule) {
+    const hashed = fresh.filesHash !== undefined && fresh.filesHash !== "" &&
+      this.manifest?.filesHash !== undefined && this.manifest.filesHash !== "";
+    const samePack = this.manifest !== null && (
+      hashed ? this.manifest.filesHash === fresh.filesHash : this.manifest.version === fresh.version
+    );
+    if (samePack && this.wasmModule) {
       this.update({ state: "ready", progress: 1 });
       return;
     }
@@ -214,7 +226,7 @@ export class GodotRuntime {
     if (this.scriptPromise) {return this.scriptPromise;}
     this.scriptPromise = new Promise((resolve, reject) => {
       const el = document.createElement("script");
-      el.src = this.plan.files.engineJs;
+      el.src = this.store.assetUrl(this.plan.files.engineJs);
       el.onload = (): void => resolve();
       el.onerror = (): void => {
         this.scriptPromise = null; // 재시도 가능하게

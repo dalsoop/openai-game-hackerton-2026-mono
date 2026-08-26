@@ -8,17 +8,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 VALUES = (ROOT / "deploy" / "chart" / "values.yaml").read_text()
 HUB = (ROOT / "deploy" / "chart" / "templates" / "hub.yaml").read_text()
+HELPERS = (ROOT / "deploy" / "chart" / "templates" / "_helpers.tpl").read_text()
 WEB = (ROOT / "deploy" / "chart" / "templates" / "web.yaml").read_text()
 
 
 class HubScaleChart(unittest.TestCase):
-    def test_colyseus_slots_are_scaled(self) -> None:
-        self.assertIn("server-yjh-dev1", VALUES)
-        self.assertIn("server-prod", VALUES)
-        self.assertIn("replicaCount: 20", VALUES)
-        self.assertIn('publicPrefix: "%s.external.kr/hubp"', VALUES)
-        self.assertIn("staticSplit: true", VALUES)
-        self.assertIn("nodeSelector: {}", VALUES)
+    def test_redis_url_is_host_only(self) -> None:
+        self.assertIn('url: "redis://redis:6379"', VALUES)
+        self.assertIn("redis.slots", VALUES)
+
+    def test_templates_use_per_slot_redis_db(self) -> None:
+        self.assertIn("hackertone-games.hubRedisUrl", HUB)
+        self.assertIn("redis.slots", HELPERS)
 
     def test_templates_pin_ws_and_static(self) -> None:
         self.assertIn("HUB_PUBLIC_PREFIX", HUB)

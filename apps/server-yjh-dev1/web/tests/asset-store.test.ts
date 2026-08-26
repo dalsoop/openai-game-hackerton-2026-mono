@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AssetStore, assetPlanOf, godotAssetUrl, isExtLibPath } from "@/lib/godot/asset-store";
+import { AssetStore, assetPlanOf, godotAssetUrl, isExtLibPath, versionedAssetUrl } from "@/lib/godot/asset-store";
 import { DEFAULT_GAME_ID, packOf } from "@/lib/games/catalog";
 
 const pack = packOf(DEFAULT_GAME_ID);
@@ -15,7 +15,11 @@ function stubFetch(calls: string[], bodies: Record<string, string>, status = 200
       headers: new Map([["content-length", String(body.length)]]),
       body: null,
       arrayBuffer: (): Promise<ArrayBuffer> => Promise.resolve(new TextEncoder().encode(body).buffer),
-      json: (): Promise<unknown> => Promise.resolve({ version: "abc123", files: Object.keys(bodies) }),
+      json: (): Promise<unknown> => Promise.resolve({
+        version: "abc123",
+        filesHash: bodies["__hash"] || "",
+        files: Object.keys(bodies),
+      }),
     } as unknown as Response);
   });
 }
@@ -70,6 +74,18 @@ describe("AssetStore — 공유 캐시", () => {
     await store.loadManifest(pack);
     expect(calls.filter((u) => u.endsWith("manifest.json"))).toHaveLength(2);
     expect(m1.version).toBe("abc123");
+  });
+
+  it("매니페스트 filesHash 가 있으면 불변 URL 로 받는다", async () => {
+    const hash = "deadbeef";
+    const wasm = godotAssetUrl(pack, "index.wasm");
+    const calls: string[] = [];
+    stubFetch(calls, { [versionedAssetUrl(wasm, hash)]: "W", __hash: hash });
+    const store = new AssetStore(assetPlanOf(pack), () => {});
+    await store.loadManifest(pack);
+    await store.wasm;
+    expect(calls).toContain(godotAssetUrl(pack, "manifest.json"));
+    expect(calls).toContain(versionedAssetUrl(wasm, hash));
   });
 
   it("실패 응답은 예외", async () => {

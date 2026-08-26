@@ -18,6 +18,7 @@ func apply_human(command: Dictionary) -> void:
 	if bool(w.finish_cine.get("on", false)):
 		return
 	var h: Dictionary = w.heroes[ls]
+	_apply_emote(ls, h, command)
 	if _human_locked_state(ls, h, command):
 		return
 	var move: Vector2 = command.get("move", Vector2.ZERO)
@@ -119,6 +120,8 @@ func _apply_human_actions(ls: int, command: Dictionary, move: Vector2) -> void:
 	if want_fire:
 		w.act_item.cancel_skill_charge(ls)
 		w.dmg.try_normal_attack(ls, Vector2(h["facing"]))
+		h = w.heroes[ls]
+	w.act_item.apply_equipment_command(ls, command, Vector2(h["facing"]), w.FIXED_DT)
 
 func apply_peer_humans() -> void:
 	var consumed: Array = []
@@ -129,10 +132,20 @@ func apply_peer_humans() -> void:
 		if not w.human_slots.has(slot):
 			continue
 		consumed.append(slot_key)
-		_apply_peer_command(slot, w.peer_commands[slot_key])
+		var cmd: Dictionary = w.peer_commands[slot_key]
+		_apply_emote(slot, w.heroes[slot], cmd)
+		_apply_peer_command(slot, cmd)
 	_stop_missing_peers(consumed)
 	for key in consumed:
 		w.peer_commands.erase(key)
+
+func _apply_emote(slot: int, h: Dictionary, command: Dictionary) -> void:
+	var emote := int(command.get("emote", -1))
+	if emote >= 0 and emote < 4:
+		h["emote"] = emote
+		h["emote_time"] = 2.0
+		w.heroes[slot] = h
+
 
 func _apply_peer_command(slot: int, cmd: Dictionary) -> void:
 	var h: Dictionary = w.heroes[slot]
@@ -184,7 +197,8 @@ func _apply_peer_motion(slot: int, h: Dictionary, cmd: Dictionary) -> void:
 func _apply_peer_actions(slot: int, cmd: Dictionary) -> void:
 	var h: Dictionary = w.heroes[slot]
 	if bool(cmd.get("dash", false)) and float(h["mobility_cd"]) <= 0.0:
-		w.act_item.try_mobility(slot, Vector2(h["facing"]))
+		var dash_move := Vector2(float(cmd.get("mx", 0)), float(cmd.get("my", 0)))
+		w.act_item.try_mobility(slot, dash_move if dash_move.length_squared() > 0.1 else Vector2(h["facing"]))
 		return
 	if bool(cmd.get("use", false)) and int(h.get("medkits", 0)) > 0:
 		w.act_item.try_use_medkit(slot)
@@ -216,7 +230,10 @@ func _apply_peer_fire(slot: int, cmd: Dictionary) -> void:
 	if fire_mode != "auto":
 		want_fire = bool(cmd.get("firePressed", false))
 	if want_fire:
+		w.act_item.cancel_skill_charge(slot)
 		w.dmg.try_normal_attack(slot, Vector2(h["facing"]))
+		h = w.heroes[slot]
+	w.act_item.apply_equipment_command(slot, cmd, Vector2(h["facing"]), w.FIXED_DT)
 
 func _stop_missing_peers(consumed: Array) -> void:
 	for slot in w.human_slots:

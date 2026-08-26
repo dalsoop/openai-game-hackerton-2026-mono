@@ -66,7 +66,7 @@ hub:
 
 redis:
   enabled: true
-  # 차트에 Redis 1대. 모든 허브가 이 URL 을 쓴다.
+  # 호스트만. logical DB 는 plant 가 redis.slots 에 쓴다. prod 는 항상 1.
   url: "redis://redis:6379"
   image: redis:7-alpine
   serviceName: redis

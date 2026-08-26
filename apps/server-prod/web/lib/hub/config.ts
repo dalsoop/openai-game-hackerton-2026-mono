@@ -30,9 +30,8 @@ export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;
 /** 이 앱 폴더의 기본 슬롯. 브라우저 번들은 SLOT_FOLDER 가 없으므로 여기로 맞춘다. */
 export const DEFAULT_SLOT = "server-prod";
 
-/** 공용 Redis 에서 매치메이킹이 섞이지 않게 핸들러 이름에 슬롯을 붙인다.
- * ioredis keyPrefix 는 쓰지 않는다 (pub/sub·예약 키가 갈라져 4002).
- * RedisDriver 0.17 은 roomcaches 해시 이름이 고정이다. */
+/** 핸들러 이름에 슬롯을 붙인다. presence 격리는 REDIS_URL logical DB 가 한다.
+ * ioredis keyPrefix 는 쓰지 않는다 (pub/sub·예약 키가 갈라져 4002). */
 export function slotId(slot = process.env.SLOT_FOLDER ?? ""): string {
   const trimmed = slot.trim();
   return trimmed || DEFAULT_SLOT;

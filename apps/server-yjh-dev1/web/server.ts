@@ -12,6 +12,8 @@ import { hubPublicAddress } from "./lib/hub/public-address.js";
 import { roomsHttpBody } from "./lib/hub/rooms-http.js";
 import { assetPlanOf, isExtLibPath } from "./lib/godot/asset-store.js";
 import { healthBody } from "./lib/hub/health.js";
+import { revisionBody } from "./lib/hub/revision.js";
+import { deployedBuildId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -129,6 +131,11 @@ function startStatic(): void {
       res.end(healthBody());
       return;
     }
+    if (pathname === "/api/version") {
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(revisionBody(deployedBuildId()));
+      return;
+    }
     if (isExtLibPath(pathname) &&
         serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
     if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
@@ -179,6 +186,11 @@ function startHub(): void {
         if (pathname === "/health" || pathname === "/healthz") {
           res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
           res.end(healthBody());
+          return;
+        }
+        if (pathname === "/api/version") {
+          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+          res.end(revisionBody(deployedBuildId()));
           return;
         }
         if (pathname === "/rooms") {

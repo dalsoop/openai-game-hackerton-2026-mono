@@ -176,7 +176,7 @@ var ult_effect
 var act_item
 var lifecycle
 var tower
-var cpu
+var cpu: CpuBeh
 var deploy
 var _szl
 var ult_summon
@@ -307,9 +307,6 @@ func _core_exposed(slot: int) -> bool:
     return not bool(o["alive"]) or float(o["cc_time"]) > 0.0 or float(o["root_time"]) > 0.0 or float(o["stun_time"]) > 0.0
 func _announce(text: String, ticks: int) -> void:
     callout = text; callout_ticks = ticks
-func _begin_skill_charge(_s: int, _d: Vector2) -> void: return
-func _continue_skill_charge(_s: int, _d: float, _v: Vector2) -> void: return
-func _release_skill_charge(_s: int, _d: Vector2) -> void: return
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, label: String = "", direction: Vector2 = Vector2.RIGHT) -> void: proj.add_effect(kind, pos, radius, duration, color, label, direction)
 func _cancel_finish_cine() -> void: finish_cine = {}
 func _note_life_hitter(target: int, owner: int) -> void: lifecycle.note_life_damage(target, owner, 1.0)

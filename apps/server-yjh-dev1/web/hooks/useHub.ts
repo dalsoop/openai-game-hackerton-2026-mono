@@ -15,7 +15,7 @@ import { useHubCommands } from "@/hooks/useHubCommands";
 import { useGameRoom, type RoomEndKind } from "@/hooks/useGameRoom";
 import { usePageBridge } from "@/hooks/usePageBridge";
 import { useRoomRtt } from "@/hooks/useRoomRtt";
-import { shouldMarkRoomDropped } from "@/lib/game-flow-state";
+import { shouldMarkRoomDropped } from "@/lib/hub/room-end";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
 import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
@@ -46,7 +46,7 @@ function getClient(): Client {
 
 interface HubFacts {
   gameId: string;
-  createdAtMs: number;
+  idleUntilSec: number;
   open: boolean;
   players: HubPlayer[];
   you: number;
@@ -66,7 +66,7 @@ function deriveHubFacts(room: Room | undefined, snap: RosterSnapshot | undefined
   }));
   return {
     gameId: snap.gameId ?? "",
-    createdAtMs: Number(snap.createdAtMs ?? 0),
+    idleUntilSec: Number(snap.idleUntilSec ?? 0),
     open: snap.open !== false,
     players,
     you: roster.you,
@@ -142,7 +142,7 @@ export function useHub(): UseHubResult {
     setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
     toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
   }), [room]);
-  const idleLeftSec = useRoomIdle(derived?.createdAtMs ?? 0, status === "in-room");
+  const idleLeftSec = useRoomIdle(derived?.idleUntilSec ?? 0, status === "in-room");
 
   return {
     status,

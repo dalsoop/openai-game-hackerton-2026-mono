@@ -47,7 +47,7 @@ spec:
               value: {{ .folder | quote }}
             {{- if and $.Values.redis.enabled $.Values.redis.url }}
             - name: REDIS_URL
-              value: {{ $.Values.redis.url | quote }}
+              value: {{ include "hackertone-games.hubRedisUrl" (dict "root" $ "folder" .folder "hub" .) | quote }}
             {{- end }}
             {{- if $.Values.hub.publicPrefix }}
             - name: HUB_PUBLIC_PREFIX

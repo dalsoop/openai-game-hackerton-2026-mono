@@ -6,7 +6,7 @@ players: 1–8
 web:
   enabled: true
   exportDir: project/web
-  skipExport: true
+  pipeline: platform
 hub:
   enabled: true
   pathPrefix: /

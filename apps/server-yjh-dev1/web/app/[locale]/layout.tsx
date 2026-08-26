@@ -5,6 +5,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { GameFlowProvider } from "@/hooks/GameFlowProvider";
+import { deployedBuildId } from "@/lib/hub/revision-fs";
 import "../globals.css";
 
 export function generateStaticParams(): Array<{ locale: string }> {
@@ -42,7 +43,7 @@ export default async function LocaleLayout({
     <NextIntlClientProvider messages={messages}>
       <html lang={locale} suppressHydrationWarning>
         <body suppressHydrationWarning>
-          <GameFlowProvider>{children}</GameFlowProvider>
+          <GameFlowProvider buildId={deployedBuildId()}>{children}</GameFlowProvider>
         </body>
       </html>
     </NextIntlClientProvider>

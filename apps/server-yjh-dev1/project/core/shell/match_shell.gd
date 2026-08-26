@@ -8,6 +8,9 @@ const TOUCH_CONTROLS_PATH := "res://addons/godot-touch-controls/touch_controls.g
 # Autoload 전역명은 --script 단독 파스에서 안 잡힌다. 스크립트는 preload, 인스턴스는 싱글톤.
 const GameStateScript := preload("res://core/autoload/game_state.gd")
 const HeldInputScript := preload("res://core/input/held_input.gd")
+const PlayChromeScript := preload("res://core/shell/play_chrome.gd")
+const InGameSettingsScript := preload("res://core/ui/in_game_settings.gd")
+const SettingsStoreScript := preload("res://core/ui/settings_store.gd")
 
 @onready var world_view: Node2D = $WorldView
 @onready var camera: Camera2D = $WorldView/Camera2D
@@ -17,11 +20,10 @@ const HeldInputScript := preload("res://core/input/held_input.gd")
 var hub: Node = null
 var module: GameModule = null
 var touch: CanvasLayer = null
+var settings: CanvasLayer = null
 var _ctx: Dictionary = {}
 var _play_probe_acc := 0.0
-# create_callback 은 이 참조가 살아야 JS 가 GC 로 콜백을 잃지 않는다.
-var _js_page_hidden_cb = null
-var _js_page_visible_cb = null
+var _js_visibility_cb = null
 
 func _ready() -> void:
 	hub = get_node_or_null("/root/NetworkManager")
@@ -29,6 +31,8 @@ func _ready() -> void:
 		_start_dedicated_server()
 		return
 	_attach_touch()
+	_attach_settings()
+	_apply_sound(SettingsStoreScript.load_sound_on())
 	Engine.max_fps = 60
 	world_view.visible = false
 	hud.visible = false
@@ -36,6 +40,8 @@ func _ready() -> void:
 		"hub": hub, "world_view": world_view, "camera": camera,
 		"hud": hud, "hud_layer": hud_layer, "touch": touch,
 		"leave": Callable(self, "_leave_match"),
+		"settings_open": false,
+		"net_active": false,
 	}
 	if hub != null:
 		hub.match_started.connect(_on_match_started)
@@ -50,7 +56,7 @@ func _ready() -> void:
 		if hub.has_method("consume_pending_match"):
 			hub.consume_pending_match()
 	if OS.has_feature("web"):
-		_bind_web_page_focus()
+		_bind_web_visibility()
 		JavaScriptBridge.eval("window.glog && window.glog('godot','shell_ready')")
 
 func _on_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
@@ -94,6 +100,7 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 		_return_to_hub()
 		return
 	gs.set("net_active", true)
+	_ctx["net_active"] = true
 	gs.set("net_host", hub.is_host)
 	if module == null:
 		module = GameRegistry.load_game(_game_id())
@@ -111,6 +118,9 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 	}, _ctx)
 	gs.request(GameStateScript.State.PLAYING)
 	_apply_playing_visuals(true)
+	if settings != null:
+		if settings.has_method("select_mode"):
+			settings.select_mode(SettingsStoreScript.load_control_mode())
 
 func _physics_process(delta: float) -> void:
 	var gs := _game_state()
@@ -151,6 +161,7 @@ func _leave_match() -> void:
 	if gs != null:
 		gs.set("net_active", false)
 		gs.set("net_host", false)
+	_ctx["net_active"] = false
 	if hub != null and hub.in_room:
 		hub.leave_room()
 	_return_to_hub()
@@ -170,31 +181,22 @@ func _return_to_hub() -> void:
 func _apply_playing_visuals(playing: bool) -> void:
 	world_view.visible = playing
 	hud.visible = playing
-	if touch != null:
-		touch.set_playing(playing)
-	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if playing else Input.MOUSE_MODE_VISIBLE)
+	if settings != null and settings.has_method("set_playing"):
+		settings.call("set_playing", playing)
+	_sync_play_chrome()
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.glog && window.glog('shell.phase','%s')" % ("play" if playing else "boot"))
 
-func _bind_web_page_focus() -> void:
-	_js_page_hidden_cb = JavaScriptBridge.create_callback(_on_web_page_hidden)
-	_js_page_visible_cb = JavaScriptBridge.create_callback(_on_web_page_visible)
-	var win = JavaScriptBridge.get_interface("window")
-	if win == null:
-		return
-	win.addEventListener(WebContract.EVT_PAGE_HIDDEN, _js_page_hidden_cb)
-	win.addEventListener(WebContract.EVT_PAGE_VISIBLE, _js_page_visible_cb)
 
-func _on_web_page_hidden(_args: Array) -> void:
-	HeldInputScript.release_all()
-
-func _on_web_page_visible(_args: Array) -> void:
-	HeldInputScript.release_all()
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
-			or what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
-		HeldInputScript.release_all()
+func _sync_play_chrome() -> void:
+	var playing := world_view.visible
+	var menu_open := settings != null and bool(settings.get("is_open"))
+	_ctx["settings_open"] = menu_open
+	if touch != null:
+		touch.set_playing(PlayChromeScript.touch_playing(playing, menu_open))
+	Input.set_mouse_mode(
+		Input.MOUSE_MODE_HIDDEN if PlayChromeScript.mouse_hidden(playing, menu_open)
+		else Input.MOUSE_MODE_VISIBLE)
 
 func _attach_touch() -> void:
 	if not ResourceLoader.exists(TOUCH_CONTROLS_PATH):
@@ -205,6 +207,54 @@ func _attach_touch() -> void:
 	touch = script.new()
 	touch.name = "TouchControls"
 	hud_layer.add_child(touch)
+	if touch.has_method("set_control_mode"):
+		touch.set_control_mode(SettingsStoreScript.load_control_mode())
+
+
+func _attach_settings() -> void:
+	settings = InGameSettingsScript.new()
+	settings.name = "InGameSettings"
+	add_child(settings)
+	settings.connect("open_changed", func(_open: bool) -> void: _sync_play_chrome())
+	settings.connect("mode_picked", _on_control_mode)
+	settings.connect("sound_changed", _on_sound)
+	settings.connect("leave_requested", _leave_match)
+
+
+func _on_control_mode(mode: String) -> void:
+	SettingsStoreScript.save(mode, SettingsStoreScript.load_sound_on())
+	if touch != null and touch.has_method("set_control_mode"):
+		touch.set_control_mode(mode)
+
+
+func _on_sound(on: bool) -> void:
+	SettingsStoreScript.save(SettingsStoreScript.load_control_mode(), on)
+	_apply_sound(on)
+
+
+func _apply_sound(on: bool) -> void:
+	AudioServer.set_bus_mute(0, not on)
+
+
+func _bind_web_visibility() -> void:
+	_js_visibility_cb = JavaScriptBridge.create_callback(_on_web_visibility)
+	var doc = JavaScriptBridge.get_interface("document")
+	if doc == null:
+		return
+	doc.addEventListener("visibilitychange", _js_visibility_cb)
+
+
+func _on_web_visibility(_args: Array) -> void:
+	var doc = JavaScriptBridge.get_interface("document")
+	if doc != null and bool(doc.hidden):
+		HeldInputScript.release_all()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
+			or what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		HeldInputScript.release_all()
+
 
 func _start_dedicated_server() -> void:
 	world_view.visible = false

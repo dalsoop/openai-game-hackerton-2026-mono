@@ -4,6 +4,7 @@ import { chromium } from "playwright-core";
 
 const CHROME = `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 const URL = process.env.E2E_URL || "http://127.0.0.1:3100/ko";
+const ORIGIN = new URL(URL).origin;
 const SHOT = "/tmp/e2e-dagul";
 
 const results = [];
@@ -50,6 +51,11 @@ await page.addInitScript(() => {
     return origOpen.call(this, method, url, ...rest);
   };
 });
+
+const versionResp = await fetch(`${ORIGIN}/api/version`, { cache: "no-store" });
+let versionBody = {};
+try { versionBody = await versionResp.json(); } catch { versionBody = {}; }
+ok("0. /api/version", versionResp.ok && typeof versionBody.id === "string", JSON.stringify(versionBody));
 
 // 1. 인트로 — 개발 서버 첫 컴파일·HMR 리로드가 있어도 로비까지 다시 누른다.
 await page.goto(URL, { waitUntil: "domcontentloaded" });
@@ -151,19 +157,11 @@ const autoloadLeak = consoleErrors.some((line) => /non-existent singleton '(Game
 ok("9. 오토로드는 엔진 싱글톤이 아님", !autoloadLeak);
 
 const pageFocusEvents = await page.evaluate(() => {
-  const seen = { hidden: false, visible: false };
-  const onHidden = () => { seen.hidden = true; };
-  const onVisible = () => { seen.visible = true; };
-  window.addEventListener("godot-page-hidden", onHidden);
-  window.addEventListener("godot-page-visible", onVisible);
   document.getElementById("godot-canvas")?.blur();
-  window.dispatchEvent(new Event("blur"));
   window.dispatchEvent(new Event("focus"));
-  window.removeEventListener("godot-page-hidden", onHidden);
-  window.removeEventListener("godot-page-visible", onVisible);
-  return { ...seen, canvas: document.activeElement?.id === "godot-canvas" };
+  return { canvas: document.activeElement?.id === "godot-canvas" };
 });
-ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas && pageFocusEvents.hidden && pageFocusEvents.visible);
+ok("10. 창 포커스 복귀 시 캔버스 키 포커스", pageFocusEvents.canvas);
 
 console.log("\n— 콘솔 에러 —");
 console.log(consoleErrors.length ? consoleErrors.slice(0, 10).join("\n") : "(없음)");

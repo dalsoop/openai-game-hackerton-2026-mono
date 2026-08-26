@@ -8,8 +8,6 @@ const GameServerScript = preload("res://games/dagul/net/game_server.gd")
 const GameClientScript = preload("res://games/dagul/net/game_client.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
 const KillFanfareScript = preload("res://games/dagul/render/kill_fanfare.gd")
-const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
-
 const MODE := "full"
 const TICK := 1.0 / 60.0
 
@@ -22,9 +20,7 @@ var _tutorial: TutorialOverlay = null
 var _fanfare = null
 var _last_local_kills: int = -1
 var _is_host := false
-var previous_keys: Dictionary = {}
-var previous_right_mouse := false
-var previous_left_mouse := false
+var _input: PlayerInput
 var last_event_id: int = 0
 var hit_pause_frames: int = 0
 var spectate_slot: int = 0
@@ -68,8 +64,8 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	_last_local_kills = -1
 	last_event_id = 0
 	hit_pause_frames = 0
-	previous_right_mouse = false
-	previous_left_mouse = false
+	_ensure_input()
+	_input.reset()
 	_bind_match_camera(ctx, audio, world_view)
 
 func _bind_match_camera(ctx: Dictionary, audio: Node, world_view: Node2D) -> void:
@@ -194,15 +190,21 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 	var hud: Control = ctx["hud"]
 	var world_view: Node2D = ctx["world_view"]
 	var camera: Camera2D = ctx["camera"]
-	var touch: CanvasLayer = ctx["touch"]
 	var hub: Node = ctx["hub"]
+	_ensure_input()
+	_input.bind_layer(ctx["touch"])
+	var touch: CanvasLayer = ctx.get("touch")
+	if hud != null and touch != null and touch.has_method("is_enabled"):
+		hud.touch_hints = bool(touch.is_enabled()) and not bool(ctx.get("settings_open", false))
 
-	if _edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
+	if _input.edge(KEY_ESCAPE) and bool(world.finish_cine.get("on", false)):
 		world.finish_cine = {}
-	if _edge(KEY_F1):
+	if _input.edge(KEY_F1):
 		hud_mode = (hud_mode + 1) % 3
 		hud.hud_mode = hud_mode
 		hud.queue_redraw()
+	if _try_offline_rematch(ctx):
+		return
 	_update_spectator()
 	if hit_pause_frames > 0:
 		hit_pause_frames -= 1
@@ -210,11 +212,8 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 		hud.queue_redraw()
 		return
 
-	var move := _read_move(touch)
-	var aim_world := _read_aim(world_view, touch)
-	var primary: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (touch != null and touch.fire)
-	var equipment_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (touch != null and touch.skill)
-	_tick_world(move, aim_world, primary, equipment_held, touch, hub, hud, world_view)
+	var command := _local_command(ctx, world_view)
+	_tick_world(command, hub, hud, world_view)
 
 	_tick_match_audio(ctx)
 	_check_tutorial_hints()
@@ -233,24 +232,18 @@ func _tick_match_audio(ctx: Dictionary) -> void:
 	if audio_tick != null and audio_tick.has_method("tick_world_sfx"):
 		audio_tick.tick_world_sfx(world)
 
-func _read_move(touch: CanvasLayer) -> Vector2:
-	var move := LayoutKeysScript.move_axis()
-	if touch != null and move.length() <= 0.1:
-		move = touch.move
-	return move
+func _local_command(ctx: Dictionary, world_view: Node2D) -> Dictionary:
+	if bool(ctx.get("settings_open", false)):
+		return _input.idle_command(_local_player_pos())
+	return _input.poll(world_view.get_viewport(), _local_player_pos())
 
-func _read_aim(world_view: Node2D, touch: CanvasLayer) -> Vector2:
-	var vp := world_view.get_viewport()
-	var aim := vp.get_canvas_transform().affine_inverse() * vp.get_mouse_position()
-	if touch != null and touch.aiming:
-		aim = _local_player_pos() + touch.aim_dir * 400.0
-	return aim
 
-func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_held: bool,
-		touch: CanvasLayer, hub: Node, hud: Control, world_view: Node2D) -> void:
-	var command := _build_command(move, aim_world, primary, equipment_held, touch)
-	previous_right_mouse = equipment_held
-	previous_left_mouse = primary
+func _ensure_input() -> void:
+	if _input == null:
+		_input = PlayerInput.new()
+
+
+func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2D) -> void:
 	hud.net_rtt_ms = int(hub.rtt_ms)
 	hud.net_connected = bool(hub.is_open())
 	if _is_host:
@@ -260,6 +253,8 @@ func _tick_world(move: Vector2, aim_world: Vector2, primary: bool, equipment_hel
 		_apply_recoil_mouse(world_view)
 		return
 	world.present(TICK)
+	var move: Vector2 = command.get("move", Vector2.ZERO)
+	var aim_world: Vector2 = command.get("aim", Vector2.ZERO)
 	var seq: int = int(world.predict_local(move, bool(command.get("mobility", false)), aim_world, TICK))
 	var packet := _peer_input_packet(command, seq)
 	if _game_client != null and _game_client.is_connected_to_server():
@@ -275,35 +270,17 @@ func _peer_input_packet(command: Dictionary, seq: int) -> Dictionary:
 		"aimX": aim.x, "aimY": aim.y,
 		"fire": bool(command.get("primary", false)),
 		"firePressed": bool(command.get("primary_pressed", false)),
+		"equipment": bool(command.get("equipment", false)),
+		"equipmentPressed": bool(command.get("equipment_pressed", false)),
+		"equipmentReleased": bool(command.get("equipment_released", false)),
 		"dash": bool(command.get("mobility", false)),
 		"use": bool(command.get("medkit", false)),
 		"reload": bool(command.get("reload", false)),
 		"ultimate": bool(command.get("ultimate", false)),
 		"hop": bool(command.get("hop", false)),
 		"finish": bool(command.get("finish", false)),
+		"emote": int(command.get("emote", -1)),
 		"seq": seq,
-	}
-
-func _build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool, touch: CanvasLayer) -> Dictionary:
-	var ultimate_edge := _edge(KEY_Q)
-	var mobility_edge := _edge(KEY_SHIFT)
-	var hop_edge := _edge(KEY_SPACE)
-	var medkit_edge := _edge(KEY_E)
-	var reload_edge := _edge(KEY_R)
-	if touch != null:
-		ultimate_edge = touch.consume_ult() or ultimate_edge
-		mobility_edge = touch.consume_dash() or mobility_edge
-		medkit_edge = touch.consume_medkit() or medkit_edge
-	return {
-		"move": move, "aim": aim,
-		"primary": primary,
-		"primary_pressed": primary and not previous_left_mouse,
-		"equipment": equipment_held,
-		"equipment_pressed": equipment_held and not previous_right_mouse,
-		"equipment_released": not equipment_held and previous_right_mouse,
-		"ultimate": ultimate_edge, "mobility": mobility_edge,
-		"hop": hop_edge, "medkit": medkit_edge,
-		"reload": reload_edge, "finish": _edge(KEY_F)
 	}
 
 func _check_tutorial_hints() -> void:
@@ -333,12 +310,6 @@ func _apply_recoil_mouse(world_view: Node2D) -> void:
 	next.x = clampf(next.x, 10.0, rect.size.x - 10.0)
 	next.y = clampf(next.y, 10.0, rect.size.y - 10.0)
 	vp.warp_mouse(next)
-
-func _edge(keycode: int) -> bool:
-	var now := LayoutKeysScript.held(keycode as Key)
-	var was := bool(previous_keys.get(keycode, false))
-	previous_keys[keycode] = now
-	return now and not was
 
 func _local_player_pos() -> Vector2:
 	if world == null or world.heroes.is_empty():
@@ -378,11 +349,11 @@ func _update_spectator() -> void:
 		return
 	if not _spectator_valid(spectate_slot):
 		spectate_slot = _best_spectator()
-	if _edge(KEY_A):
+	if _input.edge(KEY_A):
 		_cycle_spectator(-1)
-	if _edge(KEY_D):
+	if _input.edge(KEY_D):
 		_cycle_spectator(1)
-	if _edge(KEY_SPACE):
+	if _input.edge(KEY_SPACE):
 		spectate_slot = _best_spectator()
 
 # --- 카메라 ---
@@ -485,6 +456,44 @@ func _check_my_kill_fanfare() -> void:
 		_fanfare.burst()
 		_play_kill_fanfare_sfx()
 	_last_local_kills = kills
+
+
+func _try_offline_rematch(ctx: Dictionary) -> bool:
+	if bool(ctx.get("settings_open", false)):
+		return false
+	if bool(ctx.get("net_active", false)) or world == null or world.result == &"playing":
+		return false
+	if not _input.edge(KEY_R):
+		return false
+	seed_value += 1
+	_restart_offline(ctx)
+	return true
+
+
+func _restart_offline(ctx: Dictionary) -> void:
+	var you := int(world.get("local_slot", 0)) if world != null else 0
+	var mode := str(world.get("mode", MODE)) if world != null else MODE
+	var host_world = WorldScript.new(seed_value)
+	host_world.set_mode(mode)
+	host_world.local_slot = you
+	host_world.is_net = false
+	host_world.reset()
+	host_world.human_slots[host_world.local_slot] = true
+	world = host_world
+	_bind_view(ctx)
+	var hud: Control = ctx.get("hud")
+	if hud != null:
+		hud.mode_id = mode
+		hud.spectate_slot = you
+		hud.hud_mode = hud_mode
+		if hud.has_method("reset_match_visuals"):
+			hud.reset_match_visuals()
+	spectate_slot = you
+	last_event_id = 0
+	hit_pause_frames = 0
+	_last_local_kills = -1
+	_ensure_input()
+	_input.reset()
 
 
 func _play_kill_fanfare_sfx() -> void:

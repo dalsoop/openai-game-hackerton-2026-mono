@@ -23,6 +23,8 @@ func _player_roundtrip(t) -> void:
 	t.check("magMax → equipment.mag_size", int(hero["equipment"].get("mag_size", 0)) == 18)
 	t.check("ult 왕복", is_equal_approx(float(hero["ultimate_charge"]), 55.0))
 	t.check("animal 왕복", int(hero["animal"]) == 2)
+	t.check("emote 왕복", int(hero["emote"]) == 2)
+	t.check("emoteTime 왕복", is_equal_approx(float(hero["emote_time"]), 1.5))
 	t.check("cpu 왕복", bool(hero["cpu"]) == true)
 	t.check("ack 는 와이어에만 있다", int(packed[SnapContract.P_ACK]) == 4)
 
@@ -50,6 +52,8 @@ func _sample_hero() -> Dictionary:
 		"animal": 2,
 		"medkits": 1,
 		"kills": 1,
+		"emote": 2,
+		"emote_time": 1.5,
 		"parked": false,
 	}
 

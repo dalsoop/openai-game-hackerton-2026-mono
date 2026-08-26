@@ -8,12 +8,15 @@ const MODE_KEYBOARD := "keyboard"
 const MODE_TOUCH := "touch"
 const MODES := [MODE_AUTO, MODE_KEYBOARD, MODE_TOUCH]
 
+static func normalize_mode(mode: String) -> String:
+    return mode if mode in MODES else MODE_AUTO
+
+
 static func load_control_mode() -> String:
     var cfg := ConfigFile.new()
     if cfg.load(PATH) != OK:
         return MODE_AUTO
-    var mode := str(cfg.get_value(SECTION, "control_mode", MODE_AUTO))
-    return mode if mode in MODES else MODE_AUTO
+    return normalize_mode(str(cfg.get_value(SECTION, "control_mode", MODE_AUTO)))
 
 static func load_sound_on() -> bool:
     var cfg := ConfigFile.new()
@@ -24,7 +27,7 @@ static func load_sound_on() -> bool:
 static func save(control_mode: String, sound_on: bool) -> void:
     var cfg := ConfigFile.new()
     cfg.load(PATH)
-    cfg.set_value(SECTION, "control_mode", control_mode)
+    cfg.set_value(SECTION, "control_mode", normalize_mode(control_mode))
     cfg.set_value("audio", "sound_on", sound_on)
     cfg.save(PATH)
 

@@ -1,6 +1,6 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { Room } from "@colyseus/sdk";
-import { HANDOFF } from "@/lib/contract";
+import { HANDOFF, ROOM_LEAVE } from "@/lib/contract";
 import { clearMyRoom } from "@/lib/room-membership";
 import { reactOwnsResume } from "@/lib/game-flow-state";
 import type { JoinRequest, MatchInfo } from "@/types";
@@ -47,8 +47,9 @@ export function useHubCommands(
     localStorage.removeItem(HANDOFF.MATCH);
     clearMyRoom((k) => localStorage.removeItem(k));
     setMatchInfo(null);
+    if (room) {void room.leave(ROOM_LEAVE.CONSENTED);}
     setJoinRequest(null);
-  }, [clearDrop, setJoinRequest, setMatchInfo]);
+  }, [clearDrop, room, setJoinRequest, setMatchInfo]);
 
   const disconnect = useCallback(() => {
     leaveRoom();

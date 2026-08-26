@@ -206,7 +206,19 @@ func normal_combo_length(_slot: int) -> int:
 	return 1
 
 func equipment_reach(slot: int) -> float:
-	return normal_reach(slot)
+	match str(w.heroes[slot]["equipment"]["id"]):
+		"scatter": return 500.0
+		"rail": return 940.0
+		"mortar": return 680.0
+		"leech": return 650.0
+		"breaker": return 600.0
+		"burst": return 700.0
+		"blade": return 310.0
+		"brawler": return 250.0
+		"bomb": return 610.0
+		"spear": return 820.0
+		"chain": return 760.0
+		_: return 520.0
 
 func break_incoming_combo(slot: int) -> void:
 	if slot < 0 or slot >= w.heroes.size():
