@@ -30,6 +30,16 @@ const ADDONS_DIR = process.env.ADDONS_DIR
 function statExists(p: string): boolean {
   try { statSync(p); return true; } catch { return false; }
 }
+
+// 슬롯 개명(server-prod → dagul-prod) 뒤에도 와일드카드 인그레스가 옛 호스트를
+// 이 앱으로 폴백시킨다. 옛 도메인은 리다이렉트 없이 명확히 죽인다(410 Gone).
+function cutRetiredHost(req: IncomingMessage, res: ServerResponse): boolean {
+  const host = String(req.headers.host ?? "");
+  if (!host.startsWith("server-prod.")) {return false;}
+  res.writeHead(410, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+  res.end("gone — https://dagul-prod.external.kr/");
+  return true;
+}
 const GODOT_MIME: Record<string, string> = {
   ".wasm": "application/wasm",
   ".pck": "application/octet-stream",
@@ -123,6 +133,7 @@ function serveOne(
 
 function startStatic(): void {
   createServer((req, res) => {
+    if (cutRetiredHost(req, res)) {return;}
     res.setHeader("cross-origin-opener-policy", "same-origin");
     res.setHeader("cross-origin-embedder-policy", "require-corp");
     res.setHeader("cross-origin-resource-policy", "same-origin");
@@ -179,6 +190,7 @@ function startHub(): void {
     // Colyseus 라우터(매치메이킹 /matchmake/*)가 못 받는 요청은 여기로 폴백된다.
     express: (expressApp): void => {
       expressApp.use((req: IncomingMessage, res: ServerResponse) => {
+        if (cutRetiredHost(req, res)) {return;}
         // SharedArrayBuffer(스레드 지원 Godot 웹 빌드) 에 필요한 교차 출처 격리 헤더.
         res.setHeader("cross-origin-opener-policy", "same-origin");
         res.setHeader("cross-origin-embedder-policy", "require-corp");
