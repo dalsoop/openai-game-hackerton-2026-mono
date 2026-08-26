@@ -1,3 +1,4 @@
+import "./alias-register.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { createReadStream, statSync } from "fs";
 import path from "path";
