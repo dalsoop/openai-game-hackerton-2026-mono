@@ -1,33 +1,23 @@
 import { seedSeatIdentities } from "../characters/index.js";
 import {
-  ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena, nudgeOutOfCover,
-  pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
+  ARENA_SIZE, FIRE_SPEED, FIRE_TTL, HERO_RADIUS, buildTiledCovers, clampArena,
+  nudgeOutOfCover, pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
 } from "./match-covers.js";
 import type { CoverRect, SimKnockout } from "./match-covers.js";
+import { cpuCommand } from "./match-cpu.js";
 
 export * from "./match-covers.js";
+export * from "./match-cpu.js";
 
 /** 허브 권위 시뮬 — 방장 Godot 이 아니라 방이 월드의 원본이다. */
 
 export const MOVE_SPEED = 419;
-export const FIRE_SPEED = 1000;
-export const FIRE_TTL = 0.44;
 export const FIRE_INTERVAL = 0.105;
 export const BULLET_RADIUS = 5;
 export const HERO_MAX_HP = 176;
 export const MAG_SIZE = 18;
 export const RELOAD_TIME = 1.15;
 export const FIXED_DT = 1 / 60;
-/** burst 권총 normal_range 와 같다. 이보다 멀리서 쏘면 탄이 만료된다. */
-export const EFFECTIVE_RANGE = FIRE_SPEED * FIRE_TTL;
-/** CPU 목표 유지 거리 — EFFECTIVE_RANGE 의 55~75% 밴드 중심(65%). */
-export const CPU_TARGET_RANGE = EFFECTIVE_RANGE * 0.65;
-export const CPU_RANGE_SLACK = EFFECTIVE_RANGE * 0.1;
-export const CPU_STRAFE_WEIGHT = 0.6;
-export const CPU_STRAFE_PERIOD_TICKS = 90;
-export const CPU_STRAFE_SLOT_PHASE = 1.7;
-export const CPU_SEPARATION_DIST = HERO_RADIUS * 4;
-export const CPU_SEPARATION_WEIGHT = 1.2;
 /** 레거시 START_COUNTDOWN — 개전 전 전원 정지. */
 export const START_COUNTDOWN = 3;
 
@@ -57,6 +47,7 @@ export type SimHero = {
   fireCd: number;
   ack: number;
   animal: number;
+  kills: number;
   characterId: string;
   cpu: boolean;
 };
@@ -81,18 +72,6 @@ export type GunFireFx = {
 };
 
 export type SeatSeed = { slot: number; name?: string; characterId?: string; cpu?: boolean };
-
-/** 목표 거리보다 멀면 접근(+1), 가까우면 후퇴(-1), 밴드 안이면 정지(0). */
-export function cpuAdvanceWeight(dist: number): number {
-  if (dist > CPU_TARGET_RANGE + CPU_RANGE_SLACK) {return 1;}
-  if (dist < CPU_TARGET_RANGE - CPU_RANGE_SLACK) {return -1;}
-  return 0;
-}
-
-/** slot·tick 파생 결정론 위상 — 좌우 strafe 방향을 천천히 뒤집는다. */
-export function cpuStrafePhase(slot: number, tick: number): number {
-  return Math.sin((tick / CPU_STRAFE_PERIOD_TICKS) * Math.PI * 2 + slot * CPU_STRAFE_SLOT_PHASE);
-}
 
 function num(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
@@ -133,6 +112,7 @@ export class MatchSim {
         reloadLeft: 0,
         fireCd: 0,
         ack: 0,
+        kills: 0,
         characterId: seeded.characterId,
         animal: seeded.animal,
         cpu: Boolean(seat.cpu),
@@ -185,58 +165,13 @@ export class MatchSim {
   }
 
   private driveCpu(hero: SimHero, dt: number): void {
-    const prey = this.nearestPrey(hero);
-    if (!prey) {
+    const cmd = cpuCommand(hero, this.heroes.values(), this.tick);
+    if (!cmd) {
       hero.fireCd = Math.max(0, hero.fireCd - dt);
       this.tickReload(hero, dt, false);
       return;
     }
-    const dx = prey.x - hero.x;
-    const dy = prey.y - hero.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const ux = dx / dist;
-    const uy = dy / dist;
-    const advance = cpuAdvanceWeight(dist);
-    const strafe = cpuStrafePhase(hero.slot, this.tick) * CPU_STRAFE_WEIGHT;
-    const sep = this.cpuSeparation(hero);
-    this.applyHero(hero, {
-      mx: ux * advance - uy * strafe + sep.x * CPU_SEPARATION_WEIGHT,
-      my: uy * advance + ux * strafe + sep.y * CPU_SEPARATION_WEIGHT,
-      aimX: prey.x,
-      aimY: prey.y,
-      fire: dist < EFFECTIVE_RANGE - 40,
-    }, dt);
-  }
-
-  /** 가까운 다른 히어로들로부터 밀어내는 분리 벡터(뭉침 방지). */
-  private cpuSeparation(hero: SimHero): { x: number; y: number } {
-    let sx = 0;
-    let sy = 0;
-    for (const other of this.heroes.values()) {
-      if (!other.alive || other.slot === hero.slot) {continue;}
-      const dx = hero.x - other.x;
-      const dy = hero.y - other.y;
-      const d = Math.hypot(dx, dy);
-      if (d === 0 || d >= CPU_SEPARATION_DIST) {continue;}
-      const push = (CPU_SEPARATION_DIST - d) / CPU_SEPARATION_DIST;
-      sx += (dx / d) * push;
-      sy += (dy / d) * push;
-    }
-    return { x: sx, y: sy };
-  }
-
-  private nearestPrey(hero: SimHero): SimHero | null {
-    let best: SimHero | null = null;
-    let bestD = Infinity;
-    for (const other of this.heroes.values()) {
-      if (!other.alive || other.slot === hero.slot) {continue;}
-      const d = (other.x - hero.x) ** 2 + (other.y - hero.y) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = other;
-      }
-    }
-    return best;
+    this.applyHero(hero, cmd, dt);
   }
 
   private applyHero(hero: SimHero, cmd: MatchInput, dt: number): void {
@@ -320,7 +255,11 @@ export class MatchSim {
     if (!victim) {return false;}
     victim.hp = Math.max(0, victim.hp - 13.26);
     victim.alive = victim.hp > 0;
-    if (!victim.alive) {this.knockouts.push(spawnKnockout(victim));}
+    if (!victim.alive) {
+      this.knockouts.push(spawnKnockout(victim));
+      const shooter = this.heroes.get(b.owner);
+      if (shooter) {shooter.kills += 1;}
+    }
     return true;
   }
 
