@@ -46,6 +46,10 @@
   "logo": {
     "word": "다굴즈"
   },
+  "update": {
+    "available": "새 버전이 배포되었습니다.",
+    "reload": "새로고침"
+  },
   "lobby": {
     "title": "열린 방",
     "refresh": "새로고침",
@@ -94,6 +98,9 @@
     "open": "방 열기",
     "close": "방 닫기",
     "downloading": "게임 받는 중",
+    "dlReady": "받기 완료",
+    "dlNotStarted": "아직 안 받음",
+    "dlProgress": "{pct}%",
     "changeGame": "게임",
     "idleHost": "시작하지 않으면 {sec}초 뒤 방이 닫힙니다",
     "idleGuest": "방장이 {sec}초 안에 시작하지 않으면 방이 닫힙니다"

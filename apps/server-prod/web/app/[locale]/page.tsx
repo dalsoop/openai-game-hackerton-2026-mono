@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { useTranslations } from "next-intl";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
+import { DeployReloadBanner } from "@/components/DeployReloadBanner";
 import { shouldShowReconnect } from "@/lib/game-flow-state";
 import {
   OfflinePhase,
@@ -35,6 +36,7 @@ export default function Home(): JSX.Element {
     hasSavedName,
     hub,
     loader,
+    localPct,
     matchInfo,
     findRoom,
     start,
@@ -42,6 +44,8 @@ export default function Home(): JSX.Element {
     leaveToLobby,
     matchEnd,
     errorToIntro,
+    deployStale,
+    reloadDeploy,
   } = useGameFlowContext();
 
   // 튕김·강퇴는 회색 캔버스 대신 재접속 모달만 보여 준다.
@@ -86,6 +90,8 @@ export default function Home(): JSX.Element {
           </div>
         )}
       </header>
+
+      <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
 
       {phase === "intro" && (
         <OfflinePhase
@@ -136,7 +142,8 @@ export default function Home(): JSX.Element {
           players={hub.players}
           you={hub.you}
           isHost={hub.isHost}
-          loader={loader}
+          localPct={localPct}
+          canStart={loader.state === "ready"}
           onStartGame={start}
           onLeaveRoom={leaveToLobby}
         />

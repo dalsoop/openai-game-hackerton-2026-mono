@@ -37,7 +37,10 @@ const nextConfig: NextConfig = {
     ];
   },
   webpack: (config, { isServer }) => {
-    // Colyeus SDK를 위한 웹팩 설정
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+    };
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
 import { MSG } from "@/lib/contract";
-import { Roster, type RosterSnapshot } from "@/lib/domain/roster";
+import { type RosterSnapshot } from "@/lib/domain/roster";
+import { deriveHubFacts } from "@/lib/hub/hub-facts";
 import { useMyRoom } from "@/hooks/useMyRoom";
 import { useRoomList } from "@/hooks/useRoomList";
 import { useRoomIdle } from "@/hooks/useRoomIdle";
@@ -18,7 +19,8 @@ import { useRoomRtt } from "@/hooks/useRoomRtt";
 import { shouldMarkRoomDropped } from "@/lib/hub/room-end";
 import { useDropSession } from "@/hooks/useDropSession";
 import { deriveStatus } from "@/lib/hub/status";
-import type { HubPlayer, HubStatus, JoinRequest, UseHubResult } from "@/types";
+import { useDownloadReport } from "@/hooks/useDownloadReport";
+import type { HubStatus, JoinRequest, UseHubResult } from "@/types";
 
 function liveRttMs(room: Room | undefined, roomRtt: number, healthRtt: number): number {
   return room ? roomRtt : healthRtt;
@@ -43,39 +45,6 @@ function getClient(): Client {
   return _client;
 }
 
-
-interface HubFacts {
-  gameId: string;
-  idleUntilSec: number;
-  open: boolean;
-  players: HubPlayer[];
-  you: number;
-  isHost: boolean;
-  roomId: string;
-  resumeToken: string;
-  status: HubStatus;
-}
-
-// 방 파생 사실 — 훅 복잡도를 낮추기 위해 모듈로 뺀 순수 계산.
-function deriveHubFacts(room: Room | undefined, snap: RosterSnapshot | undefined): HubFacts | null {
-  if (!room || !snap) {return null;}
-  const roster = Roster.fromSnapshot(snap, room.sessionId);
-  const players: HubPlayer[] = roster.seats.map((seat) => ({
-    slot: seat.slot, id: seat.playerId, name: seat.name,
-    host: seat.isHost, dropped: !seat.connected,
-  }));
-  return {
-    gameId: snap.gameId ?? "",
-    idleUntilSec: Number(snap.idleUntilSec ?? 0),
-    open: snap.open !== false,
-    players,
-    you: roster.you,
-    isHost: roster.isHost,
-    roomId: room.roomId,
-    resumeToken: room.reconnectionToken,
-    status: (roster.playing ? "playing" : "in-room") as HubStatus,
-  };
-}
 
 // 조합 루트 — 분기 명령은 useHubCommands 가 맡는다.
 // eslint-disable-next-line complexity -- 훅 조합과 반환 필드가 한곳에 모인다
@@ -142,6 +111,7 @@ export function useHub(): UseHubResult {
     setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
     toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
   }), [room]);
+  const reportDownload = useDownloadReport(room, `${derived?.roomId ?? ""}:${derived?.gameId ?? ""}`);
   const idleLeftSec = useRoomIdle(derived?.idleUntilSec ?? 0, status === "in-room");
 
   return {
@@ -164,6 +134,7 @@ export function useHub(): UseHubResult {
     disconnect: commands.disconnect,
     returnToLobby: commands.returnToLobby,
     startMatch: sends.startMatch,
+    reportDownload,
     setGame: sends.setGame,
     idleLeftSec,
     toggleRoom: sends.toggleRoom,

@@ -1,11 +1,11 @@
 /**
- * InRoomPhase 컴포넌트
- * 대기실 화면 (Room + 로딩 상태)
+ * InRoomPhase — 대기실 화면. 받기 표시만 하고 시작은 자기 팩 준비에 맡긴다.
  */
 import type { JSX } from "react";
-import { useTranslations } from "next-intl";
 import Room from "@/components/Room";
-import type { HubPlayer, LoaderResult } from "@/types";
+import RoomDownload from "@/components/RoomDownload";
+import { roomDownload } from "@/lib/domain/download";
+import type { HubPlayer } from "@/types";
 
 interface InRoomPhaseProps {
   players: HubPlayer[];
@@ -14,7 +14,8 @@ interface InRoomPhaseProps {
   gameId: string;
   roomOpen: boolean;
   idleLeftSec: number;
-  loader: LoaderResult;
+  localPct: number;
+  canStart: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onSetGame: (game: string) => void;
@@ -28,18 +29,19 @@ export function InRoomPhase({
   gameId,
   roomOpen,
   idleLeftSec,
-  loader,
+  localPct,
+  canStart,
   onStartGame,
   onLeaveRoom,
   onSetGame,
   onToggleRoom,
 }: InRoomPhaseProps): JSX.Element {
-  const t = useTranslations();
+  const view = roomDownload(players, you, localPct);
 
   return (
     <>
       <Room
-        players={players}
+        players={view.players}
         you={you}
         isHost={isHost}
         gameId={gameId}
@@ -49,18 +51,9 @@ export function InRoomPhase({
         onLeave={onLeaveRoom}
         onSetGame={onSetGame}
         onToggleRoom={onToggleRoom}
-        canStart={loader.state === "ready"}
+        canStart={canStart}
       />
-      {loader.state !== "ready" && (
-        <div className="room-download">
-          <div className="dl-label">{t("room.downloading")}</div>
-          <div className="bar-track">
-            {/* eslint-disable-next-line react/forbid-dom-props -- 진행률은 동적 폭 */}
-            <div className="bar-fill" style={{ width: `${Math.round(loader.progress * 100)}%` }} />
-          </div>
-          <div className="dl-pct">{Math.round(loader.progress * 100)}%</div>
-        </div>
-      )}
+      <RoomDownload seats={view.seats} you={you} />
     </>
   );
 }

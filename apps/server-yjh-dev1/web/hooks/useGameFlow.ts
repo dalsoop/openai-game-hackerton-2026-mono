@@ -6,7 +6,8 @@ import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
 import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
-import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, downloadStartsInRoom, phaseOnMount } from "@/lib/game-flow-state";
+import { useRoomAssets } from "@/hooks/useRoomAssets";
+import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount } from "@/lib/game-flow-state";
 import type { GamePhase, MatchInfo } from "@/types";
 
 /** useGameFlow 반환 계약 — page.tsx 가 이 필드들만 소비한다. */
@@ -19,6 +20,7 @@ export interface UseGameFlowResult {
   hasSavedName: boolean;
   hub: ReturnType<typeof useHub>;
   loader: ReturnType<typeof useGodotLoader>;
+  localPct: number;
   matchInfo: MatchInfo;
   findRoom: () => void;
   start: () => void;
@@ -80,10 +82,7 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     if (hub.dropReason) {setPhase("lobby");}
   }, [hub.dropReason]);
 
-  const startDownload = loader.start;
-  useEffect(() => {
-    if (downloadStartsInRoom(phase)) {startDownload();} // 유즈맵 — 다운로드는 방에 들어와서 시작
-  }, [phase, startDownload]); // gameId 가 확정되면 런타임이 바뀌므로 start 가 다시 불린다
+  const { localPct } = useRoomAssets(phase, loader, hub.reportDownload);
 
   const findRoom = useCallback(() => {
     saveNickname(displayName);
@@ -128,6 +127,7 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     hasSavedName: nickname !== "",
     hub,
     loader,
+    localPct,
     matchInfo,
     findRoom,
     start,

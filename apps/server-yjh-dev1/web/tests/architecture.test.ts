@@ -146,14 +146,20 @@ describe("계약: 웹 캔버스 키 포커스", () => {
 });
 
 describe("계약: E2E 는 Godot 공식 WebGL2 검사를 한다", () => {
+  const e2e = [
+    "scripts/e2e-dagul.mjs",
+    "scripts/e2e/harness.mjs",
+    "scripts/e2e/godot-probe.mjs",
+  ].map((p) => sourceOf(join(ROOT, p))).join("\n");
+
   it("e2e-dagul 은 Engine.isWebGLAvailable(2) 를 쓰고 게임 캔버스에 getContext 하지 않는다", () => {
-    const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
     expect(e2e).toContain("isWebGLAvailable(2)");
     expect(e2e).not.toMatch(/getElementById\(['"]godot-canvas['"]\)[\s\S]{0,80}getContext\(['"]webgl2['"]\)/);
+    expect(e2e).not.toMatch(/const URL\s*=/);
+    expect(e2e).toContain("new URL(PAGE_URL)");
   });
 
   it("e2e 는 Godot 의 matchmake/reconnect 를 감시한다", () => {
-    const e2e = sourceOf(join(ROOT, "scripts/e2e-dagul.mjs"));
     expect(e2e).toContain("/matchmake/reconnect");
     expect(e2e).toContain("reconnectHits");
     expect(e2e).toContain("__e2eJsReconnect");
