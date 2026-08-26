@@ -16,7 +16,6 @@ describe("MSG 메시지 계약", () => {
     expect(MSG.INPUT).toBeDefined();
     expect(MSG.SNAP).toBeDefined();
     expect(MSG.GUN_FIRE).toBe("gun_fire");
-    expect(MSG.HOST_SNAP).toBeDefined();
     expect(MSG.ERROR).toBeDefined();
     expect(MSG.STATE).toBe("state");
     expect(MSG.LEAVE).toBe("leave");

@@ -1,11 +1,14 @@
-import { assignSeatIdentity } from "../characters/index.js";
+import { seedSeatIdentities } from "../characters/index.js";
+import {
+  ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena, nudgeOutOfCover,
+  pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
+} from "./match-covers.js";
+import type { CoverRect, SimKnockout } from "./match-covers.js";
+
+export * from "./match-covers.js";
 
 /** 허브 권위 시뮬 — 방장 Godot 이 아니라 방이 월드의 원본이다. */
 
-export const ARENA_SIZE = { x: 7840, y: 4760 };
-export const ARENA_CENTER = { x: 3920, y: 2380 };
-export const ARENA_MARGIN = 104;
-export const HERO_RADIUS = 20;
 export const MOVE_SPEED = 419;
 export const FIRE_SPEED = 1000;
 export const FIRE_TTL = 0.44;
@@ -17,6 +20,16 @@ export const RELOAD_TIME = 1.15;
 export const FIXED_DT = 1 / 60;
 /** burst 권총 normal_range 와 같다. 이보다 멀리서 쏘면 탄이 만료된다. */
 export const EFFECTIVE_RANGE = FIRE_SPEED * FIRE_TTL;
+/** CPU 목표 유지 거리 — EFFECTIVE_RANGE 의 55~75% 밴드 중심(65%). */
+export const CPU_TARGET_RANGE = EFFECTIVE_RANGE * 0.65;
+export const CPU_RANGE_SLACK = EFFECTIVE_RANGE * 0.1;
+export const CPU_STRAFE_WEIGHT = 0.6;
+export const CPU_STRAFE_PERIOD_TICKS = 90;
+export const CPU_STRAFE_SLOT_PHASE = 1.7;
+export const CPU_SEPARATION_DIST = HERO_RADIUS * 4;
+export const CPU_SEPARATION_WEIGHT = 1.2;
+/** 레거시 START_COUNTDOWN — 개전 전 전원 정지. */
+export const START_COUNTDOWN = 3;
 
 export type MatchInput = {
   mx?: unknown;
@@ -69,44 +82,43 @@ export type GunFireFx = {
 
 export type SeatSeed = { slot: number; name?: string; characterId?: string; cpu?: boolean };
 
-function seedHeroIdentity(seat: SeatSeed): { characterId: string; animal: number } {
-  return assignSeatIdentity(seat.characterId, { cpu: seat.cpu, slot: seat.slot });
+/** 목표 거리보다 멀면 접근(+1), 가까우면 후퇴(-1), 밴드 안이면 정지(0). */
+export function cpuAdvanceWeight(dist: number): number {
+  if (dist > CPU_TARGET_RANGE + CPU_RANGE_SLACK) {return 1;}
+  if (dist < CPU_TARGET_RANGE - CPU_RANGE_SLACK) {return -1;}
+  return 0;
+}
+
+/** slot·tick 파생 결정론 위상 — 좌우 strafe 방향을 천천히 뒤집는다. */
+export function cpuStrafePhase(slot: number, tick: number): number {
+  return Math.sin((tick / CPU_STRAFE_PERIOD_TICKS) * Math.PI * 2 + slot * CPU_STRAFE_SLOT_PHASE);
 }
 
 function num(v: unknown, fallback = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
-export function clampArena(x: number, y: number): { x: number; y: number } {
-  return {
-    x: Math.min(ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS, Math.max(ARENA_MARGIN + HERO_RADIUS, x)),
-    y: Math.min(ARENA_SIZE.y - ARENA_MARGIN - HERO_RADIUS, Math.max(ARENA_MARGIN + HERO_RADIUS, y)),
-  };
-}
-
-export function spawnPoint(slot: number, count: number): { x: number; y: number } {
-  const n = Math.max(1, count);
-  const ang = (Math.PI * 2 * slot) / n - Math.PI / 2;
-  return clampArena(ARENA_CENTER.x + Math.cos(ang) * 720, ARENA_CENTER.y + Math.sin(ang) * 520);
-}
-
 export class MatchSim {
   tick = 0;
   result: "playing" | "won" | "draw" = "playing";
+  countdown = START_COUNTDOWN;
   winner = -1;
   heroes = new Map<number, SimHero>();
   bullets = new Map<number, SimBullet>();
+  readonly covers: CoverRect[] = buildTiledCovers();
+  knockouts: SimKnockout[] = [];
   fx: GunFireFx[] = [];
   private nextBulletId = 1;
   private inputs = new Map<number, MatchInput>();
 
   constructor(seats: readonly SeatSeed[]) {
     const count = Math.max(1, seats.length);
+    const identities = seedSeatIdentities(seats);
     for (const seat of seats) {
       const slot = seat.slot;
       if (slot < 0) {continue;}
-      const pos = spawnPoint(slot, count);
-      const seeded = seedHeroIdentity(seat);
+      const pos = nudgeOutOfCover(spawnPoint(slot, count), this.covers);
+      const seeded = identities.get(slot) ?? { characterId: "", animal: 0 };
       this.heroes.set(slot, {
         slot,
         x: pos.x,
@@ -136,6 +148,11 @@ export class MatchSim {
   step(dt = FIXED_DT): void {
     this.tick += 1;
     this.fx = [];
+    if (this.countdown > 0) {
+      this.countdown = Math.max(0, this.countdown - dt);
+      return;
+    }
+    tickKnockouts(this.knockouts, dt);
     for (const [slot, hero] of this.heroes) {
       if (!hero.alive) {continue;}
       if (hero.cpu) {
@@ -177,13 +194,35 @@ export class MatchSim {
     const dx = prey.x - hero.x;
     const dy = prey.y - hero.y;
     const dist = Math.hypot(dx, dy) || 1;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    const advance = cpuAdvanceWeight(dist);
+    const strafe = cpuStrafePhase(hero.slot, this.tick) * CPU_STRAFE_WEIGHT;
+    const sep = this.cpuSeparation(hero);
     this.applyHero(hero, {
-      mx: dx / dist,
-      my: dy / dist,
+      mx: ux * advance - uy * strafe + sep.x * CPU_SEPARATION_WEIGHT,
+      my: uy * advance + ux * strafe + sep.y * CPU_SEPARATION_WEIGHT,
       aimX: prey.x,
       aimY: prey.y,
       fire: dist < EFFECTIVE_RANGE - 40,
     }, dt);
+  }
+
+  /** 가까운 다른 히어로들로부터 밀어내는 분리 벡터(뭉침 방지). */
+  private cpuSeparation(hero: SimHero): { x: number; y: number } {
+    let sx = 0;
+    let sy = 0;
+    for (const other of this.heroes.values()) {
+      if (!other.alive || other.slot === hero.slot) {continue;}
+      const dx = hero.x - other.x;
+      const dy = hero.y - other.y;
+      const d = Math.hypot(dx, dy);
+      if (d === 0 || d >= CPU_SEPARATION_DIST) {continue;}
+      const push = (CPU_SEPARATION_DIST - d) / CPU_SEPARATION_DIST;
+      sx += (dx / d) * push;
+      sy += (dy / d) * push;
+    }
+    return { x: sx, y: sy };
   }
 
   private nearestPrey(hero: SimHero): SimHero | null {
@@ -210,7 +249,8 @@ export class MatchSim {
       mx /= mlen;
       my /= mlen;
     }
-    const next = clampArena(hero.x + mx * MOVE_SPEED * dt, hero.y + my * MOVE_SPEED * dt);
+    const slid = resolveCoverMotion(hero.x, hero.y, mx * MOVE_SPEED * dt, my * MOVE_SPEED * dt, this.covers);
+    const next = clampArena(slid.x, slid.y);
     hero.x = next.x;
     hero.y = next.y;
     const aimX = num(cmd.aimX, hero.x + 1);
@@ -275,10 +315,12 @@ export class MatchSim {
     if (b.ttl <= 0 || b.x < 0 || b.y < 0 || b.x > ARENA_SIZE.x || b.y > ARENA_SIZE.y) {
       return true;
     }
+    if (pointInCover(b.x, b.y, this.covers)) {return true;}
     const victim = this.hitHero(b);
     if (!victim) {return false;}
     victim.hp = Math.max(0, victim.hp - 13.26);
     victim.alive = victim.hp > 0;
+    if (!victim.alive) {this.knockouts.push(spawnKnockout(victim));}
     return true;
   }
 

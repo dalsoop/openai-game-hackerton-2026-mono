@@ -62,6 +62,7 @@ export const KO = {
   CANNOT_KICK: "지금은 내보낼 수 없습니다",
   HOST_ONLY_KICK: "호스트만 내보낼 수 있습니다",
   KICKED_MSG: "호스트가 방에서 내보냈습니다.",
+  TAKEOVER_MSG: "다른 창에서 접속하여 이 화면은 비활성화되었습니다.",
   ROOM_CLOSED: "방이 닫혔습니다.",
   HOST_ONLY_TOGGLE: "호스트만 방을 열고 닫을 수 있습니다.",
   HOST_BOOT_FAIL: "호스트가 게임을 시작하지 못했습니다.",

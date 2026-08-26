@@ -379,6 +379,7 @@ describe("LobbyRoom 규칙", () => {
 });
 
 function stepSim(room: LobbyRoom, n = 8, dt = 50): void {
+  room.stepSim(3100); // 개전 카운트다운(3초)을 먼저 소진한다
   for (let i = 0; i < n; i += 1) {room.stepSim(dt);}
 }
 
@@ -416,7 +417,7 @@ describe("허브 권위 매치", () => {
     expect(me?.ack).toBe(11);
   });
 
-  it("게스트 발사는 id 있는 탄을 만들고 host_snap 은 무시한다", async () => {
+  it("게스트 발사는 id 있는 탄을 만든다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
@@ -428,13 +429,11 @@ describe("허브 권위 매치", () => {
       mx: 0, my: 0, fire: true, firePressed: true, seq: 4,
       aimX: 4000, aimY: 2380,
     })).toBe(true);
-    host.send(MSG.HOST_SNAP, { tick: 9999, bullets: [{ id: 77 }] });
     stepSim(room, 6, 50);
     expect(room.state.bullets.size).toBeGreaterThan(0);
     const shot = [...room.state.bullets.values()][0];
     expect(shot.id).toBeGreaterThan(0);
     expect(shot.owner).toBe(1);
-    expect(shot.id).not.toBe(77);
     const fx = (await fxP) as { slot: number };
     expect(fx.slot).toBe(1);
   });
@@ -468,3 +467,48 @@ describe("허브 권위 매치", () => {
   });
 });
 
+
+// ── 좌석 이어받기 — 같은 브라우저(guestId+guestKey 일치)의 새 창이 좌석을 넘겨받는다 ──
+const KEY_A = "a".repeat(32);
+const KEY_B = "b".repeat(32);
+
+describe("LobbyRoom 좌석 이어받기", () => {
+  it("같은 증명으로 재입장 — 좌석 유지·기존 창은 takeover 킥", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const oldTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    await colyseus.connectTo(room, { name: "게스트", guestId: 654321, guestKey: KEY_B });
+    await room.waitForNextPatch();
+    const kicked = oldTab.waitForMessage(MSG.KICKED);
+    const newTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    const payload = await kicked;
+    expect((payload as { reason?: string }).reason).toBe("takeover");
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(2);
+    const seat = room.state.players.find((p) => p.sessionId === newTab.sessionId);
+    expect(seat?.slot).toBe(0);
+    expect(room.state.hostSessionId).toBe(newTab.sessionId);
+  });
+
+  it("반전: 키가 다르면 좌석을 넘기지 않고 새 좌석을 만든다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const oldTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    await colyseus.connectTo(room, { name: "사칭", guestId: 123456, guestKey: KEY_B });
+    await room.waitForNextPatch();
+    expect(room.state.players.length).toBe(2);
+    expect(room.state.players[0].sessionId).toBe(oldTab.sessionId);
+  });
+
+  it("플레이 중 이어받기 — 새 세션이 START 를 다시 받아 매치에 붙는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const oldTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    const boot = oldTab.waitForMessage(MSG.SNAP);
+    oldTab.send(MSG.START, {});
+    await boot;
+    const newTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
+    const startRaw = await newTab.waitForMessage(MSG.START);
+    const payload = parseStartPayload(startRaw);
+    expect(payload?.you).toBe(0);
+    expect(String(room.state.phase)).toBe("playing");
+    expect(room.pushTestInput(newTab.sessionId, { mx: 1, my: 0, seq: 3 })).toBe(true);
+  });
+});

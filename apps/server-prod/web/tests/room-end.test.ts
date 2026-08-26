@@ -37,6 +37,12 @@ describe("dropReasonFromKick", () => {
     expect(dropReasonFromKick({ msg: "x" })).toBe("kicked");
     expect(dropReasonFromKick(null)).toBe("kicked");
   });
+
+  it("reason=takeover 는 좌석 이어받기 안내다 — 재접속 제안 없음", () => {
+    expect(dropReasonFromKick({ msg: "x", reason: "takeover" })).toBe("takeover");
+    expect(canOfferReconnect("takeover")).toBe(false);
+    expect(reconnectJoinId("takeover", "abc")).toBeNull();
+  });
 });
 
 describe("canOfferReconnect / reconnectJoinId", () => {

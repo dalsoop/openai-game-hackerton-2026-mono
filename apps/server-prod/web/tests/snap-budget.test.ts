@@ -5,7 +5,7 @@ import { HUB_CONFIG } from "@/lib/hub/config";
 import { hubReplicaCount } from "@/lib/hub/ccu-plan";
 import { snapByteLength, shouldRelaySnap } from "@/lib/hub/snap-relay";
 
-/** NetworkHost.build_snapshot + ArenaGeometry.build_tiled_covers 의 상한 모형. */
+/** 허브 권위 스냅(SnapContract 전체 키) + 타일 커버 상한 모형. */
 function hostPackedSnap(): Record<string, unknown> {
   const players = Array.from({ length: 8 }, (_, slot) => ({
     slot,

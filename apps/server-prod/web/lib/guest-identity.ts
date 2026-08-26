@@ -48,6 +48,53 @@ export function readOrCreateGuestId(): number | null {
   return id;
 }
 
+// ── 좌석 이어받기(takeover) 증명 ─────────────────────────────────
+// GUEST_ID 는 닉네임("쥐#123456")에 공개되므로 그것만으로 좌석을 넘기면
+// 타인이 남의 좌석을 뺏을 수 있다. 비공개 키가 함께 일치할 때만 이어받는다.
+
+export const GUEST_KEY_LEN = 32;
+
+export interface SeatClaim {
+  readonly guestId: number;
+  readonly guestKey: string;
+}
+
+export function mintGuestKey(): string {
+  const buf = new Uint8Array(GUEST_KEY_LEN / 2);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function readOrCreateGuestKey(): string | null {
+  if (typeof document === "undefined") {return null;}
+  const existing = readCookie(WEB_STORE.GUEST_KEY, document.cookie);
+  if (existing !== null && existing.length >= GUEST_KEY_LEN) {return existing;}
+  const key = mintGuestKey();
+  document.cookie = cookieWritePair(WEB_STORE.GUEST_KEY, key);
+  return key;
+}
+
+/** join 옵션에 실을 이어받기 증명 — 쿠키가 없는 환경이면 null (이어받기 없이 입장). */
+export function seatClaimNow(): SeatClaim | null {
+  const guestId = readOrCreateGuestId();
+  const guestKey = readOrCreateGuestKey();
+  if (guestId === null || guestKey === null) {return null;}
+  return { guestId, guestKey };
+}
+
+/** 신뢰할 수 없는 join 옵션에서 증명을 파싱 — 키가 짧으면 증명으로 취급하지 않는다. */
+export function parseSeatClaim(raw: { guestId?: unknown; guestKey?: unknown }): SeatClaim | null {
+  const guestId = parseGuestId(typeof raw.guestId === "number" ? String(raw.guestId) : (raw.guestId as string | undefined));
+  const guestKey = typeof raw.guestKey === "string" ? raw.guestKey : "";
+  if (guestId === null || guestKey.length < GUEST_KEY_LEN) {return null;}
+  return { guestId, guestKey };
+}
+
+export function sameSeatClaim(a: SeatClaim | undefined, b: SeatClaim | null): boolean {
+  if (!a || !b) {return false;}
+  return a.guestId === b.guestId && a.guestKey === b.guestKey;
+}
+
 function defaultRand(): number {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);

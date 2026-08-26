@@ -19,6 +19,7 @@ const TITLE: Record<DropReason, string> = {
   dropped: "game.droppedTitle",
   idle: "game.idleTitle",
   offline: "game.serverConnectFailed",
+  takeover: "game.takeoverTitle",
 };
 
 const BODY: Record<DropReason, string> = {
@@ -26,6 +27,7 @@ const BODY: Record<DropReason, string> = {
   dropped: "game.droppedBody",
   idle: "game.idleBody",
   offline: "connection.offline",
+  takeover: "game.takeoverBody",
 };
 
 export function ConnectionLostModal({ reason, onReconnect, onExit }: ConnectionLostModalProps): ReactNode {
