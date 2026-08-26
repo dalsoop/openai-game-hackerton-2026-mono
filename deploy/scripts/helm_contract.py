@@ -154,5 +154,78 @@ def health_url(folder: str) -> str:
     return f"https://{folder}.external.kr/health"
 
 
+def hub_ordinal_name(folder: str, ordinal: int = 0) -> str:
+    return f"{folder}-hub-{ordinal}"
+
+
+def hubp_health_url(folder: str, ordinal: int = 0) -> str:
+    return f"https://{folder}.external.kr/hubp/{hub_ordinal_name(folder, ordinal)}/health"
+
+
 def create_url(folder: str) -> str:
     return f"https://{folder}.external.kr/matchmake/create/{lobby_room_name(folder)}"
+
+
+def create_public_address(body: str) -> str:
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    raw = data.get("publicAddress")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    room = data.get("room")
+    if isinstance(room, dict):
+        nested = room.get("publicAddress")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+    return ""
+
+
+def create_public_address_ok(folder: str, body: str) -> bool:
+    addr = create_public_address(body)
+    return f"/hubp/{folder}-hub-" in addr
+
+
+def rooms_url(folder: str) -> str:
+    return f"https://{folder}.external.kr/rooms"
+
+
+def create_room_id(body: str) -> str:
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    raw = data.get("roomId")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    room = data.get("room")
+    if isinstance(room, dict):
+        nested = room.get("roomId")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+    return ""
+
+
+def rooms_listed(body: str, room_id: str) -> bool:
+    if not room_id:
+        return False
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return False
+    rows = data.get("rooms") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return False
+    for item in rows:
+        if isinstance(item, dict) and str(item.get("roomId") or "") == room_id:
+            return True
+    return False
+
+
+def rooms_stayed(seen: list[bool]) -> bool:
+    return bool(seen) and all(seen)

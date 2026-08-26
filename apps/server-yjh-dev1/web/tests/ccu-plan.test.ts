@@ -19,6 +19,8 @@ describe("hubPublicAddress", () => {
   it("접두사와 파드가 있을 때만 만든다", () => {
     expect(hubPublicAddress("server-yjh-dev1.external.kr/hubp", "pod-a"))
       .toBe("server-yjh-dev1.external.kr/hubp/pod-a");
+    expect(hubPublicAddress("server-yjh-dev1.external.kr/hubp", "server-yjh-dev1-hub-0"))
+      .toBe("server-yjh-dev1.external.kr/hubp/server-yjh-dev1-hub-0");
     expect(hubPublicAddress("", "pod-a")).toBeUndefined();
     expect(hubPublicAddress("host/hubp", "")).toBeUndefined();
   });
