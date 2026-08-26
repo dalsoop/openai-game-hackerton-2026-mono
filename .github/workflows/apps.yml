@@ -1,15 +1,22 @@
-name: Cloudflare purge
+name: Apps
 
-# 빌드·Helm 은 로컬 정본이다. 푸시되면 캐시만 지운다.
+# 푸시: 퍼지만. 올리기: pve-hackertone 이 apply-apps.py 를 실행한다.
 on:
   push:
     branches: [main, jeongright-gang-up-multi]
     paths:
       - "apps/**"
       - "deploy/**"
+  workflow_dispatch:
+    inputs:
+      folders:
+        description: "ship 할 server-* 폴더 (공백 구분)"
+        type: string
+        default: "server-prod server-yjh-dev1"
 
 jobs:
   purge:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,3 +25,25 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         run: python3 deploy/scripts/purge-cache.py
+
+  ship:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, hackertone]
+    timeout-minutes: 45
+    concurrency:
+      group: apps-ship
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ship folders on pve-hackertone
+        env:
+          FOLDERS: ${{ inputs.folders }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          set -eu
+          folders=$(python3 -c 'import os,re,sys; fs=os.environ["FOLDERS"].split();
+          [sys.exit("bad folder "+f) for f in fs if not re.fullmatch(r"server-[a-z0-9-]+", f)];
+          print(" ".join(fs))')
+          python3 deploy/scripts/apply-apps.py ship $folders
+          python3 deploy/scripts/apply-apps.py helm
