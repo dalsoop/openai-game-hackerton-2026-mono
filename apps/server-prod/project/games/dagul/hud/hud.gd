@@ -148,7 +148,7 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
 func _draw_minimap() -> void:
     if world.heroes.is_empty():
         return
-    var center := Vector2(1486.0, 110.0)
+    var center := Vector2(1486.0, 158.0)
     var radius := 88.0
     draw_circle(center, radius + 7.0, PANEL_BG)
     draw_circle(center, radius, Color("#17456f"))
@@ -201,12 +201,12 @@ func _draw_zone_timer() -> void:
             status_color = Color("#c9a6ff")
     if bool(world.safe_zone_shrinking):
         status_color.a = 0.75 + sin(float(world.tick) * 0.22) * 0.25
-    _text(Vector2(1376.0, 226.0), status_text, 16, status_color, 220.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(1376.0, 274.0), status_text, 16, status_color, 220.0, HORIZONTAL_ALIGNMENT_CENTER)
     var remaining: float = maxf(0.0, float(world.MATCH_TIME_LIMIT) - float(world.match_time))
     var display_total: int = maxi(0, ceili(remaining))
     var urgent: bool = remaining <= 10.0 and world.result == &"playing"
     var clock_color: Color = Color("#ff4f68") if urgent else Color("#dbe5f0")
-    _text(Vector2(1376.0, 258.0), "%d:%02d" % [display_total / 60, display_total % 60], 26, clock_color, 220.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(1376.0, 306.0), "%d:%02d" % [display_total / 60, display_total % 60], 26, clock_color, 220.0, HORIZONTAL_ALIGNMENT_CENTER)
     if urgent:
         draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(clock_color, 0.34 + sin(float(world.tick) * 0.22) * 0.08), false, 9.0)
 
@@ -532,7 +532,7 @@ func _update_kill_feed() -> void:
 
 func _draw_kill_feed() -> void:
     var x := size.x - 220.0
-    var y := 60.0
+    var y := 332.0
     for i in _kill_feed.size():
         var entry: Dictionary = _kill_feed[i]
         var age := int(world.tick) - int(entry["time"])

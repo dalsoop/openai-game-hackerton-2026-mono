@@ -16,7 +16,7 @@ var is_open := false
 var _playing := false
 var _gear: Button
 var _dimmer: ColorRect
-var _panel: PanelContainer
+var _panel: Panel
 var _desc: Label
 var _group: ButtonGroup
 var _mode_btns: Dictionary = {}
@@ -76,19 +76,21 @@ func _build() -> void:
 
 
 func _build_gear() -> void:
-	_gear = Ui.btn("설정", Ui.BTN_DARK, Vector2(88, 44))
+	_gear = Ui.flat_icon_btn(Ui.gear_texture(40), Vector2(40, 40))
+	_gear.tooltip_text = "설정"
 	_gear.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_gear.offset_left = -112
-	_gear.offset_right = -16
-	_gear.offset_top = 14
-	_gear.offset_bottom = 58
+	# 미니맵 중심 x=1486 위에 맞춤 (1600 뷰포트).
+	_gear.offset_left = -134
+	_gear.offset_right = -94
+	_gear.offset_top = 10
+	_gear.offset_bottom = 50
 	_gear.pressed.connect(func() -> void: set_open(not is_open))
 	add_child(_gear)
 
 
 func _build_dimmer() -> void:
 	_dimmer = ColorRect.new()
-	_dimmer.color = Color(0, 0, 0, 0.55)
+	_dimmer.color = Color(0, 0, 0, 0.28)
 	Ui.full(_dimmer)
 	_dimmer.visible = false
 	_dimmer.gui_input.connect(_on_dimmer)
@@ -96,20 +98,21 @@ func _build_dimmer() -> void:
 
 
 func _build_panel() -> void:
-	var center := CenterContainer.new()
-	Ui.full(center)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
-	_panel = PanelContainer.new()
+	_panel = Panel.new()
 	_panel.visible = false
-	_panel.custom_minimum_size = Vector2(420, 0)
+	_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_panel.offset_left = -270
+	_panel.offset_right = 270
+	_panel.offset_top = -210
+	_panel.offset_bottom = 210
 	_panel.add_theme_stylebox_override("panel", Ui.card_box())
-	center.add_child(_panel)
+	add_child(_panel)
 	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
 	col.add_theme_constant_override("separation", 12)
 	_panel.add_child(col)
-	col.add_child(Ui.lbl("설정", 22, Ui.INK, HORIZONTAL_ALIGNMENT_CENTER))
-	col.add_child(Ui.lbl("조작 방식", 14, Ui.MUTED))
+	col.add_child(Ui.lbl("설정", 24, Ui.INK))
+	col.add_child(Ui.lbl("조작 방식", 15, Ui.INK))
 	_fill_mode_row(col)
 	_desc = Ui.lbl("", 13, Ui.MUTED)
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -130,7 +133,7 @@ func _fill_mode_row(col: VBoxContainer) -> void:
 
 
 func _fill_sound_and_leave(col: VBoxContainer) -> void:
-	col.add_child(Ui.lbl("소리", 14, Ui.MUTED))
+	col.add_child(Ui.lbl("소리", 15, Ui.INK))
 	var sound_check := CheckButton.new()
 	sound_check.text = "효과음 켜기"
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
@@ -138,22 +141,28 @@ func _fill_sound_and_leave(col: VBoxContainer) -> void:
 	sound_check.button_pressed = Store.load_sound_on()
 	sound_check.toggled.connect(func(on: bool) -> void: sound_changed.emit(on))
 	col.add_child(sound_check)
-	col.add_child(Ui.lbl("조작 안내", 14, Ui.MUTED))
+	col.add_child(Ui.lbl("조작 안내", 15, Ui.INK))
 	_onboard_check = CheckButton.new()
 	_onboard_check.text = "매치 시작 시 다시 보기"
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
 		_onboard_check.add_theme_color_override(state, Ui.INK)
 	_onboard_check.toggled.connect(_on_onboard_toggled)
 	col.add_child(_onboard_check)
-	var show_btn := Ui.btn("지금 보기", Ui.BTN_MUTED, Vector2(0, 44))
+	var show_btn := Ui.btn("지금 보기", Ui.BTN_MUTED, Vector2(160, 44))
 	show_btn.pressed.connect(_on_show_onboarding)
 	col.add_child(show_btn)
-	var leave_btn := Ui.btn("나가기", Ui.ERROR, Vector2(0, 48))
-	leave_btn.pressed.connect(func() -> void: leave_requested.emit())
-	col.add_child(leave_btn)
-	var keep_btn := Ui.btn("계속하기", Ui.BTN_MUTED, Vector2(0, 44))
-	keep_btn.pressed.connect(func() -> void: set_open(false))
-	col.add_child(keep_btn)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(spacer)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	var back := Ui.btn("닫기", Ui.BTN_DARK, Vector2(160, 44))
+	back.pressed.connect(func() -> void: set_open(false))
+	var leave := Ui.btn("로비로 나가기", Ui.BTN_MUTED, Vector2(160, 44))
+	leave.pressed.connect(func() -> void: leave_requested.emit())
+	actions.add_child(back)
+	actions.add_child(leave)
+	col.add_child(actions)
 
 
 func _on_dimmer(event: InputEvent) -> void:
