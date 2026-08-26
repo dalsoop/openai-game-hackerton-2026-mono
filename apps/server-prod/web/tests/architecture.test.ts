@@ -200,6 +200,7 @@ describe("계약: 허브 소켓 주인은 React", () => {
   it("로비 목록은 리스트 룸이 아니라 GET /rooms 다", () => {
     const src = sourceOf(join(ROOT, "hooks/useRoomList.ts"));
     expect(src).toContain("/rooms");
+    expect(src).toContain("AbortSignal.timeout");
     expect(src).not.toContain("joinOrCreate");
     expect(sourceOf(join(ROOT, "server.ts"))).toContain('pathname === "/rooms"');
     expect(sourceOf(join(ROOT, "server.ts"))).not.toContain("RoomListRoom");

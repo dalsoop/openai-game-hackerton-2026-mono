@@ -11,7 +11,7 @@ function roomOf(state: LobbyState): LobbyHandle {
     metadata: {},
     setMetadata: vi.fn(),
     clock: {
-      setTimeout: (cb, ms) => {
+      setTimeout: (cb: () => void, ms: number): { clear: () => void } => {
         const id = setTimeout(cb, ms);
         return { clear: (): void => {clearTimeout(id);} };
       },
@@ -37,6 +37,7 @@ describe("scheduleLobbyReset", () => {
       gameTimer: null,
       idleTimer: null,
       authority: null,
+      hostLossTimer: null,
     };
     scheduleLobbyReset(room, bag);
     expect(state.phase).toBe("playing");
