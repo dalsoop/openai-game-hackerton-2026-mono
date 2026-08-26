@@ -38,7 +38,7 @@ export function installRuntimeNoiseFilter(
 
   const onError = (ev: Event): void => {
     const err = ev as ErrorEvent;
-    if (!isUncheckedRuntimeLastError(`${err.message ?? ""} ${err.error ?? ""}`)) {return;}
+    if (!isUncheckedRuntimeLastError(`${err.message} ${textOf(err.error)}`)) {return;}
     ev.preventDefault();
     ev.stopImmediatePropagation();
   };
