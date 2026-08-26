@@ -84,7 +84,7 @@ const config = [
         "error",
         {
           mode: "jsx-text-only",
-          ignorePattern: "^(→|←|·|👑|\\s)+$",
+          ignorePattern: "^(→|←|·|👑|undo|directory_sync|\\s)+$",
         },
       ],
     },
