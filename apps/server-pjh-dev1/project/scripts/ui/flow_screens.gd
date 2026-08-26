@@ -13,6 +13,9 @@ const _STATUS_COLORS := {
 	"연결 중": UiTheme.WARN,
 }
 
+const INTRO_BACKGROUND := preload("res://assets/ui/title/Tex_UI_Title_AnimalDaguls_Concept_v3.png")
+const INTRO_LOGO := preload("res://assets/ui/title/Tex_UI_Logo_AnimalDaguls_Concept_v3.png")
+
 var page := &"lobby"
 var selected_mode := "classic"
 var sound_on := true
@@ -45,6 +48,10 @@ var _settings_mode_desc: Label
 var _settings_sound: CheckButton
 var _pending_create := false
 var _intro_name_edit: LineEdit
+var _intro_art: TextureRect
+var _intro_logo: TextureRect
+var _intro_controls: Control
+var _intro_accept_ready := false
 
 func _ready() -> void:
 	_try_bind_hub()
@@ -63,6 +70,24 @@ func _ready() -> void:
 	_name_edit.text = default_name
 	show_page(&"intro")
 
+func _input(event: InputEvent) -> void:
+	if page != &"intro" or not _intro_accept_ready:
+		return
+	var accepted := false
+	if event is InputEventKey:
+		accepted = event.pressed and not event.echo and event.keycode != KEY_ESCAPE
+	elif event is InputEventMouseButton:
+		accepted = event.pressed
+	elif event is InputEventScreenTouch:
+		accepted = event.pressed
+	elif event is InputEventJoypadButton:
+		accepted = event.pressed
+	if not accepted:
+		return
+	_intro_accept_ready = false
+	get_viewport().set_input_as_handled()
+	call_deferred("_on_intro_find")
+
 func show_page(which: StringName) -> void:
 	page = which
 	_select.visible = which == &"select"
@@ -71,6 +96,8 @@ func show_page(which: StringName) -> void:
 	_lobby.visible = which == &"lobby"
 	_wait.visible = which == &"wait"
 	_settings.visible = which == &"settings"
+	if which == &"intro":
+		_play_intro_reveal()
 	if which == &"lobby":
 		_enter_lobby()
 	if which == &"wait":
@@ -119,87 +146,73 @@ func _build() -> void:
 
 func _build_intro() -> Control:
 	var root := UiTheme.full(Control.new())
-	var bg := ColorRect.new()
-	bg.color = UiTheme.INTRO_BG
-	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	root.add_child(bg)
-	var title := Label.new()
-	title.text = "다굴"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", GameFont.get_bold_font())
-	title.add_theme_font_size_override("font_size", 96)
-	title.add_theme_color_override("font_color", UiTheme.INTRO_TITLE)
-	title.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
-	title.offset_top = 120
-	title.offset_bottom = 240
-	title.offset_left = -300
-	title.offset_right = 300
-	root.add_child(title)
-	var subtitle := UiTheme.lbl("8인 배틀로얄", 18, UiTheme.INTRO_SUB, HORIZONTAL_ALIGNMENT_CENTER)
-	subtitle.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
-	subtitle.offset_top = 230
-	subtitle.offset_bottom = 260
-	subtitle.offset_left = -300
-	subtitle.offset_right = 300
-	root.add_child(subtitle)
-	var center := VBoxContainer.new()
-	center.set_anchors_and_offsets_preset(PRESET_CENTER)
-	center.offset_left = -180
-	center.offset_right = 180
-	center.offset_top = 20
-	center.offset_bottom = 260
-	center.add_theme_constant_override("separation", 12)
+	_intro_art = TextureRect.new()
+	_intro_art.texture = INTRO_BACKGROUND
+	_intro_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_intro_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_intro_art.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_intro_art.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(_intro_art)
+	var sky_shade := ColorRect.new()
+	sky_shade.color = Color(0.015, 0.045, 0.09, 0.12)
+	sky_shade.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	sky_shade.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(sky_shade)
+	_intro_logo = TextureRect.new()
+	var logo_atlas := AtlasTexture.new()
+	logo_atlas.atlas = INTRO_LOGO
+	logo_atlas.region = Rect2(240.0, 175.0, 1080.0, 620.0)
+	_intro_logo.texture = logo_atlas
+	_intro_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_intro_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_intro_logo.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
+	_intro_logo.offset_left = -450.0
+	_intro_logo.offset_right = 450.0
+	_intro_logo.offset_top = -4.0
+	_intro_logo.offset_bottom = 310.0
+	_intro_logo.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(_intro_logo)
+	var prompt := UiTheme.lbl("아무 키나 눌러 시작", 20, Color("fff0bf"), HORIZONTAL_ALIGNMENT_CENTER)
+	prompt.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
+	prompt.offset_left = -240.0
+	prompt.offset_right = 240.0
+	prompt.offset_top = 276.0
+	prompt.offset_bottom = 312.0
+	prompt.mouse_filter = MOUSE_FILTER_IGNORE
+	root.add_child(prompt)
+	_intro_controls = prompt
 	_intro_name_edit = LineEdit.new()
 	_intro_name_edit.max_length = 12
-	_intro_name_edit.custom_minimum_size = Vector2(0, 48)
-	_intro_name_edit.placeholder_text = "닉네임을 입력하세요"
-	_intro_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_intro_name_edit.add_theme_font_size_override("font_size", 18)
-	var name_sb := StyleBoxFlat.new()
-	name_sb.bg_color = Color(1, 1, 1, 0.08)
-	name_sb.border_color = Color(1, 1, 1, 0.15)
-	name_sb.border_width_bottom = 2
-	name_sb.corner_radius_top_left = 8
-	name_sb.corner_radius_top_right = 8
-	name_sb.corner_radius_bottom_left = 8
-	name_sb.corner_radius_bottom_right = 8
-	name_sb.content_margin_left = 16
-	name_sb.content_margin_right = 16
-	_intro_name_edit.add_theme_stylebox_override("normal", name_sb)
-	_intro_name_edit.add_theme_color_override("font_color", Color.WHITE)
-	_intro_name_edit.add_theme_color_override("font_placeholder_color", UiTheme.INTRO_SUB)
-	center.add_child(_intro_name_edit)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
-	center.add_child(spacer)
-	var play_btn := UiTheme.btn("바로 시작", UiTheme.BLUE, Vector2(0, 64))
-	play_btn.add_theme_font_size_override("font_size", 26)
-	play_btn.pressed.connect(_on_intro_play)
-	center.add_child(play_btn)
-	var find_btn := UiTheme.btn("방 찾기", Color(0.12, 0.6, 0.35), Vector2(0, 54))
-	find_btn.pressed.connect(_on_intro_find)
-	center.add_child(find_btn)
-	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", 8)
-	var how_btn := UiTheme.btn("조작법", Color(0.22, 0.26, 0.34), Vector2(0, 44))
-	how_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	how_btn.pressed.connect(func():
-		_how_return = &"intro"
-		show_page(&"how"))
-	btn_row.add_child(how_btn)
-	var rules_btn := UiTheme.btn("규칙", Color(0.22, 0.26, 0.34), Vector2(0, 44))
-	rules_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rules_btn.pressed.connect(_show_rules_card)
-	btn_row.add_child(rules_btn)
-	center.add_child(btn_row)
-	root.add_child(center)
-	var hint := UiTheme.lbl("WASD 이동 · 마우스 조준 · 좌클릭 공격", 12, UiTheme.INTRO_SUB, HORIZONTAL_ALIGNMENT_CENTER)
-	hint.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-	hint.offset_top = -40
-	hint.offset_bottom = -16
-	root.add_child(hint)
+	_intro_name_edit.visible = false
+	root.add_child(_intro_name_edit)
 	return root
+
+func _play_intro_reveal() -> void:
+	if _intro_art == null or _intro_logo == null or _intro_controls == null:
+		return
+	_intro_accept_ready = false
+	# Start on the upper sky, then pan the camera downward toward the runners.
+	# The artwork moves upward because the viewport is moving down across it.
+	_intro_art.scale = Vector2.ONE * 1.10
+	_intro_art.position = Vector2(-80.0, 0.0)
+	_intro_logo.modulate.a = 0.0
+	_intro_logo.offset_top = -28.0
+	_intro_logo.offset_bottom = 286.0
+	_intro_controls.modulate.a = 0.0
+	_intro_controls.offset_top = 264.0
+	_intro_controls.offset_bottom = 300.0
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_intro_art, "position:y", -60.0, 1.35)
+	tween.tween_property(_intro_logo, "modulate:a", 1.0, 0.42).set_delay(0.82)
+	tween.tween_property(_intro_logo, "offset_top", -4.0, 0.52).set_delay(0.82)
+	tween.tween_property(_intro_logo, "offset_bottom", 310.0, 0.52).set_delay(0.82)
+	tween.tween_property(_intro_controls, "modulate:a", 1.0, 0.36).set_delay(1.08)
+	tween.tween_property(_intro_controls, "offset_top", 276.0, 0.46).set_delay(1.08)
+	tween.tween_property(_intro_controls, "offset_bottom", 312.0, 0.46).set_delay(1.08)
+	tween.finished.connect(func():
+		if page == &"intro":
+			_intro_accept_ready = true)
 
 func _on_intro_play() -> void:
 	_sync_intro_name()
