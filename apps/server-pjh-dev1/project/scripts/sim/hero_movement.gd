@@ -254,8 +254,6 @@ func move_launched_hero(slot: int, dt: float) -> void:
 		var wall_damage := clampf(9.0 + velocity.length() / 78.0, 15.0, 36.0)
 		if float(h["guard_time"]) > 0.0:
 			wall_damage *= 0.55
-		var wall_damage_cap := float(h["max_hp"]) * float(h["equipment"]["combo_cap_ratio"])
-		wall_damage = minf(wall_damage, maxf(0.0, wall_damage_cap - float(h["launch_wall_damage"])))
 		h["launch_wall_damage"] = float(h["launch_wall_damage"]) + wall_damage
 		h["hp"] = float(h["hp"]) - wall_damage
 		var launch_owner := int(h["launch_owner"])

@@ -19,7 +19,7 @@ var _crossfade_duration := 0.0
 var _fading := false
 var master_volume := 1.0
 var sfx_volume := 1.0
-var music_volume := 0.28
+var music_volume := 0.322
 var _current_track := ""
 var _lp: AudioEffectLowPassFilter
 var _impact: AudioStreamPlayer

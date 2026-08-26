@@ -729,20 +729,26 @@ func _draw_critical(me: Dictionary) -> void:
     elif bool(me["alive"]) and float(me.get("root_time", 0.0)) > 0.0:
         draw_rect(Rect2(510.0, 660.0, 580.0, 48.0), Color(0.07, 0.025, 0.12, 0.90))
         _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SHIFT/SPACE LOCKED - FIRE AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+    var alert_y := 14.0
+    var wanted_slot := int(world.wanted_slot)
+    if wanted_slot >= 0 and wanted_slot < world.heroes.size() and not bool(world.heroes[wanted_slot].get("eliminated", false)):
+        alert_y += 40.0
     if world.last_down_ticks > 0 and world.last_down_slot >= 0:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]
-        draw_rect(Rect2(520.0, 52.0, 560.0, 36.0), Color(0.12, 0.01, 0.03, 0.42 * down_alpha))
-        _text(Vector2(530.0, 76.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(520.0, alert_y, 560.0, 36.0), Color(0.12, 0.01, 0.03, 0.42 * down_alpha))
+        _text(Vector2(530.0, alert_y + 24.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        alert_y += 40.0
     if world.callout_ticks > 0 and world.result == &"playing":
         var alpha := clampf(float(world.callout_ticks) / 24.0, 0.0, 1.0)
-        draw_rect(Rect2(560.0, 52.0, 480.0, 28.0), Color(0.04, 0.04, 0.06, 0.32 * alpha))
-        _text(Vector2(580.0, 72.0), world.callout, 13, Color(1.0, 0.74, 0.42, alpha), 440.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(560.0, alert_y, 480.0, 28.0), Color(0.04, 0.04, 0.06, 0.32 * alpha))
+        _text(Vector2(580.0, alert_y + 20.0), world.callout, 13, Color(1.0, 0.74, 0.42, alpha), 440.0, HORIZONTAL_ALIGNMENT_CENTER)
+        alert_y += 32.0
     if world.streak_callout_ticks > 0 and world.result == &"playing":
         var streak_alpha := clampf(float(world.streak_callout_ticks) / 18.0, 0.0, 1.0)
         var streak_color := Color("#ff4f68") if world.streak_callout_shutdown else Color("#ffd166")
-        draw_rect(Rect2(520.0, 52.0, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
-        _text(Vector2(530.0, 78.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        draw_rect(Rect2(520.0, alert_y, 560.0, 40.0), Color(0.04, 0.02, 0.03, 0.36 * streak_alpha))
+        _text(Vector2(530.0, alert_y + 26.0), world.streak_callout, 16, Color(streak_color, streak_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.start_countdown > 0.0:
         var countdown_center := Vector2(800.0, 450.0)
         var count_value := clampi(ceili(world.start_countdown), 1, 3)

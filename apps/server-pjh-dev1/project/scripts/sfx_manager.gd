@@ -75,7 +75,7 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 		if event_type == &"hero_hit" and involves:
 			var source := StringName(event["data"].get("source", &"normal"))
 			if source == &"safe_zone":
-				Audio.play_sfx("zone_tick", -2.0, 0.02)
+				Audio.play_sfx("zone_tick", -3.4, 0.02)
 				print("[gangup] sfx zone_tick")
 			elif source == &"normal" or source == &"equipment":
 				Audio.play_sfx("gun_hit", -3.0, 0.04)
@@ -213,8 +213,12 @@ func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 			Audio.play_sfx("roulette", 2.0, 0.0)
 			print("[gangup] sfx roulette")
 		elif event_type == &"safe_zone_shrink":
-			Audio.play_sfx("zone_shrink", -2.0, 0.0)
+			Audio.play_sfx("zone_shrink", -7.4, 0.0)
 			print("[gangup] sfx zone_shrink phase=%s" % event["data"].get("phase", -1))
+		elif event_type == &"match_started":
+			Audio.play_music("match")
+			Audio.play_sfx("match_start", -1.0, 0.0)
+			print("[gangup] sfx match_start")
 		elif event_type == &"fight_countdown":
 			Audio.play_sfx("countdown", -3.0, 0.0)
 			Audio.hurry_music(1.3)

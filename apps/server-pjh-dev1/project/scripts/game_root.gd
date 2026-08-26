@@ -688,10 +688,9 @@ func _camera_target() -> Vector2:
 	look_ahead += Vector2(focus["vel"]) * 0.16
 	look_ahead.y = maxf(look_ahead.y, -28.0)
 	var zoom_value := maxf(1.10, camera.zoom.x)
-	var hud_reserve := 150.0 / zoom_value
-	var desired := Vector2(focus["pos"]) + look_ahead + Vector2(0.0, hud_reserve * 0.45)
 	var half_view := Vector2(800.0, 450.0) / zoom_value
-	var min_y := half_view.y + hud_reserve * 0.15
+	var desired := Vector2(focus["pos"]) + look_ahead
+	var min_y := half_view.y
 	return Vector2(clampf(desired.x, half_view.x, world.ARENA_SIZE.x - half_view.x), clampf(desired.y, min_y, world.ARENA_SIZE.y - half_view.y))
 
 func _check_my_kill_fanfare() -> void:

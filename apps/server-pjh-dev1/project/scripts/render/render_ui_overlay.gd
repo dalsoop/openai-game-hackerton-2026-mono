@@ -34,51 +34,23 @@ func draw_head_roulette(body_pos: Vector2, hero: Dictionary) -> void:
 	elif phase == "land":
 		rot = -float(current) * slice
 	var rank := str(hero.get("roulette_rank", "kill"))
-	var cols: Array = _roulette_slice_palette(rank)
-	var rim: Color = _roulette_rank_color(rank)
-	for i in range(count):
-		var a0 := -PI * 0.5 + rot + float(i) * slice - slice * 0.5
-		var a1 := a0 + slice
-		var pts := PackedVector2Array()
-		pts.append(wheel_pos)
-		for s in range(7):
-			var a := lerpf(a0, a1, float(s) / 6.0)
-			pts.append(wheel_pos + Vector2(cos(a), sin(a)) * radius)
-		r.draw_colored_polygon(pts, cols[i % cols.size()])
-		r.draw_line(wheel_pos, wheel_pos + Vector2(cos(a0), sin(a0)) * radius, Color(1.0, 1.0, 1.0, 0.88), 1.6)
-	r.draw_arc(wheel_pos, radius, 0.0, TAU, 48, rim.darkened(0.25), 5.0)
-	r.draw_circle(wheel_pos, 7.5, Color(0.96, 0.93, 0.86, 1.0))
-	r.draw_arc(wheel_pos, 7.5, 0.0, TAU, 20, rim.darkened(0.15), 1.6)
-	for i in range(count):
-		var mid := -PI * 0.5 + rot + float(i) * slice
-		var face_id := str(slice_ids[i])
-		var icon_pos: Vector2 = wheel_pos + Vector2(cos(mid), sin(mid)) * (radius * 0.58)
-		var icon_tex: Texture2D = r.roulette_icons.get(face_id, null)
-		var glow := phase == "land" and i == current
-		var sz := 24.0 if glow else 20.0
-		if icon_tex != null:
-			r.draw_texture_rect(icon_tex, Rect2(icon_pos - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz)), false)
-		else:
-			r.draw_circle(icon_pos, 5.0, Color.WHITE)
+	var tex: Texture2D = r.roulette_wheel_rank.get(rank, null)
+	if tex == null:
+		tex = r.roulette_wheel_tex
+	if tex != null:
+		var dest := Rect2(Vector2(-radius, -radius), Vector2(radius * 2.0, radius * 2.0))
+		r.draw_set_transform(wheel_pos, rot, Vector2.ONE)
+		r.draw_texture_rect(tex, dest, false)
+		r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if phase == "land" and float(hero.get("roulette_time", 0.0)) >= 2.35:
+			print("[gangup] roulette wheel tex rank=", rank, " land=", spin_id)
+	else:
+		print("[gangup] roulette wheel tex missing rank=", rank)
 	r.draw_colored_polygon(PackedVector2Array([
-		wheel_pos + Vector2(0.0, -radius - 7.0),
-		wheel_pos + Vector2(-7.0, -radius + 6.0),
-		wheel_pos + Vector2(7.0, -radius + 6.0)
+		wheel_pos + Vector2(-8.0, -radius - 8.0),
+		wheel_pos + Vector2(8.0, -radius - 8.0),
+		wheel_pos + Vector2(0.0, -radius + 8.0)
 	]), Color(0.98, 0.98, 0.98, 1.0))
-
-func _roulette_slice_palette(rank: String) -> Array:
-	if rank == "assist":
-		return [Color("#2f6fff"), Color("#7eb6ff"), Color("#163a8a")]
-	if rank == "wanted":
-		return [Color("#e11d2e"), Color("#ff6b6b"), Color("#7a121c")]
-	return [Color("#8b3dff"), Color("#c89bff"), Color("#4a1d86")]
-
-func _roulette_rank_color(rank: String) -> Color:
-	if rank == "assist":
-		return Color("#4da3ff")
-	if rank == "wanted":
-		return Color("#ff3349")
-	return Color("#b84dff")
 
 func draw_reload_bubble(body_pos: Vector2, hero: Dictionary) -> void:
 	if not bool(hero.get("alive", false)):

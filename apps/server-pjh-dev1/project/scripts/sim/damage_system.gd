@@ -260,9 +260,6 @@ func damage_hero(owner: int, target: int, amount: float, source: StringName = &"
 	if armor_active:
 		h["combo_capture_time"] = 0.0
 	if source != &"mobility" and not bool(h.get("downed", false)):
-		var combo_cap = float(h["max_hp"]) * float(h["equipment"]["combo_cap_ratio"])
-		var combo_remaining = maxf(0.0, combo_cap - float(h["combo_damage"]))
-		amount = minf(amount, combo_remaining)
 		h["combo_damage"] = float(h["combo_damage"]) + amount
 	h["hp"] = float(h["hp"]) - amount
 	h["recent_attacker"] = owner
@@ -347,7 +344,9 @@ func damage_hero(owner: int, target: int, amount: float, source: StringName = &"
 	attacker["score"] = float(attacker["score"]) + amount
 	w.heroes[owner] = attacker
 	if amount > 0.01:
-		award_charge(owner, amount, source)
+		if owner != target:
+			award_charge(owner, amount, source)
+			add_ult_charge(target, charge_from_damage(amount) * w.ULT_CHARGE_TAKEN_RATIO)
 	var impact_radius = clampf(24.0 + amount * 1.4 + absf(knockback) * 0.12, 32.0, 125.0)
 	var effect_direction = Vector2(h["launch_vel"]).normalized() if Vector2(h["launch_vel"]).length_squared() > 0.1 else Vector2(w.heroes[owner]["pos"]).direction_to(Vector2(h["pos"]))
 	w.proj.add_effect(effect_kind, Vector2(h["pos"]), impact_radius, 0.22 if source == &"normal" else 0.42, Color("#ffffff"), effect_label, effect_direction)
@@ -397,6 +396,18 @@ func damage_core(owner: int, target: int, amount: float, source: StringName = &"
 		w.cores[target] = core
 		w.event_log.emit(w.tick, &"core_destroyed", owner, target, {})
 
+func charge_from_damage(amount: float) -> float:
+	return maxf(0.0, amount) * w.ULT_CHARGE_PER_DAMAGE
+
+func add_ult_charge(slot: int, charge: float) -> void:
+	if slot < 0 or slot >= w.heroes.size() or charge <= 0.0001:
+		return
+	var h: Dictionary = w.heroes[slot]
+	if not bool(h.get("alive", false)) or bool(h.get("eliminated", false)):
+		return
+	h["ultimate_charge"] = minf(w.ULTIMATE_MAX, float(h.get("ultimate_charge", 0.0)) + charge)
+	w.heroes[slot] = h
+
 func award_charge(slot: int, amount: float, source: StringName) -> void:
 	if source == &"ultimate" or source == &"mobility" or slot < 0 or slot >= w.heroes.size():
 		return
@@ -405,8 +416,8 @@ func award_charge(slot: int, amount: float, source: StringName) -> void:
 		h["equipment_hits"] = int(h["equipment_hits"]) + 1
 	else:
 		h["normal_hits"] = int(h["normal_hits"]) + 1
-	h["ultimate_charge"] = minf(w.ULTIMATE_MAX, float(h.get("ultimate_charge", 0.0)) + maxf(4.0, amount * 0.12))
 	w.heroes[slot] = h
+	add_ult_charge(slot, charge_from_damage(amount))
 
 func heal_hero(slot: int, amount: float) -> void:
 	var h: Dictionary = w.heroes[slot]
@@ -428,6 +439,7 @@ func damage_hero_environment(target: int, amount: float, show_tick: bool, source
 		zone_amt *= 3.0
 	h["hp"] = float(h["hp"]) - zone_amt
 	w.heroes[target] = h
+	add_ult_charge(target, charge_from_damage(zone_amt) * w.ULT_CHARGE_TAKEN_RATIO)
 	if show_tick:
 		if source == &"safe_zone":
 			w.proj.add_effect(&"zone_impact", Vector2(h["pos"]), 68.0, 0.28, Color("#c65cff"), "ZONE", Vector2.RIGHT, target)
