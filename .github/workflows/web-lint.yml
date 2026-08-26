@@ -1,7 +1,7 @@
 name: web-lint
 
 # yjh-dev1 웹 앱 게이트 — 정적(lint·타입·빌드·단위) + 통합(허브 실왕복 스모크).
-# 브라우저 E2E는 로컬 담당(비용) · 배포는 apps.yml 이 담당한다.
+# 브라우저 E2E는 로컬 담당(비용) · 배포는 apply-apps.py 가 담당한다.
 on:
   pull_request:
     paths:

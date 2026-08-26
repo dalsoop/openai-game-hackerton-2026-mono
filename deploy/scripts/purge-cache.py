@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cloudflare에서 슬롯 호스트 캐시를 지운다. CI 시크릿만 사용한다."""
+"""Cloudflare에서 슬롯 호스트 캐시를 지운다. helm 직후와 main 푸시에서 자동으로 돈다."""
 from __future__ import annotations
 
 import json

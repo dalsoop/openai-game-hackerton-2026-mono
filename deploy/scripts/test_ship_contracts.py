@@ -304,6 +304,7 @@ class HelmContract(unittest.TestCase):
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
         self.assertIn("assert_hub_images", helm_fn)
         self.assertIn("run_plant()", helm_fn)
+        self.assertIn("purge_cloudflare()", helm_fn)
         self.assertNotIn("ensure_hub_images", helm_fn)
 
 class PlatformGodotPipeline(unittest.TestCase):
@@ -318,12 +319,17 @@ class PlatformGodotPipeline(unittest.TestCase):
         build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
         self.assertIn("--import --quit", build)
         apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
-        self.assertNotIn("group: apps-ship", apps_yml)
-        self.assertIn("group: apps-build", apps_yml)
-        self.assertIn("group: apps-helm", apps_yml)
-        self.assertIn("apply-apps.py ship", apps_yml)
-        self.assertIn("apply-apps.py helm --no-rebuild", apps_yml)
-        self.assertEqual(apps_yml.count("apply-apps.py helm"), 1)
+        self.assertNotIn("apply-apps.py ship", apps_yml)
+        self.assertNotIn("apply-apps.py helm", apps_yml)
+        self.assertNotIn("group: apps-build", apps_yml)
+        self.assertNotIn("group: apps-helm", apps_yml)
+        self.assertIn("on:\n  push:", apps_yml)
+        self.assertNotIn("workflow_dispatch", apps_yml)
+        self.assertIn("purge-cache.py", apps_yml)
+        self.assertNotIn("apply-apps.py", apps_yml)
+        apps_py = (root / "deploy" / "scripts" / "apply-apps.py").read_text()
+        self.assertIn('if cmd == "ship":', apps_py)
+        self.assertIn("helm_upgrade()", apps_py)
         for folder in ("server-yjh-dev1", "server-prod"):
             text = (APPS / folder / "hackertone.yaml").read_text()
             self.assertNotIn("skipExport", text)

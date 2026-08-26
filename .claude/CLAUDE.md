@@ -17,7 +17,7 @@
 `apps/server-*` → `https://<폴더>.external.kr/`  
 확인: `python3 deploy/scripts/status.py` · 보드 `https://server-board.external.kr/`
 
-방 서버는 `server-*`마다 따로다. 보드만 빼면 자기 호스트 `/gang-up`을 갖는다. `apps/` 푸시 후 Actions `Apps ship`이 허브와 Godot 웹을 올린다.
+방 서버는 `server-*`마다 따로다. 보드만 빼면 자기 호스트 `/gang-up`을 갖는다. 배포는 `apply-apps.py ship` 다음 `helm`이다.
 
 ## GDScript 코드 규칙
 

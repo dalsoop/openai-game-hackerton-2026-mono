@@ -171,7 +171,7 @@ apps/server-yjh-dev1/
 ## 6. 빌드 파이프라인
 
 ```
-CI (Apps ship):
+apply-apps.py ship + helm:
   1. Godot 웹 내보내기 → project/web/ (WASM+PCK+JS)
   2. React 빌드 (cd web && npm run build) → web/dist/
   3. 합체: cp web/dist/* public/ && cp project/web/index.{wasm,pck,js} public/godot/

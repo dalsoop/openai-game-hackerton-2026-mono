@@ -64,14 +64,14 @@ cd deploy/usability && node cli.mjs smoke
 
 ## 배포
 
-`apps/`를 푸시하면 `Apps ship`이 Godot 웹 익스포트·허브 이미지·Helm을 올린다. wasm/pck는 git에 넣지 않는다. 보드는 `https://server-board.external.kr/`.
+배포는 로컬에서 한다. `python3 deploy/scripts/apply-apps.py ship <folder>` 다음 `python3 deploy/scripts/apply-apps.py helm`. GitHub Actions는 이미지를 만들지 않는다. wasm/pck는 git에 넣지 않는다. 보드는 `https://server-board.external.kr/`.
 
 PR용으로만 브랜치를 가른다. URL을 받으려고 브랜치를 추가하지 않는다.
 
-새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 → `python3 deploy/scripts/plant-apps.py` → 푸시하면 CI가 자동 배포.
+새 게임 추가: `apps/server-yjh-<name>/hackertone.yaml` + `Dockerfile` + `src/index.ts` + `project/` 작성 → `python3 deploy/scripts/apply-apps.py ship <folder>` → `python3 deploy/scripts/apply-apps.py helm`.
 
 ## GDScript 코드 규칙
-- 커밋 게이트(최초 1회): `git config core.hooksPath .githooks` — 배포 계약(`test_ship_contracts`). GD가 있으면 파스+유닛테스트도 차단한다. wasm/pck는 git에 넣지 않고 Apps ship 이 만든다.
+- 커밋 게이트(최초 1회): `git config core.hooksPath .githooks` — 배포 계약(`test_ship_contracts`). GD가 있으면 파스+유닛테스트도 차단한다. wasm/pck는 git에 넣지 않고 `apply-apps.py ship` 이 만든다.
 
 에이전트가 GDScript 코드를 작성하거나 수정할 때 따라야 할 규칙:
 

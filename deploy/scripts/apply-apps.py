@@ -454,13 +454,21 @@ def helm_upgrade() -> None:
     run_helm_argv(helm_upgrade_cmd(chart, values, games, envf))
     assert_live_matches_plant()
     assert_smoke_hubs()
+    purge_cloudflare()
     print("helm ok")
+
+
+def purge_cloudflare() -> None:
+    script = Path(__file__).with_name("purge-cache.py")
+    ran = subprocess.run([sys.executable, str(script)], check=False)
+    if ran.returncode:
+        raise SystemExit("cloudflare 퍼지 실패")
 
 
 def main() -> int:
     args = sys.argv[1:]
     if not args:
-        print("개발자는 apps/ 를 푸시하면 됩니다. 로컬 전체 적용은 CI와 같습니다.", file=sys.stderr)
+        print("정본은 로컬 apply-apps.py 이다. GitHub Actions 는 이미지를 만들지 않는다.", file=sys.stderr)
         print(
             "usage: apply-apps.py plant|hub <folder>|web <folder>|export <folder>|"
             "ship [folders...]|helm [--no-rebuild]",

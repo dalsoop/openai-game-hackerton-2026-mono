@@ -27,7 +27,7 @@
 - 배포 완료 후 `/gang-up/` → "게임으로 이동" → Godot 서버 연결 테스트 필요
 
 ### 다음 세션 체크리스트
-1. Apps ship 배포 큐 확인 (`gh run list --workflow "Apps ship" --limit 3`)
+1. 배포는 로컬 `apply-apps.py ship` / `helm`. Actions 빌드 큐는 보지 않는다.
 2. Godot 콘솔에서 Parse Error 없는지 확인
 3. `/gang-up/` → 방 만들기 → "게임으로 이동" → Godot 서버 연결 → 방 복귀 테스트
 4. 닉네임 "웹XX" 대신 허브에서 정한 이름이 Godot에 표시되는지 확인
