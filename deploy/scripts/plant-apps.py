@@ -294,7 +294,8 @@ def main() -> None:
         lines.append(f"    id: {item['id']}")
         lines.append(f"    pathPrefix: {item['pathPrefix']}")
         lines.append(f"    image: {item['image']}")
-        lines.append(f"    tag: {item['tag']}")
+        # 숫자로만 된 해시 태그가 YAML 숫자로 읽혀 지수 표기로 깨지지 않게 항상 따옴표.
+        lines.append(f"    tag: \"{item['tag']}\"")
     OUT_VALUES.write_text("\n".join(lines) + "\n")
     print(f"wrote {BOARD_SLOTS.relative_to(ROOT)} ({len(slots)} slots)")
     print(f"wrote {OUT_VALUES.relative_to(ROOT)}")
