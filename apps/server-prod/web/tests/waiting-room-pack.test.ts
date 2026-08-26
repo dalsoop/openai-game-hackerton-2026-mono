@@ -4,7 +4,7 @@ import { Seat, clampPackPct } from "@/lib/domain/roster";
 import {
   connectedSeatsPacked, overlayOwnPackPct, packKind, shouldSendPackPct, slotBadge,
 } from "@/lib/domain/waiting-room-pack";
-import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
+import { bootOverlayPct, packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 
 function seat(
   slot: number, name: string, connected: boolean, packPct: number, isHost = false,
@@ -61,6 +61,12 @@ describe("로더 → 팩 보고", () => {
     expect(packPctFromLoader("downloading", 0.42)).toBe(42);
     expect(packPctFromLoader("compiling", 0.1)).toBe(100);
     expect(packPctFromLoader("ready", 0)).toBe(100);
+  });
+
+  it("부팅 오버레이는 상태와 무관하게 진행률만 보여 준다", () => {
+    expect(bootOverlayPct(0.42)).toBe(42);
+    expect(bootOverlayPct(0.74)).toBe(74);
+    expect(bootOverlayPct(1)).toBe(100);
   });
 
   it("5퍼센트와 끝점만 올린다", () => {

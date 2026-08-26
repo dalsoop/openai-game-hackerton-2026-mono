@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { GodotRuntime } from "@/lib/godot/runtime";
 import { asGameId } from "@/lib/games/catalog";
 import { runtimeErrorText } from "@/lib/godot/runtime-errors";
+import { bootOverlayPct } from "@/lib/hub/loader-pack-pct";
 import { useGodotMatch } from "@/hooks/useGodotMatch";
 import { useTranslations } from "next-intl";
 import type { MatchInfo } from "@/types";
@@ -27,6 +28,7 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
   if (!visible) {return null;}
 
   const booting = snap.state !== "running" && snap.state !== "error";
+  const pct = bootOverlayPct(snap.progress);
   const errorText = runtimeErrorText(snap.error ?? "", t);
 
   return (
@@ -34,8 +36,21 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
       <canvas ref={canvasRef} id="godot-canvas" className="gc-canvas" tabIndex={0} />
       {booting && (
         <div className="gc-booting">
-          <div>{t("godot.starting")}</div>
-          <div className="gc-boot-sub">{t("godot.loadingEngine")}</div>
+          <div className="gc-boot-pct">{t("godot.loadingPct", { pct })}</div>
+          <div
+            className="gc-boot-bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-label={t("godot.loadingPct", { pct })}
+          >
+            <div
+              className="gc-boot-bar-fill"
+              // eslint-disable-next-line react/forbid-dom-props -- 진행률 동적 값
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
       )}
       {snap.state === "error" && (

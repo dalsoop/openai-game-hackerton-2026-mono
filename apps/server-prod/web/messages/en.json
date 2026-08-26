@@ -129,8 +129,7 @@
     "a11": "Pig"
   },
   "godot": {
-    "starting": "Starting game...",
-    "loadingEngine": "Loading Godot engine",
+    "loadingPct": "Loading {pct}%",
     "startError": "Cannot start game",
     "backToLobby": "Back to lobby"
   },

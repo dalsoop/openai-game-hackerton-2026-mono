@@ -37,7 +37,7 @@
     }
   },
   "intro": {
-    "namePlaceholder": "내 이름",
+    "namePlaceholder": "이름",
     "startButton": "시작하기",
     "defaultPlayer": "플레이어",
     "loggedInAs": "{name}으로 로그인됨",
@@ -129,8 +129,7 @@
     "a11": "돼지"
   },
   "godot": {
-    "starting": "게임을 시작하는 중...",
-    "loadingEngine": "Godot 엔진을 로딩하고 있습니다",
+    "loadingPct": "로딩 중 {pct}%",
     "startError": "게임을 시작할 수 없습니다",
     "backToLobby": "로비로 돌아가기"
   },
