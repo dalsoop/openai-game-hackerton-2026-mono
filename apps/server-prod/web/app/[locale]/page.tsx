@@ -1,7 +1,8 @@
 "use client";
 // 렌더 전용 — 페이즈 상태머신은 useGameFlow, 허브는 useHub, 로더는 useGodotLoader.
 import type { JSX } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { usePathname, useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
@@ -23,6 +24,27 @@ function connLabel(status: HubStatus, t: Translate): string {
   if (status === "connecting") {return t("connection.connecting");}
   if (status === "offline") {return t("connection.offline");}
   return t("connection.connected");
+}
+
+
+function LocaleSwitch(): JSX.Element {
+  const t = useTranslations("locale");
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  return (
+    <select
+      className="locale-select"
+      value={locale}
+      aria-label={t("label")}
+      onChange={(e) => {
+        router.replace(pathname, { locale: e.target.value });
+      }}
+    >
+      <option value="ko">{t("ko")}</option>
+      <option value="en">{t("en")}</option>
+    </select>
+  );
 }
 
 export default function Home(): JSX.Element {
@@ -53,9 +75,7 @@ export default function Home(): JSX.Element {
   if (bounced) {
     return (
       <div className="page-shell">
-        <header className="hero">
-          <div className="logo-word">{t("logo.word")}</div>
-        </header>
+        <header className="hero" />
         <ConnectionLostModal
           reason={hub.dropReason ?? "offline"}
           onReconnect={hub.reconnectAfterDrop}
@@ -78,18 +98,11 @@ export default function Home(): JSX.Element {
 
   return (
     <div className="page-shell">
-      <header className="hero">
-        <div className="logo-word">{t("logo.word")}</div>
-        {phase !== "intro" && (
-          <div className={CONNECTION_CLASS[hub.status]}>
-            <span className="conn-dot" />
-            <span className="conn-txt">{connLabel(hub.status, t)}</span>
-            {hub.rttMs > 0 && (
-              <span className="conn-ping">{t("connection.ping", { ms: hub.rttMs })}</span>
-            )}
-          </div>
-        )}
-      </header>
+      {phase === "intro" && (
+        <header className="hero intro-top">
+          <LocaleSwitch />
+        </header>
+      )}
 
       <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
 
@@ -126,7 +139,12 @@ export default function Home(): JSX.Element {
               myRoom={hub.myRoom}
               onJoinRoom={hub.joinRoom}
               onRefresh={hub.refreshRooms}
+              refreshing={hub.refreshingRooms}
               onBackToIntro={backToIntro}
+              connClass={CONNECTION_CLASS[hub.status]}
+              connText={connLabel(hub.status, t)}
+              rttMs={hub.rttMs}
+              rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
             />
           )}
         </div>
@@ -147,6 +165,10 @@ export default function Home(): JSX.Element {
           canStart={loader.state === "ready"}
           onStartGame={start}
           onLeaveRoom={leaveToLobby}
+          connClass={CONNECTION_CLASS[hub.status]}
+          connText={connLabel(hub.status, t)}
+          rttMs={hub.rttMs}
+          rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
         />
       )}
     </div>

@@ -11,18 +11,24 @@ interface Props {
   listings: ReadonlyArray<GameListing>;
   onSubmit: (game: string, title: string) => void;
   onBack: () => void;
+  connClass: string;
+  connText: string;
 }
 
-export default function CreateRoom({ listings, onSubmit, onBack }: Props): JSX.Element {
+export default function CreateRoom({ listings, onSubmit, onBack, connClass, connText }: Props): JSX.Element {
   const t = useTranslations("create");
   const games = useTranslations();
 
   return (
     <div className="fade-in">
       <div className="back-row">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          ← {t("cancel")}
-        </Button>
+        <button type="button" className="ghost btn-icon" onClick={onBack} aria-label={t("cancel")}>
+          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
+        </button>
+        <div className={connClass}>
+          <span className="conn-dot" />
+          <span className="conn-txt">{connText}</span>
+        </div>
       </div>
 
       <h1 className="create-heading">{t("title")}</h1>

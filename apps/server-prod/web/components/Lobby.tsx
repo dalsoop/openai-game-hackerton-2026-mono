@@ -2,6 +2,7 @@
 // 방 목록 — 멤버십 판정·정렬은 lib/room-membership(순수), 여기는 표현만.
 // 방 만들기는 /create 페이지. 목록과 생성 폼을 한 화면에 두지 않는다.
 import type { JSX } from "react";
+import { useRefreshSpin } from "@/hooks/useRefreshSpin";
 import type { HubRoom } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { findGame } from "@/lib/games/catalog";
@@ -15,12 +16,14 @@ interface Props {
   myRoom: MyRoomIdentity | null;
   onJoin: (id: string) => void;
   onRefresh: () => void;
+  refreshing?: boolean;
 }
 
-export default function Lobby({ rooms, myRoom, onJoin, onRefresh }: Props): JSX.Element {
+export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = false }: Props): JSX.Element {
   const t = useTranslations("lobby");
   const games = useTranslations();
   const sorted = sortRoomsByMembership(rooms, myRoom);
+  const spin = useRefreshSpin(refreshing);
 
   return (
     <div className="fade-in lobby-board">
@@ -28,8 +31,10 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh }: Props): JSX.
         <Link href="/create" className="cta lobby-create-link">
           {t("createButton")}
         </Link>
-        <button type="button" className="ghost btn-sm" onClick={onRefresh}>
-          {t("refresh")}
+        <button type="button" className="ghost btn-icon" onClick={onRefresh} aria-label={t("refresh")} aria-busy={refreshing}>
+          <span className={spin.className} aria-hidden="true" onAnimationIteration={spin.onAnimationIteration}>
+            <span className="material-symbols-outlined">directory_sync</span>
+          </span>
         </button>
       </div>
 

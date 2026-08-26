@@ -17,7 +17,12 @@ interface LobbyPhaseProps {
   myRoom: MyRoomIdentity | null;
   onJoinRoom: (id: string) => void;
   onRefresh: () => void;
+  refreshing?: boolean;
   onBackToIntro: () => void;
+  connClass: string;
+  connText: string;
+  rttMs: number;
+  rttText: string | null;
 }
 
 export function LobbyPhase({
@@ -26,16 +31,28 @@ export function LobbyPhase({
   myRoom,
   onJoinRoom,
   onRefresh,
+  refreshing = false,
   onBackToIntro,
+  connClass,
+  connText,
+  rttMs,
+  rttText,
 }: LobbyPhaseProps): JSX.Element {
   const t = useTranslations();
 
   return (
     <div className="fade-in">
       <div className="back-row">
-        <button type="button" className="ghost btn-sm" onClick={onBackToIntro}>
-          ← {t("game.back")}
+        <button type="button" className="ghost btn-icon" onClick={onBackToIntro} aria-label={t("game.back")}>
+          <span className="material-symbols-outlined" aria-hidden="true">undo</span>
         </button>
+        <div className={connClass}>
+          <span className="conn-dot" />
+          <span className="conn-txt">{connText}</span>
+          {rttMs > 0 && rttText && (
+            <span className="conn-ping">{rttText}</span>
+          )}
+        </div>
       </div>
 
       {status === "connecting" ? (
@@ -46,6 +63,7 @@ export function LobbyPhase({
           myRoom={myRoom}
           onJoin={onJoinRoom}
           onRefresh={onRefresh}
+          refreshing={refreshing}
         />
       )}
     </div>

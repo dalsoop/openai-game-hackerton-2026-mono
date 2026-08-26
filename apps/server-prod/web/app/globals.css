@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Galmuri11';
+  src: url('/fonts/Galmuri11.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg-0:#0b0e14; --bg-1:#12161f; --bg-2:#1a2029; --bg-3:#232b38;
@@ -39,6 +47,20 @@ body.wait #wait { display: block; }
 
 /* --- hero --- */
 .hero { display:flex; align-items:center; gap:16px; margin-bottom:28px; flex-wrap:wrap; }
+.hero:empty { display:none; margin:0; }
+.intro-top { width:100%; margin-bottom:18px; justify-content:flex-end; }
+.intro-top .logo-word { font-size:clamp(20px,3vw,28px); }
+.locale-select {
+  margin-left:auto;
+  background:var(--bg-1);
+  color:var(--tx-0);
+  border:1.5px solid var(--line);
+  border-radius:var(--radius);
+  padding:8px 12px;
+  font-size:14px;
+  cursor:pointer;
+}
+.locale-select:focus { border-color:var(--acc); outline:none; }
 .logo-mark { width:56px; height:56px; object-fit:contain; border-radius:12px; background:rgba(0,0,0,.35); box-shadow:var(--shadow); }
 .logo-word { font-weight:900; font-size:clamp(28px,4vw,44px); letter-spacing:-.03em; color:var(--tx-0); }
 .logo-word span { color:var(--acc); margin-left:.3em; }
@@ -84,6 +106,9 @@ body.wait #wait { display: block; }
 .room-aside { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
 .wait-panel { display:flex; flex-direction:column; gap:14px; }
 .wait-idle { margin:0; font-size:13px; color:var(--tx-1); }
+.wait-line { display:flex; align-items:center; gap:6px; margin-left:auto; white-space:nowrap; min-width:0; }
+.wait-idle-inline { font-size:13px; color:var(--tx-1); }
+.wait-title-inline { font-size:16px; font-weight:800; color:var(--tx-0); }
 .wait-games { border:1.5px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin:0; }
 .wait-game-list { display:flex; flex-wrap:wrap; gap:8px; }
 .wait-game { display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--line); border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px; }
@@ -137,10 +162,11 @@ body.wait #wait { display: block; }
 /* --- slot cards --- */
 .slots { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 @media (max-width:640px) { .slots { grid-template-columns:repeat(2,1fr); } }
-.slot-card { background:var(--bg-1); border:1.5px dashed var(--line); border-radius:var(--radius); padding:12px 8px; text-align:center; min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:.25s; }
+.slot-card { position:relative; background:var(--bg-1); border:1.5px dashed var(--line); border-radius:var(--radius); padding:12px 8px; text-align:center; min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:.25s; }
 .slot-card.filled { border-style:solid; animation:slotIn .35s cubic-bezier(.2,1.4,.4,1); }
 .slot-card.me { box-shadow:0 0 0 2px var(--cyan) inset; }
 .slot-card:not(.filled) { opacity:.5; }
+.slot-ping { position:absolute; top:6px; right:8px; font-size:11px; line-height:1; color:var(--cyan); font-family:ui-monospace,monospace; }
 .slot-name { font-size:14px; font-weight:600; margin-top:4px; }
 .slot-tag { font-size:11px; color:var(--tx-2); }
 .slot-crown { display:inline; }
@@ -206,8 +232,28 @@ body.wait #wait { display: block; }
 /* --- 인트로 --- */
 .intro { animation:fadeUp .35s ease both; display:flex; flex-direction:column; align-items:center; }
 .banner-frame { position:relative; width:100%; border-radius:var(--radius); overflow:hidden; border:1px solid var(--line); box-shadow:var(--shadow); }
-.banner-frame img { display:block; width:100%; height:auto; }
+.banner-frame > img:first-child { display:block; width:100%; height:auto; }
+.banner-frame .intro-logo {
+  position:absolute;
+  left:50%;
+  top:6%;
+  transform-origin:top center;
+  transform:translateX(-50%) scale(0.7);
+  width:46%;
+  height:auto;
+  pointer-events:none;
+  border:0;
+  box-shadow:none;
+}
+.banner-frame .intro-logo-ko {
+  top:calc(6% - 30px);
+  transform:translateX(-50%) scale(0.91);
+}
+.intro-form, .intro-form input, .intro-form button, .login-chip { font-family: 'Galmuri11', sans-serif; }
 .intro-form { width:100%; max-width:420px; margin-top:28px; display:flex; flex-direction:column; gap:10px; }
+.name-row { display:flex; align-items:center; gap:8px; width:100%; }
+.name-row .name-input { flex:1; }
+.logout-btn { flex-shrink:0; white-space:nowrap; }
 .name-input { width:100%; background:var(--bg-1); color:var(--tx-0); border:1.5px solid var(--line); border-radius:var(--radius); padding:13px 16px; font-size:16px; text-align:center; outline:none; transition:.2s; }
 .name-input:focus { border-color:var(--acc); }
 .cta.block { width:100%; font-size:17px; margin-top:4px; }
@@ -234,7 +280,32 @@ body.wait #wait { display: block; }
 .game-card-body p { margin:0; color:var(--tx-1); font-size:13px; line-height:1.5; }
 
 /* --- 로비 상태 패널 --- */
-.back-row { margin-bottom:12px; }
+.back-row { margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; min-height:36px; }
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  color: #e3e3e3;
+  user-select: none;
+}
+.btn-icon {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  padding:0;
+}
+.btn-icon .material-symbols-outlined { color:#e3e3e3; }
 .btn-sm { padding:6px 14px; font-size:13px; }
 .status-panel { text-align:center; padding:3rem; color:var(--tx-2); }
 .status-panel.bad { color:var(--red); }

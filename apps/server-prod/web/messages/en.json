@@ -44,11 +44,12 @@
     "logout": "Sign out"
   },
   "logo": {
-    "word": "Dagulz"
+    "word": "Dagulz",
+    "full": "Animal Dagulz"
   },
   "update": {
-    "available": "A new version is available.",
-    "reload": "Refresh"
+    "available": "A new version is live. Reload to apply it.",
+    "reload": "Reload"
   },
   "lobby": {
     "title": "Open Rooms",
@@ -64,8 +65,12 @@
     "closed": "Closed",
     "gameSelect": "Select game",
     "games": {
-      "dagul": { "title": "Dagul" },
-      "sparring": { "title": "Sparring" }
+      "dagul": {
+        "title": "Dagul"
+      },
+      "sparring": {
+        "title": "Sparring"
+      }
     }
   },
   "create": {
@@ -74,7 +79,7 @@
     "roomTitle": "Room name",
     "roomTitlePlaceholder": "Leave empty for a default name",
     "gameSelect": "Game",
-    "meta": "{version} · {size}",
+    "meta": "ver {version} · {size}",
     "versionUnknown": "Version unknown",
     "sizeUnknown": "Size unknown",
     "sizeB": "{amount}B",
@@ -136,10 +141,6 @@
     "retry": "Try again",
     "detail": "Error details"
   },
-  "update": {
-    "available": "A new version is live. Reload to apply it.",
-    "reload": "Reload"
-  },
   "games": {
     "dagul": {
       "title": "Dagul",
@@ -149,5 +150,10 @@
       "title": "Sparring (demo)",
       "blurb": "Short demo. Exchange snaps only and practice hosting."
     }
+  },
+  "locale": {
+    "label": "Language",
+    "ko": "한국어",
+    "en": "English"
   }
 }

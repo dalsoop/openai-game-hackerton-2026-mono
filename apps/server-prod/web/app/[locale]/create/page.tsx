@@ -14,16 +14,15 @@ export default function CreatePage(): JSX.Element {
 
   return (
     <div className="page-shell">
-      <header className="hero">
-        <div className="logo-word">{t("logo.word")}</div>
-        <div className={CONNECTION_CLASS[hub.status]}>
-          <span className="conn-dot" />
-          <span className="conn-txt">
-            {hub.status === "connecting" ? t("connection.connecting") : t("connection.connected")}
-          </span>
-        </div>
-      </header>
-      {ready ? <CreateRoom listings={listings} onSubmit={onSubmit} onBack={onBack} /> : null}
+      {ready ? (
+        <CreateRoom
+          listings={listings}
+          onSubmit={onSubmit}
+          onBack={onBack}
+          connClass={CONNECTION_CLASS[hub.status]}
+          connText={hub.status === "connecting" ? t("connection.connecting") : t("connection.connected")}
+        />
+      ) : null}
     </div>
   );
 }
