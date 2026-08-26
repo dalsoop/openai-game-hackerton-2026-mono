@@ -1,11 +1,11 @@
 // React ↔ Godot 인게임 수송 — 허브 소켓은 React 만 연다.
 // 정본 이벤트 이름: lib/contract DOM_EVT.TO_ENGINE / FROM_ENGINE
-import { DOM_EVT, MSG } from "@/lib/contract";
+import { DOM_EVT, HUB_MSG, PAGE_MSG, PLAY_MSG } from "@/lib/contract";
 
 export type BridgePacket = { readonly type: string; readonly payload: unknown };
 
-const FROM_ENGINE_TYPES = new Set<string>([MSG.INPUT, MSG.HOST_SNAP, MSG.LEAVE]);
-const TO_ENGINE_TYPES = new Set<string>([MSG.SNAP, MSG.PEER_INPUT, MSG.ERROR, MSG.STATE]);
+const FROM_ENGINE_TYPES = new Set<string>([PLAY_MSG.INPUT, PLAY_MSG.HOST_SNAP, PAGE_MSG.LEAVE]);
+const TO_ENGINE_TYPES = new Set<string>([PLAY_MSG.SNAP, PLAY_MSG.PEER_INPUT, HUB_MSG.ERROR, PAGE_MSG.STATE]);
 
 export function parseBridgePacket(raw: unknown): BridgePacket | null {
   if (typeof raw !== "string" || raw === "") {return null;}
@@ -105,7 +105,7 @@ export function attachPageBridge(room: HubWire, opts?: AttachPageBridgeOpts): ()
   const onFromEngine = (ev: BridgeEvent): void => {
     const packet = parseBridgePacket(ev.detail);
     if (!packet || !isEngineOutbound(packet.type)) {return;}
-    if (packet.type === MSG.LEAVE) {
+    if (packet.type === PAGE_MSG.LEAVE) {
       opts?.onLeave?.();
       return;
     }

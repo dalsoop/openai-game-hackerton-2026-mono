@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DOM_EVT, MSG } from "@/lib/contract";
+import { DOM_EVT, HUB_MSG, MSG } from "@/lib/contract";
 import {
   attachPageBridge,
   encodeBridgePacket,
@@ -70,6 +70,13 @@ describe("수송 방향", () => {
   it("반전: input 을 페이지가 엔진으로 되먹이면 안 된다", () => {
     expect(isEngineInbound(MSG.INPUT)).toBe(false);
     expect(isEngineInbound(MSG.PACK_PCT)).toBe(false);
+  });
+
+  it("HUB_MSG 전용 키는 엔진 집합에 없다", () => {
+    for (const type of [HUB_MSG.PACK_PCT, HUB_MSG.SET_GAME, HUB_MSG.ROOM_TOGGLE, HUB_MSG.PING, HUB_MSG.PONG, HUB_MSG.KICKED]) {
+      expect(isEngineOutbound(type)).toBe(false);
+      expect(isEngineInbound(type)).toBe(false);
+    }
   });
 });
 

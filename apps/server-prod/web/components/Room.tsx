@@ -1,14 +1,14 @@
 "use client";
 // 대기실 화면 — 좌석 표시는 SlotCard, 여기선 배치·호스트 액션만.
 import type { JSX } from "react";
-import type { HubPlayer } from "@/types";
+import type { Seat } from "@dalsoop/hub-kernel";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { GAME_CATALOG, findGame } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
 import { useTranslations } from "next-intl";
 
 interface Props {
-  players: HubPlayer[];
+  players: Seat[];
   you: number;
   isHost: boolean;
   gameId: string;

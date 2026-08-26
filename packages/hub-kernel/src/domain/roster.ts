@@ -1,6 +1,8 @@
-// 좌석 명단 도메인 값객체 — 서버 state 스냅샷에서 파생 사실을 한 번에 계산한다.
-// 네트워크(콜리세우스)도 UI(React)도 모른다.
-import { clampPackPct } from "./waiting-room-pack";
+export function clampPackPct(raw: unknown): number {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n)) {return 0;}
+  return Math.max(0, Math.min(100, n));
+}
 
 export interface SeatSnapshot {
   readonly slot: number;
@@ -12,7 +14,7 @@ export interface SeatSnapshot {
 
 export interface RosterSnapshot {
   readonly gameId?: string;
-  readonly open?: boolean; // 방장의 문 — 닫히면 입장 불가
+  readonly open?: boolean;
   readonly createdAtMs?: number;
   readonly idleUntilSec?: number;
   readonly phase: string;
@@ -39,7 +41,6 @@ export class Roster {
   ) {}
 
   static fromSnapshot(snap: RosterSnapshot, mySessionId: string): Roster {
-    // 최초 패치 도착 전의 부분 스냅샷(players 미동기)도 빈 명단으로 소화한다.
     const raw = Array.isArray(snap.players) ? snap.players : [];
     const seats = [...raw]
       .sort((a, b) => a.slot - b.slot)

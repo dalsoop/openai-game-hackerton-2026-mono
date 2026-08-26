@@ -121,7 +121,7 @@ describe("LobbyRoom 규칙", () => {
     expect(room.state.mode).toBe("default");
   });
 
-  it("게스트 DL 은 그 좌석만 바꾸고 SET_GAME 은 전좌석을 0 으로 돌린다", async () => {
+  it("게스트 팩 보고는 그 좌석만 바꾸고 SET_GAME 은 전좌석을 0 으로 돌린다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", game: "dagul" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
@@ -136,6 +136,30 @@ describe("LobbyRoom 규칙", () => {
     host.send(MSG.SET_GAME, { game: "sparring" });
     await room.waitForNextPatch();
     expect([...room.state.players].every((p) => p.packPct === 0)).toBe(true);
+  });
+
+  it("3퍼센트 상승은 거절한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await room.waitForNextPatch();
+    host.send(MSG.PACK_PCT, { pct: 3 });
+    await new Promise((r) => setTimeout(r, 40));
+    expect(room.state.players[0].packPct).toBe(0);
+  });
+
+  it("playing 중 PACK_PCT 는 버린다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await room.waitForNextPatch();
+    host.send(MSG.PACK_PCT, { pct: 40 });
+    await room.waitForNextPatch();
+    expect(room.state.players[0].packPct).toBe(40);
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    host.send(MSG.PACK_PCT, { pct: 100 });
+    await new Promise((r) => setTimeout(r, 40));
+    expect(room.state.players[0].packPct).toBe(40);
   });
 
   it("다른 좌석이 100 이 아니어도 호스트는 시작한다", async () => {
