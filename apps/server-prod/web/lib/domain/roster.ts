@@ -1,11 +1,13 @@
 // 좌석 명단 도메인 값객체 — 서버 state 스냅샷에서 파생 사실을 한 번에 계산한다.
 // 네트워크(콜리세우스)도 UI(React)도 모른다.
+import { clampPct } from "./download";
 
 export interface SeatSnapshot {
   readonly slot: number;
   readonly sessionId: string;
   readonly name: string;
   readonly connected: boolean;
+  readonly dlPct?: number;
 }
 
 export interface RosterSnapshot {
@@ -25,6 +27,7 @@ export class Seat {
     readonly name: string,
     readonly isHost: boolean,
     readonly connected: boolean,
+    readonly dlPct: number,
   ) {}
 }
 
@@ -44,6 +47,7 @@ export class Roster {
         p.slot, p.sessionId, p.name,
         p.sessionId === snap.hostSessionId,
         p.connected,
+        clampPct(p.dlPct),
       ));
     const me = seats.find((s) => s.playerId === mySessionId) ?? null;
     return new Roster(seats, me, snap.phase === "playing");

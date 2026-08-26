@@ -80,6 +80,20 @@ describe("Roster.fromSnapshot", () => {
     expect(roster.seats[0]?.connected).toBe(false);
     expect(roster.seats[1]?.connected).toBe(true);
   });
+
+  it("좌석 dlPct 를 0..100 으로 자른다", () => {
+    const roster = Roster.fromSnapshot(
+      snap({
+        players: [
+          { slot: 0, sessionId: "a", name: "하나", connected: true, dlPct: 140 },
+          { slot: 1, sessionId: "b", name: "둘", connected: true },
+        ],
+      }),
+      "a",
+    );
+    expect(roster.seats[0]?.dlPct).toBe(100);
+    expect(roster.seats[1]?.dlPct).toBe(0);
+  });
 });
 
 describe("Roster 엣지 케이스", () => {

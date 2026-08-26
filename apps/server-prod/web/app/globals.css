@@ -240,6 +240,14 @@ body.wait #wait { display: block; }
 .bar-fill.done { background:var(--green); }
 
 /* --- 대기실 --- */
+.room-download { margin:16px 0 8px; padding:12px 14px; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius); }
+.dl-label { font-size:13px; color:var(--tx-1); margin-bottom:10px; }
+.dl-roster { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.dl-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--tx-1); }
+.dl-row.me { color:var(--tx-0); }
+.dl-name { min-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dl-pct { min-width:72px; text-align:right; color:var(--tx-2); }
+.dl-row .bar-track { margin-left:0; }
 .wait-summary { text-align:center; margin:12px 0; color:var(--tx-1); font-size:13px; }
 .asset-note { text-align:center; color:var(--acc); font-size:13px; margin-top:8px; }
 .host-wait { flex:1; text-align:center; color:var(--tx-2); padding:12px 0; }
@@ -312,6 +320,7 @@ body.wait #wait { display: block; }
 .status-msg.error { background:rgba(255,93,93,.1); color:var(--red); border:1px solid var(--red); }
 .status-msg.success { background:rgba(93,217,124,.1); color:var(--green); border:1px solid var(--green); }
 .status-msg.info { background:rgba(62,230,210,.1); color:var(--cyan); border:1px solid var(--cyan); }
+.deploy-banner { display:flex; gap:12px; align-items:center; justify-content:center; margin:0 0 16px; }
 
 .field-wrap.block { width:100%; }
 

@@ -8,6 +8,7 @@ import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "
 import { matchJustEnded, startBodies } from "./lobby-relay.js";
 import { shouldRelaySnap } from "./snap-relay.js";
 import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
+import { clampPct } from "../domain/download.js";
 
 export { PlayerSchema, LobbyState } from "./lobby-state.js";
 
@@ -45,6 +46,7 @@ export class LobbyRoom extends Room {
     [MSG.ROOM_TOGGLE]: (client: Client): void => this.handleRoomToggle(client),
     [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void => this.handleSetGame(client, data),
     [MSG.PING]: (client: Client, data: unknown): void => {client.send(MSG.PONG, data);},
+    [MSG.DL]: (client: Client, data: Record<string, unknown>): void => this.handleDl(client, data),
   };
 
   onAuth(_client: Client, _options: Record<string, unknown>): boolean {
@@ -138,7 +140,14 @@ export class LobbyRoom extends Room {
     const game = asGameId(data.game);
     this.state.gameId = game;
     this.state.mode = defaultModeOf(game);
+    for (const p of this.state.players) {p.dlPct = 0;}
     void this.setMetadata({ ...this.metadata, gameId: game, mode: this.state.mode });
+  }
+
+  private handleDl(client: Client, data: Record<string, unknown>): void {
+    const player = this.playerOf(client.sessionId);
+    if (!player) {return;}
+    player.dlPct = clampPct(data.pct);
   }
 
   private burstIdle(): void {

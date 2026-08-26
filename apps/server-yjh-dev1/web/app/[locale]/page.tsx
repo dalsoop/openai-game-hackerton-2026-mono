@@ -36,6 +36,7 @@ export default function Home(): JSX.Element {
     hasSavedName,
     hub,
     loader,
+    localPct,
     matchInfo,
     findRoom,
     start,
@@ -141,7 +142,8 @@ export default function Home(): JSX.Element {
           players={hub.players}
           you={hub.you}
           isHost={hub.isHost}
-          loader={loader}
+          localPct={localPct}
+          canStart={loader.state === "ready"}
           onStartGame={start}
           onLeaveRoom={leaveToLobby}
         />
