@@ -5,6 +5,7 @@ import { GodotRuntime } from "@/lib/godot/runtime";
 import { asGameId } from "@/lib/games/catalog";
 import { runtimeErrorText } from "@/lib/godot/runtime-errors";
 import { useGodotMatch } from "@/hooks/useGodotMatch";
+import { useMatchOver } from "@/hooks/useMatchOver";
 import { useTranslations } from "next-intl";
 import type { MatchInfo } from "@/types";
 
@@ -23,6 +24,7 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
   // godot.game.errors.matchSignalMissing 같은 깨진 경로가 그대로 보인다.
   const t = useTranslations();
   const { canvasRef, snap } = useGodotMatch({ game, matchInfo, visible, onMatchEnd });
+  const matchOver = useMatchOver();
 
   if (!visible) {return null;}
 
@@ -37,6 +39,15 @@ export default function GodotCanvas({ game, matchInfo, visible, onMatchEnd, onEr
           <div>{t("godot.starting")}</div>
           <div className="gc-boot-sub">{t("godot.loadingEngine")}</div>
         </div>
+      )}
+      {matchOver && snap.state === "running" && (
+        <button
+          type="button"
+          className="gc-to-waiting btn btn-primary btn-lg"
+          onClick={() => {onMatchEnd?.({});}}
+        >
+          {t("godot.toWaitingRoom")}
+        </button>
       )}
       {snap.state === "error" && (
         <div className="gc-error-box">

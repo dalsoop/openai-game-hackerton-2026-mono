@@ -64,6 +64,22 @@ describe("usePageBridge", () => {
     window.removeEventListener(DOM_EVT.TO_ENGINE, onTo);
   });
 
+  it("매치 중 lobby STATE 는 엔진에 넘기지 않는다", () => {
+    const seen: string[] = [];
+    const onTo = (ev: Event): void => {seen.push(String((ev as CustomEvent).detail));};
+    window.addEventListener(DOM_EVT.TO_ENGINE, onTo);
+    const room = { roomId: "r1", sessionId: "s1", send: vi.fn(), leave: vi.fn() } as unknown as Room;
+    const { rerender } = renderHook(
+      ({ next }: { next: RosterSnapshot }) => usePageBridge(room, matchInfo, next),
+      { initialProps: { next: snap } },
+    );
+    expect(seen.some((d) => d.includes('"phase":"playing"'))).toBe(true);
+    seen.length = 0;
+    rerender({ next: { ...snap, phase: "lobby" } });
+    expect(seen.some((d) => d.includes('"phase":"lobby"'))).toBe(false);
+    window.removeEventListener(DOM_EVT.TO_ENGINE, onTo);
+  });
+
   it("반전: matchInfo 없으면 엔진 출력을 허브로 보내지 않는다", () => {
     const send = vi.fn();
     const room = { roomId: "r1", sessionId: "s1", send, leave: vi.fn() } as unknown as Room;
