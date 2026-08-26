@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from helm_contract import planted_hub_tags  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
@@ -176,10 +182,22 @@ def parse_yaml(text: str) -> dict:
     return root
 
 
+def ship_folders() -> set[str]:
+    return {name for name in os.environ.get("HACKERTONE_SHIP_FOLDERS", "").split() if name}
+
+
+def _hub_tag_for_plant(folder: Path, existing: dict[str, str]) -> str:
+    name = folder.name
+    if name in ship_folders() or name not in existing:
+        return hub_image_tag(folder)
+    return existing[name]
+
+
 def main() -> None:
     games = []
     slots = []
     hubs = []
+    existing_tags = planted_hub_tags(OUT_VALUES.read_text()) if OUT_VALUES.is_file() else {}
     for path in sorted(APPS.glob("*/hackertone.yaml")):
         folder = path.parent.name
         if not folder.startswith("server-"):
@@ -221,7 +239,7 @@ def main() -> None:
                     "id": data["id"],
                     "pathPrefix": (data.get("hub") or {}).get("pathPrefix", "/gang-up"),
                     "image": f"{HUB_REGISTRY}/{folder}",
-                    "tag": hub_image_tag(path.parent),
+                    "tag": _hub_tag_for_plant(path.parent, existing_tags),
                 }
             )
     persisted = load_redis_slots(OUT_VALUES.read_text()) if OUT_VALUES.is_file() else {}

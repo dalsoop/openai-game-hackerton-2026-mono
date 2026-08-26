@@ -65,8 +65,8 @@ func _peer_reload_reaches_host(t) -> void:
 
 func _peer_fire_follows_aim(t) -> void:
 	var world = WorldScript.new(2222)
-	world.start_countdown = 0.0
 	world.reset()
+	world.start_countdown = 0.0
 	world.local_slot = 0
 	world.human_slots[1] = true
 	var h: Dictionary = world.heroes[1]

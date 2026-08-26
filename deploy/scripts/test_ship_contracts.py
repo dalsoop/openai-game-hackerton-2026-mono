@@ -306,6 +306,21 @@ class HelmContract(unittest.TestCase):
         self.assertIn("run_plant()", helm_fn)
         self.assertIn("purge_cloudflare()", helm_fn)
         self.assertNotIn("ensure_hub_images", helm_fn)
+        hub_fn = apps_py.split("def hub_refs", 1)[1].split("def assert_hub_images", 1)[0]
+        self.assertIn("planted_hub_tags", hub_fn)
+
+    def test_plant_keeps_unshipped_hub_tag(self) -> None:
+        import os
+
+        plant = plant_mod()
+        existing = {"server-prod": "aaaaaaaaaaaa"}
+        os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
+        self.assertEqual(plant._hub_tag_for_plant(APPS / "server-prod", existing), "aaaaaaaaaaaa")
+        os.environ["HACKERTONE_SHIP_FOLDERS"] = "server-prod"
+        try:
+            self.assertNotEqual(plant._hub_tag_for_plant(APPS / "server-prod", existing), "aaaaaaaaaaaa")
+        finally:
+            os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
 
 class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:

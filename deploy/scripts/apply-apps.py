@@ -111,9 +111,20 @@ def parse_folder(mod, folder: str) -> dict:
     return mod.parse_yaml(path.read_text())
 
 
-def run_plant() -> None:
-    sys.argv = [str(PLANT)]
-    plant_mod().main()
+def run_plant(ship_folders: list[str] | None = None) -> None:
+    previous = os.environ.get("HACKERTONE_SHIP_FOLDERS")
+    if ship_folders is not None:
+        os.environ["HACKERTONE_SHIP_FOLDERS"] = " ".join(ship_folders)
+    elif "HACKERTONE_SHIP_FOLDERS" in os.environ:
+        del os.environ["HACKERTONE_SHIP_FOLDERS"]
+    try:
+        sys.argv = [str(PLANT)]
+        plant_mod().main()
+    finally:
+        if previous is None:
+            os.environ.pop("HACKERTONE_SHIP_FOLDERS", None)
+        else:
+            os.environ["HACKERTONE_SHIP_FOLDERS"] = previous
 
 
 
@@ -193,6 +204,7 @@ def build_hub(folder: str) -> None:
 
 
 def hub_refs(mod) -> list[str]:
+    planted = planted_hub_tags((CHART / "values-games.yaml").read_text())
     refs = []
     for path in sorted(APPS.glob("*/hackertone.yaml")):
         folder = path.parent.name
@@ -201,7 +213,8 @@ def hub_refs(mod) -> list[str]:
         data = mod.parse_yaml(path.read_text())
         if not (data.get("hub") or {}).get("enabled"):
             continue
-        refs.append(f"harbor.50.internal.xz/library/{folder}:{mod.hub_image_tag(path.parent)}")
+        tag = planted.get(folder) or mod.hub_image_tag(path.parent)
+        refs.append(f"harbor.50.internal.xz/library/{folder}:{tag}")
     return refs
 
 
@@ -501,7 +514,7 @@ def main() -> int:
                 failed.append(folder)
         if failed:
             raise SystemExit("ship 실패: " + ", ".join(failed))
-        run_plant()
+        run_plant(args[1:])
         return 0
     if cmd == "helm":
         if "--rebuild" in args:
