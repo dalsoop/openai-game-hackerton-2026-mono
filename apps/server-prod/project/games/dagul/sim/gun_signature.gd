@@ -156,8 +156,8 @@ static func feel_for_equipment(equipment_id: String) -> Dictionary:
         return GUN_FEEL[equipment_id]
     return GUN_FEEL["burst"]
 
-static func equipment_for_animal(slot: int) -> String:
-    return str(ANIMAL_SIGNATURE_EQUIPMENT[posmod(slot, 12)])
+static func equipment_for_animal(animal: int) -> String:
+    return str(ANIMAL_SIGNATURE_EQUIPMENT[posmod(animal, 12)])
 
 
 static func visual_for_equipment(equipment_id: String) -> Dictionary:
@@ -166,8 +166,8 @@ static func visual_for_equipment(equipment_id: String) -> Dictionary:
     return EQUIP_VISUAL["burst"]
 
 
-static func is_signature(slot: int, equipment_id: String) -> bool:
-    return equipment_for_animal(slot) == equipment_id
+static func is_signature(animal: int, equipment_id: String) -> bool:
+    return equipment_for_animal(animal) == equipment_id
 
 
 static func family_of(equipment_id: String) -> String:

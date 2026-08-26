@@ -36,6 +36,7 @@ var finish_glove_tex: Texture2D = null
 var roar_shader: Shader = null
 var roar_fx: Array = []
 var stun_spin_tex: Texture2D = null
+var deco_atlas: Texture2D = null
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
 var animal_atlas: Texture2D = null
@@ -135,6 +136,7 @@ func _load_world_textures() -> void:
         zodiac_textures.append(_load_tex("res://games/dagul/assets/sprites/zodiac_%02d.png" % (index + 1)))
     island_texture = _load_tex("res://games/dagul/assets/world/Tex_BG_Tile_Grass.png")
     dirt_tile_texture = _load_tex("res://games/dagul/assets/world/Tex_BG_Tile_Dirt.png")
+    deco_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Deco.png")
     tree_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Trees_3x1.png")
     rock_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Rocks_5x1.png")
     crate_atlas = _load_tex("res://games/dagul/assets/world/Tex_BG_Crates_4x1.png")
@@ -423,22 +425,22 @@ func _tick_recoil(dt: float) -> void:
             keep.append(flash)
     impact_flashes = keep
 
-func _zodiac_texture(slot: int) -> Texture2D:
+func _zodiac_texture(animal: int) -> Texture2D:
     if zodiac_textures.is_empty():
         return null
-    return zodiac_textures[posmod(slot, 12)]
+    return zodiac_textures[posmod(animal, 12)]
 
-func _animal_src_rect(slot: int) -> Rect2:
-    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+func _animal_src_rect(animal: int) -> Rect2:
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
     var cell := Vector2(float(animal_atlas.get_width()) / float(ANIMAL_COLS), float(animal_atlas.get_height()) / float(ANIMAL_ROWS))
     var col := frame % ANIMAL_COLS
     var row := int(frame / ANIMAL_COLS)
     return Rect2(Vector2(float(col), float(row)) * cell, cell)
 
-func _animal_down_src_rect(slot: int) -> Rect2:
+func _animal_down_src_rect(animal: int) -> Rect2:
     if animal_down_atlas == null:
         return Rect2()
-    var frame := int(ANIMAL_ATLAS_FRAME[posmod(slot, 12)])
+    var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
     var cell := Vector2(float(animal_down_atlas.get_width()) / float(ANIMAL_COLS), float(animal_down_atlas.get_height()) / float(ANIMAL_ROWS))
     var col := frame % ANIMAL_COLS
     var row := int(frame / ANIMAL_COLS)
@@ -488,8 +490,8 @@ func _draw_lhj_bullet(projectile_pos: Vector2, direction: Vector2, kind: String,
     draw_texture_rect_region(bullet_atlas, dest, src)
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func _zodiac_name(slot: int) -> String:
-    return ZODIAC_NAMES[posmod(slot, 12)]
+func _zodiac_name(animal: int) -> String:
+    return ZODIAC_NAMES[posmod(animal, 12)]
 
 func _projectile_color(projectile: Dictionary) -> Color:
     match str(projectile.get("kind", "bolt")):

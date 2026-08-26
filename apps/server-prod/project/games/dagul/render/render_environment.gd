@@ -17,6 +17,7 @@ func draw_island() -> void:
 	var prev_filter := r.texture_filter
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_draw_grass_tiles(arena)
+	_stamp_flower_beds()
 	_draw_dirt_patches()
 	r.texture_filter = prev_filter
 
@@ -49,6 +50,76 @@ func _dirt_here(px: float, py: float) -> bool:
 		if p.distance_to(Vector2(spot[0], spot[1])) <= spot[2]:
 			return true
 	return false
+
+const MEADOW_SEEDS := [
+	[3920.0, 1680.0], [2680.0, 2600.0], [4900.0, 3000.0], [3200.0, 2200.0],
+	[4600.0, 2000.0], [3920.0, 3000.0], [2400.0, 2000.0], [5400.0, 2400.0],
+	[1800.0, 3000.0], [6200.0, 1800.0], [3000.0, 3400.0], [4800.0, 1400.0],
+	[3600.0, 1000.0], [1200.0, 1600.0], [4200.0, 4000.0], [5600.0, 4000.0],
+	[7000.0, 3400.0], [2500.0, 1400.0],
+]
+const CLUMP_CORE := [
+	[0.0, 0.0], [28.0, -10.0], [-26.0, 16.0], [14.0, 28.0], [-22.0, -24.0],
+]
+const CLUMP_FALLOFF := [
+	[44.0, 12.0], [-40.0, 8.0],
+]
+
+func _stamp_deco(kind: int, pos: Vector2, size: float) -> void:
+	var atlas: Texture2D = r.deco_atlas
+	if atlas == null:
+		return
+	r.draw_texture_rect_region(atlas, Rect2(pos - Vector2(size, size) * 0.5, Vector2(size, size)), Rect2(float(kind % 6) * 16.0, 0.0, 16.0, 16.0))
+
+func _rotate_off(off: Vector2, seed: int) -> Vector2:
+	var ang := float(seed) * 0.73
+	var ca := cos(ang)
+	var sa := sin(ang)
+	return Vector2(off.x * ca - off.y * sa, off.x * sa + off.y * ca)
+
+func _stamp_clump(origin: Vector2, seed: int) -> void:
+	var k0 := posmod(seed, 6)
+	var k1 := posmod(seed + 2, 6)
+	var k2 := posmod(seed + 4, 6)
+	for i in range(CLUMP_CORE.size()):
+		var p := origin + _rotate_off(Vector2(CLUMP_CORE[i][0], CLUMP_CORE[i][1]), seed)
+		if _dirt_here(p.x, p.y):
+			continue
+		var kind := k0 if i < 2 else (k1 if i < 4 else k2)
+		_stamp_deco(kind, p, 54.0 if i == 0 else 46.0)
+	for i in range(CLUMP_FALLOFF.size()):
+		var p := origin + _rotate_off(Vector2(CLUMP_FALLOFF[i][0], CLUMP_FALLOFF[i][1]), seed + 3)
+		if _dirt_here(p.x, p.y):
+			continue
+		_stamp_deco(k2, p, 38.0)
+
+func _stamp_flower_beds() -> void:
+	for ci in range(DIRT_SPOTS.size()):
+		_stamp_bed_ring(ci)
+	for mi in range(MEADOW_SEEDS.size()):
+		var m := Vector2(MEADOW_SEEDS[mi][0], MEADOW_SEEDS[mi][1])
+		if _dirt_here(m.x, m.y):
+			continue
+		_stamp_clump(m, 40 + mi * 13)
+
+func _stamp_bed_ring(ci: int) -> void:
+	var spot: Array = DIRT_SPOTS[ci]
+	var c := Vector2(spot[0], spot[1])
+	var rad := float(spot[2])
+	var seeds := 2 if rad < 125.0 else 3
+	for s in range(seeds):
+		_stamp_bed_seed(c, rad, ci, s, seeds)
+
+func _stamp_bed_seed(c: Vector2, rad: float, ci: int, s: int, seeds: int) -> void:
+	var ang := TAU * float(s) / float(seeds) + c.x * 0.013 + float(s) * 1.17 + c.y * 0.007
+	var rim := c + Vector2(cos(ang), sin(ang)) * (rad + 52.0)
+	if _dirt_here(rim.x, rim.y):
+		rim = c + Vector2(cos(ang), sin(ang)) * (rad + 88.0)
+	if _dirt_here(rim.x, rim.y):
+		return
+	if rim.x < 220.0 or rim.y < 220.0 or rim.x > 7620.0 or rim.y > 4540.0:
+		return
+	_stamp_clump(rim, ci * 5 + s * 11 + int(c.x))
 
 var _dirt_cells: Array[Dictionary] = []
 
