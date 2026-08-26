@@ -275,6 +275,20 @@ class HelmContract(unittest.TestCase):
         self.assertTrue(apply.platform_web_pipeline("server-yjh-dev1"))
         self.assertTrue(apply.platform_web_pipeline("server-prod"))
         self.assertFalse(apply.platform_web_pipeline("server-pjh-dev1"))
+        self.assertEqual(
+            apply.legacy_hub_deploy_names(
+                {
+                    "items": [
+                        {"metadata": {"name": "server-prod-hub"}},
+                        {"metadata": {"name": "server-prod-hub-static"}},
+                    ]
+                }
+            ),
+            ["server-prod-hub"],
+        )
+        apps_py = path.read_text()
+        self.assertIn("drop_legacy_hub_deployments", apps_py)
+        self.assertIn("delete deploy", apps_py)
 
 class PlatformGodotPipeline(unittest.TestCase):
     def test_next_slots_export_on_ship(self) -> None:

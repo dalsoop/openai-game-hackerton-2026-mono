@@ -278,6 +278,26 @@ def live_hub_image_lines(deploy_list: dict) -> str:
     return "\n".join(lines)
 
 
+def legacy_hub_deploy_names(deploy_list: dict) -> list[str]:
+    names: list[str] = []
+    for item in deploy_list.get("items") or []:
+        name = str((item.get("metadata") or {}).get("name") or "")
+        if name.endswith("-hub") and not name.endswith("-hub-static"):
+            names.append(name)
+    return names
+
+
+def drop_legacy_hub_deployments() -> None:
+    """같은 이름의 Deployment 가 있으면 StatefulSet 업그레이드가 막힌다."""
+    names = legacy_hub_deploy_names(kubectl_json("deploy"))
+    for name in names:
+        print(f"drop deploy/{name}")
+        remote_ok(
+            f"KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n {NAMESPACE} "
+            f"delete deploy {name} --ignore-not-found --wait=true"
+        )
+
+
 def live_hub_workloads() -> dict:
     items: list[dict] = []
     for kind in ("statefulset", "deploy"):
@@ -423,6 +443,7 @@ def helm_upgrade() -> None:
             raise SystemExit("helm diff 실패")
     else:
         print("helm diff skip (plugin 없음)")
+    drop_legacy_hub_deployments()
     run_helm_argv(helm_upgrade_cmd(chart, values, games, envf))
     assert_live_matches_plant()
     assert_smoke_hubs()
