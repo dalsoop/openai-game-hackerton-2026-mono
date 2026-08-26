@@ -7,6 +7,7 @@ import type { LobbyState } from "./lobby-state.js";
 import { seatsPayloadOf } from "./lobby-seats.js";
 import { startBodies } from "./lobby-relay.js";
 import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
+import { clearMatchSchema, type MatchAuthority } from "./match-authority.js";
 
 export type TimerHandle = { clear(): void };
 
@@ -15,6 +16,7 @@ export type LobbyBag = {
   prevSnap: Record<string, unknown> | null;
   gameTimer: TimerHandle | null;
   idleTimer: TimerHandle | null;
+  authority: MatchAuthority | null;
 };
 
 export type LobbyHandle = {
@@ -92,6 +94,8 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   if (bag.gameTimer) {bag.gameTimer.clear(); bag.gameTimer = null;}
   bag.lastSnap = null;
   bag.prevSnap = null;
+  bag.authority = null;
+  clearMatchSchema(room.state);
   room.state.phase = "lobby";
   room.state.seed = 0;
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });

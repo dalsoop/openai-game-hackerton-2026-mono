@@ -16,6 +16,7 @@ func run(t) -> void:
 	_peer_reload_reaches_host(t)
 	_peer_fire_follows_aim(t)
 	_guest_bullets_keep_own_velocity(t)
+	_local_fire_shake_decays(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -116,6 +117,12 @@ func _guest_bullets_keep_own_velocity(t) -> void:
 	var fresh: Dictionary = parsed[1]
 	t.check("새 탄이 이웃 속도를 훔치지 않는다", Vector2(fresh["vel"]).x > 0.0)
 	t.check("새 탄 id 가 유지된다", int(fresh.get("id", -1)) == 2)
+
+func _local_fire_shake_decays(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_fire_shake = 3
+	nw.present(1.0 / 60.0)
+	t.check("로컬 발사 흔들림이 줄어든다", nw.local_fire_shake == 2)
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

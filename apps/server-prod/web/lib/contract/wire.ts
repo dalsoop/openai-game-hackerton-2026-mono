@@ -32,6 +32,7 @@ export const MSG = {
   HOST_SNAP: "host_snap",
   SNAP: "snap",
   PEER_INPUT: "peer_input",
+  GUN_FIRE: "gun_fire",
   ERROR: "error",
   ROOM_TOGGLE: "room_toggle",
   SET_GAME: "set_game",

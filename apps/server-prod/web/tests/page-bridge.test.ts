@@ -50,10 +50,10 @@ describe("parseBridgePacket", () => {
 });
 
 describe("수송 방향", () => {
-  it("엔진→허브는 input·host_snap·leave 만", () => {
+  it("엔진→허브는 input·leave 만", () => {
     expect(isEngineOutbound(MSG.INPUT)).toBe(true);
-    expect(isEngineOutbound(MSG.HOST_SNAP)).toBe(true);
     expect(isEngineOutbound(MSG.LEAVE)).toBe(true);
+    expect(isEngineOutbound(MSG.HOST_SNAP)).toBe(false);
   });
 
   it("반전: snap 을 엔진이 허브로 보내면 안 된다", () => {
@@ -62,8 +62,9 @@ describe("수송 방향", () => {
     expect(isEngineOutbound(MSG.PACK_PCT)).toBe(false);
   });
 
-  it("허브→엔진은 snap·peer_input·error·state", () => {
+  it("허브→엔진은 snap·peer_input·gun_fire·error·state", () => {
     expect(isEngineInbound(MSG.SNAP)).toBe(true);
+    expect(isEngineInbound(MSG.GUN_FIRE)).toBe(true);
     expect(isEngineInbound(MSG.STATE)).toBe(true);
   });
 
@@ -96,8 +97,8 @@ describe("attachPageBridge", () => {
     const bus = memoryBus();
     const send = vi.fn();
     const off = attachPageBridge({ send }, { bus });
-    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.HOST_SNAP, { tick: 2 }));
-    expect(send).toHaveBeenCalledWith(MSG.HOST_SNAP, { tick: 2 });
+    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.INPUT, { mx: 1 }));
+    expect(send).toHaveBeenCalledWith(MSG.INPUT, { mx: 1 });
     off();
   });
 
@@ -115,7 +116,7 @@ describe("attachPageBridge", () => {
     const send = vi.fn();
     const off = attachPageBridge({ send }, { bus });
     off();
-    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.HOST_SNAP, { tick: 2 }));
+    bus.emit(DOM_EVT.FROM_ENGINE, encodeBridgePacket(MSG.INPUT, { mx: 1 }));
     expect(send).not.toHaveBeenCalled();
   });
 });

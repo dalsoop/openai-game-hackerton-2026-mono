@@ -39,17 +39,17 @@ afterEach(() => {
 });
 
 describe("usePageBridge", () => {
-  it("엔진 HOST_SNAP 을 room.send 로 넘긴다", () => {
+  it("엔진 INPUT 을 room.send 로 넘긴다", () => {
     const send = vi.fn();
     const leave = vi.fn();
     const room = { roomId: "r1", sessionId: "s1", send, leave } as unknown as Room;
     renderHook(() => usePageBridge(room, matchInfo, snap));
     act(() => {
       window.dispatchEvent(new CustomEvent(DOM_EVT.FROM_ENGINE, {
-        detail: encodeBridgePacket(MSG.HOST_SNAP, { tick: 2 }),
+        detail: encodeBridgePacket(MSG.INPUT, { mx: 1 }),
       }));
     });
-    expect(send).toHaveBeenCalledWith(MSG.HOST_SNAP, { tick: 2 });
+    expect(send).toHaveBeenCalledWith(MSG.INPUT, { mx: 1 });
     expect(leave).not.toHaveBeenCalled();
   });
 
@@ -70,7 +70,7 @@ describe("usePageBridge", () => {
     renderHook(() => usePageBridge(room, null, snap));
     act(() => {
       window.dispatchEvent(new CustomEvent(DOM_EVT.FROM_ENGINE, {
-        detail: encodeBridgePacket(MSG.HOST_SNAP, { tick: 9 }),
+        detail: encodeBridgePacket(MSG.INPUT, { mx: 1 }),
       }));
     });
     expect(send).not.toHaveBeenCalled();

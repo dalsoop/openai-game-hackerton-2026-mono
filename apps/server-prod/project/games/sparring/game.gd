@@ -18,15 +18,11 @@ func start(payload: Dictionary, _ctx: Dictionary) -> void:
 	_since_snap = 0.0
 
 func tick(delta: float, ctx: Dictionary) -> void:
-	if not _is_host:
-		return
 	_elapsed += delta
 	_since_snap += delta
-	if _since_snap < SNAP_INTERVAL:
-		return
-	_since_snap = 0.0
-	var hub: Node = ctx["hub"]
-	hub.send_snap({"t": snappedf(_elapsed, 2), "result": "playing"})
+	var hub: Node = ctx.get("hub")
+	if hub != null and hub.has_method("send_input"):
+		hub.send_input({"mx": 0, "my": 0, "seq": int(_elapsed * 60.0)})
 
 func become_host(_ctx: Dictionary) -> void:
 	_is_host = true

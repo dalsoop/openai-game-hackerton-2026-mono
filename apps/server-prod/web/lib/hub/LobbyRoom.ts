@@ -9,13 +9,16 @@ import {
   armIdleTimer, burstIdle as fireIdleBurst, clearIdleTimer, handlePackPct, handleRoomToggle,
   handleSetGame, handleStart, resetToLobby, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { relayInput, relaySnap, sendHostSnap } from "./lobby-play.js";
+import { applyPlayInput, bootAuthority, ignoreHostSnap, tickAuthority } from "./lobby-play.js";
+import { acceptPlayInput } from "./match-authority.js";
 
-export { PlayerSchema, LobbyState } from "./lobby-state.js";
+export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
 
 export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
-  private bag: LobbyBag = { lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null };
+  private bag: LobbyBag = {
+    lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
+  };
 
   onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
     this.maxClients = HUB_CONFIG.maxPlayers;
@@ -35,13 +38,19 @@ export class LobbyRoom extends Room implements LobbyHandle {
       open: this.state.open,
     });
     armIdleTimer(this, this.bag);
+    this.setSimulationInterval((dt) => {tickAuthority(this, this.bag, dt);}, 1000 / 60);
   }
 
   messages = {
-    [MSG.START]: (client: Client): void => handleStart(this, this.bag, client),
-    [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void => relayInput(this, client, data),
-    [MSG.HOST_SNAP]: (client: Client, data: Record<string, unknown>): void =>
-      relaySnap(this, this.bag, client, data),
+    [MSG.START]: (client: Client): void => {
+      handleStart(this, this.bag, client);
+      if (this.state.phase === "playing" && !this.bag.authority) {
+        bootAuthority(this, this.bag);
+      }
+    },
+    [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void =>
+      applyPlayInput(this, this.bag, client, data),
+    [MSG.HOST_SNAP]: (): void => {ignoreHostSnap();},
     [MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
     [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
       handleSetGame(this, client, data),
@@ -97,7 +106,6 @@ export class LobbyRoom extends Room implements LobbyHandle {
     if (playing && wasHost) {
       this.syncHost();
       if (this.state.hostSessionId === "") {resetToLobby(this, this.bag);}
-      else {sendHostSnap(this, this.bag);}
     } else {
       this.syncHost();
     }
@@ -110,6 +118,20 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   burstIdle(): void {
     fireIdleBurst(this);
+  }
+
+  stepSim(dtMs = 50): void {
+    tickAuthority(this, this.bag, dtMs);
+  }
+
+  pushTestInput(sessionId: string, data: Record<string, unknown>): boolean {
+    return acceptPlayInput(
+      this.state.phase,
+      [...this.state.players],
+      sessionId,
+      data,
+      this.bag.authority,
+    );
   }
 
   private syncHost(): void {

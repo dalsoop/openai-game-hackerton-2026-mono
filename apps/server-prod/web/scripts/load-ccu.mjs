@@ -47,7 +47,7 @@ try {
   let sent = 0;
   for (const host of hosts) {
     for (let i = 0; i < SNAP_N; i++) {
-      host.send("host_snap", { tick: i, result: "playing", t: i });
+      host.send("input", { mx: (i % 3) - 1, my: 0, seq: i });
       sent += 1;
     }
   }
