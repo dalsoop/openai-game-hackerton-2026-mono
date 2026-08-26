@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: process.env.HACKERTONE_IMAGE_BUILD === "1",
   },
   env: {
-    SLOT_FOLDER: process.env.SLOT_FOLDER ?? "server-prod",
+    SLOT_FOLDER: process.env.SLOT_FOLDER ?? "dagul-prod",
   },
   async headers() {
     return [
