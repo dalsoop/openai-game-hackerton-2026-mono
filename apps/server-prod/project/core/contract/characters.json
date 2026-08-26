@@ -4,7 +4,8 @@
     {
       "id": "unknown",
       "titleKey": "characters.unknown",
-      "portrait": { "src": "/characters/unknown.png" }
+      "portrait": { "src": "/characters/unknown.png" },
+      "pick": "random"
     }
   ],
   "sheets": [
