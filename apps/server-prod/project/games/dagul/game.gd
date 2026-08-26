@@ -203,8 +203,6 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 		hud_mode = (hud_mode + 1) % 3
 		hud.hud_mode = hud_mode
 		hud.queue_redraw()
-	if _try_offline_rematch(ctx):
-		return
 	_update_spectator()
 	if hit_pause_frames > 0:
 		hit_pause_frames -= 1
@@ -456,44 +454,6 @@ func _check_my_kill_fanfare() -> void:
 		_fanfare.burst()
 		_play_kill_fanfare_sfx()
 	_last_local_kills = kills
-
-
-func _try_offline_rematch(ctx: Dictionary) -> bool:
-	if bool(ctx.get("settings_open", false)):
-		return false
-	if bool(ctx.get("net_active", false)) or world == null or world.result == &"playing":
-		return false
-	if not _input.edge(KEY_R):
-		return false
-	seed_value += 1
-	_restart_offline(ctx)
-	return true
-
-
-func _restart_offline(ctx: Dictionary) -> void:
-	var you := int(world.get("local_slot", 0)) if world != null else 0
-	var mode := str(world.get("mode", MODE)) if world != null else MODE
-	var host_world = WorldScript.new(seed_value)
-	host_world.set_mode(mode)
-	host_world.local_slot = you
-	host_world.is_net = false
-	host_world.reset()
-	host_world.human_slots[host_world.local_slot] = true
-	world = host_world
-	_bind_view(ctx)
-	var hud: Control = ctx.get("hud")
-	if hud != null:
-		hud.mode_id = mode
-		hud.spectate_slot = you
-		hud.hud_mode = hud_mode
-		if hud.has_method("reset_match_visuals"):
-			hud.reset_match_visuals()
-	spectate_slot = you
-	last_event_id = 0
-	hit_pause_frames = 0
-	_last_local_kills = -1
-	_ensure_input()
-	_input.reset()
 
 
 func _play_kill_fanfare_sfx() -> void:
