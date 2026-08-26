@@ -173,6 +173,8 @@ export type CpuWorld = {
   projectiles?: readonly CpuArc[];
   deployables?: readonly CpuDeploy[];
   mode?: string;
+  /** CPU 타겟 전환 내러티브 — 원본 game_world.gd:520-526. */
+  onTargetChange?: (slot: number, from: number, to: number, betrayal: boolean) => void;
 };
 
 function clamp01(n: number): number {

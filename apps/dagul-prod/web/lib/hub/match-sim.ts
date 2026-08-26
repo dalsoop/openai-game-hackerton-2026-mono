@@ -17,10 +17,11 @@ import {
   tickStreakCallout, type ScoreFields, type StreakCalloutState,
 } from "./match-score.js";
 import {
-  buildHealthPickups, handleUseInput, lootSeedFields, spawnGunLootPickup, tryCollectGunLoot,
+  handleUseInput, lootSeedFields, seedHealthPickups, spawnGunLootPickup, tryCollectGunLoot,
   updateHealthPickups, steerSlide, SPRING_BOOST,
 } from "./match-loot.js";
 import type { LootHero, LootPickup } from "./match-loot.js";
+import { heroInOwnPocket, updateItemPulses, type ItemHero, type ItemWorld } from "./match-item.js";
 import {
   MATCH_TIME_LIMIT, createSafeZone, pickTimeLimitWinner, updateSafeZone,
 } from "./match-zone.js";
@@ -141,13 +142,14 @@ export type MatchInput = {
   seq?: unknown;
 };
 
-export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldItem"> & ScoreFields & EmoteFields
+export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldItem" | "pullTime" | "pocketTime"> & ScoreFields & EmoteFields
   & CcHeroState & LaunchState & CrateHero & WantedHero & RouletteHero & GunHero & UltHero & ChargeHero & {
     normalHits: number;
     equipmentHits: number;
     ack: number;
     characterId: string;
     cpu: boolean;
+    parked: boolean;
     magMax: number;
     vx: number;
     vy: number;
@@ -238,7 +240,7 @@ export class MatchSim {
   heroes = new Map<number, SimHero>();
   bullets = new Map<number, SimBullet>();
   readonly covers: CoverRect[] = buildTiledCovers();
-  readonly loot: LootPickup[] = buildHealthPickups();
+  readonly loot: LootPickup[];
   knockouts: SimKnockout[] = [];
   fx: GunFireFx[] = [];
   cores: SimCore[] = [];
@@ -270,6 +272,7 @@ export class MatchSim {
     this.mode = mode;
     this.rng = new MatchRng(seed);
     this.cpuFleet = new CpuFleet(seed);
+    this.loot = seedHealthPickups(mode, this.rng);
     this.ultWorld = seedUltWorld(this.covers);
     this.ultWorld.effects = this.effects;
     this.crates = spawnBreakableCrates(this.covers);
@@ -307,6 +310,7 @@ export class MatchSim {
         kills: 0,
         characterId: seeded.characterId,
         cpu: Boolean(seat.cpu),
+        parked: false,
         vx: 0,
         vy: 0,
         hopLock: 0,
@@ -373,6 +377,7 @@ export class MatchSim {
       return;
     }
     this.updateTimers(dt);
+    updateItemPulses(this.itemWorld(dt), dt);
     updateSafeZone(this.zone, dt);
     this.applyHumans(dt);
     this.stepFinishCine(dt);
@@ -386,10 +391,11 @@ export class MatchSim {
     tickHorseKicks(this.ultWorld, dt);
     tickDogRush(this.ultWorld, this.heroes, dt);
     this.moveLaunched(dt);
+    this.separateHeroes();
     tickRoosterEggs(this.ultWorld, this.heroes, dt);
     tickPigMuds(this.ultWorld, dt);
     tickWoolShields(this.heroes.values(), dt);
-    for (const downed of applyZoneLifeDamage(this.heroes, this.zone, dt)) {
+    for (const downed of applyZoneLifeDamage(this.zoneDamageHeroes(), this.zone, dt)) {
       this.knockouts.push(spawnKnockout(downed));
     }
     applySafeZoneCrateDamage(this.zone, this.crates, this.crateOrbs, dt);
@@ -397,7 +403,9 @@ export class MatchSim {
     decayEffects(this.effects, dt);
     tickDowns(this.heroes, this.zone, dt);
     tickUltClones(this.ultWorld, this.heroes, dt);
-    updateHealthPickups(this.loot, this.heroes, dt, this.mode);
+    updateHealthPickups(this.loot, this.heroes, dt, this.mode, {
+      rng: this.rng, tick: this.tick, events: this.ultWorld.events, effects: this.effects,
+    });
     updateCrateOrbs(this.crateOrbs, this.heroes, dt);
     updateRespawns(this.heroes, this.zone, this.covers, dt);
     tickKnockouts(this.knockouts, dt);
@@ -502,6 +510,8 @@ export class MatchSim {
       h.evadeTime = Math.max(0, h.evadeTime - dt);
       h.slideTime = Math.max(0, h.slideTime - dt);
       h.springTime = Math.max(0, h.springTime - dt);
+      h.pullTime = Math.max(0, h.pullTime - dt);
+      h.pocketTime = Math.max(0, h.pocketTime - dt);
       tickLaunchTrailFade(h, dt);
       tickPassiveUltCharge(h, dt);
       h.turtle = h.rlTimed.some((b) => b.id === "turtle" && b.time > 0);
@@ -513,7 +523,7 @@ export class MatchSim {
 
   private applyHumans(dt: number): void {
     for (const [slot, hero] of this.heroes) {
-      if (!hero.alive || hero.cpu) {continue;}
+      if (!hero.alive || hero.cpu || hero.parked) {continue;}
       const cmd = this.inputs.get(slot);
       if (!cmd) {continue;}
       this.applyHero(hero, cmd, dt);
@@ -540,6 +550,12 @@ export class MatchSim {
       warnZones: this.zones,
       deployables: this.deploy.deployables,
       mode: this.mode,
+      onTargetChange: (slot, from, to, betrayal): void => {
+        this.ultWorld.events.push({ tick: this.tick, type: "target_changed", actor: slot, target: to, data: { from } });
+        if (betrayal) {
+          this.ultWorld.events.push({ tick: this.tick, type: "betrayal", actor: slot, target: to, data: { previous_target: from } });
+        }
+      },
     });
     if (!cmd) {return;}
     this.applyHero(hero, {
@@ -561,14 +577,80 @@ export class MatchSim {
     });
   }
 
+  /** 원본 game_world.gd:35 — 코어 몸통 반경. */
+  private static readonly CORE_RADIUS = 34;
+
+  /** 히어로-코어·히어로-히어로 밀어내기 — 원본 hero_movement.gd:200-225 (원조 794-820). */
+  private separateHeroes(): void {
+    const heroes = [...this.heroes.values()];
+    for (const h of heroes) {
+      if (!h.alive) {continue;}
+      this.pushOutOfCores(h);
+    }
+    for (let a = 0; a < heroes.length; a += 1) {
+      if (!heroes[a].alive) {continue;}
+      for (let b = a + 1; b < heroes.length; b += 1) {
+        if (!heroes[b].alive) {continue;}
+        this.pushApartPair(heroes[a], heroes[b]);
+      }
+    }
+  }
+
+  private pushOutOfCores(h: SimHero): void {
+    for (const core of this.cores) {
+      if (!core.alive || core.slot === h.slot) {continue;}
+      const dx = h.x - core.x;
+      const dy = h.y - core.y;
+      const minDist = HERO_RADIUS + MatchSim.CORE_RADIUS;
+      if (dx * dx + dy * dy >= minDist * minDist) {continue;}
+      const len = Math.hypot(dx, dy) || 1;
+      h.x = core.x + (dx / len) * minDist;
+      h.y = core.y + (dy / len) * minDist;
+    }
+  }
+
+  private pushApartPair(ha: SimHero, hb: SimHero): void {
+    const dx = hb.x - ha.x;
+    const dy = hb.y - ha.y;
+    const minDist = HERO_RADIUS * 1.4;
+    const distSq = dx * dx + dy * dy;
+    if (distSq >= minDist * minDist) {return;}
+    const len = Math.sqrt(distSq);
+    // 원본: length_squared > 0.001 일 때만 정규화, 아니면 RIGHT.
+    const nx = distSq > 0.001 ? dx / len : 1;
+    const ny = distSq > 0.001 ? dy / len : 0;
+    const push = Math.min(2, (minDist - len) * 0.4);
+    ha.x -= nx * push;
+    ha.y -= ny * push;
+    hb.x += nx * push;
+    hb.y += ny * push;
+  }
+
   private moveLaunched(dt: number): void {
     tickLaunch(this.heroes.values(), dt, this.tick, this.covers, this.effects);
+  }
+
+  private itemWorld(dt: number): ItemWorld {
+    return {
+      mode: this.mode, tick: this.tick, dt,
+      heroes: this.heroes as unknown as ReadonlyMap<number, ItemHero>,
+      pickups: this.loot, events: this.ultWorld.events, effects: this.effects,
+    };
+  }
+
+  private zoneDamageHeroes(): Map<number, SimHero> {
+    const out = new Map<number, SimHero>();
+    for (const [slot, h] of this.heroes) {
+      if (heroInOwnPocket(h)) {continue;}
+      out.set(slot, h);
+    }
+    return out;
   }
 
   private applyHero(hero: SimHero, cmd: MatchInput, dt: number): void {
     const seq = Math.max(0, Math.floor(num(cmd.seq)));
     if (seq > hero.ack) {hero.ack = seq;}
-    handleUseInput(hero, truthy(cmd.use));
+    handleUseInput(hero, truthy(cmd.use), this.itemWorld(dt));
     applyEmoteInput(hero, Math.floor(num(cmd.emote, -1)));
     applyFinish(this.finishCine, this.heroes, hero.slot, truthy(cmd.finish));
     if (this.finishCine.on && (this.finishCine.atk === hero.slot || this.finishCine.vic === hero.slot)) {

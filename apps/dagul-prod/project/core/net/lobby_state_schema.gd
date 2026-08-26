@@ -104,6 +104,7 @@ class MatchHero extends Colyseus.Schema:
 			LobbyColyseus.f("slideT", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("rlTimed", Colyseus.Schema.STRING),
 			LobbyColyseus.f("ultClones", Colyseus.Schema.STRING),
+			LobbyColyseus.f("parked", Colyseus.Schema.BOOLEAN),
 		]
 
 class MatchBullet extends Colyseus.Schema:

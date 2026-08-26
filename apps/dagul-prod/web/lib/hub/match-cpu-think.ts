@@ -279,6 +279,11 @@ function refreshThink(
   if (mind.targetHold <= 0 || oldTarget < 0 || !cpuTargetValid(held)) {
     mind.target = chosen;
     mind.targetHold = CPU_TARGET_HOLD_MIN_SEC + rng.rangef(0, CPU_TARGET_HOLD_JITTER_SEC);
+    if (oldTarget >= 0 && oldTarget !== chosen) {
+      // 원본 game_world.gd:523-526 — 전환 알림 + 새 타겟이 내 옛 타겟을 노리면 배신.
+      const preyNew = cpuFind(bodies, chosen);
+      world?.onTargetChange?.(hero.slot, oldTarget, chosen, preyNew?.target === oldTarget);
+    }
   }
   const prey = cpuFind(bodies, mind.target);
   applySeek(mind, hero, cpuTargetValid(prey) ? prey : undefined, rng, world);

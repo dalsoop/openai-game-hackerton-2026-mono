@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FIXED_DT } from "@/lib/hub/match-sim";
 import { LobbyState } from "@/lib/hub/lobby-state";
-import { SNAP_DT, seed, tick, writeMatchSchema } from "@/lib/hub/match-authority";
+import { SNAP_DT, seed, setHeroParked, tick, writeMatchSchema } from "@/lib/hub/match-authority";
 
 describe("MatchAuthority 스냅 주기", () => {
   it("스냅은 20Hz (FIXED_DT × 3)", () => {
@@ -28,5 +28,26 @@ describe("MatchAuthority 스냅 주기", () => {
       ?.find((p) => p.slot === 0);
     expect(me?.ack).toBe(3);
     expect(me?.x).toBeGreaterThan(bootX);
+  });
+});
+
+describe("MatchAuthority parked", () => {
+  it("인간 좌석은 이탈 true · 복귀 false, CPU 는 항상 false", () => {
+    const auth = seed(
+      [
+        { slot: 0, name: "호스트" },
+        { slot: 1, name: "게스트" },
+        { slot: 2, name: "CPU3", cpu: true },
+      ],
+      "full",
+    );
+    expect(auth.sim.heroes.get(0)?.parked).toBe(false);
+    expect(auth.sim.heroes.get(2)?.parked).toBe(false);
+    setHeroParked(auth, 1, true);
+    expect(auth.sim.heroes.get(1)?.parked).toBe(true);
+    setHeroParked(auth, 1, false);
+    expect(auth.sim.heroes.get(1)?.parked).toBe(false);
+    setHeroParked(auth, 2, true);
+    expect(auth.sim.heroes.get(2)?.parked).toBe(false);
   });
 });

@@ -58,6 +58,20 @@ describe("MatchSim", () => {
     expect(h0.x - x0).toBeCloseTo(h0.equipment.moveSpeed / 60, 0);
   });
 
+  it("parked 히어로는 잔여 입력이 있어도 정지한다", () => {
+    const sim = new MatchSim([{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }]);
+    sim.countdown = 0;
+    const hero = sim.heroes.get(0);
+    expect(hero).toBeDefined();
+    if (!hero) {return;}
+    expect(hero.parked).toBe(false);
+    hero.parked = true;
+    const x = hero.x;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
+    sim.step(1 / 60);
+    expect(hero.x).toBe(x);
+  });
+
   it("발사하면 id·속도가 있는 탄이 생기고 쿨다운을 가진다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     sim.countdown = 0;
@@ -455,4 +469,19 @@ describe("W14 전투 파이프라인", () => {
     expect(b.alive).toBe(false);
     expect(sim.knockouts.length).toBe(1);
   });
+
+  it("겹친 히어로는 서로 밀려난다 — 원본 hero_movement.gd:208-225", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    sim.countdownHeld = false;
+    const a = sim.heroes.get(0);
+    const b = sim.heroes.get(1);
+    expect(a && b).toBeTruthy();
+    if (!a || !b) {return;}
+    a.x = 2000; a.y = 2300; b.x = 2004; b.y = 2300;
+    sim.step(1 / 60);
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    expect(dist).toBeGreaterThan(4);
+  });
+
 });

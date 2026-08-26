@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client } from "colyseus";
 import { HUB_CONFIG, MSG } from "@/lib/hub/config";
-import { commitTickSnap, scheduleLobbyReset } from "@/lib/hub/lobby-play";
+import { commitTickSnap, parkSeat, scheduleLobbyReset } from "@/lib/hub/lobby-play";
+import { seed as seedAuthority } from "@/lib/hub/match-authority";
 import { LobbyState } from "@/lib/hub/lobby-state";
 import type { LobbyBag, LobbyHandle } from "@/lib/hub/lobby-waiting";
 
@@ -60,6 +61,26 @@ describe("scheduleLobbyReset", () => {
     vi.advanceTimersByTime(1);
     expect(state.phase).toBe("lobby");
     expect(state.seed).toBe(0);
+  });
+});
+
+describe("parkSeat", () => {
+  it("이탈 true · 복귀 false, CPU 는 무시한다", () => {
+    const bag = emptyBag();
+    bag.authority = seedAuthority(
+      [
+        { slot: 0, name: "호스트" },
+        { slot: 1, name: "게스트" },
+        { slot: 2, name: "CPU3", cpu: true },
+      ],
+      "full",
+    );
+    parkSeat(bag, 1, true);
+    expect(bag.authority.sim.heroes.get(1)?.parked).toBe(true);
+    parkSeat(bag, 1, false);
+    expect(bag.authority.sim.heroes.get(1)?.parked).toBe(false);
+    parkSeat(bag, 2, true);
+    expect(bag.authority.sim.heroes.get(2)?.parked).toBe(false);
   });
 });
 

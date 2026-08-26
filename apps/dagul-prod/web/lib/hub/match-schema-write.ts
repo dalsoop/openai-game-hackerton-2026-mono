@@ -70,6 +70,7 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.slideT = h.slideTime;
   row.rlTimed = JSON.stringify(h.rlTimed);
   row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
+  row.parked = h.parked;
 }
 
 function writeHeroes(

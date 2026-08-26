@@ -15,7 +15,7 @@ import {
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { applyPlayInput, bootAuthority, tickAuthority, tryReleaseLoadBarrier } from "./lobby-play.js";
+import { applyPlayInput, bootAuthority, parkSeat, tickAuthority, tryReleaseLoadBarrier } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -121,6 +121,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const oldClient = this.clients.find((c) => c.sessionId === oldId);
     player.sessionId = client.sessionId;
     player.connected = true;
+    parkSeat(this.bag, player.slot, false);
     player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
@@ -155,6 +156,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       return;
     }
     player.connected = true;
+    parkSeat(this.bag, player.slot, false);
     this.syncHost();
   }
 
@@ -166,7 +168,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   private async holdSeat(client: Client): Promise<void> {
     const player = this.state.players.find((p) => p.sessionId === client.sessionId);
-    if (player) {player.connected = false;}
+    if (player) {
+      player.connected = false;
+      parkSeat(this.bag, player.slot, true);
+    }
     this.syncHost();
     try {
       await this.allowReconnection(client, graceSeconds(this.state.phase));
@@ -180,7 +185,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const wasHost = sessionId === this.state.hostSessionId;
     const playing = this.state.phase === "playing";
     const idx = this.state.players.findIndex((p) => p.sessionId === sessionId);
-    if (idx >= 0) {this.state.players.splice(idx, 1);}
+    if (idx >= 0) {
+      parkSeat(this.bag, this.state.players[idx].slot, true);
+      this.state.players.splice(idx, 1);
+    }
     if (playing && wasHost) {
       this.syncHost();
       if (this.state.hostSessionId === "") {scheduleHostLossReset(this, this.bag);}

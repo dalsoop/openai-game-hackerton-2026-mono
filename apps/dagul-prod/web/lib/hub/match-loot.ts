@@ -1,10 +1,24 @@
 /**
  * 회복 픽업·메드킷 — 원본 crate_pickup.gd + active_item.gd 의 full 모드 결정론 포팅.
- * RNG·시계 없음: full 모드 픽업은 단일 종류(메드킷 적재/즉시 회복)라 난수가 필요 없다.
- * (roll_pickup_kind 류 아이템 풀은 ITEM_POOL_MODE("item") 전용 — 이식 범위 밖.)
+ * 아이템 풀(roll/습득/use)은 match-item.ts (active_item.gd ITEM_POOL_MODE).
  */
 import { ARENA_TILE_SCALE, HERO_RADIUS, SOURCE_ARENA_SIZE } from "./match-covers.js";
 import { applyGunLoot, type GunHero } from "./match-gun.js";
+import {
+  collectItemPickup, isItemPoolMode, isNoLootMode, rollPickupKind, tryUseActiveItem,
+  tryUseHeldItem as tryHeldPoolItem,
+  type ItemEvent, type ItemHero, type ItemPickup, type ItemWorld,
+} from "./match-item.js";
+import type { EffectStore } from "./match-effects.js";
+import type { MatchRng } from "./match-rng.js";
+
+export {
+  SPRING_AIR, SPRING_LIFT, SPRING_EVADE, SPRING_BOOST, SLIDE_DURATION, SLIDE_ACCEL, SLIDE_FRICTION,
+  PULL_DURATION, PULL_RADIUS, PULL_LAUNCH, POCKET_DURATION, POCKET_RADIUS, DECOY_DAMAGE, DECOY_KNOCK,
+  ITEM_POOL_MODE, NO_LOOT_MODES, ITEM_DROP_IGNORE, steerSlide, tryUseHeldItem, tryUseActiveItem,
+  rollPickupKind, collectItemPickup, updateItemPulses, heroInOwnPocket, explodeDecoy,
+  spawnDroppedPickup, isItemPoolMode, isNoLootMode,
+} from "./match-item.js";
 
 export const HEALTH_PICKUP_RADIUS = 27;
 export const HEALTH_PICKUP_RESPAWN = 16;
@@ -18,14 +32,6 @@ export const MEDKIT_MAX = 3;
 export const MEDKIT_HEAL_RATIO = 0.30;
 /** 사용 가능 최소 결손 — try_use_medkit(active_item.gd): hp < max_hp - 0.5. */
 const MEDKIT_MIN_MISSING = 0.5;
-/** active_item.gd 9-15 · game_world.gd 86-92. */
-export const SPRING_AIR = 0.45;
-export const SPRING_LIFT = 36.0;
-export const SPRING_EVADE = 0.22;
-export const SPRING_BOOST = 220.0;
-export const SLIDE_DURATION = 2.2;
-export const SLIDE_ACCEL = 520.0;
-export const SLIDE_FRICTION = 180.0;
 /** 습득 판정 거리 — HERO_RADIUS(20) + HEALTH_PICKUP_RADIUS(27) = 47. */
 const COLLECT_DIST = HERO_RADIUS + HEALTH_PICKUP_RADIUS;
 
@@ -37,19 +43,7 @@ const SOURCE_HEALTH_PICKUP_POINTS = [
   { x: 2040, y: 850 },
 ] as const;
 
-export type LootPickup = {
-  id: number;
-  x: number;
-  y: number;
-  homeX: number;
-  homeY: number;
-  magnetSlot: number;
-  active: boolean;
-  respawn: number;
-  /** item=메드킷/회복, gun=총 루팅 드랍(try_gun_loot). */
-  kind: "item" | "gun";
-  ephemeral: boolean;
-};
+export type LootPickup = ItemPickup;
 
 export type LootHero = {
   slot: number;
@@ -62,38 +56,42 @@ export type LootHero = {
   medkits: number;
   useHeld: boolean;
   heldItem: string;
+  pullTime: number;
+  pocketTime: number;
+  launchTime?: number;
+  facingX?: number;
+  facingY?: number;
+  vx?: number;
+  vy?: number;
 };
 
-export type SlideHero = {
-  vx: number;
-  vy: number;
-  vel: { x: number; y: number };
-  facingX: number;
-  facingY: number;
-  slideTime: number;
-  springTime: number;
-  evadeTime: number;
-  hopTime: number;
-  hopMax: number;
-  hopHeight: number;
-  heldItem: string;
+export type SlideHero = ItemHero;
+
+export type LootTickOpts = {
+  rng?: MatchRng;
+  tick?: number;
+  events?: ItemEvent[];
+  effects?: EffectStore;
 };
 
 /** SimHero 생성 시 픽업/메드킷 초기 필드 묶음. */
-export function lootSeedFields(): Pick<LootHero, "medkits" | "useHeld" | "heldItem"> {
-  return { medkits: 0, useHeld: false, heldItem: "" };
+export function lootSeedFields(): Pick<LootHero, "medkits" | "useHeld" | "heldItem" | "pullTime" | "pocketTime"> {
+  return { medkits: 0, useHeld: false, heldItem: "", pullTime: 0, pocketTime: 0 };
+}
+
+function blankPickup(id: number, x: number, y: number): LootPickup {
+  return {
+    id, x, y, homeX: x, homeY: y, magnetSlot: -1, active: true, respawn: 0,
+    kind: "item", itemKind: "medkit", disguise: "medkit", ephemeral: false,
+    ignoreSlot: -1, ignoreTime: 0,
+  };
 }
 
 function appendTilePickups(pickups: LootPickup[], tileX: number, tileY: number): void {
   const originX = tileX * SOURCE_ARENA_SIZE.x * ARENA_TILE_SCALE;
   const originY = tileY * SOURCE_ARENA_SIZE.y * ARENA_TILE_SCALE;
   for (const src of SOURCE_HEALTH_PICKUP_POINTS) {
-    const x = originX + src.x * ARENA_TILE_SCALE;
-    const y = originY + src.y * ARENA_TILE_SCALE;
-    pickups.push({
-      id: pickups.length, x, y, homeX: x, homeY: y, magnetSlot: -1, active: true, respawn: 0,
-      kind: "item", ephemeral: false,
-    });
+    pickups.push(blankPickup(pickups.length, originX + src.x * ARENA_TILE_SCALE, originY + src.y * ARENA_TILE_SCALE));
   }
 }
 
@@ -108,9 +106,28 @@ export function buildHealthPickups(): LootPickup[] {
   return pickups;
 }
 
+function disableLoot(pickups: LootPickup[]): void {
+  for (const p of pickups) {
+    p.active = false;
+    p.respawn = 99999.0;
+  }
+}
+
+/** game_world.gd:240-248 — item 모드는 roll_pickup_kind, NO_LOOT_MODES 는 헬스 픽업 비활성. */
+export function seedHealthPickups(mode: string, rng: MatchRng): LootPickup[] {
+  const pickups = buildHealthPickups();
+  if (isItemPoolMode(mode)) {
+    for (const p of pickups) {rollPickupKind(p, rng);}
+  }
+  if (isNoLootMode(mode)) {disableLoot(pickups);}
+  return pickups;
+}
+
 /** 자석 대상 유효성 — pickup_target_valid: alive · not eliminated · 거리 이내. */
 function targetValid(hero: LootHero | undefined, pickup: LootPickup, maxDist: number): boolean {
   if (!hero || !hero.alive || hero.eliminated) {return false;}
+  if ((hero.launchTime ?? 0) > 0) {return false;}
+  if (pickup.ignoreSlot === hero.slot && pickup.ignoreTime > 0) {return false;}
   return Math.hypot(hero.x - pickup.x, hero.y - pickup.y) <= maxDist;
 }
 
@@ -119,9 +136,9 @@ function nearestTarget(heroes: ReadonlyMap<number, LootHero>, pickup: LootPickup
   let best = -1;
   let bestDist = Infinity;
   for (const hero of heroes.values()) {
-    if (!hero.alive || hero.eliminated) {continue;}
+    if (!targetValid(hero, pickup, HEALTH_PICKUP_MAGNET_RADIUS)) {continue;}
     const dist = Math.hypot(hero.x - pickup.x, hero.y - pickup.y);
-    if (dist > HEALTH_PICKUP_MAGNET_RADIUS || dist >= bestDist) {continue;}
+    if (dist >= bestDist) {continue;}
     best = hero.slot;
     bestDist = dist;
   }
@@ -141,10 +158,6 @@ function movePickupToward(pickup: LootPickup, tx: number, ty: number, delta: num
   pickup.y += (dy / dist) * delta;
 }
 
-/**
- * 습득 — crate_pickup.gd:196-215 full 모드 분기.
- * 메드킷 슬롯이 비면 적재(carried+1), 가득이면 즉시 회복(max_hp*0.30, 결손과 min).
- */
 function deactivatePickup(pickup: LootPickup): void {
   pickup.active = false;
   pickup.respawn = pickup.ephemeral ? Number.POSITIVE_INFINITY : HEALTH_PICKUP_RESPAWN;
@@ -166,16 +179,38 @@ export function tryCollectGunLoot(hero: GunHero, mode: string): boolean {
 export function spawnGunLootPickup(pickups: LootPickup[], x: number, y: number): LootPickup {
   const pickup: LootPickup = {
     id: pickups.length, x, y, homeX: x, homeY: y, magnetSlot: -1, active: true, respawn: 0,
-    kind: "gun", ephemeral: true,
+    kind: "gun", itemKind: "", disguise: "", ephemeral: true, ignoreSlot: -1, ignoreTime: 0,
   };
   pickups.push(pickup);
   return pickup;
 }
 
-function collectPickup(hero: LootHero, pickup: LootPickup, mode: string): void {
+function asItemHero(hero: LootHero): ItemHero {
+  return hero as LootHero & ItemHero;
+}
+
+function asItemWorld(
+  mode: string, heroes: ReadonlyMap<number, LootHero>, pickups: readonly LootPickup[], opts?: LootTickOpts,
+): ItemWorld {
+  return {
+    mode, tick: opts?.tick ?? 0, dt: 1 / 60,
+    heroes: heroes as unknown as ReadonlyMap<number, ItemHero>,
+    pickups: pickups as ItemPickup[],
+    events: opts?.events, effects: opts?.effects,
+  };
+}
+
+function collectPickup(
+  hero: LootHero, pickup: LootPickup, mode: string,
+  heroes: ReadonlyMap<number, LootHero>, pickups: readonly LootPickup[], opts?: LootTickOpts,
+): void {
   if (pickup.kind === "gun") {
     if (hasGunLootFields(hero)) {tryCollectGunLoot(hero, mode);}
     deactivatePickup(pickup);
+    return;
+  }
+  if (isItemPoolMode(mode)) {
+    collectItemPickup(asItemHero(hero), pickup, asItemWorld(mode, heroes, pickups, opts));
     return;
   }
   if (hero.medkits < MEDKIT_MAX) {hero.medkits += 1;}
@@ -184,7 +219,7 @@ function collectPickup(hero: LootHero, pickup: LootPickup, mode: string): void {
 }
 
 /** 리스폰 — 정규 픽업은 respawn 소진 시 home 에서 재활성(4a). */
-function tickInactivePickup(pickup: LootPickup, dt: number): void {
+function tickInactivePickup(pickup: LootPickup, dt: number, mode: string, rng?: MatchRng): void {
   if (pickup.ephemeral) {return;}
   pickup.respawn = Math.max(0, pickup.respawn - dt);
   if (pickup.respawn > 0) {return;}
@@ -192,6 +227,9 @@ function tickInactivePickup(pickup: LootPickup, dt: number): void {
   pickup.x = pickup.homeX;
   pickup.y = pickup.homeY;
   pickup.magnetSlot = -1;
+  pickup.ignoreSlot = -1;
+  pickup.ignoreTime = 0;
+  if (isItemPoolMode(mode) && rng) {rollPickupKind(pickup, rng);}
 }
 
 /** 활성 픽업 1개 틱 — 자석 재탐색 → 끌림/습득 또는 home 복귀(4c). */
@@ -200,6 +238,8 @@ function tickActivePickup(
   heroes: ReadonlyMap<number, LootHero>,
   dt: number,
   mode: string,
+  pickups: readonly LootPickup[],
+  opts?: LootTickOpts,
 ): void {
   const keepDist = HEALTH_PICKUP_MAGNET_RADIUS * MAGNET_KEEP_MULT;
   if (!targetValid(heroes.get(pickup.magnetSlot), pickup, keepDist)) {
@@ -212,7 +252,7 @@ function tickActivePickup(
   }
   movePickupToward(pickup, target.x, target.y, HEALTH_PICKUP_MAGNET_SPEED * dt);
   if (Math.hypot(target.x - pickup.x, target.y - pickup.y) <= COLLECT_DIST) {
-    collectPickup(target, pickup, mode);
+    collectPickup(target, pickup, mode, heroes, pickups, opts);
   }
 }
 
@@ -222,10 +262,12 @@ export function updateHealthPickups(
   heroes: ReadonlyMap<number, LootHero>,
   dt: number,
   mode = "classic",
+  opts?: LootTickOpts,
 ): void {
   for (const pickup of pickups) {
-    if (pickup.active) {tickActivePickup(pickup, heroes, dt, mode);}
-    else {tickInactivePickup(pickup, dt);}
+    pickup.ignoreTime = Math.max(0, pickup.ignoreTime - dt);
+    if (pickup.active) {tickActivePickup(pickup, heroes, dt, mode, pickups, opts);}
+    else {tickInactivePickup(pickup, dt, mode, opts?.rng);}
   }
 }
 
@@ -238,84 +280,11 @@ export function tryUseMedkit(hero: LootHero): boolean {
   return true;
 }
 
-function moveToward(vx: number, vy: number, tx: number, ty: number, delta: number): { x: number; y: number } {
-  const dx = tx - vx;
-  const dy = ty - vy;
-  const len = Math.hypot(dx, dy);
-  if (len <= delta || len === 0) {return { x: tx, y: ty };}
-  return { x: vx + (dx / len) * delta, y: vy + (dy / len) * delta };
-}
-
-/** active_item.gd steer_slide:247-259. */
-export function steerSlide(h: SlideHero, wishX: number, wishY: number, maxSpeed: number, dt: number): void {
-  let vx = h.vx;
-  let vy = h.vy;
-  const wishLen = Math.hypot(wishX, wishY);
-  if (wishLen * wishLen > 0.04) {
-    vx += (wishX / wishLen) * SLIDE_ACCEL * dt;
-    vy += (wishY / wishLen) * SLIDE_ACCEL * dt;
-    const spd = Math.hypot(vx, vy);
-    const cap = Math.max(40.0, maxSpeed * 1.15);
-    if (spd > cap) {
-      vx = (vx / spd) * cap;
-      vy = (vy / spd) * cap;
-    }
-  } else {
-    const next = moveToward(vx, vy, 0, 0, SLIDE_FRICTION * dt);
-    vx = next.x;
-    vy = next.y;
-  }
-  h.vx = vx;
-  h.vy = vy;
-  h.vel = { x: vx, y: vy };
-}
-
-function facingOrVel(h: SlideHero): { x: number; y: number } {
-  const spd = Math.hypot(h.vx, h.vy);
-  if (spd * spd > 0.1) {return { x: h.vx / spd, y: h.vy / spd };}
-  const flen = Math.hypot(h.facingX, h.facingY);
-  if (flen * flen > 0.1) {return { x: h.facingX / flen, y: h.facingY / flen };}
-  return { x: 0, y: 0 };
-}
-
-function applySpringUse(h: SlideHero): void {
-  h.heldItem = "";
-  h.hopTime = SPRING_AIR;
-  h.hopMax = SPRING_AIR;
-  h.hopHeight = SPRING_LIFT;
-  h.evadeTime = Math.max(h.evadeTime, SPRING_EVADE);
-  h.springTime = SPRING_AIR;
-  const dir = facingOrVel(h);
-  if (dir.x * dir.x + dir.y * dir.y > 0.1) {
-    h.vx += dir.x * SPRING_BOOST;
-    h.vy += dir.y * SPRING_BOOST;
-    h.vel = { x: h.vx, y: h.vy };
-  }
-}
-
-function applySlideUse(h: SlideHero): void {
-  h.heldItem = "";
-  h.slideTime = SLIDE_DURATION;
-}
-
-function isSlideHero(hero: LootHero): hero is LootHero & SlideHero {
-  return typeof (hero as LootHero & Partial<SlideHero>).slideTime === "number"
-    && typeof (hero as LootHero & Partial<SlideHero>).vx === "number";
-}
-
-/** active_item.gd try_use_active_item spring/slide. 픽업 풀에 spring/slide 가 없으면 호출측이 heldItem 을 넣는다. */
-export function tryUseHeldItem(hero: LootHero): boolean {
-  if (!hero.alive || hero.eliminated) {return false;}
-  if (!isSlideHero(hero)) {return false;}
-  if (hero.heldItem === "spring") {applySpringUse(hero); return true;}
-  if (hero.heldItem === "slide") {applySlideUse(hero); return true;}
-  return false;
-}
-
 /** use 입력 에지 검출 — 허브는 마지막 입력을 매 틱 재적용하므로 홀드 연속 사용을 막는다. */
-export function handleUseInput(hero: LootHero, wantUse: boolean): void {
+export function handleUseInput(hero: LootHero, wantUse: boolean, world?: ItemWorld): void {
   if (wantUse && !hero.useHeld) {
-    if (!tryUseHeldItem(hero)) {tryUseMedkit(hero);}
+    if (world && isItemPoolMode(world.mode)) {tryUseActiveItem(asItemHero(hero), world);}
+    else if (!tryHeldPoolItem(hero)) {tryUseMedkit(hero);}
   }
   hero.useHeld = wantUse;
 }

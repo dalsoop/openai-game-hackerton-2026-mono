@@ -92,6 +92,13 @@ export class MatchAuthority {
     this.sim.pushInput(slot, data);
   }
 
+  /** 인간 좌석만. CPU 는 항상 false. */
+  setParked(slot: number, parked: boolean): void {
+    const hero = this.sim.heroes.get(slot);
+    if (!hero || hero.cpu) {return;}
+    hero.parked = parked;
+  }
+
   advance(
     dtSec: number,
     _state: LobbyState,
@@ -172,4 +179,12 @@ export function tick(
 
 export function apply(authority: MatchAuthority, slot: number, data: MatchInput): void {
   authority.pushInput(slot, data);
+}
+
+export function setHeroParked(
+  authority: MatchAuthority | null,
+  slot: number,
+  parked: boolean,
+): void {
+  authority?.setParked(slot, parked);
 }

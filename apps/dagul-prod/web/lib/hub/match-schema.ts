@@ -58,6 +58,7 @@ export class MatchHeroSchema extends Schema {
   /** JSON 배열 문자열. TimedBuff[] / {x,y}[] 는 nested ArraySchema 가 비싸다. */
   @type("string") rlTimed = "[]";
   @type("string") ultClones = "[]";
+  @type("boolean") parked = false;
 }
 
 export class MatchBulletSchema extends Schema {

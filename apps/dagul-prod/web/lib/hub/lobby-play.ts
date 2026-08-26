@@ -8,6 +8,7 @@ import {
   acceptPlayInput,
   packAuthoritySnap,
   seed as seedAuthority,
+  setHeroParked,
   tick as tickAuthoritySim,
   writeMatchSchema,
 } from "./match-authority.js";
@@ -36,6 +37,9 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
     slot: p.slot, name: p.name, characterId: p.characterId,
   }))).slice(0, PLAYER_COUNT);
   bag.authority = seedAuthority(seats, room.state.mode, room.state.seed);
+  for (const p of room.state.players) {
+    if (!p.connected) {setHeroParked(bag.authority, p.slot, true);}
+  }
   writeMatchSchema(room.state, bag.authority.sim);
   writeMatchState(room.state.match, bag.authority.sim, bag.authority.names, room.state.mode);
   const snap = packAuthoritySnap(bag.authority.sim, bag.authority.names, room.state.mode);
@@ -102,6 +106,10 @@ export function scheduleLobbyReset(room: LobbyHandle, bag: LobbyBag): void {
     resetToLobby(room, bag);
   }, HUB_CONFIG.resetToLobbyDelayMs);
   bag.gameTimer = { clear: (): void => {clearTimeout(handle);} };
+}
+
+export function parkSeat(bag: LobbyBag, slot: number, parked: boolean): void {
+  setHeroParked(bag.authority, slot, parked);
 }
 
 export const seed = bootAuthority;

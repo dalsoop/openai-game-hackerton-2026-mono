@@ -24,6 +24,7 @@ export type SnapPlayer = {
   hp: number;
   maxHp: number;
   alive: boolean;
+  parked: boolean;
   mag: number;
   magMax: number;
   reloadLeft: number;
@@ -68,6 +69,8 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "heldItem", h.heldItem);
   putOmit(out, "springT", h.springTime);
   putOmit(out, "slideT", h.slideTime);
+  putOmit(out, "pullT", h.pullTime);
+  putOmit(out, "pocketT", h.pocketTime);
   putOmit(out, "dmgOrbT", h.dmgOrbTime);
   putOmit(out, "downTaken", h.downTaken);
   putOmit(out, "woolT", h.woolTime);
@@ -113,6 +116,7 @@ function packHeroRow(h: SimHero, names: ReadonlyMap<number, string>): SnapPlayer
     hp: h.hp,
     maxHp: h.maxHp,
     alive: h.alive,
+    parked: h.parked,
     mag: h.mag,
     magMax: h.magMax,
     reloadLeft: h.reloadLeft,
