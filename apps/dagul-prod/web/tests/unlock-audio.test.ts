@@ -76,14 +76,17 @@ describe("captureAudioContexts", () => {
 });
 
 describe("closeCapturedAudioContexts", () => {
-  it("캡처한 컨텍스트를 close 하고 목록을 비운다", () => {
+  it("캡처한 컨텍스트를 suspend 하고 목록을 비운다 — close 는 산 엔진을 죽인다", () => {
     stubAudioContext();
     captureAudioContexts();
-    const Ctx = window.AudioContext as unknown as new () => AudioContext & { close: ReturnType<typeof vi.fn> };
+    const Ctx = window.AudioContext as unknown as new () => AudioContext
+      & { close: ReturnType<typeof vi.fn>; suspend: ReturnType<typeof vi.fn> };
     const ctx = new Ctx();
     ctx.close = vi.fn().mockResolvedValue(undefined);
+    ctx.suspend = vi.fn().mockResolvedValue(undefined);
     closeCapturedAudioContexts();
-    expect(ctx.close).toHaveBeenCalled();
+    expect(ctx.suspend).toHaveBeenCalled();
+    expect(ctx.close).not.toHaveBeenCalled();
     unlockGodotAudio();
     expect(ctx.resume).not.toHaveBeenCalled();
   });
