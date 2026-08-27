@@ -92,7 +92,7 @@ export class AssetStore {
 
   /** 매니페스트(버전 무결성의 정본) — 캐시 대상 아님: 항상 재검증. */
   async loadManifest(pack: string): Promise<{ version: string; filesHash?: string; files: string[] }> {
-    const resp = await fetch(godotAssetUrl(pack, "manifest.json"), { cache: "no-cache" });
+    const resp = await fetch(godotAssetUrl(pack, "manifest.json"), { cache: "no-store" });
     if (!resp.ok) {throw new Error(`manifest.json: ${resp.status}`);}
     const body = await resp.json() as { version: string; filesHash?: string; files: string[] };
     const nextHash = typeof body.filesHash === "string" ? body.filesHash : "";
@@ -110,7 +110,7 @@ export class AssetStore {
     // FIXME: 진단 계측(제거 예정) — 재다운로드 범인 식별용.
     const fetchLog = ((globalThis as { __assetFetches?: string[] }).__assetFetches ??= []);
     fetchLog.push(url + "@" + new Error().stack?.split("\n")[2]?.trim().slice(0, 60));
-    const cache: RequestCache = url.includes("?v=") ? "force-cache" : "no-cache";
+    const cache: RequestCache = url.includes("?v=") ? "force-cache" : "no-store";
     const resp = await fetch(url, { cache });
     if (!resp.ok) {throw new Error(`${url}: ${resp.status}`);}
     const declared = resp.headers.get("content-length");

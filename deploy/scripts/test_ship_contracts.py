@@ -482,12 +482,13 @@ class PurgeCacheGate(unittest.TestCase):
                 ):
                     self.assertEqual(self.purge.main(), 1)
 
-    def test_apply_passes_shipped_folder_urls_and_fails_helm(self) -> None:
+    def test_apply_passes_shipped_folder_urls_and_continues_on_purge_fail(self) -> None:
         apps_py = Path(__file__).with_name("apply-apps.py").read_text()
         fn = apps_py.split("def purge_cloudflare", 1)[1].split("def main", 1)[0]
         self.assertIn("shipped_folders()", fn)
         self.assertIn("https://{folder}.external.kr/", fn)
-        self.assertIn('raise SystemExit("cloudflare 퍼지 실패")', fn)
+        self.assertNotIn("raise SystemExit", fn)
+        self.assertIn("origin no-store 로 계속", fn)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
         self.assertIn("purge_cloudflare()", helm_fn)
 

@@ -574,7 +574,9 @@ def purge_cloudflare() -> None:
         argv.append(f"https://{folder}.external.kr/")
     ran = subprocess.run(argv, check=False)
     if ran.returncode:
-        raise SystemExit("cloudflare 퍼지 실패")
+        # dagul-prod 는 DNS-only 라 HTTP 가 CF 엣지를 거치지 않는다.
+        # 퍼지 자격·401이 배포를 막지 않는다. 신선함은 origin no-store 가 담당한다.
+        print("cloudflare 퍼지 실패 — origin no-store 로 계속", file=sys.stderr)
 
 
 def main() -> int:
