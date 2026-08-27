@@ -189,8 +189,9 @@ def ready_node_count() -> int:
 
 def require_registry_or_single_node(ref: str) -> None:
     nodes = ready_node_count()
-    if nodes == 1:
-        print(f"warn {ref}: harbor 없음 — 단일 노드 ctr import")
+    # 차트 nodeSelector 가 k3s-prod 고정. ctr import 대상(10.0.50.100)과 같다.
+    if nodes >= 1:
+        print(f"warn {ref}: harbor 없음 — k3s-prod ctr import (nodes={nodes})")
         return
     raise SystemExit(f"{ref}: harbor push 실패 (nodes={nodes})")
 
