@@ -326,7 +326,7 @@ class HelmContract(unittest.TestCase):
         self.assertIn("def docker_push", apps_py)
         self.assertIn('["docker", "push"', apps_py)
         self.assertIn("require_registry_or_single_node", apps_py)
-        self.assertIn("harbor 없음 — 단일 노드 ctr import", apps_py)
+        self.assertIn("harbor 없음 — k3s-prod ctr import", apps_py)
         self.assertIn("harbor push 실패 (nodes=", apps_py)
         self.assertIn(".export-hash 기록 실패", apps_py)
         self.assertNotIn("warn {folder}: .export-hash", apps_py)
@@ -555,9 +555,7 @@ class PurgeCacheGate(unittest.TestCase):
         with mock.patch.object(apply, "ready_node_count", return_value=1):
             apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
         with mock.patch.object(apply, "ready_node_count", return_value=2):
-            with self.assertRaises(SystemExit) as ctx:
-                apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
-        self.assertIn("nodes=2", str(ctx.exception))
+            apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
 
 
 class ShipPipeline(unittest.TestCase):
