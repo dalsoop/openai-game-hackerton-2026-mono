@@ -36,14 +36,27 @@ fi
 echo "▶ 배포 계약: test_ship_contracts"
 python3 deploy/scripts/test_ship_contracts.py
 
-# 웹 게이트 — 스테이지에 web 코드가 있으면 풀 체인 (다 고쳐야만 커밋)
+# 웹 게이트 — 스테이지된 트리만 본다. 워킹트리 미스테이지가 tsc를 통과시키면 안 된다.
+# stash --keep-index 만 ( -u 금지: untracked 를 삼키지 않는다). 경로는 web 로 한정.
 if git diff --cached --name-only | grep -qE "^apps/dagul-prod/web/.*\.(ts|tsx|mjs|json)$"; then
-  echo "▶ WEB 게이트: tsc + eslint + vitest"
+  echo "▶ WEB 게이트: staged tree tsc + eslint + vitest"
+  WEB_STASHED=0
+  if ! git diff --quiet -- apps/dagul-prod/web; then
+    git stash push --keep-index --quiet -m "pre-commit-web-gate" -- apps/dagul-prod/web
+    WEB_STASHED=1
+  fi
+  set +e
   (cd apps/dagul-prod/web \
     && npx tsc --noEmit \
     && npx eslint . \
-    && npx vitest run --reporter=dot 2>&1 | tail -3) || {
-    echo "❌ pre-commit: 웹 게이트 실패 — 전부 고친 뒤 다시 커밋"
+    && npx vitest run --reporter=dot 2>&1 | tail -3)
+  WEB_STATUS=$?
+  set -e
+  if [ "$WEB_STASHED" = 1 ]; then
+    git stash pop --quiet
+  fi
+  if [ "$WEB_STATUS" -ne 0 ]; then
+    echo "❌ pre-commit: 웹 게이트 실패 — 스테이지된 트리를 고친 뒤 다시 커밋"
     exit 1
-  }
+  fi
 fi

@@ -314,8 +314,9 @@ class HelmContract(unittest.TestCase):
         self.assertIn('["docker", "build"', apps_py)
         self.assertIn("def docker_push", apps_py)
         self.assertIn('["docker", "push"', apps_py)
-        self.assertIn("{ref}: harbor push 실패", apps_py)
-        self.assertNotIn("ctr import 로 계속", apps_py)
+        self.assertIn("require_registry_or_single_node", apps_py)
+        self.assertIn("harbor 없음 — 단일 노드 ctr import", apps_py)
+        self.assertIn("harbor push 실패 (nodes=", apps_py)
         self.assertIn(".export-hash 기록 실패", apps_py)
         self.assertNotIn("warn {folder}: .export-hash", apps_py)
         self.assertIn("--no-rebuild", apps_py)
@@ -513,10 +514,8 @@ class PurgeCacheGate(unittest.TestCase):
             return mock.Mock(returncode=1)
 
         with mock.patch.object(apply.subprocess, "run", fake_run):
-            with self.assertRaises(SystemExit) as ctx:
-                apply.docker_push("harbor.50.internal.xz/library/dagul-prod:dead", attempts=3)
+            self.assertFalse(apply.docker_push("harbor.50.internal.xz/library/dagul-prod:dead", attempts=3))
         self.assertEqual(calls["n"], 3)
-        self.assertIn("harbor push 실패", str(ctx.exception))
 
     def test_docker_push_succeeds_on_retry(self) -> None:
         import importlib.util
@@ -532,7 +531,22 @@ class PurgeCacheGate(unittest.TestCase):
             return mock.Mock(returncode=codes.pop(0))
 
         with mock.patch.object(apply.subprocess, "run", fake_run):
-            apply.docker_push("harbor.50.internal.xz/library/dagul-prod:ok", attempts=3)
+            self.assertTrue(apply.docker_push("harbor.50.internal.xz/library/dagul-prod:ok", attempts=3))
+
+    def test_harbor_fail_ok_only_on_single_node(self) -> None:
+        import importlib.util
+        from unittest import mock
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location("apply_nodes_gate", path)
+        apply = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(apply)
+        with mock.patch.object(apply, "ready_node_count", return_value=1):
+            apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
+        with mock.patch.object(apply, "ready_node_count", return_value=2):
+            with self.assertRaises(SystemExit) as ctx:
+                apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
+        self.assertIn("nodes=2", str(ctx.exception))
 
 
 class HelmContractTail(unittest.TestCase):
@@ -600,6 +614,15 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertIn("needs: [plan, lint-web]", apps_yml)
         self.assertNotIn("if: ${{ needs.plan.outputs.folders != '' }}", apps_yml.split("lint-web:", 1)[1].split("apply:", 1)[0])
         self.assertIn("workflow_dispatch", apps_yml)
+        self.assertIn("예: dagul-prod", apps_yml)
+        readme = (root / "deploy" / "README.md").read_text()
+        self.assertIn("`folders` 예: `dagul-prod`", readme)
+        hook = (root / ".githooks" / "pre-commit").read_text()
+        self.assertIn("stash push --keep-index", hook)
+        self.assertIn(' -m "pre-commit-web-gate" -- apps/dagul-prod/web', hook)
+        self.assertNotIn("stash push -u", hook)
+        self.assertNotIn("--include-untracked", hook)
+        self.assertIn("git stash pop", hook)
         self.assertIn("runs-on: [self-hosted, hackertone]", apps_yml)
         self.assertIn("group: apps-ship", apps_yml)
         self.assertNotIn("group: apps-helm", apps_yml)

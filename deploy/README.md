@@ -3,11 +3,12 @@
 정본은 `apply-apps.py`이다. main에 `apps/server-*`가 푸시되면 `pve-hackertone`이 바뀐 폴더만 ship 하고 helm 한다. wasm/pck는 git에 넣지 않는다.
 
 - 보드: `https://server-board.external.kr/`
-- 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch`.
+- 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch` (`folders` 예: `dagul-prod`).
 - 퍼지: `helm`이 끝난 뒤 시도한다. 실패해도 helm 은 통과한다.
 
 Helm은 이미지를 만들지 않는다. 바꾼 슬롯만 ship 한 뒤 helm 한다.
-Harbor `docker push` 가 실패하면 ship 을 끝내지 않는다. `k3s ctr import` 는 그 노드 보강일 뿐 레지스트리를 대체하지 않는다.
+Harbor `docker push` 는 3회 재시도한다. 호스트가 공인 DNS 에 없으면 실패한다.
+클러스터가 노드 1개이면 `k3s ctr import` 로 계속하고, 노드가 둘 이상이면 ship 을 끝내지 않는다.
 웹 슬롯은 apply 전에 `tsc --noEmit` 과 eslint 를 통과해야 한다.
 
 ## 한 번만 붙이면 되는 것

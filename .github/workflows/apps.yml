@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       folders:
-        description: "ship 할 server-* 폴더 (공백 구분). 비우면 ci-plan"
+        description: "ship 할 폴더 (공백 구분, 예: dagul-prod). 비우면 ci-plan"
         type: string
         default: ""
 
