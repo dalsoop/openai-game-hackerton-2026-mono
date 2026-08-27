@@ -36,6 +36,18 @@ def hosts_from_apps() -> list[str]:
     return out
 
 
+def file_urls(prefixes: list[str]) -> list[str]:
+    files: list[str] = []
+    for host in prefixes:
+        base = host.rstrip("/")
+        files.extend([base + "/", base, f"{base}/godot/dagul/manifest.json"])
+    return files
+
+
+def purge_payloads(prefixes: list[str]) -> list[dict]:
+    return [{"files": file_urls(prefixes)}, {"prefixes": prefixes}]
+
+
 def require_purge() -> bool:
     return os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("HACKERTONE_REQUIRE_PURGE") == "1"
 
@@ -124,13 +136,9 @@ def main() -> int:
         print(f"cloudflare zone 조회 실패: {type(exc).__name__}", file=sys.stderr)
         return 1
     prefixes = sys.argv[1:] or hosts_from_apps()
-    files = []
-    for host in prefixes:
-        base = host.rstrip("/")
-        files.extend([base + "/", base, base + "/godot/dagul/manifest.json"])
     print(f"purge hosts={len(prefixes)} zone={DEFAULT_ZONE_NAME}")
     # free 플랜은 files. prefixes 는 Business 이상.
-    payloads = [{"files": files}, {"prefixes": prefixes}]
+    payloads = purge_payloads(prefixes)
     last_err = "purge 실패"
     for payload in payloads:
         try:

@@ -351,6 +351,8 @@ class HelmContract(unittest.TestCase):
         self.assertIn("resolve_zone_id", src)
         apps_yml = (APPS.parent / ".github" / "workflows" / "apps.yml").read_text()
         self.assertNotIn("secrets.CLOUDFLARE_API_TOKEN", apps_yml)
+        self.assertNotIn("secrets.CLOUDFLARE_ZONE_ID", apps_yml)
+        self.assertNotIn("secrets.CF_API_TOKEN", apps_yml)
         self.assertIn("CF_API_TOKEN", apps_yml)
         self.assertIn("require_purge", src)
         from tempfile import TemporaryDirectory
@@ -366,6 +368,131 @@ class HelmContract(unittest.TestCase):
             self.assertIsNotNone(headers)
             self.assertTrue(str(headers.get("Authorization", "")).startswith("Bearer "))
 
+
+class PurgeCacheGate(unittest.TestCase):
+    """helm 직후 Cloudflare 퍼지 게이트 — 자격 없음·401은 배포를 끝내지 않는다."""
+
+    def setUp(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("purge-cache.py")
+        spec = importlib.util.spec_from_file_location("purge_cache_gate", path)
+        self.purge = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.purge)
+
+    def _blank_creds(self, extra: dict[str, str] | None = None) -> dict[str, str]:
+        env = {k: "" for k in (
+            *self.purge.TOKEN_KEYS,
+            *self.purge.ZONE_ID_KEYS,
+            *self.purge.ZONE_NAME_KEYS,
+            *self.purge.EMAIL_KEYS,
+            *self.purge.GLOBAL_KEY_KEYS,
+        )}
+        env["HACKERTONE_CLOUDFLARE_ENV"] = "/no/such/cloudflare.env"
+        if extra:
+            env.update(extra)
+        return env
+
+    def test_require_purge_in_actions_or_explicit(self) -> None:
+        import os
+        from unittest import mock
+
+        with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "HACKERTONE_REQUIRE_PURGE": ""}, clear=False):
+            self.assertTrue(self.purge.require_purge())
+        with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "HACKERTONE_REQUIRE_PURGE": "1"}, clear=False):
+            self.assertTrue(self.purge.require_purge())
+        with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "HACKERTONE_REQUIRE_PURGE": ""}, clear=False):
+            self.assertFalse(self.purge.require_purge())
+
+    def test_file_urls_include_homepage_and_godot_manifest(self) -> None:
+        prefixes = ["https://dagul-prod.external.kr/"]
+        files = self.purge.file_urls(prefixes)
+        self.assertIn("https://dagul-prod.external.kr/", files)
+        self.assertIn("https://dagul-prod.external.kr/godot/dagul/manifest.json", files)
+        payloads = self.purge.purge_payloads(prefixes)
+        self.assertEqual(list(payloads[0].keys()), ["files"])
+        self.assertEqual(list(payloads[1].keys()), ["prefixes"])
+        self.assertEqual(payloads[1]["prefixes"], prefixes)
+
+    def test_empty_env_falls_through_to_file_token(self) -> None:
+        import os
+        from tempfile import TemporaryDirectory
+        from unittest import mock
+
+        with TemporaryDirectory() as tmp:
+            envf = Path(tmp) / "cloudflare.env"
+            envf.write_text("CF_API_TOKEN=from-file\n")
+            with mock.patch.dict(
+                os.environ,
+                {"CLOUDFLARE_API_TOKEN": "", "CF_API_TOKEN": ""},
+                clear=False,
+            ):
+                got = self.purge._env_first(self.purge.TOKEN_KEYS, self.purge.creds_from_file(envf))
+            self.assertEqual(got, "from-file")
+
+    def test_main_missing_creds_fails_when_required(self) -> None:
+        import os
+        import sys
+        from unittest import mock
+
+        env = self._blank_creds({"HACKERTONE_REQUIRE_PURGE": "1", "GITHUB_ACTIONS": "true"})
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch.object(self.purge, "file_cred_map", return_value={}):
+                with mock.patch.object(sys, "argv", ["purge-cache.py"]):
+                    self.assertEqual(self.purge.main(), 1)
+
+    def test_main_missing_creds_skips_when_not_required(self) -> None:
+        import os
+        import sys
+        from unittest import mock
+
+        env = self._blank_creds({"GITHUB_ACTIONS": "", "HACKERTONE_REQUIRE_PURGE": ""})
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch.object(self.purge, "file_cred_map", return_value={}):
+                with mock.patch.object(sys, "argv", ["purge-cache.py"]):
+                    self.assertEqual(self.purge.main(), 0)
+
+    def test_main_401_fails_closed(self) -> None:
+        import io
+        import os
+        import sys
+        import urllib.error
+        from unittest import mock
+
+        def boom(url: str, headers: dict, data: bytes | None = None) -> dict:
+            raise urllib.error.HTTPError(
+                url,
+                401,
+                "Unauthorized",
+                None,
+                io.BytesIO(b'{"success":false,"errors":[{"message":"Authentication error"}]}'),
+            )
+
+        env = {
+            "CF_API_TOKEN": "denied-token",
+            "CF_ZONE_ID": "zone-test",
+            "HACKERTONE_REQUIRE_PURGE": "1",
+        }
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch.object(self.purge, "cf_json", boom):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["purge-cache.py", "https://dagul-prod.external.kr/"],
+                ):
+                    self.assertEqual(self.purge.main(), 1)
+
+    def test_apply_passes_shipped_folder_urls_and_fails_helm(self) -> None:
+        apps_py = Path(__file__).with_name("apply-apps.py").read_text()
+        fn = apps_py.split("def purge_cloudflare", 1)[1].split("def main", 1)[0]
+        self.assertIn("shipped_folders()", fn)
+        self.assertIn("https://{folder}.external.kr/", fn)
+        self.assertIn('raise SystemExit("cloudflare 퍼지 실패")', fn)
+        helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
+        self.assertIn("purge_cloudflare()", helm_fn)
+
+
+class HelmContractTail(unittest.TestCase):
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
         import os
 
@@ -412,6 +539,9 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertFalse((root / "deploy" / "scripts" / "assert_pack.py").is_file())
         build = (root / "deploy" / "scripts" / "build-godot.sh").read_text()
         self.assertIn("--import --quit", build)
+        self.assertLess(build.find("prepare-godot-export.mjs"), build.find("brotli -f"))
+        self.assertNotIn("index.side.wasm", build)
+        self.assertIn("index.wasm index.pck index.js", build)
         apps_yml = (root / ".github" / "workflows" / "apps.yml").read_text()
         self.assertIn("apply-apps.py ship", apps_yml)
         self.assertIn("apply-apps.py helm", apps_yml)
