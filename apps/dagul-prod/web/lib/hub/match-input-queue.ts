@@ -68,15 +68,24 @@ export class SlotInputBuffer {
     this.q.push({ ...data });
   }
 
-  /** 큐 머리 한 프레임. 비었으면 last 의 홀드 복제. */
+  /** 이번 틱까지 도착한 프레임 전부를 최신 한 프레임으로 접는다. 비었으면 last 의
+   * 홀드 복제. 틱당 1프레임 소비는 금지 — 60Hz 유입=60Hz 소비라 큐가 한 번
+   * 쌓이면 깊이가 그대로 상시 입력 지연이 된다(캡 32 = 약 0.53초 실측).
+   * 에지는 foldOneShots 로 최신 프레임에 살아남으므로 dash 소실도 없다. */
   next(): MatchInput | undefined {
-    const head = this.q.shift();
-    if (head) {
-      this.last = head;
-      return head;
+    let merged = this.q.shift();
+    if (merged === undefined) {
+      if (!this.last) {return undefined;}
+      return idleHoldInput(this.last);
     }
-    if (!this.last) {return undefined;}
-    return idleHoldInput(this.last);
+    while (this.q.length > 0) {
+      const newer = this.q.shift();
+      if (newer === undefined) {break;}
+      foldOneShots(merged, newer);
+      merged = newer;
+    }
+    this.last = merged;
+    return merged;
   }
 
   /** 카운트다운처럼 시뮬이 입력을 안 먹을 때 잔여 에지를 버리고 홀드만 남긴다. */

@@ -47,7 +47,7 @@ describe("에지 입력 — 큐가 패킷을 덮어쓰지 않는다", () => {
 });
 
 describe("이동+사격 — 틱당 한 프레임", () => {
-  it("firePressed 두 패킷은 두 틱에 두 발이다", () => {
+  it("틱마다 도착한 firePressed 는 틱마다 한 발이다 — 같은 틱 두 패킷은 접혀 한 발", () => {
     const sim = new MatchSim([{ slot: 0, name: "호스트" }]);
     sim.countdown = 0;
     const a = sim.heroes.get(0);
@@ -59,6 +59,7 @@ describe("이동+사격 — 틱당 한 프레임", () => {
     sim.step(1 / 60);
     expect(sim.bullets.size).toBe(1);
     a.fireCd = 0;
+    sim.pushInput(0, { fire: true, firePressed: true, mx: 1, aimX: a.x + 200, aimY: a.y, seq: 3 });
     sim.step(1 / 60);
     expect(sim.bullets.size).toBe(2);
   });
