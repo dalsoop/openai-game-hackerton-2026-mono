@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.{ts,tsx}"],
+    // lint-web CI 는 Godot 익스포트·허브 실왕복이 없어 간헐 타임아웃이 난다.
+    retry: process.env.CI ? 1 : 0,
   },
   // tsconfig 은 Next 관례상 jsx: preserve — 테스트 변환기는 automatic 으로 직접 지정.
   // (vite 루트 옵션이다 — test 안에 두면 무시된다)
