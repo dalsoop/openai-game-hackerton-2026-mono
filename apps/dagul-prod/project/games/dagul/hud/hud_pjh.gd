@@ -2,6 +2,7 @@ class_name HudPjhDraw
 extends RefCounted
 
 const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
+const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
 
 var h: Control
 
@@ -338,10 +339,17 @@ func _draw_hud_casing(casing: Dictionary, panel_left: float, row_top: float, age
 
 
 func _draw_ammo_header(me: Dictionary, layout: Dictionary, mag_now: int, mag_max: int) -> void:
-	var reloading := float(me.get("reload_left", 0.0)) > 0.0
+	var reload_left := float(me.get("reload_left", 0.0))
+	var reloading := reload_left > 0.04
 	var counter_color := Color("#ffd166") if reloading else (Color("#ff5d73") if mag_now <= 0 else Color.WHITE)
-	var prefix := "RELOAD  " if reloading else ("EMPTY  " if mag_now <= 0 else "")
-	h._text(Vector2(layout["panel_left"] + 10.0, layout["header_y"] + 18.0), "%s%d / %d" % [prefix, mag_now, mag_max], 21, counter_color, layout["panel_width"] - 20.0, HORIZONTAL_ALIGNMENT_RIGHT)
+	var ammo_label := HudStrings.t("hud_ammo") % [mag_now, mag_max]
+	if reloading:
+		ammo_label = HudStrings.t("hud_reload_time") % reload_left
+	elif mag_now <= 0:
+		ammo_label = HudStrings.t("hud_empty") % mag_max
+	var key := HudStrings.t("hud_reload_name") if h.touch_hints else LayoutKeysScript.seat_label(KEY_R)
+	h._text(Vector2(layout["panel_left"] + 10.0, layout["header_y"] + 18.0), key, 14, counter_color, 36.0)
+	h._text(Vector2(layout["panel_left"] + 44.0, layout["header_y"] + 18.0), ammo_label, 18, counter_color, layout["panel_width"] - 54.0, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 func _draw_ammo_rounds(layout: Dictionary, mag_now: int) -> void:
@@ -397,17 +405,25 @@ func draw_countdown() -> void:
 	var countdown_fraction := fposmod(world.start_countdown, 1.0)
 	var countdown_beat := 0.0 if countdown_fraction < 0.001 else 1.0 - countdown_fraction
 	var countdown_punch := lerpf(1.22, 1.0, clampf(countdown_beat / 0.22, 0.0, 1.0))
-	var colors := [Color("#ff5d49"), Color("#ff9f43"), Color("#ffd166")]
-	var accent: Color = colors[count_value - 1]
+	var accent := _countdown_accent(count_value)
 	h.draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.01, 0.015, 0.025, 0.12))
 	draw_pixel_panel(Rect2(center - Vector2(104.0, 104.0), Vector2(208.0, 208.0)), accent, Color(0.025, 0.035, 0.055, 0.94))
 	h.draw_arc(center, 90.0, -PI * 0.5, -PI * 0.5 + TAU * countdown_fraction, 32, accent, 6.0)
 	_draw_countdown_ticks(center, accent)
-	h._text(Vector2(696.0, 314.0), "GET READY", 16, Color("#d9e7f2"), 208.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(696.0, 314.0), HudStrings.t("countdown_ready"), 16, Color("#d9e7f2"), 208.0, HORIZONTAL_ALIGNMENT_CENTER)
 	h.draw_set_transform(center, 0.0, Vector2.ONE * countdown_punch)
 	h._text(Vector2(-80.0, 31.0), str(count_value), 82, Color.WHITE, 160.0, HORIZONTAL_ALIGNMENT_CENTER)
 	h.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	_draw_countdown_steps(count_value, accent)
+
+func _countdown_accent(count_value: int) -> Color:
+	match count_value:
+		1:
+			return Color("#ff5d49")
+		2:
+			return Color("#ff9f43")
+		_:
+			return Color("#ffd166")
 
 
 func _draw_countdown_ticks(center: Vector2, accent: Color) -> void:
@@ -420,9 +436,11 @@ func _draw_countdown_ticks(center: Vector2, accent: Color) -> void:
 
 
 func _draw_countdown_steps(count_value: int, accent: Color) -> void:
-	for step_index in range(3):
-		var step_rect := Rect2(755.0 + step_index * 32.0, 574.0, 24.0, 6.0)
-		var step_active := step_index >= 3 - count_value
+	var steps := 3
+	var shown := mini(count_value, steps)
+	for step_index in range(steps):
+		var step_rect := Rect2(724.0 + step_index * 32.0, 574.0, 24.0, 6.0)
+		var step_active := step_index >= steps - shown
 		h.draw_rect(step_rect, accent if step_active else Color(0.25, 0.3, 0.36, 0.55))
 
 
@@ -439,8 +457,8 @@ func draw_match_result() -> void:
 	h.draw_rect(Rect2(0.0, 0.0, 1600.0, 900.0), Color(0.005, 0.008, 0.014, 0.58))
 	if world.winner_slot < 0:
 		draw_pixel_panel(Rect2(470.0, 302.0, 660.0, 240.0), Color("#8b96a8"), Color(0.018, 0.026, 0.040, 0.97))
-		h._text(Vector2(510.0, 390.0), "MATCH DRAW", 48, Color.WHITE, 580.0, HORIZONTAL_ALIGNMENT_CENTER)
-		h._text(Vector2(510.0, 446.0), "NO SURVIVORS", 20, Color("#aebaca"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
+		h._text(Vector2(510.0, 390.0), HudStrings.t("match_draw"), 48, Color.WHITE, 580.0, HORIZONTAL_ALIGNMENT_CENTER)
+		h._text(Vector2(510.0, 446.0), HudStrings.t("match_no_survivors"), 20, Color("#aebaca"), 580.0, HORIZONTAL_ALIGNMENT_CENTER)
 		_draw_result_footer()
 		return
 	_draw_winner_card()
@@ -463,9 +481,9 @@ func _draw_winner_card() -> void:
 
 func _draw_winner_copy(winner: Dictionary, equipment: Dictionary, accent: Color) -> void:
 	var world = h.world
-	h._text(Vector2(650.0, 174.0), "MATCH WINNER", 18, Color("#ffd166"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(650.0, 174.0), HudStrings.t("match_winner"), 18, Color("#ffd166"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 	h._text(Vector2(650.0, 232.0), "P%d  %s" % [world.winner_slot + 1, equipment["character_name"]], 43, Color.WHITE, 600.0, HORIZONTAL_ALIGNMENT_CENTER)
-	h._text(Vector2(650.0, 270.0), "%s  ·  %s" % [equipment["name"], equipment["special_name"]], 17, Color(accent), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(650.0, 270.0), "%s  ·  %s" % [equipment["name"], HudStrings.special(str(equipment.get("id", "")))], 17, Color(accent), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 	_draw_winner_animal(winner, accent)
 	h._text(Vector2(350.0, 482.0), "P%d" % (world.winner_slot + 1), 17, Color(accent), 230.0, HORIZONTAL_ALIGNMENT_CENTER)
 	h._text(Vector2(350.0, 516.0), str(equipment["role"]), 19, Color.WHITE, 230.0, HORIZONTAL_ALIGNMENT_CENTER)
@@ -490,29 +508,39 @@ func _draw_winner_stat_chips(winner: Dictionary, accent: Color) -> void:
 		var chip := Rect2(650.0 + stat * 198.0, 302.0, 178.0, 64.0)
 		h.draw_rect(chip, Color(0.035, 0.050, 0.072, 0.94))
 		h.draw_rect(chip, Color(accent, 0.34), false, 2.0)
-	h._text(Vector2(662.0, 340.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), 20, Color("#6ef3a5"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
-	h._text(Vector2(860.0, 340.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), 20, Color("#c65cff"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
-	h._text(Vector2(1058.0, 340.0), "SCORE  %d" % roundi(float(winner["score"])), 20, Color("#ffd166"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(662.0, 340.0), HudStrings.t("stat_hp_pct") % roundi(world.decision_hp_ratio * 100.0), 20, Color("#6ef3a5"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(860.0, 340.0), HudStrings.t("stat_zone") % roundi(float(world.safe_zone_radius)), 20, Color("#c65cff"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+	h._text(Vector2(1058.0, 340.0), HudStrings.t("stat_score") % roundi(float(winner["score"])), 20, Color("#ffd166"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_winner_standings(_accent: Color) -> void:
 	var world = h.world
 	var standings: Array[Dictionary] = world.final_standings()
-	h._text(Vector2(650.0, 410.0), "FINAL STANDINGS", 14, Color("#aebaca"))
+	h._text(Vector2(650.0, 410.0), HudStrings.t("match_standings"), 14, Color("#aebaca"))
 	for rank in range(mini(3, standings.size())):
 		_draw_standing_row(standings[rank], rank)
 
 
 func _draw_result_footer() -> void:
 	if bool(h.world.get("is_net")):
-		if h._result_hold_at_ms < 0:
-			h._result_hold_at_ms = Time.get_ticks_msec()
-		var left := ceili((10_000.0 - float(Time.get_ticks_msec() - h._result_hold_at_ms)) / 1000.0)
-		var label := HudStrings.t("result_returning") if left <= 0 else HudStrings.t("result_countdown") % left
-		h._text(Vector2(0.0, 872.0), label, 13, Color(0.82, 0.86, 0.90, 0.72), 1600.0, HORIZONTAL_ALIGNMENT_CENTER)
+		_draw_return_banner()
 		return
 	if not h.touch_hints:
 		h._text(Vector2(650.0, 724.0), HudStrings.t("result_rematch"), 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+
+func _draw_return_banner() -> void:
+	if h._result_hold_at_ms < 0:
+		h._result_hold_at_ms = Time.get_ticks_msec()
+	var hold := 10.0
+	var elapsed := float(Time.get_ticks_msec() - h._result_hold_at_ms) / 1000.0
+	var left := maxi(0, ceili(hold - elapsed))
+	var ratio := clampf(elapsed / hold, 0.0, 1.0)
+	var bar := Rect2(0.0, 788.0, 1600.0, 112.0)
+	h.draw_rect(bar, Color(0.04, 0.07, 0.11, 0.96))
+	h.draw_rect(Rect2(bar.position, Vector2(1600.0, 6.0)), Color("#ffd166", 0.35))
+	h.draw_rect(Rect2(bar.position, Vector2(1600.0 * ratio, 6.0)), Color("#ffd166"))
+	var label := HudStrings.t("result_returning") if left <= 0 else HudStrings.t("result_countdown") % left
+	h._text(Vector2(0.0, 858.0), label, 28, Color.WHITE, 1600.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_standing_row(row: Dictionary, rank: int) -> void:
@@ -523,5 +551,5 @@ func _draw_standing_row(row: Dictionary, rank: int) -> void:
 	h.draw_rect(Rect2(card.position, Vector2(6.0, card.size.y)), h.player_colors[slot])
 	h._text(card.position + Vector2(20.0, 32.0), "%d" % (rank + 1), 21, Color("#ffd166") if rank == 0 else Color.WHITE, 34.0, HORIZONTAL_ALIGNMENT_CENTER)
 	h._text(card.position + Vector2(66.0, 31.0), "P%d  %s / %s" % [slot + 1, row_equipment["character_name"], row_equipment["name"]], 15, Color.WHITE, 310.0)
-	h._text(card.position + Vector2(390.0, 31.0), "HP %d%%" % roundi(float(row["hp_ratio"]) * 100.0), 14, Color("#6ef3a5"), 88.0)
+	h._text(card.position + Vector2(390.0, 31.0), HudStrings.t("stat_hp_pct") % roundi(float(row["hp_ratio"]) * 100.0), 14, Color("#6ef3a5"), 88.0)
 	h._text(card.position + Vector2(490.0, 31.0), "%d" % roundi(float(row["score"])), 15, Color("#ffd166"), 92.0, HORIZONTAL_ALIGNMENT_RIGHT)

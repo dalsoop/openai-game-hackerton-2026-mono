@@ -1,6 +1,7 @@
 // 게스트 표시명 — 십이지신 + 쿠키 숫자 ID. 훅은 쿠키 I/O 만, 규칙은 여기.
 import { WEB_STORE } from "./contract/wire";
-import { ZODIAC_NAMES } from "./hub/config";
+import { DEFAULT_LOCALE } from "../i18n/locales";
+import { allZodiacNameTables, zodiacNamesOf } from "./i18n/message-packs";
 
 export const GUEST_ID_MIN = 100_000;
 export const GUEST_ID_SPAN = 900_000;
@@ -17,10 +18,26 @@ export function mintGuestId(rand = defaultRand): number {
   return (rand() % GUEST_ID_SPAN) + GUEST_ID_MIN;
 }
 
-export function guestNameOf(id: number, names: readonly string[] = ZODIAC_NAMES): string {
+export function guestNameOf(
+  id: number,
+  names: readonly string[] = zodiacNamesOf(DEFAULT_LOCALE),
+): string {
   if (names.length === 0) {return `#${id}`;}
   const idx = ((id % names.length) + names.length) % names.length;
   return `${names[idx]}#${id}`;
+}
+
+export function zodiacNamesFor(locale: string): readonly string[] {
+  return zodiacNamesOf(locale);
+}
+
+export function guestNameForLocale(id: number, locale: string): string {
+  return guestNameOf(id, zodiacNamesFor(locale));
+}
+
+/** 저장본이 자동 게스트 닉이면 로케일을 따라가게 한다. 커스텀 닉은 건드리지 않는다. */
+export function isAutoGuestName(name: string, id: number): boolean {
+  return allZodiacNameTables().some((names) => guestNameOf(id, names) === name);
 }
 
 export function readCookie(name: string, cookie: string): string | null {

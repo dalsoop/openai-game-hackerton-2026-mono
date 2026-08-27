@@ -59,6 +59,25 @@ describe("방 만들기 폼", () => {
     expect(screen.getByPlaceholderText(ko.create.roomTitlePlaceholder)).toBeTruthy();
     expect(screen.getByDisplayValue(DEFAULT_GAME_ID)).toBeTruthy();
     expect(screen.getByRole("button", { name: ko.create.submit })).toBeTruthy();
+    expect(screen.queryByLabelText("password")).toBeNull();
+    expect(document.querySelector("input[name='password']")).toBeNull();
+    expect(screen.getByText(ko.create.lockOpen)).toBeTruthy();
+    expect(screen.getByText(ko.create.lock)).toBeTruthy();
+  });
+
+  it("비밀번호 카드를 고르고 제출하면 lock true", () => {
+    const { onSubmit } = setup();
+    fireEvent.click(screen.getByText(ko.create.lock));
+    fireEvent.click(screen.getByRole("button", { name: ko.create.submit }));
+    expect(onSubmit).toHaveBeenCalledWith(DEFAULT_GAME_ID, "", true);
+  });
+
+  it("공개 카드를 고르면 lock false 로 제출한다", () => {
+    const { onSubmit } = setup();
+    fireEvent.click(screen.getByText(ko.create.lock));
+    fireEvent.click(screen.getByText(ko.create.lockOpen));
+    fireEvent.click(screen.getByRole("button", { name: ko.create.submit }));
+    expect(onSubmit).toHaveBeenCalledWith(DEFAULT_GAME_ID, "", false);
   });
 
   it("방 이름 입력이 게임 선택보다 위에 있다", () => {
@@ -86,7 +105,7 @@ describe("방 만들기 폼", () => {
   it("기본 게임만 고르고 제출하면 빈 제목으로 onSubmit", () => {
     const { onSubmit } = setup();
     fireEvent.click(screen.getByRole("button", { name: ko.create.submit }));
-    expect(onSubmit).toHaveBeenCalledWith(DEFAULT_GAME_ID, "");
+    expect(onSubmit).toHaveBeenCalledWith(DEFAULT_GAME_ID, "", false);
   });
 
   it("게임과 방 이름을 채워 제출한다", () => {
@@ -96,7 +115,7 @@ describe("방 만들기 폼", () => {
       target: { value: "저녁 한 판" },
     });
     fireEvent.click(screen.getByRole("button", { name: ko.create.submit }));
-    expect(onSubmit).toHaveBeenCalledWith("sparring", "저녁 한 판");
+    expect(onSubmit).toHaveBeenCalledWith("sparring", "저녁 한 판", false);
   });
 
   it("로비로 — onBack", () => {

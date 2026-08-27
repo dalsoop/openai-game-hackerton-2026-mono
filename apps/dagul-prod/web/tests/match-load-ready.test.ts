@@ -136,6 +136,23 @@ describe("lobbyReadySig", () => {
     });
     expect(snap.readySig).toContain("0:1");
   });
+
+  it("lobbyFieldsOf 가 startInSec 을 평문으로 복사한다", () => {
+    const snap = lobbyFieldsOf({
+      phase: "lobby",
+      hostSessionId: "h",
+      startInSec: 4,
+      players: [
+        { slot: 0, sessionId: "h", name: "호스트", connected: true, matchReady: false },
+      ],
+    });
+    expect(snap.startInSec).toBe(4);
+    expect(lobbyFieldsOf({
+      phase: "lobby",
+      hostSessionId: "h",
+      players: [],
+    }).startInSec).toBe(0);
+  });
 });
 
 describe("로딩 경로 — 팩 받기와 인게임 ready 는 다르다", () => {
@@ -155,7 +172,11 @@ describe("로딩 경로 — 팩 받기와 인게임 ready 는 다르다", () => 
 });
 
 describe("MatchSim 카운트다운 장벽", () => {
-  it("held 면 입력이 와도 3초를 깎지 않는다", () => {
+  it("개전 대기는 3초", () => {
+    expect(START_COUNTDOWN).toBe(3);
+  });
+
+  it("held 면 입력이 와도 카운트다운을 깎지 않는다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     sim.countdownHeld = true;
     sim.pushInput(0, { mx: 1, my: 0, seq: 1 });

@@ -226,6 +226,39 @@ describe("계약: 웹 캔버스 키 포커스", () => {
   });
 });
 
+describe("계약: 나가기 확인은 목록에 보이는 내 방만", () => {
+  it("Lobby 는 목록을 넘기고, 훅은 listedMyRoom 으로 유령 id 를 버린다", () => {
+    const lobby = sourceOf(join(ROOT, "components/Lobby.tsx"));
+    expect(lobby).toContain("needsLeaveConfirm(myRoom, undefined, rooms)");
+    expect(lobby).toContain("needsLeaveConfirm(myRoom, room.id, rooms)");
+    const membership = sourceOf(join(ROOT, "lib/room-membership.ts"));
+    expect(membership).toContain("export function listedMyRoom");
+    const hook = sourceOf(join(ROOT, "hooks/useMyRoom.ts"));
+    expect(hook).toContain("listedMyRoom");
+    expect(hook).toContain("clearMyRoom");
+    const hub = sourceOf(join(ROOT, "hooks/useHub.ts"));
+    expect(hub).toContain("useMyRoom(derived, rooms, listActive && !lobbyConnecting)");
+  });
+});
+
+describe("계약: 캐릭터 초상은 시트를 칸 안에서 자른다", () => {
+  it("클립은 인라인 래퍼에 있고 시트는 마진이 아니라 절대 위치로 민다", () => {
+    const portrait = sourceOf(join(ROOT, "lib/characters/portrait.ts"));
+    expect(portrait).toContain("overflow: \"hidden\"");
+    expect(portrait).toContain("position: \"absolute\"");
+    expect(portrait).toContain("maxWidth: \"none\"");
+    expect(portrait).not.toMatch(/marginLeft/);
+    expect(portrait).not.toMatch(/marginTop/);
+    const css = sourceOf(join(ROOT, "app/globals.css"));
+    expect(css).toMatch(/\.char-portrait\s*\{[^}]*overflow:\s*hidden/);
+    expect(css).toContain(".char-portrait img { display:block; }");
+    const view = sourceOf(join(ROOT, "components/CharacterPortrait.tsx"));
+    expect(view).toContain("portraitFrameStyle");
+    expect(view).toContain("portraitImageStyle");
+    expect(view).toContain("className=\"char-portrait\"");
+  });
+});
+
 describe("계약: Godot 웹 캔버스는 policy=2 와 CSS 가 싸우지 않는다", () => {
   it("gc-canvas 는 100% 가 아니라 공식 템플릿처럼 absolute 이고, 오버레이는 overflow hidden", () => {
     const css = sourceOf(join(ROOT, "app/globals.css"));
@@ -389,6 +422,20 @@ describe("계약: 허브 소켓 주인은 React", () => {
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
     expect(sourceOf(join(ROOT, "lib/hub/page-bridge.ts"))).not.toContain("onMessage");
     expect(sourceOf(join(ROOT, "hooks/usePageBridge.ts"))).toContain("useRoomMessage");
+  });
+});
+
+describe("계약: 로케일 표시 문자열은 메시지 팩이다", () => {
+  it("게스트 닉·인트로 로고에 locale === 분기가 없다", () => {
+    const guest = sourceOf(join(ROOT, "lib/guest-identity.ts"));
+    const intro = sourceOf(join(ROOT, "components/phases/OfflinePhase.tsx"));
+    const config = sourceOf(join(ROOT, "lib/hub/config.ts"));
+    expect(guest).not.toMatch(/locale\s*===\s*["']en["']/);
+    expect(guest).not.toMatch(/ZODIAC_NAMES/);
+    expect(config).not.toContain("ZODIAC_NAMES");
+    expect(intro).not.toMatch(/locale\s*===\s*["']ko["']/);
+    expect(intro).toContain('t("logo.src")');
+    expect(guest).toContain("zodiacNamesOf");
   });
 });
 

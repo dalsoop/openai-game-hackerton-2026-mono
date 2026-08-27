@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { fillMatchSeats } from "@/lib/hub/lobby-seats";
+import { fillMatchSeats, pickHostSessionId } from "@/lib/hub/lobby-seats";
+import type { PlayerSchema } from "@/lib/hub/lobby-state";
+
+function seat(sessionId: string, slot: number, connected = true): PlayerSchema {
+  return { sessionId, slot, connected } as PlayerSchema;
+}
+
+describe("pickHostSessionId", () => {
+  it("접속 중인 가장 앞 좌석이 방장이다", () => {
+    expect(pickHostSessionId([seat("b", 1), seat("a", 0)])).toBe("a");
+  });
+
+  it("끊긴 앞 좌석은 건너뛰고 다음 접속자가 방장이다", () => {
+    expect(pickHostSessionId([seat("a", 0, false), seat("b", 1), seat("c", 2)])).toBe("b");
+  });
+
+  it("접속자가 없으면 빈 문자열이다", () => {
+    expect(pickHostSessionId([seat("a", 0, false)])).toBe("");
+    expect(pickHostSessionId([])).toBe("");
+  });
+});
 
 describe("fillMatchSeats", () => {
   it("혼자 시작해도 8칸을 채우고 빈 자리는 CPU 다", () => {

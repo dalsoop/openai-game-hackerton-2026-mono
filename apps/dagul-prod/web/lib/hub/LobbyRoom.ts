@@ -2,6 +2,7 @@ import { Room, type Client } from "colyseus";
 import { HUB_CONFIG, KO } from "./config.js";
 import { CLOSE_CODE, MSG } from "../contract/wire.js";
 import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js";
+import { hasRoomPassword, joinPasswordOk, resolveCreatePassword } from "./room-password.js";
 import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
 import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
@@ -16,7 +17,7 @@ import {
 import {
   armIdleTimer, armShutdownDrain, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer,
   clearShutdownDrain, handlePackPct, handleMatchReady, handleRoomToggle, handleSetCharacter,
-  handleSetGame, handleStart, scheduleHostLossReset, sendStartBodies, type LobbyBag, type LobbyHandle,
+  cancelLobbyStartIfHostLeft, clearStartCountdown, handleKick, handleSetPassword, handleSetGame, handleStart, scheduleHostLossReset, sendStartBodies, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import {
   applyPlayInput, bootAuthority, holdLoadBarrier, parkSeat, resetSeatAck, tickAuthority,
@@ -31,7 +32,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0,
+    hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0, startTimer: null,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -41,7 +42,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   /** JSON SNAP 을 받지 않는 sessionId. 엔진 직결·SNAP_OFF. */
   snapOptOut = new Set<string>();
 
-  async onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): Promise<void> {
+  async onCreate(options: { game?: unknown; title?: unknown; name?: unknown; password?: unknown; lock?: unknown }): Promise<void> {
     await assertCanAdmitCcu();
     this.maxClients = HUB_CONFIG.maxPlayers * 2;
     const settings = parseRoomSettings(
@@ -50,6 +51,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     );
     this.state.gameId = settings.game;
     this.state.title = settings.title;
+    this.state.password = resolveCreatePassword(options);
     this.state.mode = defaultModeOf(settings.game);
     this.state.createdAtMs = Date.now();
     void this.setMetadata({
@@ -58,6 +60,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       mode: this.state.mode,
       phase: this.state.phase,
       open: this.state.open,
+      hasPassword: hasRoomPassword(this.state.password),
     });
     armIdleTimer(this, this.bag);
     this.patchRate = 1000 / HUB_CONFIG.patchHz;
@@ -94,14 +97,19 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   messages = {
     [MSG.START]: (client: Client): void => {
-      // 순서 고정: "랜덤" 픽 해소(bootAuthority)가 끝난 뒤에 START 를 보낸다 —
+      // 대기실에서 5초를 센 뒤 commit. 해소(bootAuthority)는 0초 직전에 한다 —
       // 아니면 Godot 이 허브 해소 전의 원본 "unknown" 값을 그대로 받아 실행한다.
-      if (!handleStart(this, this.bag, client)) {return;}
-      bootAuthority(this, this.bag);
-      sendStartBodies(this, this.bag);
+      handleStart(this, this.bag, client, () => {
+        bootAuthority(this, this.bag);
+        sendStartBodies(this, this.bag);
+      });
     },
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void =>
       applyPlayInput(this, this.bag, client, data),
+    [MSG.KICK]: (client: Client, data: Record<string, unknown>): void =>
+      handleKick(this, client, data),
+    [MSG.SET_PASSWORD]: (client: Client, data: Record<string, unknown>): void =>
+      handleSetPassword(this, client, data),
     [MSG.ROOM_TOGGLE]: (client: Client): void => handleRoomToggle(this, client),
     [MSG.SET_GAME]: (client: Client, data: Record<string, unknown>): void =>
       handleSetGame(this, client, data),
@@ -127,6 +135,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
     if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
     const claim = parseSeatClaim(options);
     const takeover = seatClaimTakeover([...this.state.players], this.claims, claim);
+    if (!joinPasswordOk(this.state.password, options.password, {
+      isCreator: this.state.players.length === 0,
+      takeover,
+    })) {
+      throw new Error(KO.WRONG_PASSWORD);
+    }
     if (!takeover) {await assertCanAdmitCcu();}
     if (playerJoinAllowed(this.state.players.length, takeover)) {return true;}
     throw new Error(KO.ROOM_FULL);
@@ -149,6 +163,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
     this.state.players.push(p);
     if (claim) {this.claims.set(client.sessionId, claim);}
     this.syncHost();
+    if (this.state.phase === "playing") {
+      // 유예 만료로 비운 좌석(parked)만 다시 붙인다. 빈 CPU 칸에 늦게 앉은 사람은 대기실에서 기다린다.
+      const parked = this.bag.authority?.sim.heroes.get(p.slot)?.parked;
+      if (parked) {this.resumePlayingSeat(client, p);}
+      return;
+    }
     this.resumePlayingSeat(client, p);
   }
 
@@ -250,6 +270,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       this.syncHost();
       if (this.state.hostSessionId === "") {scheduleHostLossReset(this, this.bag);}
     } else {
+      cancelLobbyStartIfHostLeft(this, this.bag, wasHost);
       this.syncHost();
     }
     if (playing) {tryReleaseLoadBarrier(this, this.bag);}
@@ -260,6 +281,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     clearIdleTimer(this, this.bag);
     cancelHostLossReset(this.bag);
     clearShutdownDrain(this.bag);
+    clearStartCountdown(this.bag);
     if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
   }
 

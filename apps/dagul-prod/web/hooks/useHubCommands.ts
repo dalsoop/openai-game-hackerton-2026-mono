@@ -20,8 +20,8 @@ export function useHubCommands(
   takeReconnectId: () => string | null,
 ): {
   connect: (name: string) => void;
-  createRoom: (raw?: { game?: string; title?: string }) => void;
-  joinRoom: (id: string) => void;
+  createRoom: (raw?: { game?: string; title?: string; lock?: boolean }) => void;
+  joinRoom: (id: string, raw?: { password?: string }) => void;
   leaveRoom: () => void;
   forgetMyRoom: () => void;
   disconnect: () => void;
@@ -35,14 +35,14 @@ export function useHubCommands(
     setConnected(true);
   }, [nameRef, setConnected, setError]);
 
-  const createRoom = useCallback((raw?: { game?: string; title?: string }) => {
+  const createRoom = useCallback((raw?: { game?: string; title?: string; lock?: boolean }) => {
     setError(null);
-    setJoinRequest({ kind: "create", game: raw?.game, title: raw?.title });
+    setJoinRequest({ kind: "create", game: raw?.game, title: raw?.title, lock: raw?.lock });
   }, [setError, setJoinRequest]);
 
-  const joinRoom = useCallback((id: string) => {
+  const joinRoom = useCallback((id: string, raw?: { password?: string }) => {
     setError(null);
-    setJoinRequest({ kind: "join", id });
+    setJoinRequest({ kind: "join", id, password: raw?.password });
   }, [setError, setJoinRequest]);
 
   const leaveRoom = useCallback(() => {

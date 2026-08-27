@@ -27,8 +27,8 @@ export const CONNECTION_CLASS: Record<HubStatus, string> = {
  * 방 입장 요청 타입
  */
 export type JoinRequest =
-  | { kind: "create"; game?: string; title?: string }
-  | { kind: "join"; id: string; game?: string }
+  | { kind: "create"; game?: string; title?: string; lock?: boolean }
+  | { kind: "join"; id: string; game?: string; password?: string }
   | { kind: "resume" };
 
 /**
@@ -43,6 +43,8 @@ export interface HubRoom {
   playing: boolean;
   /** 방장의 문 — 닫히면 목록에서 입장 불가 */
   open: boolean;
+  /** 목록에는 비밀번호 원문을 올리지 않고 잠금만 표시한다. */
+  hasPassword: boolean;
 }
 
 /**
@@ -64,6 +66,8 @@ export interface UseHubResult {
   isHost: boolean;
   /** 방장의 문 — 닫힌 방은 입장 불가 (닫는 순간 재실자 강퇴) */
   roomOpen: boolean;
+  roomPassword: string;
+  roomPhase: string;
   resumeToken: string;
   /** 게임 방 소켓 왕복 ms. 방 밖이거나 아직 표본이 없으면 0. */
   rttMs: number;
@@ -73,8 +77,11 @@ export interface UseHubResult {
 
   // 동작
   connect: (name: string) => void;
-  createRoom: (raw?: { game?: string; title?: string }) => void;
-  joinRoom: (id: string) => void;
+  createRoom: (raw?: { game?: string; title?: string; lock?: boolean }) => void;
+  joinRoom: (id: string, raw?: { password?: string }) => void;
+  kickSeat: (slot: number) => void;
+  setPassword: (password: string) => void;
+  setLock: (on: boolean) => void;
   leaveRoom: () => void;
   forgetMyRoom: () => void;
   /** 리스트 룸까지 내리고 인트로로 돌아갈 때. */
@@ -85,6 +92,7 @@ export interface UseHubResult {
   setGame: (game: string) => void;
   setCharacter: (characterId: string) => void;
   idleLeftSec: number;
+  startInSec: number;
   toggleRoom: () => void;
   refreshRooms: () => void;
   refreshingRooms: boolean;

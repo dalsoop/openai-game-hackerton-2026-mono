@@ -17,5 +17,6 @@ export class MatchHeroHudSchema extends Schema {
   @type("boolean") eliminated = false;
   @type("uint8") medkits = 0;
   @type("float32") mobilityDist = 0;
+  @type("float32") equipmentCd = 0;
   @type(MatchUntilBuffSchema) untilBuffs = new MatchUntilBuffSchema();
 }

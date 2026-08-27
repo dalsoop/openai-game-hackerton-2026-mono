@@ -195,10 +195,17 @@ export default function Home(): JSX.Element {
           canStart={loader.state === "ready"}
           onStartGame={start}
           onLeaveRoom={leaveToLobby}
+          onKick={hub.kickSeat}
+          onSetPassword={hub.setPassword}
+          onSetLock={hub.setLock}
+          roomId={hub.roomId}
+          password={hub.roomPassword}
+          matchWait={hub.roomPhase === "playing"}
           connClass={CONNECTION_CLASS[hub.status]}
           connText={connLabel(hub.status, t)}
           rttMs={hub.rttMs}
           rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
+          startInSec={hub.startInSec}
         />
       )}
     </div>

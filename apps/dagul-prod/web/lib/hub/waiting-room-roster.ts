@@ -6,6 +6,7 @@ import type { HubStatus } from "../../types";
 export interface WaitingRoomRoster {
   gameId: string;
   mode: string;
+  password: string;
   idleUntilSec: number;
   open: boolean;
   players: Seat[];
@@ -14,6 +15,8 @@ export interface WaitingRoomRoster {
   roomId: string;
   resumeToken: string;
   loadHeld: boolean;
+  phase: string;
+  startInSec: number;
   status: HubStatus;
 }
 
@@ -32,6 +35,8 @@ export function lobbyFieldsOf(s: RosterSnapshot): RosterSnapshot {
       readySig: lobbyReadySig(players, Boolean(s.loadHeld)),
       phase: s.phase,
       hostSessionId: s.hostSessionId,
+      password: typeof s.password === "string" ? s.password : "",
+      startInSec: Number(s.startInSec ?? 0),
       players,
     };
   } catch {
@@ -43,6 +48,8 @@ export function lobbyFieldsOf(s: RosterSnapshot): RosterSnapshot {
       readySig: "",
       phase: "",
       hostSessionId: "",
+      password: "",
+      startInSec: 0,
       players: [],
     };
   }
@@ -65,6 +72,10 @@ export function waitingRoomRosterOf(
     roomId: room.roomId,
     resumeToken: room.reconnectionToken,
     loadHeld: Boolean(snap.loadHeld),
-    status: (roster.playing ? "playing" : "in-room") as HubStatus,
+    password: typeof snap.password === "string" ? snap.password : "",
+    phase: snap.phase,
+    startInSec: Number(snap.startInSec ?? 0),
+    // 매치 화면은 matchInfo(START) 만 올린다. 늦게 들어온 사람은 대기실에서 기다린다.
+    status: "in-room" as HubStatus,
   };
 }

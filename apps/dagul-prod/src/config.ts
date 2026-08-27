@@ -7,7 +7,7 @@ export const CONFIG = {
   defaultName: "손님",
   defaultMode: "full",
   gameServerUrl: process.env.GAME_SERVER_URL || "http://127.0.0.1:9122",
-  maxNameLength: 12,
+  maxNameLength: 24,
   maxTitleLength: 24,
   maxChatLength: 120,
   chatCooldownMs: 400,

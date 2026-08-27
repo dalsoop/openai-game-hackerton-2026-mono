@@ -113,6 +113,7 @@ const P_TIMED_BUFFS := "timedBuffs"
 const P_CLONES := "clones"
 const P_UNTIL_BUFFS := "untilBuffs"
 const P_MOB_CD := "mobilityCd"
+const P_EQUIP_CD := "equipmentCd"
 const P_HOP_T := "hopTime"
 const P_HOP_MAX := "hopMax"
 const P_HOP_HEIGHT := "hopHeight"
@@ -141,7 +142,7 @@ const PLAYER_KEYS_V2: Array[String] = [
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_WOOL_HP, P_WOOL_MAX,
 	P_ROU_T, P_ROU_RANK, P_ROU_PHASE, P_ROU_SPIN, P_ROU_LABEL,
 	P_TIMED_BUFFS, P_CLONES, P_UNTIL_BUFFS,
-	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT, P_MV_SPD, P_ELIM,
+	P_MOB_CD, P_EQUIP_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT, P_MV_SPD, P_ELIM,
 	P_RELOAD_FLASH, P_RESPAWN_LEFT, P_SPRAY_INDEX, P_ROU_DESC, P_HITSTUN_T, P_COMBO_CAPTURE_T,
 	P_MEDKITS, P_MOBILITY_DIST,
 ]
@@ -149,7 +150,7 @@ const V2_FLOAT_WIRE: Array[String] = [
 	P_STUN_T, P_ROOT_T, P_CC_T, P_GUARD_T, P_ARMOR_T, P_SPAWN_T,
 	P_LAUNCH_T, P_CHARGE_T, P_SPRING_T, P_SLIDE_T, P_PULL_T, P_POCKET_T,
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_ROU_T,
-	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT,
+	P_MOB_CD, P_EQUIP_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT,
 	P_RELOAD_FLASH, P_RESPAWN_LEFT, P_SPRAY_INDEX, P_HITSTUN_T, P_COMBO_CAPTURE_T,
 	P_MOBILITY_DIST,
 ]
@@ -157,7 +158,7 @@ const V2_FLOAT_SIM: Array[String] = [
 	"stun_time", "root_time", "cc_time", "guard_time", "super_armor_time", "spawn_protect_time",
 	"launch_time", "charge_time", "spring_time", "slide_time", "pull_time", "pocket_time",
 	"dmg_orb_time", "down_taken", "wool_time", "roulette_time",
-	"mobility_cd", "hop_time", "hop_max", "hop_height",
+	"mobility_cd", "equipment_cd", "hop_time", "hop_max", "hop_height",
 	"reload_flash", "respawn_left", "spray_index", "hitstun_time", "combo_capture_time",
 	"mobility_distance",
 ]

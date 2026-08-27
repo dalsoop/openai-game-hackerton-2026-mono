@@ -80,6 +80,7 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "hopMax", h.hopTime > 0 ? h.hopMax : 0);
   putOmit(out, "hopHeight", h.hopTime > 0 ? h.hopHeight : 0);
   putOmit(out, "mobilityCd", h.mobilityCd);
+  putOmit(out, "equipmentCd", h.equipmentCd);
   putOmit(out, "moveSpeed", h.equipment.moveSpeed);
   putOmit(out, "eliminated", h.eliminated);
   putOmit(out, "dmgOrbTime", h.dmgOrbTime);

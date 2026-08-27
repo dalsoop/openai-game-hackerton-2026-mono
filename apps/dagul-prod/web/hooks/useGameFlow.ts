@@ -1,6 +1,8 @@
 "use client";
 // 게임 페이즈 상태머신 — page.tsx 가 화면 그리기만 하도록 로직을 이곳으로 뺀다.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { WEB_STORE } from "@/lib/contract";
+import { parseRoomShare, savePendingJoin, takePendingJoin } from "@/lib/hub/room-link";
 import { useHub } from "@/hooks/useHub";
 import { useSession } from "@/hooks/useSession";
 import { useGodotLoader } from "@/hooks/useGodotLoader";
@@ -8,6 +10,7 @@ import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
 import { useWaitingRoomPack } from "@/hooks/useWaitingRoomPack";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount, deployReloadSafe } from "@/lib/game-flow-state";
+import { isAutoGuestName, parseGuestId, readCookie } from "@/lib/guest-identity";
 import { clearInboundSnap } from "@/lib/hub/page-bridge";
 import { holdLobbyBgmOff } from "@/hooks/useLobbyAudio";
 import type { GamePhase, MatchInfo } from "@/types";
@@ -41,6 +44,17 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   const loader = useGodotLoader(asGameId(hub.gameId));
   const [phase, setPhase] = useState<GamePhase>("intro");
   const fallbackName = guestName || defaultPlayer;
+
+  useEffect(() => {
+    const share = parseRoomShare(window.location.search);
+    if (!share) {return;}
+    savePendingJoin(sessionStorage, WEB_STORE.PENDING_JOIN, share);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("room");
+    url.searchParams.delete("pw");
+    const qs = url.searchParams.toString();
+    window.history.replaceState(null, "", url.pathname + (qs ? `?${qs}` : "") + url.hash);
+  }, []);
   const [name, setName] = useState(nickname || guestName);
   const revision = useDeployRevision(buildId);
 
@@ -75,9 +89,21 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   }, [hub.resumeFailed]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 저장소(localStorage·쿠키) → React 동기화
-    if (nickname) {setName(nickname);}
-    else if (guestName) {setName(guestName);}
+    if (nickname) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부 저장소(localStorage·쿠키) → React 동기화
+      setName(nickname);
+      return;
+    }
+    if (!guestName) {return;}
+    const id = typeof document === "undefined"
+      ? null
+      : parseGuestId(readCookie(WEB_STORE.GUEST_ID, document.cookie));
+    setName((current) => {
+      if (current === "" || (id !== null && isAutoGuestName(current, id))) {
+        return guestName;
+      }
+      return current;
+    });
   }, [nickname, guestName]);
 
   // 허브 상태가 화면 페이즈를 몰아간다 (in-room → 대기실, playing → 게임).
@@ -97,6 +123,8 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     holdLobbyBgmOff();
     saveNickname(displayName);
     hub.connect(displayName);
+    const pending = takePendingJoin(sessionStorage, WEB_STORE.PENDING_JOIN);
+    if (pending) {hub.joinRoom(pending.roomId, { password: pending.password });}
     setPhase("lobby");
   }, [displayName, hub, saveNickname]);
 

@@ -11,7 +11,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { OfflinePhase } from "@/components/phases/OfflinePhase";
 import ko from "../../messages/ko.json";
 
-const messages = { intro: ko.intro, congestion: ko.congestion } as typeof ko;
+const messages = { intro: ko.intro, congestion: ko.congestion, logo: ko.logo } as typeof ko;
 
 type SetupProps = Parameters<typeof OfflinePhase>[0];
 function setup(overrides: Partial<SetupProps> = {}): SetupProps {
@@ -61,6 +61,9 @@ describe("인트로 저장된 이름 상태", () => {
     const art = document.querySelector("img.banner-art");
     expect(art).toBeTruthy();
     expect(art?.getAttribute("src")).toBe("/assets/title-animals.png");
+    const logo = document.querySelector("img.intro-logo");
+    expect(logo?.getAttribute("src")).toBe(ko.logo.src);
+    expect(logo?.getAttribute("class")).toBe(ko.logo.className);
   });
 
   it("시작하기 클릭 → onConnect 호출 (저장된 이름이 있어도 진입 가능)", () => {

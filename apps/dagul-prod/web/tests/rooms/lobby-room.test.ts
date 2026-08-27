@@ -12,8 +12,29 @@ import { MSG, KO, HUB_CONFIG } from "@/lib/hub/config";
 import { parseStartPayload } from "@/lib/hub/start-payload";
 import { nowUnixSec } from "@/lib/hub/lobby-idle";
 import { isRandomCharacterId } from "@/lib/characters";
+import { LOBBY_START_SEC } from "@/lib/domain/waiting-room-start";
+import { START_COUNTDOWN } from "@/lib/hub/match-sim";
 
 let colyseus: ColyseusTestServer;
+
+function advanceClock(room: LobbyRoom, ms: number): void {
+  const clock = room.clock as unknown as {
+    delayed: Array<{ tick: (dt: number) => void; active: boolean }>;
+  };
+  const snapshot = [...clock.delayed];
+  for (const delayed of snapshot) {
+    if (delayed.active) {delayed.tick(ms);}
+  }
+}
+
+/** MSG.START 처리 뒤 대기실 5초를 끝까지 진행한다. */
+async function finishLobbyStart(room: LobbyRoom): Promise<void> {
+  await room.waitForNextPatch();
+  const left = Number(room.state.startInSec);
+  const ticks = left > 0 ? left : (String(room.state.phase) === "playing" ? 0 : LOBBY_START_SEC);
+  for (let i = 0; i < ticks; i += 1) {advanceClock(room, 1000);}
+  await room.waitForNextPatch();
+}
 
 beforeAll(async (): Promise<void> => {
   // app.config 없이 Server 인스턴스 직접 조립 — boot()의 raw Server 오버로드.
@@ -84,6 +105,7 @@ describe("LobbyRoom 규칙", () => {
 
     const errorP = guest.waitForMessage(MSG.ERROR);
     guest.send(MSG.START, {});
+    await finishLobbyStart(room);
     const payload = (await errorP) as { msg?: string };
 
     expect(payload.msg).toBe(KO.HOST_ONLY_START);
@@ -96,11 +118,99 @@ describe("LobbyRoom 규칙", () => {
     await colyseus.connectTo(room, { name: "게스트" });
 
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
 
     expect(String(room.state.phase)).toBe("playing");
     expect(Number(room.state.seed)).toBeGreaterThan(0);
     expect(room.state.loadHeld).toBe(true);
+  });
+
+  it("호스트 시작 — 5초를 센 뒤에 playing 이 되고 3초부터는 잠금 구간이다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("lobby");
+    expect(Number(room.state.startInSec)).toBe(5);
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(4);
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(3);
+    advanceClock(room, 1000);
+    advanceClock(room, 1000);
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+    expect(Number(room.state.startInSec)).toBe(0);
+  });
+
+  it("대기실 카운트 5·4초에서 방장이 나가면 시작을 취소한다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(5);
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(4);
+    await host.leave();
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("lobby");
+    expect(Number(room.state.startInSec)).toBe(0);
+    expect(room.state.hostSessionId).toBe(guest.sessionId);
+    advanceClock(room, 5000);
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("lobby");
+  });
+
+  it("대기실 카운트 5·4초에서 게스트는 나가고 시작은 이어진다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(4);
+    await guest.leave();
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("lobby");
+    expect(Number(room.state.startInSec)).toBe(4);
+    expect(room.state.players.length).toBe(1);
+    await finishLobbyStart(room);
+    expect(String(room.state.phase)).toBe("playing");
+  });
+
+  it("대기실 카운트 중에 START 를 다시 보내도 초를 건너뛰지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(5);
+    host.send(MSG.START, {});
+    await new Promise((r) => setTimeout(r, 20));
+    expect(Number(room.state.startInSec)).toBe(5);
+    expect(String(room.state.phase)).toBe("lobby");
+    advanceClock(room, 1000);
+    await room.waitForNextPatch();
+    expect(Number(room.state.startInSec)).toBe(4);
+  });
+
+  it("대기실 카운트 중에 SET_GAME 은 버린다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(room.state.gameId).toBe("dagul");
+    host.send(MSG.SET_GAME, { game: "sparring" });
+    await new Promise((r) => setTimeout(r, 40));
+    expect(room.state.gameId).toBe("dagul");
+    expect(Number(room.state.startInSec)).toBe(5);
   });
 
   it("호스트 시작 — START 본문은 StartPayload 계약과 맞는다", async () => {
@@ -110,6 +220,7 @@ describe("LobbyRoom 규칙", () => {
 
     const startP = host.waitForMessage(MSG.START);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     const payload = parseStartPayload(await startP);
 
     expect(payload).not.toBeNull();
@@ -145,6 +256,7 @@ describe("LobbyRoom 규칙", () => {
     await room.waitForNextPatch();
     expect(room.state.players[0].characterId).toBe("a1");
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
     host.send(MSG.SET_CHARACTER, { characterId: "a8" });
@@ -162,6 +274,7 @@ describe("LobbyRoom 규칙", () => {
     const startP = host.waitForMessage(MSG.START);
     const snapP = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     const payload = parseStartPayload(await startP);
     const snap = (await snapP) as { players?: Array<{ slot: number; animal: number }> };
     expect(payload?.seats.map((s) => s.characterId)).toEqual(["a2", "a6"]);
@@ -221,6 +334,7 @@ describe("LobbyRoom 규칙", () => {
     await room.waitForNextPatch();
     expect(room.state.players[0].packPct).toBe(40);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
     host.send(MSG.PACK_PCT, { pct: 100 });
@@ -238,6 +352,7 @@ describe("LobbyRoom 규칙", () => {
     host.send(MSG.PACK_PCT, { pct: 100 });
     await room.waitForNextPatch();
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
   });
@@ -253,11 +368,45 @@ describe("LobbyRoom 규칙", () => {
     expect(String(room.state.phase)).toBe("lobby");
   });
 
+  it("이어받은 방장이 시작·게임변경·강퇴를 쓴다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", game: "dagul" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const next = await colyseus.connectTo(room, { name: "다음" });
+    const other = await colyseus.connectTo(room, { name: "다른" });
+    await room.waitForNextPatch();
+    const otherSeat = [...room.state.players].find((p) => p.sessionId === other.sessionId);
+    expect(otherSeat).toBeDefined();
+    if (!otherSeat) {return;}
+    await host.leave();
+    await room.waitForNextPatch();
+    expect(room.state.hostSessionId).toBe(next.sessionId);
+
+    const denied = other.waitForMessage(MSG.ERROR);
+    other.send(MSG.START, {});
+    expect(((await denied) as { msg?: string }).msg).toBe(KO.HOST_ONLY_START);
+
+    next.send(MSG.SET_GAME, { game: "sparring" });
+    await room.waitForNextPatch();
+    expect(room.state.gameId).toBe("sparring");
+
+    const kicked = other.waitForMessage(MSG.KICKED);
+    next.send(MSG.KICK, { slot: otherSeat.slot });
+    expect(await kicked).toEqual(expect.objectContaining({ reason: "kick" }));
+    await room.waitForNextPatch();
+    expect([...room.state.players].map((p) => p.sessionId)).toEqual([next.sessionId]);
+
+    next.send(MSG.START, {});
+    await finishLobbyStart(room);
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+  });
+
   it("플레이 중 방장 좌석 제거 — 다음 접속자가 방장을 이어받고 매치는 유지된다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     const hostId = host.sessionId;
     (room as unknown as { removeSeat: (id: string) => void }).removeSeat(hostId);
@@ -282,6 +431,7 @@ describe("LobbyRoom 규칙", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
 
     await host.leave();
@@ -330,6 +480,7 @@ describe("LobbyRoom 규칙", () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(Number(room.state.idleUntilSec)).toBe(0);
   });
@@ -429,7 +580,7 @@ function roomHero(
   return bag.authority?.sim.heroes.get(slot);
 }
 
-/** MAX_STEPS=4 라 dt 한 번에 카운트다운 3초를 못 깎는다. 권위 틱을 여러 번 돌린다. */
+/** MAX_STEPS=4 라 dt 한 번에 개전 카운트다운을 못 깎는다. 권위 틱을 여러 번 돌린다. */
 function playOut(room: LobbyRoom): AuthSnap {
   for (let i = 0; i < 80; i += 1) {room.stepSim(50);}
   return lastAuthSnap(room);
@@ -456,6 +607,7 @@ describe("허브 권위 매치", () => {
     const hostSnap = host.waitForMessage(MSG.SNAP);
     const guestSnap = guest.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     const [hs, gs] = await Promise.all([hostSnap, guestSnap]);
     const a = hs as { tick?: number; players?: { slot: number }[] };
     const b = gs as { tick?: number; players?: { slot: number }[] };
@@ -471,6 +623,7 @@ describe("허브 권위 매치", () => {
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     const boot = (await first) as AuthSnap;
     const x0 = snapPlayer(boot, 0)?.x ?? 0;
     await waitMatchReady(room, host, guest);
@@ -488,6 +641,7 @@ describe("허브 권위 매치", () => {
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     const bootSnap = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await bootSnap;
     await waitMatchReady(room, host, guest);
     expect(room.pushTestInput(host.sessionId, { mx: 1, my: 0, seq: 1 })).toBe(true);
@@ -513,6 +667,7 @@ describe("허브 권위 매치", () => {
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await first;
     await waitMatchReady(room, host, guest);
     host.send(MSG.INPUT, { mx: 1, my: 0, seq: 5, aimX: 4000, aimY: 2380 });
@@ -526,6 +681,7 @@ describe("허브 권위 매치", () => {
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     const boot = guest.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await boot;
     (room as unknown as { removeSeat: (id: string) => void }).removeSeat(host.sessionId);
     await room.waitForNextPatch();
@@ -572,6 +728,7 @@ describe("LobbyRoom 좌석 이어받기", () => {
     const oldTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
     const boot = oldTab.waitForMessage(MSG.SNAP);
     oldTab.send(MSG.START, {});
+    await finishLobbyStart(room);
     await boot;
     const hostHero = roomHero(room, 0);
     expect(hostHero).toBeDefined();
@@ -593,6 +750,7 @@ describe("LobbyRoom 좌석 이어받기", () => {
     });
     const guest = await colyseus.connectTo(room, { name: "게스트", guestId: 654321, guestKey: KEY_B });
     oldTab.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     await waitMatchReady(room, oldTab, guest);
     expect(roomClock(room).held).toBe(false);
@@ -621,6 +779,7 @@ describe("LobbyRoom 유예 만료 후 좌석 재배정", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     await waitMatchReady(room, host, guest);
     const guestRow = room.state.players.find((p) => p.sessionId === guest.sessionId);
@@ -692,6 +851,7 @@ describe("엔진 보조 세션", () => {
     const host = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
     const first = host.waitForMessage(MSG.SNAP);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     const x0 = snapPlayer((await first) as AuthSnap, 0)?.x ?? 0;
     const engine = await colyseus.connectTo(room, { engine: true, guestId: 123456, guestKey: KEY_A });
     await room.waitForNextPatch();
@@ -710,15 +870,16 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(roomClock(room).held).toBe(true);
-    expect(roomClock(room).countdown).toBe(3);
+    expect(roomClock(room).countdown).toBe(START_COUNTDOWN);
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
     host.send(MSG.INPUT, { mx: 1, my: 0, seq: 1 });
     room.stepSim(200);
     expect(roomClock(room).held).toBe(true);
-    expect(roomClock(room).countdown).toBe(3);
+    expect(roomClock(room).countdown).toBe(START_COUNTDOWN);
     expect(room.state.players.find((p) => p.sessionId === host.sessionId)?.matchReady).toBe(true);
     expect(room.state.players.find((p) => p.sessionId === guest.sessionId)?.matchReady).toBe(false);
   });
@@ -728,6 +889,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.READY, {});
     guest.send(MSG.READY, {});
@@ -741,6 +903,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
@@ -756,6 +919,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.SNAP_OFF, {});
     await new Promise((r) => setTimeout(r, 20));
@@ -779,12 +943,13 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     await waitMatchReady(room, host, guest);
     expect(roomClock(room).held).toBe(false);
     expect(room.state.loadHeld).toBe(false);
     room.stepSim(500);
-    expect(roomClock(room).countdown).toBeLessThan(3);
+    expect(roomClock(room).countdown).toBeLessThan(START_COUNTDOWN);
   });
 
   it("유예 중 단절만으로는 카운트다운을 풀지 않는다", async () => {
@@ -792,6 +957,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
@@ -808,6 +974,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     const guestRow = room.state.players.find((p) => p.sessionId === guest.sessionId);
     expect(guestRow).toBeDefined();
@@ -836,6 +1003,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
@@ -851,6 +1019,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     await new Promise((r) => setTimeout(r, 30));
     expect(room.state.players[0].matchReady).toBe(false);
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(roomClock(room).held).toBe(true);
   });
@@ -860,6 +1029,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     const guest = await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
@@ -867,7 +1037,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     room.stepSim(20_000);
     expect(roomClock(room).held).toBe(true);
     expect(room.state.loadHeld).toBe(true);
-    expect(roomClock(room).countdown).toBe(3);
+    expect(roomClock(room).countdown).toBe(START_COUNTDOWN);
     expect(room.state.players.length).toBe(2);
     const kickedP = guest.waitForMessage(MSG.KICKED);
     const leaveP = new Promise<boolean>((resolve) => {guest.onLeave(() => resolve(true));});
@@ -910,6 +1080,7 @@ describe("LobbyRoom 배포 graceful shutdown", () => {
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
     host.send(MSG.START, {});
+    await finishLobbyStart(room);
     await room.waitForNextPatch();
     expect(String(room.state.phase)).toBe("playing");
 

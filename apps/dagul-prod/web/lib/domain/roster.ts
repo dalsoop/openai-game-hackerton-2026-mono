@@ -27,6 +27,8 @@ export interface RosterSnapshot {
   readonly readySig?: string;
   readonly phase: string;
   readonly hostSessionId: string;
+  readonly password?: string;
+  readonly startInSec?: number;
   readonly players: readonly SeatSnapshot[];
 }
 

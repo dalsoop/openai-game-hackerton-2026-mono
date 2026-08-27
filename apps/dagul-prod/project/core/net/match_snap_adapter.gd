@@ -46,7 +46,7 @@ const PLAYER_COPY := [
 	"heldItem", "springTime", "slideTime", "pullTime", "pocketTime", "dmgOrbTime", "downTaken",
 	"woolTime", "woolHp", "woolMax", "rouletteTime", "rouletteRank", "roulettePhase", "rouletteSpin", "rouletteLabel",
 	"timedBuffs", "clones", "untilBuffs",
-	"mobilityCd", "hopTime", "hopMax", "hopHeight", "moveSpeed", "eliminated",
+	"mobilityCd", "equipmentCd", "hopTime", "hopMax", "hopHeight", "moveSpeed", "eliminated",
 	"reloadFlash", "respawnLeft", "sprayIndex", "rouletteDesc", "hitstunTime", "comboCaptureTime",
 	"medkits", "mobilityDist",
 ]
@@ -213,7 +213,7 @@ func _merge_hud(src: Dictionary) -> void:
 	var hud := _as_dict(src.get("hud", {}))
 	if hud.is_empty():
 		return
-	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouletteDesc", "hitstunTime", "comboCaptureTime", "moveSpeed", "eliminated", "medkits", "mobilityDist", "untilBuffs"]:
+	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouletteDesc", "hitstunTime", "comboCaptureTime", "moveSpeed", "eliminated", "medkits", "mobilityDist", "equipmentCd", "untilBuffs"]:
 		if not hud.has(key):
 			continue
 		var value: Variant = hud[key]

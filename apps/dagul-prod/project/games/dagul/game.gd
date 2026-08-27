@@ -129,7 +129,7 @@ func _start_as_guest(you: int, mode: String) -> void:
 	net_world.local_slot = you
 	net_world.set_mode(mode)
 	net_world.reset()
-	# 첫 스냅이 startCountdown 을 싣는다. playing 재입장은 0, 신규는 3.
+	# 첫 스냅이 startCountdown 을 싣는다. playing 재입장은 0, 신규는 START_COUNTDOWN.
 	net_world.start_countdown = 0.0
 	world = net_world
 

@@ -3,6 +3,7 @@
 // 정책이 양쪽에서 어긋나는 일이 타입·테스트로 걸린다.
 import { asGameId, type GameId } from "../games/catalog";
 import { HUB_CONFIG } from "./config";
+import { parseRoomPassword } from "./room-password";
 
 /** 정규화된 플레이어 표시명 */
 export type PlayerName = string & { readonly __brand: "PlayerName" };
@@ -12,6 +13,7 @@ export interface RoomSettingsInput {
   readonly game?: unknown;
   readonly title?: unknown;
   readonly name?: unknown;
+  readonly password?: unknown;
 }
 
 /** 방 만들기 설정 — 서버 state 로 확정되기 전의 정규화 결과. */
@@ -19,6 +21,7 @@ export interface RoomSettings {
   readonly game: GameId;
   readonly title: string;
   readonly name: PlayerName;
+  readonly password: string;
 }
 
 export interface RoomOptionLimits {
@@ -61,5 +64,6 @@ export function parseRoomSettings(
     game: asGameId(raw.game),
     title: parseRoomTitle(raw.title, limits.maxTitle, limits.fallbackTitle),
     name: parsePlayerName(raw.name, limits.maxName, limits.defaultName),
+    password: parseRoomPassword(raw.password),
   };
 }

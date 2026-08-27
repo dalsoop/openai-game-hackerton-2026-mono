@@ -111,7 +111,7 @@ export const HERO_MAX_HP = 176;
 export const MAG_SIZE = 18;
 export const RELOAD_TIME = 1.15;
 export const FIXED_DT = 1 / 60;
-/** game_world.gd START_COUNTDOWN — 개전 전 전원 정지. */
+/** 개전 전 전원 정지. 로딩 장벽이 열린 뒤 이 초만큼 센다. */
 export const START_COUNTDOWN = 3;
 /** game_world.gd PLAYER_COUNT. */
 export const PLAYER_COUNT = 8;
@@ -242,7 +242,7 @@ export class MatchSim {
   result: "playing" | "won" | "draw" = "playing";
   countdown = START_COUNTDOWN;
   winner = -1;
-  /** 카운트다운 소진 뒤부터 누적되는 매치 시간(초) — 210 에서 고정 (카운트다운 3초 불포함). */
+  /** 카운트다운 소진 뒤부터 누적되는 매치 시간(초) — 210 에서 고정 (개전 카운트다운 불포함). */
   matchTime = 0;
   readonly zone: SafeZoneState = createSafeZone();
   heroes = new Map<number, SimHero>();

@@ -1,6 +1,7 @@
 import type { Client } from "colyseus";
 import { clampPackPct, shouldSendPackPct } from "../domain/waiting-room-pack.js";
 import { HUB_CONFIG, KO } from "./config.js";
+import { hasRoomPassword, resolveSetPassword } from "./room-password.js";
 import { MSG, CLOSE_CODE } from "../contract/wire.js";
 import { asCharacterId } from "../characters/index.js";
 import { asGameId, defaultModeOf } from "../games/catalog.js";
@@ -11,6 +12,9 @@ import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
 import { clearMatchSchema, type MatchAuthority } from "./match-authority.js";
 import { seatedSession } from "./match-engine.js";
 import { clearMatchState } from "./match-schema-write.js";
+import {
+  LOBBY_START_SEC, lobbyStartCancelOnHostLeave,
+} from "../domain/waiting-room-start.js";
 
 export type TimerHandle = { clear(): void };
 
@@ -25,6 +29,7 @@ export type LobbyBag = {
    * 취소해야, 같은 방에서 시작된 무관한 다음 매치를 엉뚱하게 끊지 않는다. */
   shutdownTimer: TimerHandle | null;
   loadWaitMs: number;
+  startTimer: TimerHandle | null;
 };
 
 export type LobbyHandle = {
@@ -97,6 +102,7 @@ export function handleRoomToggle(room: LobbyHandle, client: Client): void {
 
 export function handleSetGame(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
   if (room.state.phase !== "lobby") {return;}
+  if (room.state.startInSec > 0) {return;}
   if (client.sessionId !== room.state.hostSessionId) {
     client.send(MSG.ERROR, { msg: KO.HOST_ONLY_GAME });
     return;
@@ -106,6 +112,32 @@ export function handleSetGame(room: LobbyHandle, client: Client, data: Record<st
   room.state.mode = defaultModeOf(game);
   for (const p of room.state.players) {p.packPct = 0;}
   void room.setMetadata({ ...room.metadata, gameId: game, mode: room.state.mode });
+}
+
+export function handleSetPassword(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
+  if (client.sessionId !== room.state.hostSessionId) {
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_PASSWORD });
+    return;
+  }
+  const next = resolveSetPassword(data);
+  room.state.password = next;
+  void room.setMetadata({ ...room.metadata, hasPassword: hasRoomPassword(next) });
+}
+
+export function handleKick(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
+  if (client.sessionId !== room.state.hostSessionId) {
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_KICK });
+    return;
+  }
+  const slot = Number(data.slot);
+  const target = room.state.players.find((p) => p.slot === slot);
+  if (!target || target.sessionId === client.sessionId) {
+    client.send(MSG.ERROR, { msg: KO.CANNOT_KICK });
+    return;
+  }
+  const victim = room.clients.find((c) => c.sessionId === target.sessionId);
+  victim?.send(MSG.KICKED, { msg: KO.KICKED_MSG, reason: "kick" });
+  victim?.leave(CLOSE_CODE.KICKED);
 }
 
 export function handleSetCharacter(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
@@ -149,10 +181,20 @@ export function armIdleTimer(room: LobbyHandle, bag: LobbyBag): void {
   bag.idleTimer = room.clock.setTimeout(() => {burstIdle(room);}, HUB_CONFIG.idleStartMs);
 }
 
+export function clearStartCountdown(bag: LobbyBag): void {
+  if (bag.startTimer) {bag.startTimer.clear(); bag.startTimer = null;}
+}
+
+export function cancelStartCountdown(room: LobbyHandle, bag: LobbyBag): void {
+  clearStartCountdown(bag);
+  room.state.startInSec = 0;
+}
+
 export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   if (bag.gameTimer) {bag.gameTimer.clear(); bag.gameTimer = null;}
   cancelHostLossReset(bag);
   clearShutdownDrain(bag);
+  cancelStartCountdown(room, bag);
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;
@@ -172,12 +214,10 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
  * 먼저 끝나야 seatsPayloadOf 가 정확한 characterId 를 담는다. 호출자(LobbyRoom)가
  * true 를 받으면 bootAuthority → sendStartBodies 순서로 이어 부른다.
  */
-export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): boolean {
+export function commitStart(room: LobbyHandle, bag: LobbyBag): boolean {
   if (room.state.phase !== "lobby") {return false;}
-  if (client.sessionId !== room.state.hostSessionId) {
-    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_START });
-    return false;
-  }
+  clearStartCountdown(bag);
+  room.state.startInSec = 0;
   clearIdleTimer(room, bag);
   room.state.phase = "playing";
   room.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
@@ -186,6 +226,51 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): b
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
   return true;
+}
+
+/**
+ * 호스트 START — 바로 playing 으로 넘기지 않고 5초를 센다.
+ * 0이 되면 commitStart 후 onCommit(bootAuthority → sendStartBodies).
+ */
+export function handleStart(
+  room: LobbyHandle,
+  bag: LobbyBag,
+  client: Client,
+  onCommit?: () => void,
+): boolean {
+  if (room.state.phase !== "lobby") {return false;}
+  if (room.state.startInSec > 0) {return false;}
+  if (client.sessionId !== room.state.hostSessionId) {
+    client.send(MSG.ERROR, { msg: KO.HOST_ONLY_START });
+    return false;
+  }
+  clearIdleTimer(room, bag);
+  room.state.startInSec = LOBBY_START_SEC;
+  const tick = (): void => {
+    bag.startTimer = null;
+    if (room.state.phase !== "lobby") {return;}
+    if (room.state.startInSec <= 0) {return;}
+    room.state.startInSec -= 1;
+    if (room.state.startInSec > 0) {
+      bag.startTimer = room.clock.setTimeout(tick, 1000);
+      return;
+    }
+    if (commitStart(room, bag)) {onCommit?.();}
+  };
+  bag.startTimer = room.clock.setTimeout(tick, 1000);
+  return true;
+}
+
+export function cancelLobbyStartIfHostLeft(
+  room: LobbyHandle,
+  bag: LobbyBag,
+  wasHost: boolean,
+): void {
+  if (!wasHost) {return;}
+  if (room.state.phase !== "lobby") {return;}
+  if (!lobbyStartCancelOnHostLeave(room.state.startInSec)) {return;}
+  cancelStartCountdown(room, bag);
+  armIdleTimer(room, bag);
 }
 
 export function handleMatchReady(room: LobbyHandle, client: Client): void {

@@ -12,12 +12,12 @@ static func collect_buff_icons(me: Dictionary, world_mode: String) -> Array:
 	var icons: Array = []
 	var until_stats: Dictionary = me.get("until_buffs", {})
 	var until_meta := [
-		{"key":"atk", "id":"atk", "label":"ATK", "color":Color("#ff6b4a")},
-		{"key":"spd", "id":"spd", "label":"SPD", "color":Color("#70e7ff")},
-		{"key":"def", "id":"def", "label":"DEF", "color":Color("#8ad0ff")},
-		{"key":"hp", "id":"hp", "label":"HP", "color":Color("#6ef3a5")},
-		{"key":"rate", "id":"rate", "label":"RATE", "color":Color("#ffd166")},
-		{"key":"range", "id":"range", "label":"RNG", "color":Color("#e8d5ff")}
+		{"key":"atk", "id":"atk", "label":HudStrings.t("chip_atk"), "color":Color("#ff6b4a")},
+		{"key":"spd", "id":"spd", "label":HudStrings.t("chip_spd"), "color":Color("#70e7ff")},
+		{"key":"def", "id":"def", "label":HudStrings.t("chip_def"), "color":Color("#8ad0ff")},
+		{"key":"hp", "id":"hp", "label":HudStrings.t("chip_hp"), "color":Color("#6ef3a5")},
+		{"key":"rate", "id":"rate", "label":HudStrings.t("chip_rate"), "color":Color("#ffd166")},
+		{"key":"range", "id":"range", "label":HudStrings.t("chip_range"), "color":Color("#e8d5ff")}
 	]
 	for meta in until_meta:
 		var value := float(until_stats.get(str(meta["key"]), 0.0))
@@ -30,17 +30,20 @@ static func collect_buff_icons(me: Dictionary, world_mode: String) -> Array:
 		var extra := ""
 		if float(buff.get("shield", 0.0)) > 0.01:
 			extra = "%d" % int(round(float(buff["shield"])))
-		icons.append({"id":bid, "label":str(buff.get("name", "BUFF")), "color":timed_buff_color(bid), "text":extra, "time":left, "kind":"timed"})
+		var timed_label := str(buff.get("name", ""))
+		if timed_label == "" or timed_label == "BUFF":
+			timed_label = HudStrings.t("chip_buff")
+		icons.append({"id":bid, "label":timed_label, "color":timed_buff_color(bid), "text":extra, "time":left, "kind":"timed"})
 	if float(me.get("dmg_orb_time", 0.0)) > 0.05:
-		icons.append({"id":"dmg_orb", "label":"DMG", "color":Color("#ff3349"), "text":"", "time":float(me["dmg_orb_time"]), "kind":"orb"})
+		icons.append({"id":"dmg_orb", "label":HudStrings.t("chip_dmg"), "color":Color("#ff3349"), "text":"", "time":float(me["dmg_orb_time"]), "kind":"orb"})
 	if float(me.get("spawn_protect_time", 0.0)) > 0.05:
-		icons.append({"id":"protect", "label":"SAFE", "color":Color("#ffe36a"), "text":"", "time":float(me["spawn_protect_time"]), "kind":"item"})
+		icons.append({"id":"protect", "label":HudStrings.t("chip_safe"), "color":Color("#ffe36a"), "text":"", "time":float(me["spawn_protect_time"]), "kind":"item"})
 	if float(me.get("slide_time", 0.0)) > 0.05:
-		icons.append({"id":"slide", "label":"ICE", "color":Color("#70e7ff"), "text":"", "time":float(me["slide_time"]), "kind":"item"})
+		icons.append({"id":"slide", "label":HudStrings.t("chip_ice"), "color":Color("#70e7ff"), "text":"", "time":float(me["slide_time"]), "kind":"item"})
 	if float(me.get("pocket_time", 0.0)) > 0.05:
-		icons.append({"id":"pocket", "label":"ZONE", "color":Color("#f4e2ff"), "text":"", "time":float(me["pocket_time"]), "kind":"item"})
+		icons.append({"id":"pocket", "label":HudStrings.t("chip_zone"), "color":Color("#f4e2ff"), "text":"", "time":float(me["pocket_time"]), "kind":"item"})
 	if float(me.get("spring_time", 0.0)) > 0.05:
-		icons.append({"id":"spring", "label":"HOP", "color":Color("#ffe066"), "text":"", "time":float(me["spring_time"]), "kind":"item"})
+		icons.append({"id":"spring", "label":HudStrings.t("chip_hop"), "color":Color("#ffe066"), "text":"", "time":float(me["spring_time"]), "kind":"item"})
 	var held := str(me.get("held_item", ""))
 	if held != "" and world_mode == "item":
 		icons.append({"id":held, "label":held_item_label(held), "color":held_item_color(held), "text":"E", "time":0.0, "kind":"held"})
@@ -62,21 +65,7 @@ static func timed_buff_color(buff_id: String) -> Color:
 			return Color("#b84dff")
 
 static func held_item_label(kind: String) -> String:
-	match kind:
-		"medkit":
-			return "MEDKIT"
-		"spring":
-			return "SPRING"
-		"slide":
-			return "SLIDE"
-		"pull":
-			return "PULL"
-		"pocket":
-			return "POCKET"
-		"decoy":
-			return "DECOY"
-		_:
-			return "EMPTY"
+	return HudStrings.item(kind)
 
 static func held_item_color(kind: String) -> Color:
 	match kind:

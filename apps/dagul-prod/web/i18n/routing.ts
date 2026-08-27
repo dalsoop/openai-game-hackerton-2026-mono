@@ -1,12 +1,10 @@
 import { defineRouting } from "next-intl/routing";
 import { createNavigation } from "next-intl/navigation";
+import { DEFAULT_LOCALE, LOCALES } from "./locales";
 
 export const routing = defineRouting({
-  // 로케일 목록
-  locales: ["ko", "en"],
-  // 기본 로케일
-  defaultLocale: "ko",
-  // 로케일 전략
+  locales: LOCALES,
+  defaultLocale: DEFAULT_LOCALE,
   localePrefix: "as-needed",
 });
 

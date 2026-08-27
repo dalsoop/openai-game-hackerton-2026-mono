@@ -3,22 +3,27 @@
 // 방 만들기는 /create 페이지. 목록과 생성 폼을 한 화면에 두지 않는다.
 import type { JSX } from "react";
 import { useRefreshSpin } from "@/hooks/useRefreshSpin";
+import { useLobbyPinPrompt } from "@/hooks/useLobbyPinPrompt";
 import type { HubRoom } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { findGame, modeI18nKey } from "@/lib/games/catalog";
 import { roomJoinable } from "@/lib/hub/room-mapper";
+import { filterRoomsByQuery } from "@/lib/hub/room-search";
 import {
   membershipOf, needsLeaveConfirm, sortRoomsByMembership, type MyRoomIdentity,
 } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import PinBoxes from "@/components/PinBoxes";
+import RoomSheet from "@/components/RoomSheet";
+import { PIN_LENGTH } from "@/lib/hub/room-password";
 import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
   rooms: HubRoom[];
   myRoom: MyRoomIdentity | null;
-  onJoin: (id: string) => void;
+  onJoin: (id: string, raw?: { password?: string }) => void;
   onForgetMyRoom: () => void;
   onRefresh: () => void;
   refreshing?: boolean;
@@ -31,7 +36,8 @@ export default function Lobby({
   const t = useTranslations("lobby");
   const congestion = useTranslations("congestion");
   const games = useTranslations();
-  const sorted = sortRoomsByMembership(rooms, myRoom);
+  const pin = useLobbyPinPrompt();
+  const sorted = filterRoomsByQuery(sortRoomsByMembership(rooms, myRoom), pin.query);
   const spin = useRefreshSpin(refreshing);
   const blocked = ccu !== null && !ccu.admit;
 
@@ -45,7 +51,7 @@ export default function Lobby({
           aria-disabled={blocked || undefined}
           onClick={(e) => {
             if (blocked) {e.preventDefault(); return;}
-            if (!needsLeaveConfirm(myRoom)) {return;}
+            if (!needsLeaveConfirm(myRoom, undefined, rooms)) {return;}
             if (!window.confirm(t("leaveRoomConfirm"))) {e.preventDefault(); return;}
             onForgetMyRoom();
           }}
@@ -59,8 +65,20 @@ export default function Lobby({
         </button>
       </div>
 
+      <label className="lobby-search">
+        <span className="sec-title">{t("search")}</span>
+        <input
+          className="name-input"
+          type="search"
+          value={pin.query}
+          onChange={(e) => {pin.setQuery(e.target.value);}}
+          placeholder={t("searchPlaceholder")}
+          autoComplete="off"
+        />
+      </label>
+
       <div className="sec-title">
-        {t("title")} <span className="count-badge">{rooms.length}</span>
+        {t("title")} <span className="count-badge">{sorted.length}</span>
       </div>
 
       <div className="rooms">
@@ -73,9 +91,13 @@ export default function Lobby({
             const game = findGame(room.gameId);
             const tryJoin = (): void => {
               if (!joinable) {return;}
-              if (needsLeaveConfirm(myRoom, room.id)) {
+              if (needsLeaveConfirm(myRoom, room.id, rooms)) {
                 if (!window.confirm(t("leaveRoomConfirm"))) {return;}
                 onForgetMyRoom();
+              }
+              if (room.hasPassword && membership === "none") {
+                pin.openPin(room);
+                return;
               }
               onJoin(room.id);
             };
@@ -91,7 +113,10 @@ export default function Lobby({
                 }}
               >
                 <div className="room-info">
-                  <b>{room.title || `${t("room")} ${room.id}`}</b>
+                  <b>
+                    {room.hasPassword ? <span className="room-lock" aria-label={t("locked")}>🔒 </span> : null}
+                    {room.title || `${t("room")} ${room.id}`}
+                  </b>
                   <span className="room-game-line">
                     {room.mode
                       ? t("gameModeLine", {
@@ -129,6 +154,27 @@ export default function Lobby({
           })
         )}
       </div>
+
+      {pin.pwRoom && (
+        <RoomSheet labelledBy="pw-prompt-label" closeLabel={t("passwordCancel")} onClose={pin.closePin}>
+          <form
+            className="pw-modal"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const taken = pin.takePin();
+              if (!taken) {return;}
+              onJoin(taken.id, { password: taken.password });
+            }}
+          >
+            <p className="sec-title" id="pw-prompt-label">{t("passwordPrompt", { title: pin.pwRoom.title || pin.pwRoom.id })}</p>
+            <PinBoxes value={pin.pwDraft} onChange={pin.setPwDraft} labelledBy="pw-prompt-label" autoFocus />
+            <div className="pw-modal-actions">
+              <button type="button" className="ghost" onClick={pin.closePin}>{t("passwordCancel")}</button>
+              <button type="submit" className="cta" disabled={pin.pwDraft.replace(/\D/g, "").length !== PIN_LENGTH}>{t("join")}</button>
+            </div>
+          </form>
+        </RoomSheet>
+      )}
     </div>
   );
 }

@@ -13,12 +13,21 @@ function sheetCell(portrait: CharacterPortrait): { cols: number; rows: number; c
   };
 }
 
-/** 래퍼 크기. 시트는 이 칸 안에서만 보이게 자른다. */
+/** 래퍼 크기. 시트는 이 칸 안에서만 보이게 자른다. overflow 는 인라인 — 클래스만 믿으면 시트가 그대로 샌다. */
 export function portraitFrameStyle(size: number): CSSProperties {
-  return { width: size, height: size };
+  return {
+    width: size,
+    height: size,
+    overflow: "hidden",
+    position: "relative",
+    minWidth: 0,
+    minHeight: 0,
+    flexShrink: 0,
+    display: "inline-block",
+  };
 }
 
-/** img 배치. 단일 초상은 contain, 시트는 칸 크기만큼 밀어 맞춘다. */
+/** img 배치. 단일 초상은 contain, 시트는 칸 크기만큼 절대 위치로 민다. */
 export function portraitImageStyle(portrait: CharacterPortrait, size: number): CSSProperties {
   const { cols, rows, col, row } = sheetCell(portrait);
   if (cols === 1 && rows === 1) {
@@ -30,19 +39,17 @@ export function portraitImageStyle(portrait: CharacterPortrait, size: number): C
     };
   }
   return {
+    position: "absolute",
+    left: col === 0 ? 0 : -(col * size),
+    top: row === 0 ? 0 : -(row * size),
     width: cols * size,
     height: rows * size,
     maxWidth: "none",
-    marginLeft: col === 0 ? 0 : -(col * size),
-    marginTop: row === 0 ? 0 : -(row * size),
     imageRendering: "pixelated",
   };
 }
 
-/** 배경-이미지 방식. 기존 호출부 호환. */
-export function portraitStyle(portrait: CharacterPortrait, size: number): CSSProperties {
-  return {
-    ...portraitFrameStyle(size),
-    overflow: "hidden",
-  };
+/** 프레임 호환. overflow 는 portraitFrameStyle 에 있다. */
+export function portraitStyle(_portrait: CharacterPortrait, size: number): CSSProperties {
+  return portraitFrameStyle(size);
 }
