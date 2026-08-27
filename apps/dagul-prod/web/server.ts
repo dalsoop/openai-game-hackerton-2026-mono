@@ -4,6 +4,7 @@ import { createReadStream, statSync } from "fs";
 import path from "path";
 import next from "next";
 import { matchMaker, Server as ColyseusServer } from "colyseus";
+import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RedisPresence } from "@colyseus/redis-presence";
 import { RedisDriver } from "@colyseus/redis-driver";
@@ -16,6 +17,10 @@ import { healthBody } from "./lib/hub/health.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
+
+// 8인 + 총알·이펙트가 몰리면 인코딩 상태가 기본 8KB 버퍼를 넘어 패치 송신이
+// 통째로 실패한다(총알 안 보임·월드 정지). 여유 있게 키운다.
+Encoder.BUFFER_SIZE = 256 * 1024;
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
