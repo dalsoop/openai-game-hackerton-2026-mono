@@ -55,7 +55,7 @@ export function foldOneShots(from: MatchInput, onto: MatchInput): void {
 
 function foldOldestIntoHead(q: MatchInput[]): void {
   const dropped = q.shift();
-  const head = q[0];
+  const head = q.at(0);
   if (dropped === undefined || head === undefined) {return;}
   foldOneShots(dropped, head);
 }
