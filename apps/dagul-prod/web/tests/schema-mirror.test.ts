@@ -83,6 +83,12 @@ function gdFieldDefs(className: string): string[] {
     .map((m: RegExpMatchArray) => `${m[1]}=${m[2]}:${(m[3] as string | undefined) ?? ""}`);
 }
 
+describe("계약: Colyseus GD 스키마 생성본 금지", () => {
+  it("lobby_state_schema.gd 가 없다 — side.wasm 크래시 방지", () => {
+    expect(existsSync(MIRROR_PATH)).toBe(false);
+  });
+});
+
 describe.skipIf(!HAS_GD_SCHEMA)("계약: Colyseus 스키마 거울", () => {
   it.each(CLASS_MAP)("%s %s ↔ GD %s 필드 이름·순서·타입이 일치한다", (src, tsClass, gdClass) => {
     const serverFields = tsFieldDefs(src === "match" ? matchSrc : lobbySrc, tsClass);

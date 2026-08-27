@@ -526,7 +526,16 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
   });
 });
 
-const HAS_GD_SCHEMA = existsSync(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+const GD_SCHEMA = join(ROOT, "..", "project/core/net/lobby_state_schema.gd");
+
+describe("계약: Colyseus GD 스키마 생성본 금지", () => {
+  it("lobby_state_schema.gd 가 없고 codegen 도 그 경로에 쓰지 않는다", () => {
+    expect(existsSync(GD_SCHEMA)).toBe(false);
+    const gen = sourceOf(join(ROOT, "scripts/generate-lobby-schema.mjs"));
+    expect(gen).not.toContain("writeFileSync(outPath");
+    expect(gen).toContain("lobby_state_schema.gd 가 있습니다");
+  });
+});
 
 describe("계약: 히어로 배열 칸은 ArraySchema", () => {
   it("timedBuffs·clones 가 JSON 문자열이 아니다", () => {
@@ -543,11 +552,6 @@ describe("계약: 히어로 배열 칸은 ArraySchema", () => {
     expect(write).not.toContain("row.clones = JSON.stringify");
     expect(write).not.toContain("row.data = JSON.stringify");
     expect(ts).toContain("@type(MatchEventDataSchema) data");
-    if (HAS_GD_SCHEMA) {
-      const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
-      expect(gd).toContain('Colyseus.Schema.Field.new("timedBuffs", Colyseus.Schema.ARRAY, MatchTimedBuffSchema)');
-      expect(gd).toContain('Colyseus.Schema.Field.new("clones", Colyseus.Schema.ARRAY, MatchCloneSchema)');
-    }
   });
 });
 
@@ -560,10 +564,6 @@ describe("계약: 매치 events 는 Map 이다", () => {
     expect(write).toContain("match.events.set(String(match.eventSeq)");
     expect(write).toContain("match.events.delete");
     expect(write).not.toContain("match.events.shift()");
-    if (HAS_GD_SCHEMA) {
-      const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
-      expect(gd).toContain('Colyseus.Schema.Field.new("events", Colyseus.Schema.MAP, MatchEventSchema)');
-    }
   });
 });
 

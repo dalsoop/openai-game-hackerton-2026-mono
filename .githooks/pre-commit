@@ -53,7 +53,9 @@ if git diff --cached --name-only | grep -qE "^apps/dagul-prod/web/.*\.(ts|tsx|mj
   WEB_STATUS=$?
   set -e
   if [ "$WEB_STASHED" = 1 ]; then
-    git stash pop --quiet
+    if ! git stash pop --quiet; then
+      echo "⚠ pre-commit: stash pop 실패 — 게이트는 통과, 워킹트리만 확인하세요"
+    fi
   fi
   if [ "$WEB_STATUS" -ne 0 ]; then
     echo "❌ pre-commit: 웹 게이트 실패 — 스테이지된 트리를 고친 뒤 다시 커밋"
