@@ -19,7 +19,7 @@ export const BORDER_RADIUS = {
 } as const;
 
 export const MAX_WIDTH = {
-  container: 960,
+  container: 768,
   narrow: 420,
   input: 420,
 } as const;
