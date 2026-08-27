@@ -346,6 +346,17 @@ class HelmContract(unittest.TestCase):
         src = path.read_text()
         self.assertIn('startswith(("server-", "dagul-"))', src)
         self.assertIn("GITHUB_ACTIONS", src)
+        self.assertIn("/etc/hackertone/cloudflare.env", src)
+        self.assertIn("def cloudflare_creds", src)
+        self.assertIn("require_purge", src)
+        from tempfile import TemporaryDirectory
+        from pathlib import Path as P
+
+        with TemporaryDirectory() as tmp:
+            envf = P(tmp) / "cloudflare.env"
+            envf.write_text('CLOUDFLARE_API_TOKEN="t1"\nCLOUDFLARE_ZONE_ID=z9\n')
+            token, zone = purge.creds_from_file(envf)
+            self.assertEqual((token, zone), ("t1", "z9"))
 
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
         import os
