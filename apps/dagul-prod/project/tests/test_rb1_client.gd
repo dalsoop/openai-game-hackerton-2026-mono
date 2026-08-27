@@ -38,7 +38,7 @@ func _hit_pose_keeps_input(t) -> void:
 	t.check("히트 포즈가 줄어든다", g.hit_pause_frames == 2)
 	t.check("히트 포즈 중 입력 송신", hub.packets.size() == 1)
 	t.check("히트 포즈 중 예측 seq 증가", int(g.world._input_seq) == 1)
-	t.check("히트 포즈 중 카메라 정지", camera.position == cam0)
+	t.check("히트 포즈 중에도 카메라 추적", camera.position != cam0)
 	hub.queue_free()
 	hud.queue_free()
 	world_view.queue_free()

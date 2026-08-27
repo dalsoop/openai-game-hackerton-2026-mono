@@ -160,14 +160,14 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 
 	_poll_debug_keys(hud)
 	_update_spectator()
-	var freeze_cam := hit_pause_frames > 0
-	if freeze_cam:
+	if hit_pause_frames > 0:
 		hit_pause_frames -= 1
 	var command := _local_command(ctx, world_view)
 	_tick_world(command, hub, hud, world_view)
 	_tick_match_audio(ctx)
-	if not freeze_cam:
-		_tick_presentation(camera, hud)
+	# 허브 권위라 월드는 히트 포즈에도 계속 흐른다 — 카메라를 얼리면 풀릴 때마다
+	# 따라잡기 점프가 난다. 히트스톱 체감은 셰이크(local_hit_shake)가 담당한다.
+	_tick_presentation(camera, hud)
 	world_view.queue_redraw()
 	_maybe_redraw_hud(hud, TICK)
 

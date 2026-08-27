@@ -7,9 +7,12 @@ static func held(key: Key) -> bool:
 
 
 static func seat_label(key: Key) -> String:
-	var labeled: Key = DisplayServer.keyboard_get_label_from_physical(key)
-	if labeled == KEY_NONE:
-		labeled = key
+	# 웹 DisplayServer 는 라벨 조회 미지원 — 호출마다 콘솔에 에러를 찍는다.
+	var labeled: Key = key
+	if not OS.has_feature("web"):
+		labeled = DisplayServer.keyboard_get_label_from_physical(key)
+		if labeled == KEY_NONE:
+			labeled = key
 	var text := OS.get_keycode_string(labeled)
 	return text if not text.is_empty() else OS.get_keycode_string(key)
 
