@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import socket
 import ssl
 import subprocess
 import sys
@@ -169,7 +170,6 @@ def push_web(folder: str) -> None:
     print(f"pushed {folder} ({digest})")
 
 
-
 def docker_push(ref: str, attempts: int = 3) -> bool:
     for attempt in range(1, attempts + 1):
         ran = subprocess.run(["docker", "push", ref], check=False)
@@ -195,6 +195,59 @@ def require_registry_or_single_node(ref: str) -> None:
     raise SystemExit(f"{ref}: harbor push 실패 (nodes={nodes})")
 
 
+HARBOR_HOST = "harbor.50.internal.xz"
+
+
+def harbor_ip() -> str:
+    return os.environ.get("HACKERTONE_HARBOR_IP", "10.0.50.50")
+
+
+def harbor_resolves() -> bool:
+    try:
+        socket.getaddrinfo(HARBOR_HOST, 443)
+        return True
+    except OSError:
+        return False
+
+
+def pin_harbor_dns() -> None:
+    """러너 공인 DNS(1.1.1.1)에는 harbor 이름이 없다. /etc/hosts 에 내부 IP를 박는다."""
+    if harbor_resolves():
+        return
+    ip = harbor_ip()
+    line = f"{ip} {HARBOR_HOST}\n"
+    hosts = Path("/etc/hosts")
+    try:
+        existing = hosts.read_text()
+    except OSError as exc:
+        print(f"warn harbor hosts 읽기 실패: {exc}", file=sys.stderr)
+        existing = ""
+    if HARBOR_HOST in existing:
+        print(f"warn {HARBOR_HOST} 가 hosts에 있는데도 이름 해석이 안 된다", file=sys.stderr)
+        return
+    appended = False
+    try:
+        with hosts.open("a") as fh:
+            fh.write(line)
+        appended = True
+    except OSError:
+        ran = subprocess.run(
+            ["sudo", "-n", "tee", "-a", str(hosts)],
+            input=line,
+            text=True,
+            check=False,
+            capture_output=True,
+        )
+        appended = ran.returncode == 0
+        if not appended:
+            print(f"warn harbor DNS pin 실패 ({ip} {HARBOR_HOST})", file=sys.stderr)
+            return
+    if appended and not harbor_resolves():
+        print(f"warn harbor pin 후에도 {HARBOR_HOST} 미해석", file=sys.stderr)
+        return
+    print(f"pin {HARBOR_HOST} {ip}")
+
+
 def build_hub(folder: str) -> None:
     mod = plant_mod()
     data = parse_folder(mod, folder)
@@ -213,6 +266,7 @@ def build_hub(folder: str) -> None:
         ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
         check=True,
     )
+    pin_harbor_dns()
     if not docker_push(ref):
         require_registry_or_single_node(ref)
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
