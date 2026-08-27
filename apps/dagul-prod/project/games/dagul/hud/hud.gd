@@ -155,9 +155,11 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
 const MINIMAP_CENTER := Vector2(1486.0, 158.0)
 const MINIMAP_HALF_MAX := 88.0
 
-# 원형 레이더 패널(과거 스타일) 안에 사각 지형이 온전히 들어가는 배율 — 대각선 기준.
+# 과거 스타일: 바다 원판이 겉을 감싸고 그 안의 원형 필드에 전부 들어간다.
+const MINIMAP_FIELD_R := 76.0
+
 func _minimap_scale() -> float:
-    return (MINIMAP_HALF_MAX * 2.0 * 0.96) / Vector2(world.ARENA_SIZE).length()
+    return (MINIMAP_FIELD_R * 2.0 * 0.96) / Vector2(world.ARENA_SIZE).length()
 
 func _minimap_offset(pos: Vector2, scale: float, half: Vector2, margin: float) -> Vector2:
     var offset := (pos - Vector2(world.ARENA_CENTER)) * scale
@@ -170,12 +172,11 @@ func _draw_minimap() -> void:
         return
     var scale := _minimap_scale()
     var half := Vector2(world.ARENA_SIZE) * scale * 0.5
-    var map := Rect2(MINIMAP_CENTER - half, half * 2.0)
     draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, PANEL_BG)
-    # 원판 전체가 필드다: 바탕은 존 밖(보라), 존 안을 잔디로 덮는다. 맵 경계는 선 하나.
-    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#6d55a0"))
+    # 바다가 겉을 감싸고, 원형 필드는 존 밖(보라) 위에 존 안(잔디)을 덮는다.
+    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#17456f"))
+    draw_circle(MINIMAP_CENTER, MINIMAP_FIELD_R, Color("#6d55a0"))
     _draw_minimap_zone(scale)
-    draw_rect(map, Color(0.05, 0.08, 0.05, 0.55), false, 1.5)
     _draw_minimap_dots(scale, half)
     draw_arc(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, 0.0, TAU, 56, Color("#8aa0b8", 0.62), 2.0)
 
@@ -196,16 +197,16 @@ func _draw_minimap_zone(scale: float) -> void:
 
 func _clamp_to_disc(p: Vector2) -> Vector2:
     var offset := p - MINIMAP_CENTER
-    if offset.length() <= MINIMAP_HALF_MAX:
+    if offset.length() <= MINIMAP_FIELD_R:
         return p
-    return MINIMAP_CENTER + offset.normalized() * MINIMAP_HALF_MAX
+    return MINIMAP_CENTER + offset.normalized() * MINIMAP_FIELD_R
 
 func _draw_clipped_ring(center: Vector2, radius: float, color: Color, width: float) -> void:
     var prev := center + Vector2.RIGHT * radius
     for i in range(1, 49):
         var next := center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * radius
-        var inside := prev.distance_to(MINIMAP_CENTER) <= MINIMAP_HALF_MAX + 1.0 \
-            and next.distance_to(MINIMAP_CENTER) <= MINIMAP_HALF_MAX + 1.0
+        var inside := prev.distance_to(MINIMAP_CENTER) <= MINIMAP_FIELD_R + 1.0 \
+            and next.distance_to(MINIMAP_CENTER) <= MINIMAP_FIELD_R + 1.0
         if inside:
             draw_line(prev, next, color, width, true)
         prev = next
