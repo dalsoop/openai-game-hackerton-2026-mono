@@ -413,10 +413,12 @@ function roomClock(room: LobbyRoom): { held: boolean; countdown: number } {
 function roomHero(
   room: LobbyRoom,
   slot: number,
-): { parked: boolean; cpu: boolean; ack: number } | undefined {
+): { parked: boolean; cpu: boolean; ack: number; x: number } | undefined {
   const bag = (room as unknown as {
     bag: {
-      authority: { sim: { heroes: Map<number, { parked: boolean; cpu: boolean; ack: number }> } } | null
+      authority: {
+        sim: { heroes: Map<number, { parked: boolean; cpu: boolean; ack: number; x: number }> };
+      } | null;
     };
   }).bag;
   return bag.authority?.sim.heroes.get(slot);
@@ -577,6 +579,46 @@ describe("LobbyRoom 좌석 이어받기", () => {
     expect(String(room.state.phase)).toBe("playing");
     expect(roomHero(room, 0)?.ack).toBe(0);
     expect(room.pushTestInput(newTab.sessionId, { mx: 1, my: 0, seq: 3 })).toBe(true);
+  });
+});
+
+describe("LobbyRoom 유예 만료 후 좌석 재배정", () => {
+  it("만료 후 재입장 좌석은 조작 가능하다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    await waitMatchReady(room, host, guest);
+    const guestRow = room.state.players.find((p) => p.sessionId === guest.sessionId);
+    expect(guestRow).toBeDefined();
+    if (!guestRow) {return;}
+    const slot = guestRow.slot;
+    expect(roomHero(room, slot)?.parked).toBe(false);
+    (room as unknown as { removeSeat: (id: string) => void }).removeSeat(guest.sessionId);
+    expect(room.state.players).toHaveLength(1);
+    expect(roomHero(room, slot)?.parked).toBe(true);
+    expect(roomHero(room, slot)?.cpu).toBe(false);
+
+    const rejoiner = await colyseus.connectTo(room, { name: "후임" });
+    const payload = parseStartPayload(await rejoiner.waitForMessage(MSG.START));
+    const seated = room.state.players.find((p) => p.sessionId === rejoiner.sessionId);
+    expect(seated?.slot).toBe(slot);
+    expect(payload?.you).toBe(slot);
+    expect(roomHero(room, slot)?.parked).toBe(false);
+
+    const sim = (room as unknown as {
+      bag: { authority: { sim: { countdown: number; countdownHeld: boolean } } | null };
+    }).bag.authority?.sim;
+    expect(sim).toBeDefined();
+    if (sim) {
+      sim.countdown = 0;
+      sim.countdownHeld = false;
+    }
+    const x0 = roomHero(room, slot)?.x ?? 0;
+    expect(room.pushTestInput(rejoiner.sessionId, { mx: 1, my: 0, seq: 1 })).toBe(true);
+    room.stepSim(50);
+    expect(roomHero(room, slot)?.x).toBeGreaterThan(x0);
   });
 });
 

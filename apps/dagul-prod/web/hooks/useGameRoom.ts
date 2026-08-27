@@ -7,6 +7,7 @@ import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF } from "@/lib/contract";
 import { clearEngineHandoff } from "@/lib/godot/handoff";
+import { clearMyRoom } from "@/lib/room-membership";
 import { ROOM_NAME } from "@/lib/hub/config";
 import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-address";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
@@ -114,8 +115,12 @@ export function useGameRoom(
           const restored = restoreMatchHandoff(r, playerName());
           if (restored) {setMatchInfo(restored);}
           r.onLeave((code?: number) => {
+            const kind = roomEndKindFromCode(code);
+            if (kind === "consented") {
+              clearMyRoom((k) => localStorage.removeItem(k));
+            }
             setMatchInfo(null);
-            onRoomEnded(roomEndKindFromCode(code));
+            onRoomEnded(kind);
           });
           return r;
         }

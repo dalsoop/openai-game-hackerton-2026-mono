@@ -113,6 +113,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     this.state.players.push(p);
     if (claim) {this.claims.set(client.sessionId, claim);}
     this.syncHost();
+    this.resumePlayingSeat(client, p);
   }
 
   /** 같은 브라우저(증명 일치)의 새 창이 좌석을 이어받는다 — 기존 창은 안내 후 종료. */
@@ -123,16 +124,25 @@ export class LobbyRoom extends Room implements LobbyHandle {
     const oldClient = this.clients.find((c) => c.sessionId === oldId);
     player.sessionId = client.sessionId;
     player.connected = true;
-    parkSeat(this.bag, player.slot, false);
-    resetSeatAck(this.bag, player.slot);
     player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();
     oldClient?.send(MSG.KICKED, { msg: KO.TAKEOVER_MSG, reason: "takeover" });
     oldClient?.leave(CLOSE_CODE.KICKED);
-    if (this.state.phase === "playing") {this.resendStart(client, player);}
+    this.resumePlayingSeat(client, player);
     return true;
+  }
+
+  /**
+   * 매치 중 좌석에 앉으면 parked 시체를 깨우고 START 를 다시 보낸다.
+   * 유예 만료 후 onJoin·이어받기·재접속이 같은 경로를 탄다.
+   */
+  private resumePlayingSeat(client: Client, player: PlayerSchema): void {
+    parkSeat(this.bag, player.slot, false);
+    resetSeatAck(this.bag, player.slot);
+    if (this.state.phase !== "playing") {return;}
+    this.resendStart(client, player);
   }
 
   /** 플레이 중 이어받기 — 새 세션이 매치에 붙도록 START 본문을 다시 보낸다. */
@@ -159,13 +169,11 @@ export class LobbyRoom extends Room implements LobbyHandle {
       return;
     }
     player.connected = true;
-    parkSeat(this.bag, player.slot, false);
-    resetSeatAck(this.bag, player.slot);
     // 직전 세션이 SNAP_OFF 였으면 같은 sessionId 가 opt-out 에 남는다.
     // 새 WASM 은 JSON SNAP 이 다시 와야 HUD·카메라가 산다.
     this.snapOptOut.delete(client.sessionId);
     this.syncHost();
-    if (this.state.phase === "playing") {this.resendStart(client, player);}
+    this.resumePlayingSeat(client, player);
   }
 
   onLeave(client: Client, _code?: number): void {

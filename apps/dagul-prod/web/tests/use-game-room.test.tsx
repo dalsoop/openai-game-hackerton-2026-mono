@@ -2,7 +2,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState, useEffect } from "react";
-import { HANDOFF, MSG } from "@/lib/contract";
+import { CLOSE_CODE, HANDOFF, MSG, WEB_STORE } from "@/lib/contract";
 import { useGameRoom } from "@/hooks/useGameRoom";
 import type { Client } from "@colyseus/sdk";
 
@@ -158,7 +158,8 @@ describe("useGameRoom START", () => {
     expect(room.leave).not.toHaveBeenCalled();
   });
 
-  it("CONSENTED onLeave 는 consented 로 끝난다", async () => {
+  it("CONSENTED onLeave 는 consented 로 끝나고 myRoom 을 지운다", async () => {
+    localStorage.setItem(WEB_STORE.MY_ROOM, JSON.stringify({ roomId: "r1", host: true }));
     const room = makeRoom();
     const onEnded = vi.fn();
     const joinRequest = { kind: "create" as const };
@@ -170,12 +171,13 @@ describe("useGameRoom START", () => {
       vi.fn(),
     ));
     await waitFor(() => {expect(result.current.room).toBe(room);});
-    const { CLOSE_CODE } = await import("@/lib/contract");
     act(() => {room.drop(CLOSE_CODE.CONSENTED);});
     expect(onEnded).toHaveBeenCalledWith("consented");
+    expect(localStorage.getItem(WEB_STORE.MY_ROOM)).toBeNull();
   });
 
-  it("비동의 onLeave 는 drop 이다", async () => {
+  it("비동의 onLeave 는 drop 이고 myRoom 은 남긴다", async () => {
+    localStorage.setItem(WEB_STORE.MY_ROOM, JSON.stringify({ roomId: "r1", host: true }));
     const room = makeRoom();
     const onEnded = vi.fn();
     const joinRequest = { kind: "create" as const };
@@ -189,5 +191,6 @@ describe("useGameRoom START", () => {
     await waitFor(() => {expect(result.current.room).toBe(room);});
     act(() => {room.drop(1001);});
     expect(onEnded).toHaveBeenCalledWith("drop");
+    expect(localStorage.getItem(WEB_STORE.MY_ROOM)).toBe(JSON.stringify({ roomId: "r1", host: true }));
   });
 });

@@ -10,7 +10,6 @@ import type { JoinRequest, MatchInfo } from "@/types";
 export function useHubCommands(
   nameRef: MutableRefObject<string>,
   room: Room | undefined,
-  matchInfo: MatchInfo | null,
   setJoinRequest: (req: JoinRequest | null) => void,
   setMatchInfo: (info: MatchInfo | null) => void,
   setError: (message: string | null) => void,
@@ -60,12 +59,9 @@ export function useHubCommands(
   }, [leaveRoom, setConnected]);
 
   const returnToLobby = useCallback((_name: string) => {
-    const roomId = matchInfo?.roomId;
-    clearEngineHandoff();
-    setMatchInfo(null);
-    if (room) {return;}
-    setJoinRequest(roomId ? { kind: "join", id: roomId } : null);
-  }, [matchInfo, room, setJoinRequest, setMatchInfo]);
+    // 매치 종료는 끝난 방 resume 으로 재접속하면 안 된다. 새로고침 중 매치 지속은 leave 하지 않으므로 토큰이 남는다.
+    leaveRoom();
+  }, [leaveRoom]);
 
   const reconnectAfterDrop = useCallback(() => {
     const id = takeReconnectId();

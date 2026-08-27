@@ -126,7 +126,7 @@ export function useHub(): UseHubResult {
   // 내 방 멤버십 — 방에 있으면 식별자를 남긴다(강제 단절 후 로비 목록에서 상단 고정·재입장용).
   const myRoom = useMyRoom(derived);
   const commands = useHubCommands(
-    nameRef, room, matchInfo, setJoinRequest, setMatchInfo,
+    nameRef, room, setJoinRequest, setMatchInfo,
     setError, setConnected, setResumeFailed, clearDrop, takeReconnectId,
   );
 

@@ -321,8 +321,13 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("tryReleaseLoadBarrier");
     const reconn = src.slice(src.indexOf("onReconnect"), src.indexOf("onLeave"));
     expect(reconn).not.toContain("matchReady = false");
-    expect(reconn).toContain("resendStart");
+    expect(reconn).toContain("resumePlayingSeat");
     expect(reconn).toContain("snapOptOut.delete");
+    const resume = src.slice(src.indexOf("resumePlayingSeat"), src.indexOf("resendStart"));
+    expect(resume).toContain("parkSeat");
+    expect(src).toContain("this.resendStart(client, player)");
+    const joinSrc = src.slice(src.indexOf("onJoin("), src.indexOf("private takeOverSeat"));
+    expect(joinSrc).toContain("resumePlayingSeat");
   });
 
   it("반전: START 경로가 leaveOnceForHandoff 로 좌석을 넘기면 실패한다", () => {
