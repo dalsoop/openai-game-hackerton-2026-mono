@@ -15,8 +15,9 @@ APPS = Path(__file__).resolve().parents[2] / "apps"
 def hosts_from_apps() -> list[str]:
     out = []
     for path in sorted(APPS.glob("*/hackertone.yaml")):
-        if path.parent.name.startswith("server-"):
-            out.append(f"https://{path.parent.name}.external.kr/")
+        name = path.parent.name
+        if name.startswith(("server-", "dagul-")):
+            out.append(f"https://{name}.external.kr/")
     return out
 
 
@@ -25,6 +26,8 @@ def main() -> int:
     zone = os.environ.get("CLOUDFLARE_ZONE_ID", "").strip()
     if not token or not zone:
         print("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID 없음. 퍼지 생략")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            return 1
         return 0
     prefixes = sys.argv[1:] or hosts_from_apps()
     body = json.dumps({"prefixes": prefixes}).encode()
