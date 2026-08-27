@@ -301,6 +301,13 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toMatch(/push_snap\(snap\.duplicate\(true\)\)/);
   });
 
+  it("미니맵은 사각 풀맵을 그린다 — 옛 원형 섬 그리기 금지", () => {
+    const hud = sourceOf(join(ROOT, "..", "project", "games/dagul/hud/hud.gd"));
+    expect(hud).not.toMatch(/ARENA_SIZE\.y \* 0\.47/);
+    expect(hud).toContain("_draw_minimap_zone");
+    expect(hud).toContain("_minimap_offset");
+  });
+
   it("HUD 리셋은 킬 피드 커서를 함께 지운다 — 2회차 킬이 전부 걸러진다", () => {
     const hud = sourceOf(join(ROOT, "..", "project", "games/dagul/hud/hud.gd"));
     const reset = hud.slice(hud.indexOf("func reset_match_visuals"), hud.indexOf("func _zodiac_name"));

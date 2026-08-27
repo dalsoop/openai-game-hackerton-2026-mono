@@ -150,44 +150,77 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
         _text(Vector2(186.0, row_y), state, 15, state_color, 76.0)
         row_y += 26.0
 
+# 미니맵 — 맵은 7840x4760 사각 풀맵이다. 옛 원형 섬 그리기는 지형을 조그만 원으로
+# 그려 플레이어 점이 바다 위에 뜨고, 원형 클램프가 모서리 위치를 왜곡했다.
+const MINIMAP_CENTER := Vector2(1486.0, 158.0)
+const MINIMAP_HALF_MAX := 88.0
+
+func _minimap_scale() -> float:
+    return (MINIMAP_HALF_MAX * 2.0) / maxf(world.ARENA_SIZE.x, world.ARENA_SIZE.y)
+
+func _minimap_offset(pos: Vector2, scale: float, half: Vector2, margin: float) -> Vector2:
+    var offset := (pos - Vector2(world.ARENA_CENTER)) * scale
+    offset.x = clampf(offset.x, -half.x + margin, half.x - margin)
+    offset.y = clampf(offset.y, -half.y + margin, half.y - margin)
+    return offset
+
 func _draw_minimap() -> void:
     if world.heroes.is_empty():
         return
-    var center := Vector2(1486.0, 158.0)
-    var radius := 88.0
-    draw_circle(center, radius + 7.0, PANEL_BG)
-    draw_circle(center, radius, Color("#17456f"))
-    var scale := (radius * 2.0) / maxf(world.ARENA_SIZE.x, world.ARENA_SIZE.y)
-    var arena_center := Vector2(world.ARENA_CENTER)
-    draw_circle(center, world.ARENA_SIZE.y * 0.47 * scale, Color("#cbb37a"))
-    var zone_center: Vector2 = center + (Vector2(world.safe_zone_center) - arena_center) * scale
+    var scale := _minimap_scale()
+    var half := Vector2(world.ARENA_SIZE) * scale * 0.5
+    var map := Rect2(MINIMAP_CENTER - half, half * 2.0)
+    draw_rect(map.grow(7.0), PANEL_BG)
+    draw_rect(map, Color("#cbb37a"))
+    _draw_minimap_zone(scale, map)
+    _draw_minimap_dots(scale, half)
+    draw_rect(map.grow(7.0), Color("#8aa0b8", 0.62), false, 2.0)
+
+# 존 원은 맵보다 클 수 있다 — 지형 사각에서 잘라 그린다 (원 채움은 클램프 폴리곤,
+# 링은 사각 안에 온전히 든 호 구간만).
+func _draw_minimap_zone(scale: float, map: Rect2) -> void:
+    var zone_center: Vector2 = MINIMAP_CENTER + (Vector2(world.safe_zone_center) - Vector2(world.ARENA_CENTER)) * scale
     var zone_radius: float = maxf(2.0, float(world.safe_zone_radius) * scale)
-    draw_circle(zone_center, zone_radius, Color(0.45, 0.12, 0.75, 0.16))
+    var fill := PackedVector2Array()
+    for i in range(48):
+        var p := zone_center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * zone_radius
+        fill.append(p.clamp(map.position, map.end))
+    draw_colored_polygon(fill, Color(0.45, 0.12, 0.75, 0.16))
     var zone_ring := Color("#e05cff") if bool(world.safe_zone_shrinking) else ZONE_PURPLE
-    draw_arc(zone_center, zone_radius, 0.0, TAU, 48, zone_ring, 2.5)
+    _draw_clipped_ring(zone_center, zone_radius, map, zone_ring, 2.5)
     if bool(world.safe_zone_shrinking) or absf(float(world.safe_zone_target_radius) - float(world.safe_zone_radius)) > 4.0:
-        draw_arc(zone_center, maxf(2.0, float(world.safe_zone_target_radius) * scale), 0.0, TAU, 36, Color(1.0, 1.0, 1.0, 0.70), 1.5)
+        _draw_clipped_ring(zone_center, maxf(2.0, float(world.safe_zone_target_radius) * scale), map, Color(1.0, 1.0, 1.0, 0.70), 1.5)
+
+func _draw_clipped_ring(center: Vector2, radius: float, map: Rect2, color: Color, width: float) -> void:
+    var inner := map.grow(1.0)
+    var prev := center + Vector2.RIGHT * radius
+    for i in range(1, 49):
+        var next := center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * radius
+        if inner.has_point(prev) and inner.has_point(next):
+            draw_line(prev, next, color, width, true)
+        prev = next
+
+func _minimap_focus_slot() -> int:
     var focus_slot := clampi(world.local_slot, 0, world.heroes.size() - 1)
     if spectate_slot != world.local_slot and spectate_slot >= 0 and spectate_slot < world.heroes.size() and bool(world.heroes[spectate_slot]["alive"]):
         focus_slot = spectate_slot
+    return focus_slot
+
+func _draw_minimap_dots(scale: float, half: Vector2) -> void:
+    var focus_slot := _minimap_focus_slot()
     for hero in world.heroes:
         var slot := int(hero["slot"])
         if slot == focus_slot or not bool(hero["alive"]) or bool(hero["eliminated"]):
             continue
-        var offset := (Vector2(hero["pos"]) - arena_center) * scale
-        if offset.length() > radius - 6.0:
-            offset = offset.normalized() * (radius - 6.0)
-        draw_circle(center + offset, 5.2, Color(0.02, 0.03, 0.05, 0.95))
-        draw_circle(center + offset, 3.8, player_colors[slot])
-    if focus_slot >= 0 and focus_slot < world.heroes.size() and bool(world.heroes[focus_slot]["alive"]):
-        var my_offset := (Vector2(world.heroes[focus_slot]["pos"]) - arena_center) * scale
-        if my_offset.length() > radius - 7.0:
-            my_offset = my_offset.normalized() * (radius - 7.0)
-        var me_pos: Vector2 = center + my_offset
-        draw_circle(me_pos, 7.2, Color(0.02, 0.03, 0.05, 0.95))
-        draw_circle(me_pos, 5.6, Color.WHITE)
-        draw_circle(me_pos, 3.6, Color("#7af7ff"))
-    draw_arc(center, radius + 7.0, 0.0, TAU, 56, Color("#8aa0b8", 0.62), 2.0)
+        var dot: Vector2 = MINIMAP_CENTER + _minimap_offset(Vector2(hero["pos"]), scale, half, 6.0)
+        draw_circle(dot, 5.2, Color(0.02, 0.03, 0.05, 0.95))
+        draw_circle(dot, 3.8, player_colors[slot])
+    if focus_slot < 0 or focus_slot >= world.heroes.size() or not bool(world.heroes[focus_slot]["alive"]):
+        return
+    var me_pos: Vector2 = MINIMAP_CENTER + _minimap_offset(Vector2(world.heroes[focus_slot]["pos"]), scale, half, 7.0)
+    draw_circle(me_pos, 7.2, Color(0.02, 0.03, 0.05, 0.95))
+    draw_circle(me_pos, 5.6, Color.WHITE)
+    draw_circle(me_pos, 3.6, Color("#7af7ff"))
 
 func _draw_zone_timer() -> void:
     var status_color := ZONE_PURPLE
