@@ -6,7 +6,6 @@ import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { sizeParts, type GameListing } from "@/lib/games/listing";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { MaterialIcon } from "@/components/MaterialIcon";
-import { CongestionBanner } from "@/components/CongestionBanner";
 import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
@@ -38,7 +37,6 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
 
       <h1 className="create-heading">{t("title")}</h1>
       <p className="create-blurb">{t("blurb")}</p>
-      <CongestionBanner snap={ccu} />
       {blocked && <p className="ccu-hint">{congestion("fullHint")}</p>}
 
       <form

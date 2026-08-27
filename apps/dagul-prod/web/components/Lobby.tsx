@@ -13,7 +13,6 @@ import {
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { MaterialIcon } from "@/components/MaterialIcon";
-import { CongestionBanner } from "@/components/CongestionBanner";
 import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
@@ -38,7 +37,6 @@ export default function Lobby({
 
   return (
     <div className="fade-in lobby-board">
-      <CongestionBanner snap={ccu} />
       {blocked && <p className="ccu-hint">{congestion("fullHint")}</p>}
       <div className="lobby-toolbar">
         <Link

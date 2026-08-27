@@ -5,7 +5,7 @@ extends RefCounted
 static func load_game(game_id: String) -> GameModule:
 	var path := "res://games/%s/game.gd" % game_id
 	if not ResourceLoader.exists(path):
-		push_error("GameRegistry: 게임 없음 — %s" % path)
+		push_error("GameRegistry: 게임 없음 — %s" % path)  # lint-gd: i18n-ok
 		return null
 	var script: GDScript = load(path)
 	var module: GameModule = script.new()

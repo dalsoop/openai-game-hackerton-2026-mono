@@ -134,7 +134,7 @@ static func parse_crate_orbs(snap: Dictionary) -> Array[Dictionary]:
 static func make_equipment(weapon_name: String, player_name: String, mag_size: int = 0, equip_id: String = "net") -> Dictionary:
 	return {
 		"id":equip_id if equip_id != "" else "net",
-		"name":weapon_name if weapon_name != "" else "권총",
+		"name":weapon_name if weapon_name != "" else HudStrings.t("weapon_default"),
 		"character_name":player_name,
 		"role":"",
 		"special_name":"",
@@ -277,7 +277,7 @@ static func _resolve_loot_gun_name(drop: Dictionary) -> String:
 	if compact_name != "":
 		return compact_name
 	var weapon: Dictionary = drop.get("weapon", {})
-	return str(weapon.get("name", "총"))
+	return str(weapon.get("name", HudStrings.t("weapon_default")))
 
 static func parse_mid_tower(snap: Dictionary) -> Dictionary:
 	if snap.has("mid_tower") and typeof(snap["mid_tower"]) == TYPE_DICTIONARY:

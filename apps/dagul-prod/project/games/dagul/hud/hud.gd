@@ -13,7 +13,7 @@ var net_rtt_ms: int = -1
 var net_connected: bool = false
 var player_colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff")]
 
-const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
+const _HudStr := preload("res://core/contract/hud_strings.gd")
 const PANEL_BG := Color(0.012, 0.018, 0.028, 0.86)
 const ZONE_PURPLE := Color("#c65cff")
 
@@ -71,7 +71,7 @@ func reset_match_visuals() -> void:
     _last_kill_event_id = 0
 
 func _zodiac_name(slot: int) -> String:
-    return ZODIAC_NAMES[posmod(slot, 12)]
+    return HudStrings.zodiac(slot)
 
 func _text(pos: Vector2, text: String, size: int, color: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT, bold: bool = false) -> void:
     var font := GameFont.get_bold_font() if bold else GameFont.get_font()
@@ -242,16 +242,16 @@ func _draw_zone_timer() -> void:
     var status_color := ZONE_PURPLE
     var status_text := ""
     if bool(world.safe_zone_shrinking):
-        status_text = "안전 구역 축소 중"
+        status_text = HudStrings.t("zone_shrinking")
         status_color = Color("#e05cff")
     elif bool(world.safe_zone_complete):
-        status_text = "최종 안전 구역"
+        status_text = HudStrings.t("zone_final")
         status_color = Color("#d8b4ff")
     else:
         var phase := int(world.safe_zone_phase)
         if phase < world.SAFE_ZONE_PHASES.size():
             var wait := float(world.SAFE_ZONE_PHASES[phase]["wait"])
-            status_text = "축소까지 %d초" % maxi(0, ceili(wait - float(world.safe_zone_phase_time)))
+            status_text = HudStrings.t("zone_countdown") % maxi(0, ceili(wait - float(world.safe_zone_phase_time)))
             status_color = Color("#c9a6ff")
     if bool(world.safe_zone_shrinking):
         status_color.a = 0.75 + sin(float(world.tick) * 0.22) * 0.25
@@ -325,7 +325,7 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
         draw_texture_rect(gun_texture, Rect2(rect.position + Vector2(10.0, 17.0), Vector2(52.0, 30.0)), false)
     else:
         draw_line(rect.position + Vector2(12.0, 30.0), rect.position + Vector2(52.0, 30.0), Color("#ffd166"), 8.0)
-    _text(rect.position + Vector2(10.0, 15.0), "공격" if touch_hints else "LMB", 11, Color("#ffd166"))
+    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_fire") if touch_hints else "LMB", 11, Color("#ffd166"))
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
@@ -362,7 +362,7 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
     _draw_medkit_icon(rect, tint)
     var count_color := Color("#6ef3a5") if usable else Color("#6b7480")
     _text(rect.position + Vector2(52.0, 38.0), "x%d" % carried, 20, count_color)
-    _text(rect.position + Vector2(6.0, 12.0), "약" if touch_hints else "E", 11, count_color)
+    _text(rect.position + Vector2(6.0, 12.0), HudStrings.t("touch_medkit") if touch_hints else "E", 11, count_color)
 
 func _draw_medkit_frame(rect: Rect2, accent: Color, usable: bool) -> void:
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
@@ -387,9 +387,9 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> voi
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), "대시" if touch_hints else "SHIFT", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_dash") if touch_hints else "SHIFT", 10, chevron)
     if ready:
-        _text(rect.position + Vector2(48.0, 40.0), "대시", 15, Color.WHITE)
+        _text(rect.position + Vector2(48.0, 40.0), HudStrings.t("touch_dash"), 15, Color.WHITE)
     else:
         _text(rect.position + Vector2(48.0, 40.0), "%.1f" % mobility_cd, 15, Color("#c5ccd6"))
 
@@ -454,7 +454,7 @@ func _draw_critical(me: Dictionary) -> void:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]
         draw_rect(Rect2(520.0, 52.0, 560.0, 36.0), Color(0.12, 0.01, 0.03, 0.42 * down_alpha))
-        _text(Vector2(530.0, 76.0), "P%d %s님이 쓰러졌습니다." % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 76.0), HudStrings.t("downed_by") % [world.last_down_slot + 1, down_hero["equipment"]["character_name"]], 18, Color(1.0, 1.0, 1.0, down_alpha * 0.9), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.callout_ticks > 0 and world.result == &"playing":
         var alpha := clampf(float(world.callout_ticks) / 24.0, 0.0, 1.0)
         draw_rect(Rect2(560.0, 52.0, 480.0, 28.0), Color(0.04, 0.04, 0.06, 0.32 * alpha))
@@ -472,9 +472,11 @@ func _draw_critical(me: Dictionary) -> void:
         var target: Dictionary = world.heroes[target_slot]
         var target_equipment: Dictionary = target["equipment"]
         draw_rect(Rect2(455.0, 786.0, 690.0, 90.0), Color(0.04, 0.02, 0.06, 0.88))
-        _text(Vector2(475.0, 816.0), "관전 P%d %s / %s" % [target_slot + 1, target_equipment["character_name"], target_equipment["name"]], 20, Color("#d8b4ff"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(475.0, 843.0), "탈락 - 관전 중", 16, Color("#ff8d93"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(Vector2(475.0, 867.0), "A/D 또는 TAB: 관전 대상 변경  |  SPACE: 1위 자동 추적", 14, Color.WHITE, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(475.0, 816.0), HudStrings.t("spectate_info") % [target_slot + 1, target_equipment["character_name"], target_equipment["name"]], 20, Color("#d8b4ff"), 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        var death_label := HudStrings.t("spectate_eliminated") if bool(me.get("eliminated", false)) else HudStrings.t("spectate_respawning")
+        var death_color := Color("#ff8d93") if bool(me.get("eliminated", false)) else Color("#70e7ff")
+        _text(Vector2(475.0, 843.0), death_label, 16, death_color, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(475.0, 867.0), HudStrings.t("spectate_controls"), 14, Color.WHITE, 650.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.result != &"playing":
         _draw_match_result()
 
@@ -576,9 +578,9 @@ func _update_kill_feed() -> void:
         var victim_slot := int(ev.get("target_id", -1))
         var killer_name := str(world.heroes[killer_slot].get("display_name", "CPU")) if killer_slot >= 0 and killer_slot < world.heroes.size() else ""
         var victim_name := str(world.heroes[victim_slot].get("display_name", "?")) if victim_slot >= 0 and victim_slot < world.heroes.size() else "?"
-        var label := "%s → %s" % [killer_name, victim_name] if killer_name != "" else "%s 탈락" % victim_name
+        var label := "%s → %s" % [killer_name, victim_name] if killer_name != "" else HudStrings.t("eliminated_label") % victim_name
         if t == &"player_eliminated":
-            label += " 제거"
+            label += HudStrings.t("eliminated_suffix")
         _kill_feed.append({"text": label, "time": now})
     while _kill_feed.size() > 5:
         _kill_feed.pop_front()

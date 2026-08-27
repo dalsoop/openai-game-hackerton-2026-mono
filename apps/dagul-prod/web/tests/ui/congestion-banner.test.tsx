@@ -19,6 +19,7 @@ function mount(ccu: number, cap = 100): void {
 describe("CongestionBanner", () => {
   it("원활·혼잡·매우혼잡·꽉참을 순서대로 보여 준다", () => {
     mount(10);
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.capLabel);
     expect(screen.getByRole("status").textContent).toContain(ko.congestion.quiet);
     cleanup();
     mount(50);
@@ -29,6 +30,7 @@ describe("CongestionBanner", () => {
     cleanup();
     mount(100);
     expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.capLabel);
     expect(screen.getByRole("status").textContent).toContain("100 / 100");
   });
 

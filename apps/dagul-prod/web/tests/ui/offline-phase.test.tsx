@@ -73,6 +73,7 @@ describe("인트로 저장된 이름 상태", () => {
     const props = setup({
       ccu: { ccu: 12, cap: 100, level: "quiet", admit: true },
     });
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.capLabel);
     expect(screen.getByRole("status").textContent).toContain(ko.congestion.quiet);
     fireEvent.click(screen.getByText(ko.intro.startButton));
     expect(props.onConnect).toHaveBeenCalledTimes(1);
@@ -82,6 +83,7 @@ describe("인트로 저장된 이름 상태", () => {
     const props = setup({
       ccu: { ccu: 100, cap: 100, level: "full", admit: false },
     });
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.capLabel);
     expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
     expect(screen.getByText(ko.congestion.fullHint)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: ko.congestion.full }));

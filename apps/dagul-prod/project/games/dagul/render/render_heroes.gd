@@ -101,7 +101,7 @@ func draw_flee_mark(body_pos: Vector2, hero: Dictionary) -> void:
 		r.draw_texture_rect(r.flee_icon_tex, Rect2(mark + Vector2(-28.0, -22.0), Vector2(56.0, 44.0)), false)
 	else:
 		r.draw_circle(mark, 16.0, Color("#ffcc33"))
-	r.draw_string(GameFont.get_font(), mark + Vector2(-30.0, 28.0), "도망", HORIZONTAL_ALIGNMENT_CENTER, 60.0, 12, Color("#ffe066"))
+	r.draw_string(GameFont.get_font(), mark + Vector2(-30.0, 28.0), HudStrings.t("flee_marker"), HORIZONTAL_ALIGNMENT_CENTER, 60.0, 12, Color("#ffe066"))
 
 func draw_nametag(pos: Vector2, slot: int, animal: int, hp_ratio: float, opacity: float = 1.0, display_name: String = "", hp_now: float = 0.0, hp_max: float = 0.0) -> void:
 	var tag := display_name if display_name != "" else "P%d %s" % [slot + 1, r._zodiac_name(animal)]
@@ -327,7 +327,7 @@ func draw_snake_skins() -> void:
 		var bar := Rect2(pos + Vector2(-42.0, -68.0), Vector2(84.0, 10.0))
 		r.draw_rect(bar, Color(0.05, 0.08, 0.06, 0.72))
 		r.draw_rect(Rect2(bar.position + Vector2(1.0, 1.0), Vector2((bar.size.x - 2.0) * hp_ratio, bar.size.y - 2.0)), Color("#8fd36a"))
-		r.draw_string(GameFont.get_font(), pos + Vector2(-36.0, -76.0), "허물", HORIZONTAL_ALIGNMENT_CENTER, 72.0, 13, Color("#d8f5c4"))
+		r.draw_string(GameFont.get_font(), pos + Vector2(-36.0, -76.0), HudStrings.t("snake_shed_label"), HORIZONTAL_ALIGNMENT_CENTER, 72.0, 13, Color("#d8f5c4"))
 
 func draw_rat_tides() -> void:
 	if world == null:
@@ -478,7 +478,7 @@ func _draw_hero_tag(body_pos: Vector2, slot: int, hero: Dictionary, ghost: float
 		tag = "P%d %s" % [slot + 1, animal_name]
 	draw_nametag(body_pos, slot, int(hero.get("animal", slot)), hp_ratio, ghost, tag, float(hero["hp"]), float(hero["max_hp"]))
 	if int(hero.get("kill_streak", 0)) >= 2:
-		r.draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), "x%d 연속" % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
+		r.draw_string(GameFont.get_font(), body_pos + Vector2(-40.0, -62.0), HudStrings.t("streak_prefix") % int(hero["kill_streak"]), HORIZONTAL_ALIGNMENT_CENTER, 80.0, 11, Color("#ffd166"))
 
 func _draw_hero_status_arcs(pos: Vector2, hero: Dictionary, slot: int) -> void:
 	if float(hero["cc_time"]) > 0.0:

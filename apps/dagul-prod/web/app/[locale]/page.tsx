@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
+import { useLocalePersist } from "@/hooks/useLocalePersist";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
 import { ShutdownNoticeBanner } from "@/components/ShutdownNoticeBanner";
@@ -52,6 +53,8 @@ function LocaleSwitch(): JSX.Element {
 
 export default function Home(): JSX.Element {
   const t = useTranslations();
+  const locale = useLocale();
+  useLocalePersist(locale);
 
   const {
     phase,

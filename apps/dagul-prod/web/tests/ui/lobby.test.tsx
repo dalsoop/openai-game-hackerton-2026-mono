@@ -179,7 +179,7 @@ describe("로비 목록", () => {
     confirmSpy.mockRestore();
   });
 
-  it("꽉참이면 혼잡을 보이고 방 만들기·새 입장을 막는다", () => {
+  it("꽉참이면 서버 정원을 그리지 않고 방 만들기·새 입장을 막는다", () => {
     const onJoin = vi.fn();
     render(
       <NextIntlClientProvider locale="ko" messages={messages}>
@@ -193,7 +193,8 @@ describe("로비 목록", () => {
         />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(ko.congestion.capLabel)).toBeNull();
     expect(screen.getByText(ko.congestion.fullHint)).toBeTruthy();
     const create = screen.getByRole("link", { name: ko.lobby.createButton });
     expect(create.getAttribute("aria-disabled")).toBe("true");

@@ -13,7 +13,6 @@ const BgLayerScript = preload("res://games/dagul/render/background_layer.gd")
 var world
 var colors := [Color.WHITE, Color("#5bc0eb"), Color("#9bc53d"), Color("#e55934"), Color("#fa7921"), Color("#b084cc"), Color("#ffe066"), Color("#70e7ff"), Color("#ff8dac"), Color("#c9f24d"), Color("#7ad7f0"), Color("#e8a87c")]
 
-const ZODIAC_NAMES := ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"]
 const ZONE_RING := Color("#b44dff")
 const ZONE_RING_HOT := Color("#e05cff")
 const BULLET_YELLOW := Color("#ffd23f")
