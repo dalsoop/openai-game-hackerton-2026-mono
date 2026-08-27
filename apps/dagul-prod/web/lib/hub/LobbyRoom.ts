@@ -13,7 +13,7 @@ import {
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
-  type LobbyBag, type LobbyHandle,
+  sendStartBodies, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import {
   applyPlayInput, bootAuthority, parkSeat, resetSeatAck, tickAuthority, tryReleaseLoadBarrier,
@@ -60,10 +60,11 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   messages = {
     [MSG.START]: (client: Client): void => {
-      handleStart(this, this.bag, client);
-      if (this.state.phase === "playing" && !this.bag.authority) {
-        bootAuthority(this, this.bag);
-      }
+      // 순서 고정: "랜덤" 픽 해소(bootAuthority)가 끝난 뒤에 START 를 보낸다 —
+      // 아니면 Godot 이 허브 해소 전의 원본 "unknown" 값을 그대로 받아 실행한다.
+      if (!handleStart(this, this.bag, client)) {return;}
+      bootAuthority(this, this.bag);
+      sendStartBodies(this, this.bag);
     },
     [MSG.INPUT]: (client: Client, data: Record<string, unknown>): void =>
       applyPlayInput(this, this.bag, client, data),

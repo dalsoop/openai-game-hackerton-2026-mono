@@ -11,6 +11,7 @@ import { LobbyRoom } from "@/lib/hub/LobbyRoom";
 import { MSG, KO, HUB_CONFIG } from "@/lib/hub/config";
 import { parseStartPayload } from "@/lib/hub/start-payload";
 import { nowUnixSec } from "@/lib/hub/lobby-idle";
+import { isRandomCharacterId } from "@/lib/characters";
 
 let colyseus: ColyseusTestServer;
 
@@ -117,7 +118,9 @@ describe("LobbyRoom 규칙", () => {
     expect(payload?.seed).toBeGreaterThan(0);
     expect(payload?.seats).toHaveLength(2);
     expect(payload?.seats.map((s) => s.name)).toEqual(["호스트", "게스트"]);
-    expect(payload?.seats.every((s) => s.characterId === "unknown")).toBe(true);
+    // 회귀(2026-08-27): 아무도 픽하지 않은 "랜덤"이 원본("unknown") 그대로 START 로
+    // 나가면 Godot 이 그걸 그대로 실행한다. 허브가 매치 시드로 미리 해소해서 보낸다.
+    expect(payload?.seats.every((s) => !isRandomCharacterId(s.characterId))).toBe(true);
     expect(payload?.engineJoin?.roomId).toBe(room.roomId);
   });
 

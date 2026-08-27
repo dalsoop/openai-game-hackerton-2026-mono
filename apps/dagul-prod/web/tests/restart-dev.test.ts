@@ -63,4 +63,15 @@ describe("계약: restart-dev 파이프라인", () => {
     expect(src).toContain("/health");
     expect(src).toContain("healthBody");
   });
+
+  // 회귀: lsof -ti 만으로는 CLOSED 소켓 잔재(예: VS Code 헬퍼가 예전에 이 포트에
+  // 붙었던 흔적)까지 잡혀, 죽여야 할 노드 서버 대신 남의 프로세스를 골라버린다.
+  it("포트 조회는 전부 LISTEN 상태로만 필터링한다", () => {
+    const script = readFileSync(join(ROOT, "scripts/restart-dev.sh"), "utf8");
+    const lsofCalls = [...script.matchAll(/lsof -ti :"\$PORT"[^\n]*/g)].map((m) => m[0]);
+    expect(lsofCalls.length).toBeGreaterThan(0);
+    for (const call of lsofCalls) {
+      expect(call, `LISTEN 필터 없는 lsof 호출: ${call}`).toContain("-sTCP:LISTEN");
+    }
+  });
 });

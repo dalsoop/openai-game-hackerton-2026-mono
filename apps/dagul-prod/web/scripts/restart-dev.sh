@@ -11,10 +11,10 @@ WAIT_SEC=15
 
 cd "$(dirname "$0")/.."
 
-# 1. 포트를 점유 중인 node 프로세스를 전부 죽인다 (Chrome 등 비 node 제외).
+# 1. 포트를 리슨 중인 node 프로세스를 전부 죽인다 (Chrome 등 비 node, CLOSED 소켓 잔재 제외).
 kill_old() {
   local pids
-  pids=$(lsof -ti :"$PORT" 2>/dev/null || true)
+  pids=$(lsof -ti :"$PORT" -sTCP:LISTEN 2>/dev/null || true)
   for pid in $pids; do
     local cmd
     cmd=$(ps -o comm= -p "$pid" 2>/dev/null || true)
@@ -25,9 +25,7 @@ kill_old() {
   done
   # 포트 해제 대기
   local i=0
-  while lsof -ti :"$PORT" 2>/dev/null | while read -r p; do
-    ps -o comm= -p "$p" 2>/dev/null | grep -q node && exit 0; exit 1
-  done; do
+  while [ -n "$(lsof -ti :"$PORT" -sTCP:LISTEN 2>/dev/null)" ]; do
     sleep 0.3
     i=$((i + 1))
     if [ "$i" -gt 10 ]; then echo "WARN: port $PORT still held after 3s"; break; fi
@@ -59,8 +57,9 @@ verify() {
   echo " OK"
   local ver
   ver=$(curl -s "http://127.0.0.1:$PORT/api/version")
+  # LISTEN 상태만 — 남의 CLOSED 소켓 잔재(예: VS Code 헬퍼)를 서버로 오인하지 않는다.
   local pid
-  pid=$(lsof -ti :"$PORT" 2>/dev/null | head -1)
+  pid=$(lsof -ti :"$PORT" -sTCP:LISTEN 2>/dev/null | head -1)
   local started
   started=$(ps -o lstart= -p "$pid" 2>/dev/null || echo "?")
   echo "version: $ver"

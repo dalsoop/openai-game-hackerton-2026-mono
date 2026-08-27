@@ -139,11 +139,16 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   armIdleTimer(room, bag);
 }
 
-export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): void {
-  if (room.state.phase !== "lobby") {return;}
+/**
+ * 로비→매치 전이만 한다. 여기서 START 를 보내지 않는다 — "랜덤" 픽 해소(bootAuthority)가
+ * 먼저 끝나야 seatsPayloadOf 가 정확한 characterId 를 담는다. 호출자(LobbyRoom)가
+ * true 를 받으면 bootAuthority → sendStartBodies 순서로 이어 부른다.
+ */
+export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): boolean {
+  if (room.state.phase !== "lobby") {return false;}
   if (client.sessionId !== room.state.hostSessionId) {
     client.send(MSG.ERROR, { msg: KO.HOST_ONLY_START });
-    return;
+    return false;
   }
   clearIdleTimer(room, bag);
   room.state.phase = "playing";
@@ -152,7 +157,7 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): v
   room.state.loadHeld = true;
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });
-  sendStartBodies(room, bag);
+  return true;
 }
 
 export function handleMatchReady(room: LobbyHandle, client: Client): void {
@@ -162,7 +167,7 @@ export function handleMatchReady(room: LobbyHandle, client: Client): void {
   player.matchReady = true;
 }
 
-function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {
+export function sendStartBodies(room: LobbyHandle, bag: LobbyBag): void {
   // 계약: CPU 좌석 정보는 START 에 없고 SNAP 으로만 전달된다 (seats 는 실접속 플레이어만 담는다).
   const seats = seatsPayloadOf(room.state.players);
   const engineJoin = room.roomId ? { roomId: room.roomId } : undefined;

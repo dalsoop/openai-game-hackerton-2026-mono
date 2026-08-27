@@ -15,7 +15,7 @@ import {
 } from "./match-authority.js";
 import { writeMatchState } from "./match-schema-write.js";
 import { fillMatchSeats } from "./lobby-seats.js";
-import { PLAYER_COUNT } from "./match-sim.js";
+import { PLAYER_COUNT, type MatchSim } from "./match-sim.js";
 
 export function applyPlayInput(
   room: LobbyHandle,
@@ -38,6 +38,7 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
     slot: p.slot, name: p.name, characterId: p.characterId,
   }))).slice(0, PLAYER_COUNT);
   bag.authority = seedAuthority(seats, room.state.mode, room.state.seed);
+  syncResolvedCharacterIds(room, bag.authority.sim);
   for (const p of room.state.players) {
     if (!p.connected) {setHeroParked(bag.authority, p.slot, true);}
   }
@@ -47,6 +48,18 @@ export function bootAuthority(room: LobbyHandle, bag: LobbyBag): void {
   bag.prevSnap = null;
   bag.lastSnap = snap;
   room.broadcast(MSG.SNAP, snap);
+}
+
+/**
+ * "랜덤" 픽(SSOT: characters.json defaultId)은 허브가 매치 시드로 단 한 번만 굴린다.
+ * 그 결과(sim.heroes)를 players 에 되써야 START 페이로드·재접속·재입장이 같은 값을
+ * 본다 — 아니면 클라(Godot)가 허브 해소 전 "unknown" 원본을 그대로 받아 실행한다.
+ */
+function syncResolvedCharacterIds(room: LobbyHandle, sim: MatchSim): void {
+  for (const p of room.state.players) {
+    const resolved = sim.heroes.get(p.slot)?.characterId;
+    if (resolved) {p.characterId = resolved;}
+  }
 }
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
