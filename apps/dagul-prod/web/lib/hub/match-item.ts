@@ -42,6 +42,10 @@ const KIND_COLOR: Record<string, string> = {
 };
 
 export type PoolItemKind = "medkit" | "spring" | "slide" | "pull" | "pocket" | "decoy";
+export {
+  packItemField, packItemStack, unpackItemStack, unpackMedkits, ITEM_WIRE_CASES,
+  type ItemStack,
+} from "./match-item-wire.js";
 export type ItemEvent = { tick: number; type: string; actor: number; target: number; data: Record<string, unknown> };
 export type ItemPickup = {
   id: number; x: number; y: number; homeX: number; homeY: number; magnetSlot: number;

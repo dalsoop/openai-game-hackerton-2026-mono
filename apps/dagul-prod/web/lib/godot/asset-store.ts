@@ -1,6 +1,8 @@
 // Godot 에셋 다운로드의 단일 정본 — URL 체계와 파일별 공유 캐시를 소유한다.
 // 프리로드(로비)와 부팅(매치 시작)이 같은 파일을 요구하면 fetch 1회로 공유하며,
 // 엔진이 스스로 fetch 하는 URL 과도 무버전으로 일치시켜 ETag 304 재검증을 유도한다.
+import { ratioProgress } from "./load-progress.js";
+
 export interface AssetPlan {
   /** 엔진이 init/loadPath 로 쓰는 기본 경로 (무버전 — side.wasm 접미사 concat 규약) */
   readonly engineBase: string;
@@ -59,14 +61,15 @@ export function godotWorkletAssetPath(
 }
 
 type ProgressFn = (progress: number, loaded: number, total: number) => void;
+type FileBytes = { loaded: number; total: number };
 
 /** 파일별 진행 중 Promise 메모 — 동시 요청·재요청 모두 네트워크 1회로 수렴시킨다. */
 export class AssetStore {
   private readonly inflight = new Map<string, Promise<ArrayBuffer>>();
   private readonly done = new Map<string, ArrayBuffer>();
+  private readonly bytesOf = new Map<string, FileBytes>();
   private filesHash = "";
-  private loaded = 0;
-  private total = 0;
+  private peak = 0;
 
   constructor(
     private readonly plan: AssetPlan,
@@ -76,7 +79,10 @@ export class AssetStore {
   /** 파일을 (필요시 내려받아) 반환한다 — 이미 받았거나 진행 중이면 그 결과를 공유한다. */
   get(url: string, expectBytes = 0): Promise<ArrayBuffer> {
     const cached = this.done.get(url);
-    if (cached) {return Promise.resolve(cached);}
+    if (cached) {
+      this.noteFile(url, cached.byteLength, cached.byteLength);
+      return Promise.resolve(cached);
+    }
     let inflight = this.inflight.get(url);
     if (!inflight) {
       inflight = this.fetchCounted(url, expectBytes);
@@ -103,6 +109,8 @@ export class AssetStore {
     if (nextHash !== this.filesHash) {
       this.done.clear();
       this.inflight.clear();
+      this.bytesOf.clear();
+      this.peak = 0;
       this.filesHash = nextHash;
     }
     return body;
@@ -117,7 +125,7 @@ export class AssetStore {
     if (!resp.ok) {throw new Error(`${url}: ${resp.status}`);}
     const declared = resp.headers.get("content-length");
     const total = declared === null || declared === "" ? expectBytes : Number(declared);
-    this.total += total;
+    this.noteFile(url, 0, total);
     const reader = resp.body?.getReader();
     if (!reader) {
       const buf = await resp.arrayBuffer();
@@ -131,8 +139,7 @@ export class AssetStore {
       if (done) {break;}
       chunks.push(value);
       loaded += value.byteLength;
-      this.loaded += value.byteLength;
-      this.onProgress(total > 0 ? Math.min(1, this.loaded / Math.max(1, this.total)) : 0, this.loaded, this.total);
+      this.noteFile(url, loaded, Math.max(total, loaded));
     }
     const merged = new Uint8Array(loaded);
     let offset = 0;
@@ -145,5 +152,19 @@ export class AssetStore {
   private remember(url: string, buf: ArrayBuffer): void {
     this.done.set(url, buf);
     this.inflight.delete(url);
+    this.noteFile(url, buf.byteLength, buf.byteLength);
+  }
+
+  private noteFile(url: string, loaded: number, total: number): void {
+    this.bytesOf.set(url, { loaded, total: Math.max(total, loaded) });
+    let allLoaded = 0;
+    let allTotal = 0;
+    for (const rec of this.bytesOf.values()) {
+      allLoaded += rec.loaded;
+      allTotal += rec.total;
+    }
+    const ratio = Math.max(this.peak, ratioProgress(allLoaded, allTotal));
+    this.peak = ratio;
+    this.onProgress(ratio, allLoaded, allTotal);
   }
 }

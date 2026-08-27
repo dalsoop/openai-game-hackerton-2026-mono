@@ -58,7 +58,7 @@ export interface UseHubResult {
   rooms: HubRoom[];
   players: Seat[];
   you: number;
-  /** 인게임 로딩 장벽. 전원 ready 또는 타임아웃이면 false. */
+  /** 인게임 로딩 장벽. 전원 matchReady 이면 false. packPct·경과 시간으로는 풀지 않는다. */
   loadHeld: boolean;
   roomId: string;
   isHost: boolean;

@@ -37,8 +37,6 @@ export const HUB_CONFIG = {
   seedMax: 999_999,
   gameServerTimeoutMs: 5_000,
   matchWatchdogMs: 30_000,
-  /** 전원 ready 를 이 시간 안에 못 받으면 카운트다운을 강제 해제한다. */
-  loadReadyTimeoutMs: 20_000,
   rttIntervalMs: 2_000,
   listPollMs: 4_000,
   roomsFetchMs: 3_000,

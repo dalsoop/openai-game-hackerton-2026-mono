@@ -84,6 +84,23 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe("우클릭 스킬 대시 — 얇은 벽 관통 회귀", () => {
+  // 회귀: 이동 대시(match-gun.ts)를 스윕으로 고친 것과 같은 버그가 우클릭
+  // 스킬 대시(match-skill.ts dash())에도 있었다 — blade 풀차지 대시는
+  // 190*reach(≈224px)로 얇은 커버 반지름(35px)을 가볍게 넘겨서 시작점·도착점
+  // 둘 다 커버 밖이면 충돌 판정이 비어 벽을 관통했다.
+  it("blade 풀차지 CROSS STEP 대시는 얇은 벽을 관통하지 않는다", () => {
+    const h = hero("blade");
+    h.x = 550;
+    h.y = 300;
+    const covers = [{ x: 400, y: 377, w: 300, h: 70 }]; // 중심 (550,412), r=35
+    const result = applyEquipmentAttack(h, { x: 0, y: 1 }, 1, covers);
+    expect(result.fired).toBe(true);
+    expect(h.y).toBeLessThan(412 - 35 + 1);
+    expect(h.y).toBeLessThan(300 + 224.2 - 100);
+  });
+});
+
 describe("쿨다운 소모", () => {
   it("발동 시 charge_release 와 무기별 이펙트를 방출한다", () => {
     const store = createEffectStore();

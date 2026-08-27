@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 시뮬 회귀 묶음 */
 import { describe, expect, it } from "vitest";
 import {
   ARENA_CENTER,
@@ -57,6 +58,20 @@ describe("MatchSim", () => {
     expect(h1.x).toBeLessThan(x1);
     // 이동속도는 캐릭터별 equipment.moveSpeed 가 기준 (원본 hero_movement.gd:436)
     expect(h0.x - x0).toBeCloseTo(h0.equipment.moveSpeed / 60, 0);
+  });
+
+  it("setTickInput 이 있으면 큐 next 보다 앞선다", () => {
+    const sim = new MatchSim([{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }]);
+    sim.countdown = 0;
+    const h0 = sim.heroes.get(0);
+    expect(h0).toBeTruthy();
+    if (!h0) {return;}
+    const x0 = h0.x;
+    sim.pushInput(0, { mx: -1, my: 0, seq: 1 });
+    sim.setTickInput(0, { mx: 1, my: 0, seq: 2 });
+    sim.step(1 / 60);
+    expect(h0.x).toBeGreaterThan(x0);
+    expect(sim.hasQueuedInput(0)).toBe(true);
   });
 
   it("parked 히어로는 잔여 입력이 있어도 정지한다", () => {

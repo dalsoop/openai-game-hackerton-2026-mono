@@ -24,6 +24,7 @@ describe("MatchInputSchema", () => {
     const socket = sourceOf(join(ROOT, "..", "project", "core/autoload/engine_socket.gd"));
     expect(socket).toContain("_input.flush(_room)");
     expect(socket).toContain("_PredictScript.bind(_room)");
+    expect(socket).not.toContain("send_message(WebContract.MSG_INPUT");
   });
 
   it("sanitize 범위가 아레나를 덮는다", () => {

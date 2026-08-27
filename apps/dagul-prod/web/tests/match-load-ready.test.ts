@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
 import {
   allSeatsMatchReady, lobbyReadySig, matchWaitNames, pendingLoadNames, shouldHoldCountdown,
@@ -7,7 +9,6 @@ import type { RosterSnapshot } from "@/lib/domain/roster";
 import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 import { START_COUNTDOWN, MatchSim } from "@/lib/hub/match-sim";
 import { makeEquipment } from "@/lib/hub/match-equipment";
-import { HUB_CONFIG } from "@/lib/hub/config";
 
 function seat(matchReady: boolean): { connected: boolean; matchReady: boolean; name: string } {
   return { connected: true, matchReady, name: matchReady ? "완료" : "대기" };
@@ -33,14 +34,25 @@ describe("allSeatsMatchReady", () => {
 });
 
 describe("shouldHoldCountdown", () => {
-  it("타임아웃 전이면 미완료를 붙잡는다", () => {
-    expect(shouldHoldCountdown([seat(false)], 0, 20_000)).toBe(true);
-    expect(shouldHoldCountdown([seat(true)], 0, 20_000)).toBe(false);
+  it("미완료 좌석이 있으면 붙잡고, 전원이 ready 면 연다", () => {
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
+    expect(shouldHoldCountdown([seat(true)])).toBe(false);
+    expect(shouldHoldCountdown([seat(true), seat(true)])).toBe(false);
   });
 
-  it("타임아웃이면 미완료여도 푼다", () => {
-    expect(shouldHoldCountdown([seat(false)], 20_000, 20_000)).toBe(false);
-    expect(shouldHoldCountdown([seat(false)], 19_999, 20_000)).toBe(true);
+  it("경과 시간·타임아웃 인자 없이 미완료를 붙잡는다", () => {
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
+    expect(shouldHoldCountdown.length).toBe(1);
+  });
+
+  it("타임아웃 스킵 경로를 소스에서 컷오프한다", () => {
+    const root = process.cwd();
+    const src = (rel: string): string => readFileSync(join(root, rel), "utf8");
+    expect(src("lib/domain/match-load-ready.ts")).not.toContain("timeoutMs");
+    expect(src("lib/domain/match-load-ready.ts")).not.toContain("waitedMs");
+    expect(src("lib/hub/config.ts")).not.toContain("loadReadyTimeoutMs");
+    expect(src("lib/hub/lobby-play.ts")).not.toContain("loadWaitMs");
+    expect(src("lib/hub/lobby-waiting.ts")).not.toContain("loadWaitMs");
   });
 });
 
@@ -133,7 +145,7 @@ describe("로딩 경로 — 팩 받기와 인게임 ready 는 다르다", () => 
 
   it("컴파일 완료(100)만으로 카운트다운을 풀지 않는다", () => {
     expect(packPctFromLoader("ready", 1)).toBe(100);
-    expect(shouldHoldCountdown([seat(false)], 100, HUB_CONFIG.loadReadyTimeoutMs)).toBe(true);
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
   });
 });
 

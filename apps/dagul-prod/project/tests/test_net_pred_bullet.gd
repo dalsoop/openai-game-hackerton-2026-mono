@@ -9,6 +9,7 @@ const SnapContract := preload("res://games/dagul/net/snap_contract.gd")
 
 class FakeWorld extends RefCounted:
 	var _pred_bullets: Array[Dictionary] = []
+	var covers: Array = []
 
 func run(t) -> void:
 	_spawn_pure(t)
@@ -16,6 +17,9 @@ func run(t) -> void:
 	_zero_aim_falls_back_to_right(t)
 	_integration_fire_spawns_into_projectiles(t)
 	_integration_bullet_bridges_until_expiry(t)
+	_sustained_fire_waits_for_weapon_interval(t)
+	_sustained_fire_ignored_for_semi_weapons(t)
+	_absorbed_by_cover_not_bounced(t)
 
 func _spawn_pure(t) -> void:
 	var w := FakeWorld.new()
@@ -77,7 +81,46 @@ func _find_predicted(nw) -> Dictionary:
 			return p
 	return {}
 
-func _snap(x: float, y: float, mag: int) -> Dictionary:
+## 회귀: 이동하며 연사(auto)할 때 첫 발 이후로도 예측 총알이 이동 자리에서
+## 계속 나가는지 — 무기 간격(normal_interval) 전엔 다시 안 나가고, 지나면 다시 나간다.
+func _sustained_fire_waits_for_weapon_interval(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	# leech(MP5) 는 auto, normal_interval 0.095.
+	nw.push_snap(_snap(3920.0, 2380.0, 25, "leech"))
+	t.check("첫 발(클릭 엣지)은 즉시 나간다", nw.predict_local_fire())
+	t.check("간격이 안 지나면 연사 예측은 재발사하지 않는다", not nw.predict_local_fire(Vector2.ZERO, true))
+	nw.predict_local(Vector2.ZERO, false, Vector2.RIGHT, 0.2) # 간격(0.095s)보다 길게 흘려보낸다.
+	t.check("간격이 지나면 연사 예측이 다시 발사한다", nw.predict_local_fire(Vector2.ZERO, true))
+
+## semi/bolt/gl/lever 무기는 쥐고 있어도 연사하지 않는다 — 예측도 같이 막아야
+## 클릭 한 번에 트레이서가 여러 번 나가는 고스트 연사가 생기지 않는다.
+func _sustained_fire_ignored_for_semi_weapons(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	# brawler(M1911) 는 semi.
+	nw.push_snap(_snap(3920.0, 2380.0, 7, "brawler"))
+	t.check("첫 발(클릭 엣지)은 semi 에도 나간다", nw.predict_local_fire())
+	nw.predict_local(Vector2.ZERO, false, Vector2.RIGHT, 1.0)
+	t.check("semi 무기는 쥐고 있어도 연사 예측이 나가지 않는다", not nw.predict_local_fire(Vector2.ZERO, true))
+
+## 회귀: match-sim.ts expireOrHit 는 커버에 닿은 실탄을 튕기지 않고 그 자리에서
+## 소멸시킨다(pointInCover → splashAround → 제거). 예측 총알도 같은 규칙을
+## 따라야 한다 — 안 그러면 실탄은 막히는데 내 트레이서만 돌을 뚫고 지나가는
+## 것처럼 보인다.
+func _absorbed_by_cover_not_bounced(t) -> void:
+	var w := FakeWorld.new()
+	w.covers = [{"x": 90.0, "y": -35.0, "w": 70.0, "h": 70.0}] # 중심 (125,0), r=35
+	Bullet.spawn(w, Vector2.ZERO, Vector2(1.0, 0.0), 0, 1000.0, 1.0)
+	for i in range(30): # 0.5s, 500px 전진 — 커버(중심 x=125)를 한참 지나칠 거리
+		Bullet.advance(w, 1.0 / 60.0)
+		if w._pred_bullets.is_empty():
+			break
+	t.check("커버에 닿으면 튕기지 않고 소멸한다", w._pred_bullets.is_empty())
+
+func _snap(x: float, y: float, mag: int, weapon_id: String = "net") -> Dictionary:
 	return {
 		SnapContract.TICK: 12,
 		SnapContract.TIME: 1.0,
@@ -94,6 +137,7 @@ func _snap(x: float, y: float, mag: int) -> Dictionary:
 			SnapContract.P_MAX_HP: 204.0,
 			SnapContract.P_ALIVE: true,
 			SnapContract.P_WEAPON: "GLOCK 18",
+			SnapContract.P_WEAPON_ID: weapon_id,
 			SnapContract.P_MAG: mag,
 			SnapContract.P_MAG_MAX: 18,
 			SnapContract.P_KILLS: 0,

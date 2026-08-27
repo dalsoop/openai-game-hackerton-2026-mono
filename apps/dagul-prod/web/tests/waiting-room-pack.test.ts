@@ -69,12 +69,12 @@ describe("로더 → 팩 보고", () => {
     expect(bootOverlayPct(1)).toBe(100);
   });
 
-  it("5퍼센트와 끝점만 올린다", () => {
+  it("5퍼센트와 100만 올리고 뒤로 가지 않는다", () => {
     expect(shouldSendPackPct(null, 0)).toBe(true);
     expect(shouldSendPackPct(0, 3)).toBe(false);
     expect(shouldSendPackPct(0, 5)).toBe(true);
     expect(shouldSendPackPct(40, 100)).toBe(true);
     expect(shouldSendPackPct(100, 100)).toBe(false);
-    expect(shouldSendPackPct(80, 0)).toBe(true);
+    expect(shouldSendPackPct(80, 0)).toBe(false);
   });
 });

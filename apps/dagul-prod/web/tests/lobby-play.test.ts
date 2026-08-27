@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client } from "colyseus";
 import { HUB_CONFIG, MSG } from "@/lib/hub/config";
-import { commitTickSnap, parkSeat, resetSeatAck, scheduleLobbyReset } from "@/lib/hub/lobby-play";
+import { commitTickSnap, parkSeat, resetSeatAck, scheduleLobbyReset, tryReleaseLoadBarrier } from "@/lib/hub/lobby-play";
 import { seed as seedAuthority } from "@/lib/hub/match-authority";
-import { LobbyState } from "@/lib/hub/lobby-state";
+import { LobbyState, PlayerSchema } from "@/lib/hub/lobby-state";
 import type { LobbyBag, LobbyHandle } from "@/lib/hub/lobby-waiting";
 
 function clientOf(sessionId: string, send: ReturnType<typeof vi.fn>): Client {
@@ -30,7 +30,7 @@ function roomOf(state: LobbyState, extra: Partial<LobbyHandle> = {}): LobbyHandl
 function emptyBag(): LobbyBag {
   return {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null,
-    authority: null, hostLossTimer: null, loadWaitMs: 0,
+    authority: null, hostLossTimer: null,
   };
 }
 
@@ -52,7 +52,6 @@ describe("scheduleLobbyReset", () => {
       idleTimer: null,
       authority: null,
       hostLossTimer: null,
-      loadWaitMs: 0,
     };
     scheduleLobbyReset(room, bag);
     expect(state.phase).toBe("playing");
@@ -61,6 +60,54 @@ describe("scheduleLobbyReset", () => {
     vi.advanceTimersByTime(1);
     expect(state.phase).toBe("lobby");
     expect(state.seed).toBe(0);
+  });
+});
+
+function playingRoom(
+  ready: readonly boolean[],
+): { room: LobbyHandle; bag: LobbyBag; state: LobbyState } {
+  const state = new LobbyState();
+  state.phase = "playing";
+  state.loadHeld = true;
+  ready.forEach((matchReady, i) => {
+    const p = new PlayerSchema();
+    p.sessionId = `s${i}`;
+    p.slot = i;
+    p.matchReady = matchReady;
+    state.players.push(p);
+  });
+  const bag = emptyBag();
+  bag.authority = seedAuthority(
+    ready.map((_, i) => ({ slot: i, name: `P${i}` })),
+    "classic",
+  );
+  bag.authority.sim.countdownHeld = true;
+  return { room: roomOf(state), bag, state };
+}
+
+describe("tryReleaseLoadBarrier", () => {
+  it("한 명이라도 matchReady 가 아니면 열지 않는다", () => {
+    const { room, bag, state } = playingRoom([true, false]);
+    tryReleaseLoadBarrier(room, bag);
+    expect(bag.authority?.sim.countdownHeld).toBe(true);
+    expect(state.loadHeld).toBe(true);
+  });
+
+  it("전원 matchReady 면 즉시 연다", () => {
+    const { room, bag, state } = playingRoom([true, true]);
+    tryReleaseLoadBarrier(room, bag);
+    expect(bag.authority?.sim.countdownHeld).toBe(false);
+    expect(state.loadHeld).toBe(false);
+  });
+
+  it("이미 열린 장벽은 다시 닫지 않는다", () => {
+    const { room, bag, state } = playingRoom([false]);
+    if (!bag.authority) {return;}
+    bag.authority.sim.countdownHeld = false;
+    state.loadHeld = false;
+    tryReleaseLoadBarrier(room, bag);
+    expect(bag.authority.sim.countdownHeld).toBe(false);
+    expect(state.loadHeld).toBe(false);
   });
 });
 

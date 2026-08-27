@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Server } from "colyseus";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
-import { MSG, KO, HUB_CONFIG } from "@/lib/hub/config";
+import { MSG, KO } from "@/lib/hub/config";
 import { parseStartPayload } from "@/lib/hub/start-payload";
 import { nowUnixSec } from "@/lib/hub/lobby-idle";
 import { isRandomCharacterId } from "@/lib/characters";
@@ -226,6 +226,8 @@ describe("LobbyRoom 규칙", () => {
     host.send(MSG.PACK_PCT, { pct: 100 });
     await new Promise((r) => setTimeout(r, 40));
     expect(room.state.players[0].packPct).toBe(40);
+    expect(room.state.players[0].matchReady).toBe(false);
+    expect(roomClock(room).held).toBe(true);
   });
 
   it("다른 좌석이 100 이 아니어도 호스트는 시작한다", async () => {
@@ -810,12 +812,10 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
     (room as unknown as { removeSeat: (id: string) => void }).removeSeat(guest.sessionId);
-    await room.waitForNextPatch();
-    room.stepSim(16);
     expect(roomClock(room).held).toBe(false);
   });
 
-  it("로비 단계 ready 는 버리고, 타임아웃이면 강제 해제한다", async () => {
+  it("로비 단계 ready 는 버린다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
@@ -825,9 +825,21 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     host.send(MSG.START, {});
     await room.waitForNextPatch();
     expect(roomClock(room).held).toBe(true);
-    room.stepSim(HUB_CONFIG.loadReadyTimeoutMs);
-    expect(roomClock(room).held).toBe(false);
-    expect(room.state.loadHeld).toBe(false);
+  });
+
+  it("전원 ready 가 아니면 시뮬을 오래 돌려도 장벽을 열지 않는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(true);
+    room.stepSim(20_000);
+    expect(roomClock(room).held).toBe(true);
+    expect(room.state.loadHeld).toBe(true);
+    expect(roomClock(room).countdown).toBe(3);
   });
 });
 

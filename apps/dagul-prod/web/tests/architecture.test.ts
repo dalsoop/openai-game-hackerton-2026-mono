@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 계약 스캔은 한 파일에 모은다 */
 // 아키텍처 계약 테스트 — lint 규칙과 같은 계약을 소스 스캔으로 이중 검증한다.
 // lint 설정이 실수로 풀려도 이 테스트가 지킨다.
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -273,6 +274,8 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(startAt).toBeGreaterThanOrEqual(0);
     expect(readyAt).toBeGreaterThan(startAt);
     expect(src).toContain("send_ready");
+    expect(src).toContain("_try_send_match_ready");
+    expect(src).toContain("_world_has_heroes");
   });
 
   // Godot 스키마 거울 전 클래스 대조는 tests/schema-mirror.test.ts 가 담당한다.
@@ -435,9 +438,30 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
   });
 });
 
+describe("계약: 히어로 배열 칸은 ArraySchema", () => {
+  it("timedBuffs·clones 가 JSON 문자열이 아니다", () => {
+    const ts = sourceOf(join(ROOT, "lib/hub/match-schema/hero.ts"))
+      + sourceOf(join(ROOT, "lib/hub/match-schema/event.ts"));
+    const write = sourceOf(join(ROOT, "lib/hub/match-schema-write.ts"));
+    const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+    expect(ts).toContain("@type([MatchTimedBuffSchema]) timedBuffs");
+    expect(ts).toContain("@type([MatchCloneSchema]) clones");
+    expect(ts).not.toContain('@type("string") timedBuffs');
+    expect(ts).not.toContain('@type("string") clones');
+    expect(write).toContain("writeTimedBuffs");
+    expect(write).toContain("writeClones");
+    expect(write).not.toContain("row.timedBuffs = JSON.stringify");
+    expect(write).not.toContain("row.clones = JSON.stringify");
+    expect(write).not.toContain("row.data = JSON.stringify");
+    expect(ts).toContain("@type(MatchEventDataSchema) data");
+    expect(gd).toContain('Colyseus.Schema.Field.new("timedBuffs", Colyseus.Schema.ARRAY, MatchTimedBuffSchema)');
+    expect(gd).toContain('Colyseus.Schema.Field.new("clones", Colyseus.Schema.ARRAY, MatchCloneSchema)');
+  });
+});
+
 describe("계약: 매치 events 는 Map 이다", () => {
   it("TS·GD 스키마가 ARRAY+shift 가 아니라 MAP 이다", () => {
-    const ts = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
+    const ts = sourceOf(join(ROOT, "lib/hub/match-schema/state.ts"));
     const write = sourceOf(join(ROOT, "lib/hub/match-schema-write.ts"));
     const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
     expect(ts).toContain("@type({ map: MatchEventSchema }) events");
@@ -445,7 +469,7 @@ describe("계약: 매치 events 는 Map 이다", () => {
     expect(write).toContain("match.events.set(String(match.eventSeq)");
     expect(write).toContain("match.events.delete");
     expect(write).not.toContain("match.events.shift()");
-    expect(gd).toContain('LobbyColyseus.f("events", Colyseus.Schema.MAP, LobbyColyseus.MatchEvent)');
+    expect(gd).toContain('Colyseus.Schema.Field.new("events", Colyseus.Schema.MAP, MatchEventSchema)');
   });
 });
 
@@ -498,5 +522,30 @@ describe("계약: GameId 는 웹 산출물 경로가 아니다", () => {
     const devSh = sourceOf(join(ROOT, "..", "dev.sh"));
     expect(devSh).toContain("publish-godot-assets.mjs");
     expect(devSh).not.toMatch(/godot\/dagul/);
+  });
+});
+
+describe("계약: item 와이어 SSOT", () => {
+  it("개수 문법은 match-item-wire 만 정하고 loot 는 위임한다", () => {
+    const wire = sourceOf(join(ROOT, "lib/hub/match-item-wire.ts"));
+    const loot = sourceOf(join(ROOT, "lib/hub/match-loot.ts"));
+    const gd = sourceOf(join(ROOT, "..", "project/games/dagul/net/snap_player_codec.gd"));
+    expect(wire).toContain("export function packItemStack");
+    expect(wire).toContain("export function unpackItemStack");
+    expect(loot).toContain('from "./match-item-wire.js"');
+    expect(loot).not.toContain("return `medkit:${medkits}`");
+    expect(gd).toContain("pack_item_wire");
+    expect(gd).toContain("unpack_item_wire");
+    expect(gd).toContain('return pack_item_wire("medkit", medkits)');
+    expect(gd).toContain("_unpack_medkits");
+    expect(gd).toContain("P_MEDKITS");
+  });
+});
+
+describe("계약: 엔진 소켓은 defineInput 만 보낸다", () => {
+  it("engine_socket 이 MSG.INPUT 폴백을 쓰지 않는다", () => {
+    const socket = sourceOf(join(ROOT, "..", "project/core/autoload/engine_socket.gd"));
+    expect(socket).toContain("_input.flush(_room)");
+    expect(socket).not.toContain("send_message(WebContract.MSG_INPUT");
   });
 });

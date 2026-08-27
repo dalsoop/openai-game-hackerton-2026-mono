@@ -44,7 +44,7 @@ describe("계약: 스키마 인코드→디코드 왕복", () => {
     const row = mirror.heroes.get("0");
     if (!row) {throw new Error("decoded hero 0");}
     expect(row.x).toBeCloseTo(hero0(sim).x, 2);
-    expect(row.hud.mvSpd).toBeGreaterThan(0);
+    expect(row.hud.moveSpeed).toBeGreaterThan(0);
   });
 
   it("120틱 패치 스트림을 디코더가 끊김 없이 소화한다 — 이동·발사·틱이 흐른다", () => {

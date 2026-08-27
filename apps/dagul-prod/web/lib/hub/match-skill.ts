@@ -3,7 +3,7 @@
  * 우클릭 장비 스킬 차지 — game_world.gd _begin/_continue/_release/_try_equipment_attack.
  * 수치·분기는 원조 원본 1603-1717행. RNG·시계 없음.
  */
-import { clampArena, resolveCoverMotion, type CoverRect } from "./match-covers.js";
+import { clampArena, resolveCoverMotionSwept, type CoverRect } from "./match-covers.js";
 import { addEffect, type EffectStore } from "./match-effects.js";
 import { attackDirection, pelletOffset, rotateVec } from "./match-gun-geom.js";
 import type { Equipment, Vec2 } from "./match-equipment.js";
@@ -136,7 +136,7 @@ type SkillCtx = {
 };
 
 function dash(h: SkillHero, dir: Vec2, dist: number, covers: readonly CoverRect[]): void {
-  const moved = resolveCoverMotion(h.x, h.y, dir.x * dist, dir.y * dist, covers);
+  const moved = resolveCoverMotionSwept(h.x, h.y, dir.x * dist, dir.y * dist, covers);
   const next = clampArena(moved.x, moved.y);
   h.x = next.x;
   h.y = next.y;

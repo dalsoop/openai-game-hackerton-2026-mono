@@ -29,10 +29,7 @@ func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
 	_input.stage(msg)
 	if _predict != null:
 		return
-	if _input.flush(_room):
-		return
-	if _room != null and _room.has_method("send_message"):
-		_room.send_message(WebContract.MSG_INPUT, msg)
+	_input.flush(_room)
 
 func _record_sent(msg: Dictionary) -> void:
 	_sent.append(msg)

@@ -83,46 +83,49 @@ const P_DEATHS := "deaths"
 const P_SCORE := "score"
 const P_STREAK := "streak"
 const P_ACTION := "action"
-const P_STUN_T := "stunT"
-const P_ROOT_T := "rootT"
-const P_CC_T := "ccT"
-const P_GUARD_T := "guardT"
-const P_ARMOR_T := "armorT"
-const P_SPAWN_T := "spawnT"
-const P_LAUNCH_T := "launchT"
+const P_STUN_T := "stunTime"
+const P_ROOT_T := "rootTime"
+const P_CC_T := "ccTime"
+const P_GUARD_T := "guardTime"
+const P_ARMOR_T := "armorTime"
+const P_SPAWN_T := "spawnProtect"
+const P_LAUNCH_T := "launchTime"
 const P_LAUNCH_VX := "launchVX"
 const P_LAUNCH_VY := "launchVY"
 const P_CHARGING := "charging"
-const P_CHARGE_T := "chargeT"
+const P_CHARGE_T := "chargeTime"
 const P_HELD_ITEM := "heldItem"
-const P_SPRING_T := "springT"
-const P_SLIDE_T := "slideT"
-const P_PULL_T := "pullT"
-const P_POCKET_T := "pocketT"
-const P_DMG_ORB_T := "dmgOrbT"
+const P_SPRING_T := "springTime"
+const P_SLIDE_T := "slideTime"
+const P_PULL_T := "pullTime"
+const P_POCKET_T := "pocketTime"
+const P_DMG_ORB_T := "dmgOrbTime"
 const P_DOWN_TAKEN := "downTaken"
-const P_WOOL_T := "woolT"
+const P_WOOL_T := "woolTime"
 const P_WOOL_HP := "woolHp"
 const P_WOOL_MAX := "woolMax"
-const P_ROU_T := "rouT"
-const P_ROU_RANK := "rouRank"
-const P_ROU_PHASE := "rouPhase"
-const P_ROU_SPIN := "rouSpin"
-const P_ROU_LABEL := "rouLabel"
-const P_RL_TIMED := "rlTimed"
-const P_ULT_CLONES := "ultClones"
-const P_MOB_CD := "mobCd"
-const P_HOP_T := "hopT"
+const P_ROU_T := "rouletteTime"
+const P_ROU_RANK := "rouletteRank"
+const P_ROU_PHASE := "roulettePhase"
+const P_ROU_SPIN := "rouletteSpin"
+const P_ROU_LABEL := "rouletteLabel"
+const P_TIMED_BUFFS := "timedBuffs"
+const P_CLONES := "clones"
+const P_UNTIL_BUFFS := "untilBuffs"
+const P_MOB_CD := "mobilityCd"
+const P_HOP_T := "hopTime"
 const P_HOP_MAX := "hopMax"
 const P_HOP_HEIGHT := "hopHeight"
-const P_MV_SPD := "mvSpd"
-const P_ELIM := "elim"
+const P_MV_SPD := "moveSpeed"
+const P_ELIM := "eliminated"
 const P_RELOAD_FLASH := "reloadFlash"
 const P_RESPAWN_LEFT := "respawnLeft"
 const P_SPRAY_INDEX := "sprayIndex"
-const P_ROU_DESC := "rouDesc"
-const P_HITSTUN_T := "hitstunT"
-const P_COMBO_CAPTURE_T := "comboCaptureT"
+const P_ROU_DESC := "rouletteDesc"
+const P_HITSTUN_T := "hitstunTime"
+const P_COMBO_CAPTURE_T := "comboCaptureTime"
+const P_MEDKITS := "medkits"
+const P_MOBILITY_DIST := "mobilityDist"
 
 const PLAYER_KEYS: Array[String] = [
 	P_SLOT, P_NAME, P_CPU, P_PARKED, P_X, P_Y, P_AIM_X, P_AIM_Y,
@@ -137,9 +140,10 @@ const PLAYER_KEYS_V2: Array[String] = [
 	P_HELD_ITEM, P_SPRING_T, P_SLIDE_T, P_PULL_T, P_POCKET_T,
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_WOOL_HP, P_WOOL_MAX,
 	P_ROU_T, P_ROU_RANK, P_ROU_PHASE, P_ROU_SPIN, P_ROU_LABEL,
-	P_RL_TIMED, P_ULT_CLONES,
+	P_TIMED_BUFFS, P_CLONES, P_UNTIL_BUFFS,
 	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT, P_MV_SPD, P_ELIM,
 	P_RELOAD_FLASH, P_RESPAWN_LEFT, P_SPRAY_INDEX, P_ROU_DESC, P_HITSTUN_T, P_COMBO_CAPTURE_T,
+	P_MEDKITS, P_MOBILITY_DIST,
 ]
 const V2_FLOAT_WIRE: Array[String] = [
 	P_STUN_T, P_ROOT_T, P_CC_T, P_GUARD_T, P_ARMOR_T, P_SPAWN_T,
@@ -147,6 +151,7 @@ const V2_FLOAT_WIRE: Array[String] = [
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_ROU_T,
 	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT,
 	P_RELOAD_FLASH, P_RESPAWN_LEFT, P_SPRAY_INDEX, P_HITSTUN_T, P_COMBO_CAPTURE_T,
+	P_MOBILITY_DIST,
 ]
 const V2_FLOAT_SIM: Array[String] = [
 	"stun_time", "root_time", "cc_time", "guard_time", "super_armor_time", "spawn_protect_time",
@@ -154,9 +159,10 @@ const V2_FLOAT_SIM: Array[String] = [
 	"dmg_orb_time", "down_taken", "wool_time", "roulette_time",
 	"mobility_cd", "hop_time", "hop_max", "hop_height",
 	"reload_flash", "respawn_left", "spray_index", "hitstun_time", "combo_capture_time",
+	"mobility_distance",
 ]
-const V2_INT_WIRE: Array[String] = [P_WOOL_HP, P_WOOL_MAX, P_ROU_SPIN]
-const V2_INT_SIM: Array[String] = ["wool_hp", "wool_max", "roulette_spin_id"]
+const V2_INT_WIRE: Array[String] = [P_WOOL_HP, P_WOOL_MAX, P_ROU_SPIN, P_MEDKITS]
+const V2_INT_SIM: Array[String] = ["wool_hp", "wool_max", "roulette_spin_id", "medkits"]
 const V2_STR_WIRE: Array[String] = [P_ACTION, P_HELD_ITEM, P_ROU_RANK, P_ROU_PHASE, P_ROU_LABEL, P_ROU_DESC]
 const V2_STR_SIM: Array[String] = ["action", "held_item", "roulette_rank", "roulette_phase", "roulette_label", "roulette_desc"]
 

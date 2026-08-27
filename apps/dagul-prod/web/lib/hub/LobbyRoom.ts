@@ -29,7 +29,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null, loadWaitMs: 0,
+    hostLossTimer: null,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -243,6 +243,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     } else {
       this.syncHost();
     }
+    if (playing) {tryReleaseLoadBarrier(this, this.bag);}
     if (this.state.players.length === 0) {void this.disconnect();}
   }
 

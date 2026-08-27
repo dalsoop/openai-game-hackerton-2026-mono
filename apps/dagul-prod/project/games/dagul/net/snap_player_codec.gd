@@ -7,6 +7,41 @@ const Catalog := preload("res://core/contract/character_catalog.gd")
 const View := preload("res://core/contract/character_view.gd")
 const K := preload("res://games/dagul/net/snap_contract.gd")
 
+## 정본 match-item-wire.ts. '' | kind | kind:N — count 1 은 접미사 없음.
+static func pack_item_wire(kind: String, count: int) -> String:
+	var id := kind.strip_edges()
+	if id == "" or count <= 0:
+		return ""
+	if count == 1:
+		return id
+	return "%s:%d" % [id, count]
+
+
+static func unpack_item_wire(item: String) -> Dictionary:
+	var raw := item.strip_edges()
+	if raw == "":
+		return {"kind": "", "count": 0}
+	var sep := raw.find(":")
+	if sep < 0:
+		return {"kind": raw, "count": 1}
+	var kind := raw.substr(0, sep)
+	var n := int(raw.substr(sep + 1))
+	if kind == "" or n <= 0:
+		return {"kind": kind, "count": 0}
+	return {"kind": kind, "count": n}
+
+
+static func pack_item_field(medkits: int) -> String:
+	return pack_item_wire("medkit", medkits)
+
+
+static func unpack_item_field(item: String) -> int:
+	var stack := unpack_item_wire(item)
+	if str(stack.get("kind", "")) != "medkit":
+		return 0
+	return int(stack.get("count", 0))
+
+
 static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 	var pos := Vector2(h["pos"])
 	var aim := Vector2(h.get("aim", Vector2.RIGHT))
@@ -32,7 +67,7 @@ static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 		K.P_ULT: float(h.get("ultimate_charge", 0.0)),
 		K.P_ANIMAL: int(h.get("animal", slot)),
 		K.P_CHARACTER_ID: str(h.get("character_id", "")),
-		K.P_ITEM: "medkit" if int(h.get("medkits", 0)) > 0 else "",
+		K.P_ITEM: pack_item_field(int(h.get("medkits", 0))),
 		K.P_KILLS: int(h["kills"]),
 		K.P_EMOTE: int(h.get("emote", -1)),
 		K.P_EMOTE_TIME: float(h.get("emote_time", 0.0)),
@@ -56,15 +91,19 @@ static func _pack_player_v2(h: Dictionary) -> Dictionary:
 	var eq: Variant = h.get("equipment", {})
 	if eq is Dictionary:
 		_put_nonzero_f(out, K.P_MV_SPD, float(eq.get("move_speed", 0.0)))
+		_put_nonzero_f(out, K.P_MOBILITY_DIST, float(eq.get("mobility_distance", 0.0)))
 	var launch := Vector2(h.get("launch_vel", Vector2.ZERO))
 	_put_nonzero_f(out, K.P_LAUNCH_VX, launch.x)
 	_put_nonzero_f(out, K.P_LAUNCH_VY, launch.y)
-	_put_nonempty_a(out, K.P_RL_TIMED, _as_array(h.get("rl_timed", [])))
-	_put_nonempty_a(out, K.P_ULT_CLONES, _pack_ult_clones(h.get("ult_clones", [])))
+	_put_nonempty_a(out, K.P_TIMED_BUFFS, _as_array(h.get("timed_buffs", [])))
+	_put_nonempty_a(out, K.P_CLONES, _pack_clones(h.get("clones", [])))
+	_put_until_buffs(out, h.get("until_buffs", {}))
 	return out
 
 static func _pack_v2_floats(out: Dictionary, h: Dictionary) -> void:
 	for i in K.V2_FLOAT_WIRE.size():
+		if K.V2_FLOAT_WIRE[i] == K.P_MOBILITY_DIST:
+			continue
 		_put_nonzero_f(out, K.V2_FLOAT_WIRE[i], float(h.get(K.V2_FLOAT_SIM[i], 0.0)))
 
 static func _pack_v2_ints(out: Dictionary, h: Dictionary) -> void:
@@ -113,7 +152,7 @@ static func _apply_player_vitals(hero: Dictionary, p: Dictionary, player_name: S
 	hero["display_name"] = player_name
 	hero["cpu"] = bool(p.get(K.P_CPU, false))
 	hero["parked"] = bool(p.get(K.P_PARKED, false))
-	hero["medkits"] = 1 if str(p.get(K.P_ITEM, "")) != "" else 0
+	hero["medkits"] = _unpack_medkits(p)
 	hero["emote"] = int(p.get(K.P_EMOTE, -1))
 	hero["emote_time"] = _f(p, K.P_EMOTE_TIME, 0.0)
 	hero["downed"] = bool(p.get(K.P_DOWNED, false))
@@ -127,7 +166,7 @@ static func _apply_player_v2(hero: Dictionary, p: Dictionary) -> void:
 	for i in K.V2_FLOAT_WIRE.size():
 		hero[K.V2_FLOAT_SIM[i]] = _f(p, K.V2_FLOAT_WIRE[i], 0.0)
 	for i in K.V2_INT_WIRE.size():
-		if K.V2_INT_WIRE[i] == K.P_ROU_SPIN:
+		if K.V2_INT_WIRE[i] == K.P_ROU_SPIN or K.V2_INT_WIRE[i] == K.P_MEDKITS:
 			continue
 		hero[K.V2_INT_SIM[i]] = int(p.get(K.V2_INT_WIRE[i], 0))
 	for i in K.V2_STR_WIRE.size():
@@ -136,8 +175,9 @@ static func _apply_player_v2(hero: Dictionary, p: Dictionary) -> void:
 	hero["action"] = StringName(str(p.get(K.P_ACTION, "READY")))
 	hero["charging_skill"] = bool(p.get(K.P_CHARGING, false))
 	hero["launch_vel"] = Vector2(_f(p, K.P_LAUNCH_VX, 0.0), _f(p, K.P_LAUNCH_VY, 0.0))
-	hero["rl_timed"] = _as_array(p.get(K.P_RL_TIMED, [])).duplicate(true)
-	hero["ult_clones"] = _unpack_ult_clones(p.get(K.P_ULT_CLONES, []))
+	hero["timed_buffs"] = _as_array(p.get(K.P_TIMED_BUFFS, [])).duplicate(true)
+	hero["clones"] = _unpack_clones(p.get(K.P_CLONES, []))
+	hero["until_buffs"] = _unpack_until_buffs(p.get(K.P_UNTIL_BUFFS, {}))
 	_apply_elim_and_speed(hero, p)
 
 static func _player_view_defaults() -> Dictionary:
@@ -161,23 +201,34 @@ static func _player_view_defaults() -> Dictionary:
 		"wool_time": 0.0, "wool_hp": 0, "wool_max": 0,
 		"roulette_time": 0.0, "roulette_rank": "", "roulette_phase": "",
 		"roulette_spin_id": "", "roulette_label": "", "roulette_desc": "",
-		"rl_timed": [], "ult_clones": [],
+		"timed_buffs": [], "clones": [], "until_buffs": {},
 		"reload_flash": 0.0, "respawn_left": 0.0, "spray_index": 0.0,
 		"hitstun_time": 0.0, "combo_capture_time": 0.0,
 	}
+
+static func _unpack_medkits(p: Dictionary) -> int:
+	if p.has(K.P_MEDKITS):
+		return int(p[K.P_MEDKITS])
+	return unpack_item_field(str(p.get(K.P_ITEM, "")))
+
 
 static func _apply_elim_and_speed(hero: Dictionary, p: Dictionary) -> void:
 	if p.has(K.P_ELIM):
 		hero["eliminated"] = bool(p[K.P_ELIM])
 	else:
 		hero["eliminated"] = not bool(hero.get("alive", true))
-	if not p.has(K.P_MV_SPD):
+	_stamp_eq_float(hero, p, K.P_MV_SPD, "move_speed")
+	_stamp_eq_float(hero, p, K.P_MOBILITY_DIST, "mobility_distance")
+
+
+static func _stamp_eq_float(hero: Dictionary, p: Dictionary, wire: String, sim: String) -> void:
+	if not p.has(wire):
 		return
-	var spd := _f(p, K.P_MV_SPD, 0.0)
-	hero["move_speed"] = spd
+	var value := _f(p, wire, 0.0)
+	hero[sim] = value
 	var eq: Variant = hero.get("equipment", {})
 	if eq is Dictionary:
-		eq["move_speed"] = spd
+		eq[sim] = value
 
 static func _f(d: Dictionary, key: String, fallback: float) -> float:
 	return NetSnapParser._f(d, key, fallback)
@@ -210,7 +261,35 @@ static func _put_nonempty_a(d: Dictionary, key: String, value: Array) -> void:
 		return
 	d[key] = value.duplicate(true)
 
-static func _pack_ult_clones(raw: Variant) -> Array:
+
+static func _put_until_buffs(d: Dictionary, raw: Variant) -> void:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return
+	var src: Dictionary = raw
+	var out := {}
+	for key in ["atk", "spd", "def", "hp", "rate", "range"]:
+		var n := float(src.get(key, 0.0))
+		if not is_zero_approx(n):
+			out[key] = n
+	if out.is_empty():
+		return
+	d[K.P_UNTIL_BUFFS] = out
+
+
+static func _unpack_until_buffs(raw: Variant) -> Dictionary:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return {}
+	var src: Dictionary = raw
+	return {
+		"atk": float(src.get("atk", 0.0)),
+		"spd": float(src.get("spd", 0.0)),
+		"def": float(src.get("def", 0.0)),
+		"hp": float(src.get("hp", 0.0)),
+		"rate": float(src.get("rate", 0.0)),
+		"range": float(src.get("range", 0.0)),
+	}
+
+static func _pack_clones(raw: Variant) -> Array:
 	var out: Array = []
 	if typeof(raw) != TYPE_ARRAY:
 		return out
@@ -222,15 +301,15 @@ static func _pack_ult_clones(raw: Variant) -> Array:
 		out.append({"x": pos.x, "y": pos.y})
 	return out
 
-static func _unpack_ult_clones(raw: Variant) -> Array:
+static func _unpack_clones(raw: Variant) -> Array:
 	var out: Array = []
 	if typeof(raw) != TYPE_ARRAY:
 		return out
 	for item in raw:
-		out.append(_unpack_ult_clone(item))
+		out.append(_unpack_clone(item))
 	return out
 
-static func _unpack_ult_clone(item: Variant) -> Dictionary:
+static func _unpack_clone(item: Variant) -> Dictionary:
 	if typeof(item) != TYPE_DICTIONARY:
 		return {"pos": Vector2.ZERO}
 	var c: Dictionary = item

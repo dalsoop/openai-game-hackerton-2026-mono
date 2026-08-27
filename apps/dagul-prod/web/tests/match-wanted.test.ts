@@ -155,9 +155,9 @@ describe("룰렛 적용·틱", () => {
     const g = rouletteHero(1);
     applyRouletteFace(g, rouletteFaces("kill", true)[0]);
     expect(rouletteStat(g, "atk")).toBe(3);
-    g.rlTimed[0].time = DT;
+    g.timedBuffs[0].time = DT;
     tickRoulette(g, DT);
-    expect(g.rlTimed).toHaveLength(0);
+    expect(g.timedBuffs).toHaveLength(0);
     expect(g.maxHp).toBe(176);
   });
 
@@ -172,7 +172,7 @@ describe("룰렛 적용·틱", () => {
     tickRoulette(h, ROULETTE_SPIN_TIME);
     expect(h.roulettePhase).toBe("land");
     expect(h.rouletteTime).toBe(ROULETTE_LAND_TIME);
-    expect(h.rlUntil.atk).toBe(3);
+    expect(h.untilBuffs.atk).toBe(3);
     expect(h.rouletteDesc).toBe("이번 목숨 동안 공격력이 올라갑니다");
     tickRoulette(h, ROULETTE_LAND_TIME);
     expect(h.roulettePhase).toBe("");
@@ -194,7 +194,7 @@ describe("룰렛 적용·틱", () => {
     const h = rouletteHero(0);
     applyRouletteFace(h, rouletteFaces("assist", true)[1]);
     expect(absorbRouletteShield(h, 10)).toBe(0);
-    expect(h.rlTimed[0].shield).toBe(14);
+    expect(h.timedBuffs[0].shield).toBe(14);
     expect(absorbRouletteShield(h, 20)).toBe(6);
     applyRouletteFace(h, rouletteFaces("kill", false)[3]);
     clearRouletteBuffs(h);

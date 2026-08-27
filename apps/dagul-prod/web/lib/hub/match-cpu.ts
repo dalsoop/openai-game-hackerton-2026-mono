@@ -7,6 +7,7 @@
 import { ARENA_CENTER, EFFECTIVE_RANGE, HERO_RADIUS } from "./match-covers.js";
 import { isSignature } from "./match-equipment.js";
 import type { MatchRng } from "./match-rng.js";
+import { clamp01 } from "../util/math.js";
 
 /** game_world.gd:270 think 초기값 0.12 + slot*0.025. */
 export const CPU_THINK_SEED_BASE = 0.12;
@@ -177,9 +178,6 @@ export type CpuWorld = {
   onTargetChange?: (slot: number, from: number, to: number, betrayal: boolean) => void;
 };
 
-function clamp01(n: number): number {
-  return Math.min(1, Math.max(0, n));
-}
 
 function normalize(x: number, y: number): { x: number; y: number } {
   const d = Math.hypot(x, y);

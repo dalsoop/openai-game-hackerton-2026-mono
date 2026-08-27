@@ -1,4 +1,3 @@
-import type { ArraySchema, Schema } from "@colyseus/schema";
 import { packEffects } from "./match-effects.js";
 import {
   packCoresSnap, packCrateOrbsSnap, packCratesSnap, packFinishCine, packLootSnap,
@@ -9,13 +8,9 @@ import {
   MatchCoreSchema, MatchCoverSchema, MatchCrateOrbSchema, MatchCrateSchema,
   MatchDeployableSchema, MatchEffectSchema, MatchKnockoutSchema, MatchLootSchema,
   MatchZoneSchema,
-} from "./match-schema.js";
-import type { MatchStateSchema } from "./match-schema.js";
-
-function syncLen<T extends Schema>(arr: ArraySchema<T>, n: number, make: () => T): void {
-  while (arr.length > n) {arr.pop();}
-  while (arr.length < n) {arr.push(make());}
-}
+} from "./match-schema/index.js";
+import type { MatchStateSchema } from "./match-schema/index.js";
+import { syncLen } from "./schema-util.js";
 
 function writeCovers(match: MatchStateSchema, sim: MatchSim): void {
   syncLen(match.covers, sim.covers.length, () => new MatchCoverSchema());
@@ -68,6 +63,7 @@ function writeLoot(match: MatchStateSchema, sim: MatchSim): void {
     row.x = Number(p.x);
     row.y = Number(p.y);
     row.n = String(p.n);
+    row.itemKind = String(p.itemKind ?? "");
   }
 }
 

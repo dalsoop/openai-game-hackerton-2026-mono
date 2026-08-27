@@ -13,6 +13,7 @@ Rules:
   dead-autoload-api : autoload 공개 멤버(전 프로젝트 사용 0회) — # lint-gd: public-api 로 예외
   contract-msg      : 커스텀 메시지 타입 리터럴 금지 — web_contract.gd MSG_* 만
   contract-handoff  : gangup_ 키 리터럴 금지 — web_contract.gd KEY_* 만
+  array-cow-replace : public Array 멤버를 함수 안에서 통째 교체 — WASM COW 크래시 위험
 
 Baseline (래칫):
   --baseline PATH          규칙별 위반 수가 baseline 초과면 exit 1 (이하면 통과)
@@ -50,6 +51,8 @@ RE_CONTRACT_MSG = re.compile(
     r'|^\s+"(start|host_snap|snap|peer_input)"\s*:'
 )
 RE_CONTRACT_HANDOFF = re.compile(r'"gangup_[a-z0-9_]+"')
+RE_ARRAY_DECL = re.compile(r'^var ([a-z_]\w*)\s*:\s*Array')
+RE_ARRAY_REPLACE = re.compile(r'^[\t ]+([a-z_]\w*)\s*=\s*')
 
 
 def indent_level(line: str) -> int:
@@ -60,15 +63,28 @@ def lint_file(path: pathlib.Path):
     """한 파일의 위반 [(line_no, rule, message)] — rule은 ':' 앞 키."""
     lines = path.read_text(encoding='utf-8').splitlines()
     findings = []
+    header = '\n'.join(lines[:5])
+    is_generated = '생성본' in header or '# generated' in header
 
-    if len(lines) > MAX_FILE_LINES:
+    if not is_generated and len(lines) > MAX_FILE_LINES:
         findings.append((1, 'file-length', f"{len(lines)} lines (max {MAX_FILE_LINES}) — split into modules"))
+
+    # array-cow-replace: public Array 멤버 수집 (1패스)
+    public_arrays = set()
+    for line in lines:
+        stripped = line.lstrip('\t')
+        if indent_level(line) == 0:
+            m = RE_ARRAY_DECL.match(stripped)
+            if m and not m.group(1).startswith('_') and '# lint-gd: cow-safe' not in line:
+                public_arrays.add(m.group(1))
 
     func_name = ""
     func_start = 0
     func_indent = 0
 
     def check_func_end(end_line):
+        if is_generated:
+            return
         if func_name and (end_line - func_start) > MAX_FUNC_LINES:
             findings.append((func_start, 'function-length',
                              f"`{func_name}` is {end_line - func_start} lines (max {MAX_FUNC_LINES})"))
@@ -109,6 +125,13 @@ def lint_file(path: pathlib.Path):
             if RE_CONTRACT_HANDOFF.search(line):
                 findings.append((i, 'contract-handoff',
                                  '핸드오프 키 리터럴 금지 — WebContract.KEY_* 상수로'))
+
+        if public_arrays and func_name and len(line) > len(line.lstrip()) and '# lint-gd: cow-safe' not in line:
+            m = RE_ARRAY_REPLACE.match(line)
+            if m and m.group(1) in public_arrays and '.assign(' not in line:
+                findings.append((i, 'array-cow-replace',
+                                 f'`{m.group(1)}` public Array 통째 교체 — WASM COW 크래시 위험. '
+                                 f'_private 으로 바꾸거나 `# lint-gd: cow-safe` 표기'))
 
     check_func_end(len(lines) + 1)
     return findings

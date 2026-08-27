@@ -1,12 +1,19 @@
-import type { MapSchema } from "@colyseus/schema";
+/* eslint-disable max-lines -- 스키마 기입 한 파일 */
+import type { ArraySchema} from "@colyseus/schema";
+import { type MapSchema } from "@colyseus/schema";
 import {
-  ARENA_CENTER, packItemField, packWantedSnap, type MatchSim, type SimHero,
+  ARENA_CENTER, packWantedSnap, type MatchSim, type SimHero,
 } from "./match-sim.js";
+import { packItemField } from "./match-item-wire.js";
 import type { SnapEvent } from "./match-authority-snap.js";
-import { MatchBulletSchema, MatchEventSchema, MatchHeroSchema } from "./match-schema.js";
-import type { MatchStateSchema } from "./match-schema.js";
+import {
+  MatchBulletSchema, MatchCloneSchema, MatchEventSchema,
+  MatchHeroSchema, MatchTimedBuffSchema,
+} from "./match-schema/index.js";
+import type { MatchStateSchema , MatchEventDataSchema} from "./match-schema/index.js";
 import { writeMatchWorld } from "./match-schema-world.js";
 import { skillsEnabled } from "./config.js";
+import { syncLen } from "./schema-util.js";
 
 /** 스키마 이벤트 링버퍼 상한. JSON 스냅 takeEvents 캡과 같다. */
 export const EVENT_RING = 32;
@@ -44,52 +51,89 @@ function fillHero(row: MatchHeroSchema, h: SimHero, names: ReadonlyMap<number, s
 }
 
 function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
-  row.stunT = h.stunTime;
-  row.rootT = h.rootTime;
-  row.ccT = h.ccTime;
-  row.guardT = h.guardTime;
-  row.armorT = h.superArmorTime;
-  row.spawnT = h.spawnProtect;
-  row.launchT = h.launchTime;
+  row.stunTime = h.stunTime;
+  row.rootTime = h.rootTime;
+  row.ccTime = h.ccTime;
+  row.guardTime = h.guardTime;
+  row.armorTime = h.superArmorTime;
+  row.spawnProtect = h.spawnProtect;
+  row.launchTime = h.launchTime;
   row.launchVX = h.launchVel.x;
   row.launchVY = h.launchVel.y;
   row.charging = skillsEnabled() && h.chargingSkill;
-  row.chargeT = skillsEnabled() ? h.chargeTime : 0;
-  row.dmgOrbT = h.dmgOrbTime;
+  row.chargeTime = skillsEnabled() ? h.chargeTime : 0;
+  row.dmgOrbTime = h.dmgOrbTime;
   row.downTaken = h.downTaken;
-  row.woolT = h.woolTime;
+  row.woolTime = h.woolTime;
   row.woolHp = h.woolHp;
   row.woolMax = h.woolMax;
-  row.rouT = h.rouletteTime;
-  row.rouRank = h.rouletteRank;
-  row.rouPhase = h.roulettePhase;
-  row.rouSpin = String(h.rouletteSpinId);
-  row.rouLabel = h.rouletteLabel;
+  row.rouletteTime = h.rouletteTime;
+  row.rouletteRank = h.rouletteRank;
+  row.roulettePhase = h.roulettePhase;
+  row.rouletteSpin = String(h.rouletteSpinId);
+  row.rouletteLabel = h.rouletteLabel;
   row.action = skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "idle";
   row.heldItem = h.heldItem;
-  row.springT = h.springTime;
-  row.slideT = h.slideTime;
-  row.pullT = h.pullTime;
-  row.pocketT = h.pocketTime;
-  row.hopT = h.hopTime;
+  row.springTime = h.springTime;
+  row.slideTime = h.slideTime;
+  row.pullTime = h.pullTime;
+  row.pocketTime = h.pocketTime;
+  row.hopTime = h.hopTime;
   row.hopMax = h.hopMax;
   row.hopHeight = h.hopHeight;
-  row.mobCd = h.mobilityCd;
-  row.rlTimed = JSON.stringify(h.rlTimed);
-  row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
+  row.mobilityCd = h.mobilityCd;
+  writeTimedBuffs(row.timedBuffs, h.timedBuffs);
+  writeClones(row.clones, h.clones);
   row.parked = h.parked;
   fillHeroHudV2(row, h);
+}
+
+function writeTimedBuffs(
+  dest: ArraySchema<MatchTimedBuffSchema>,
+  buffs: SimHero["timedBuffs"],
+): void {
+  syncLen(dest, buffs.length, () => new MatchTimedBuffSchema());
+  for (let i = 0; i < buffs.length; i += 1) {
+    const src = buffs[i];
+    const row = dest[i];
+    row.id = src.id;
+    row.name = src.name;
+    row.time = src.time;
+    row.shield = src.shield;
+  }
+}
+
+function writeClones(
+  dest: ArraySchema<MatchCloneSchema>,
+  clones: SimHero["clones"],
+): void {
+  syncLen(dest, clones.length, () => new MatchCloneSchema());
+  for (let i = 0; i < clones.length; i += 1) {
+    const src = clones[i];
+    const row = dest[i];
+    row.x = src.pos.x;
+    row.y = src.pos.y;
+  }
 }
 
 function fillHeroHudV2(row: MatchHeroSchema, h: SimHero): void {
   row.hud.reloadFlash = h.reloadFlash;
   row.hud.respawnLeft = h.respawnLeft;
   row.hud.sprayIndex = h.sprayIndex;
-  row.hud.rouDesc = h.rouletteDesc;
-  row.hud.hitstunT = h.hitstunTime;
-  row.hud.comboCaptureT = h.comboCaptureTime;
-  row.hud.mvSpd = h.equipment.moveSpeed;
-  row.hud.elim = h.eliminated;
+  row.hud.rouletteDesc = h.rouletteDesc;
+  row.hud.hitstunTime = h.hitstunTime;
+  row.hud.comboCaptureTime = h.comboCaptureTime;
+  row.hud.moveSpeed = h.equipment.moveSpeed;
+  row.hud.eliminated = h.eliminated;
+  row.hud.medkits = h.medkits;
+  row.hud.mobilityDist = h.equipment.mobilityDistance;
+  const until = h.untilBuffs;
+  row.hud.untilBuffs.atk = until.atk;
+  row.hud.untilBuffs.spd = until.spd;
+  row.hud.untilBuffs.def = until.def;
+  row.hud.untilBuffs.hp = until.hp;
+  row.hud.untilBuffs.rate = until.rate;
+  row.hud.untilBuffs.range = until.range;
 }
 
 function writeHeroes(
@@ -166,17 +210,71 @@ function writeScalars(match: MatchStateSchema, sim: MatchSim, mode: string): voi
   match.mode = mode;
 }
 
+function num(d: Record<string, unknown>, key: string, fallback = 0): number {
+  const v = d[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function str(d: Record<string, unknown>, key: string): string {
+  const v = d[key];
+  return typeof v === "string" ? v : "";
+}
+
+function fillEventData(row: MatchEventDataSchema, d: Record<string, unknown>): void {
+  row.equipment = str(d, "equipment");
+  row.id = str(d, "id");
+  row.source = str(d, "source");
+  row.kind = str(d, "kind");
+  row.rank = str(d, "rank");
+  row.reason = str(d, "reason");
+  row.dropped = str(d, "dropped");
+  const pos = d.pos;
+  if (pos && typeof pos === "object") {
+    const p = pos as { x?: unknown; y?: unknown };
+    row.x = typeof p.x === "number" ? p.x : 0;
+    row.y = typeof p.y === "number" ? p.y : 0;
+  } else {
+    row.x = num(d, "x");
+    row.y = num(d, "y");
+  }
+  row.damage = num(d, "damage");
+  row.heal = num(d, "heal");
+  row.amount = num(d, "amount");
+  row.remaining = num(d, "remaining");
+  row.from = num(d, "from");
+  row.to = num(d, "to");
+  row.hpRatio = d.hp_ratio !== undefined ? num(d, "hp_ratio") : num(d, "hpRatio");
+  row.coreRatio = d.core_ratio !== undefined ? num(d, "core_ratio") : num(d, "coreRatio");
+  row.score = num(d, "score");
+  row.clones = num(d, "clones");
+  row.crate = d.crate === undefined ? -1 : num(d, "crate", -1);
+  row.target = d.target === undefined ? -1 : num(d, "target", -1);
+  row.left = num(d, "left");
+  row.phase = num(d, "phase");
+  row.standing = num(d, "standing");
+  row.pending = num(d, "pending");
+  if (d.previousTarget !== undefined) {
+    row.previousTarget = num(d, "previousTarget", -1);
+  } else if (d.previous_target !== undefined) {
+    row.previousTarget = num(d, "previous_target", -1);
+  } else {
+    row.previousTarget = -1;
+  }
+  row.predicted = Boolean(d.predicted);
+  row.executed = Boolean(d.executed);
+}
+
 function writeEvents(match: MatchStateSchema, events: readonly SnapEvent[]): void {
   if (events.length === 0) {return;}
   for (const ev of events) {
     match.eventSeq += 1;
     const row = new MatchEventSchema();
     row.seq = match.eventSeq;
-    row.t = ev.t;
-    row.k = ev.k;
-    row.a = ev.a;
-    row.b = ev.b;
-    row.d = JSON.stringify(ev.d);
+    row.tick = ev.tick;
+    row.kind = ev.kind;
+    row.actor = ev.actor;
+    row.target = ev.target;
+    fillEventData(row.data, ev.data);
     match.events.set(String(match.eventSeq), row);
   }
   trimEventRing(match);

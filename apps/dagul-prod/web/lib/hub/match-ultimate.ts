@@ -8,7 +8,7 @@ import {
   HERO_RADIUS,
   clampArena,
   nudgeOutOfCover,
-  resolveCoverMotion,
+  resolveCoverMotionSwept,
   type CoverRect,
 } from "./match-covers.js";
 import { MATCH_TIME_LIMIT } from "./match-zone.js";
@@ -142,12 +142,12 @@ export type UltHero = {
   woolTime: number;
   woolHp: number;
   woolMax: number;
-  ultCloneTime: number;
-  ultClones: UltClone[];
+  cloneTime: number;
+  clones: UltClone[];
   hopTime: number;
   hopHeight: number;
   fightSurgePending: boolean;
-  rlTimed: TimedBuff[];
+  timedBuffs: TimedBuff[];
 };
 
 export type RatTide = {
@@ -292,7 +292,7 @@ function setPos(h: UltHero, p: Vec2): void {
 }
 
 function resolveMotion(w: UltWorld, from: Vec2, mx: number, my: number): Vec2 {
-  return resolveCoverMotion(from.x, from.y, mx, my, w.covers);
+  return resolveCoverMotionSwept(from.x, from.y, mx, my, w.covers);
 }
 
 function clampNudge(w: UltWorld, p: Vec2): Vec2 {
@@ -347,12 +347,12 @@ export function ultHeroSeedFields(slot: number, animal = slot): Omit<UltHero, "s
     woolTime: 0,
     woolHp: 0,
     woolMax: 5,
-    ultCloneTime: 0,
-    ultClones: [],
+    cloneTime: 0,
+    clones: [],
     hopTime: 0,
     hopHeight: HOP_LIFT_DEFAULT,
     fightSurgePending: false,
-    rlTimed: [],
+    timedBuffs: [],
   };
 }
 
@@ -447,7 +447,7 @@ export function setUltimateFocus(w: UltWorld, slot: number, time: number): void 
 
 function applySnakeGiant(h: UltHero): void {
   const face = SNAKE_SHED_GIANT;
-  h.rlTimed.push({
+  h.timedBuffs.push({
     id: face.id,
     name: face.name,
     time: face.dur,
@@ -899,7 +899,7 @@ export function absorbWoolShield(
 }
 
 export function spawnMirageClones(w: UltWorld, h: UltHero, slot: number): void {
-  h.ultCloneTime = 8.0;
+  h.cloneTime = 8.0;
   const origin = heroPos(h);
   const clones: UltClone[] = [];
   for (let i = 1; i < 8; i += 1) {
@@ -916,26 +916,26 @@ export function spawnMirageClones(w: UltWorld, h: UltHero, slot: number): void {
       owner: slot,
     });
   }
-  h.ultClones = clones;
+  h.clones = clones;
   setUltimateFocus(w, slot, 0.28);
   emit(w, "ultimate_used", slot, -1, { id: "mirage", clones: 7 });
 }
 
-export function tickUltClones(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, dt: number): void {
+export function tickClones(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, dt: number): void {
   for (const [slot, h] of heroes) {
-    let left = h.ultCloneTime;
+    let left = h.cloneTime;
     if (left <= 0) {
-      if (h.ultClones.length > 0) {h.ultClones = [];}
+      if (h.clones.length > 0) {h.clones = [];}
       continue;
     }
     left = Math.max(0, left - dt);
-    h.ultCloneTime = left;
+    h.cloneTime = left;
     if (left <= 0 || !h.alive || h.downed) {
-      h.ultClones = [];
+      h.clones = [];
       continue;
     }
     const kept: UltClone[] = [];
-    for (const clone of h.ultClones) {
+    for (const clone of h.clones) {
       if (!clone.alive) {continue;}
       const mirrored = rotate(h.vel, clone.ang);
       const next = resolveMotion(w, clone.pos, mirrored.x * dt, mirrored.y * dt);
@@ -949,16 +949,16 @@ export function tickUltClones(w: UltWorld, heroes: ReadonlyMap<number, UltHero>,
       clone.owner = slot;
       kept.push(clone);
     }
-    h.ultClones = kept;
+    h.clones = kept;
   }
 }
 
 export function popUltClone(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, slot: number, index: number): void {
   const h = heroes.get(slot);
   if (!h) {return;}
-  if (index < 0 || index >= h.ultClones.length) {return;}
-  const pos = h.ultClones[index].pos;
-  h.ultClones.splice(index, 1);
+  if (index < 0 || index >= h.clones.length) {return;}
+  const pos = h.clones[index].pos;
+  h.clones.splice(index, 1);
   addEffect(w.effects, {
     kind: "monkey_pop", x: pos.x, y: pos.y, radius: 54, duration: 0.28, color: "#c9e7ff",
   });
@@ -968,9 +968,9 @@ export function popUltClone(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, s
 export function hitUltClone(w: UltWorld, heroes: ReadonlyMap<number, UltHero>, owner: number, ppos: Vec2, radius: number): boolean {
   for (const [slot, h] of heroes) {
     if (slot === owner) {continue;}
-    if (h.ultCloneTime <= 0) {continue;}
-    for (let i = 0; i < h.ultClones.length; i += 1) {
-      const c = h.ultClones[i];
+    if (h.cloneTime <= 0) {continue;}
+    for (let i = 0; i < h.clones.length; i += 1) {
+      const c = h.clones[i];
       if (!c.alive) {continue;}
       if (dist(ppos.x, ppos.y, c.pos.x, c.pos.y) < radius + HERO_RADIUS) {
         popUltClone(w, heroes, slot, i);
@@ -1215,7 +1215,7 @@ export function tickUltimates(w: UltWorld, heroes: ReadonlyMap<number, UltHero>,
   tickRoosterEggs(w, heroes, dt);
   tickPigMuds(w, dt);
   tickWoolShields(heroes.values(), dt);
-  tickUltClones(w, heroes, dt);
+  tickClones(w, heroes, dt);
 }
 
 export function grantFightSurge(w: UltWorld, heroes: ReadonlyMap<number, UltHero>): void {

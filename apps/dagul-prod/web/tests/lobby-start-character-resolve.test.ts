@@ -12,7 +12,7 @@ import { defaultCharacterId, isRandomCharacterId } from "@/lib/characters";
 function emptyBag(): LobbyBag {
   return {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null,
-    authority: null, hostLossTimer: null, loadWaitMs: 0,
+    authority: null, hostLossTimer: null,
   };
 }
 

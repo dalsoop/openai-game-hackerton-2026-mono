@@ -49,8 +49,12 @@ static func direction(move: Vector2, aim: Vector2) -> Vector2:
 
 static func stats_for(world, me: Dictionary) -> Vector2:
 	var eq := _equipment(me)
-	if eq.has("mobility_distance") and eq.has("mobility_cooldown"):
-		return Vector2(float(eq["mobility_distance"]), float(eq["mobility_cooldown"]))
+	if eq.has("mobility_distance"):
+		var dist := float(eq["mobility_distance"])
+		var cd := float(eq.get("mobility_cooldown", FALLBACK_CD))
+		if cd <= 0.0:
+			cd = FALLBACK_CD
+		return Vector2(dist, cd)
 	var eq_id := str(eq.get("id", ""))
 	if eq_id == "" or eq_id == "net":
 		return Vector2(FALLBACK_DIST, FALLBACK_CD)
@@ -60,7 +64,7 @@ static func stats_for(world, me: Dictionary) -> Vector2:
 static func _is_turtle(me: Dictionary) -> bool:
 	if bool(me.get("turtle", false)):
 		return true
-	for raw in me.get("rl_timed", []):
+	for raw in me.get("timed_buffs", []):
 		if _timed_is_turtle(raw):
 			return true
 	return false

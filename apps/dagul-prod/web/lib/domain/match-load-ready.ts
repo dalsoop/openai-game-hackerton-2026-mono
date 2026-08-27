@@ -7,13 +7,10 @@ export function allSeatsMatchReady(
   return players.every((p) => p.matchReady);
 }
 
-/** true 면 3초 카운트다운을 깎지 않는다. 타임아웃이 지나면 강제 해제. */
+/** true 면 3초 카운트다운을 깎지 않는다. packPct·경과 시간으로는 풀지 않는다. */
 export function shouldHoldCountdown(
   players: readonly { matchReady: boolean; connected?: boolean; name?: string }[],
-  waitedMs: number,
-  timeoutMs: number,
 ): boolean {
-  if (waitedMs >= timeoutMs) {return false;}
   return !allSeatsMatchReady(players);
 }
 

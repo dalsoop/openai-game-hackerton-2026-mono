@@ -376,8 +376,7 @@ func _tick_recoil(dt: float) -> void:
         var n: int = int(counts[clampi(row, 0, 2)])
         if float(flash["time"]) < float(n) * 0.055:
             keep.append(flash)
-    impact_flashes = keep
-
+    impact_flashes.assign(keep)
 func _zodiac_texture(animal: int) -> Texture2D: return _hero_layer.zodiac_texture(animal)
 func _animal_src_rect(animal: int) -> Rect2: return _hero_layer.animal_src_rect(animal)
 func _animal_down_src_rect(animal: int) -> Rect2: return _hero_layer.animal_down_src_rect(animal)
@@ -404,8 +403,7 @@ func _tick_combat_texts(dt: float) -> void:
         ct["time"] = float(ct["time"]) + dt
         if float(ct["time"]) < 0.75:
             keep.append(ct)
-    combat_texts = keep
-
+    combat_texts.assign(keep)
 func _draw_projectile_texture(pos: Vector2, direction: Vector2, kind: String, size_scale: float = 1.0) -> bool: return _fx_layer.draw_projectile_texture(pos, direction, kind, size_scale)
 func _draw_projectiles() -> void: _proj.draw_projectiles_main()
 func _draw_zones() -> void: _proj.draw_zones_main()

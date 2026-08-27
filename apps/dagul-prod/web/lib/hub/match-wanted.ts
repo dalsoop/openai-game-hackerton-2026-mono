@@ -36,7 +36,7 @@ export type RouletteTimedBuff = RouletteUntil & { id: string; name: string; time
 export type RouletteQueueItem = { rank: string; face: RouletteFace };
 export type RouletteHero = {
   slot: number; alive: boolean; hp: number; maxHp: number; baseMaxHp: number;
-  rlUntil: RouletteUntil; rlTimed: RouletteTimedBuff[];
+  untilBuffs: RouletteUntil; timedBuffs: RouletteTimedBuff[];
   rouletteTime: number; rouletteLabel: string; rouletteRank: string; roulettePhase: string;
   roulettePending: RouletteFace | Record<string, never>;
   rouletteQueue: RouletteQueueItem[];
@@ -61,7 +61,7 @@ export function wantedSeedFields(): Pick<WantedHero, "bounty" | "threat" | "grud
 }
 export function rouletteSeedFields(): Omit<RouletteHero, "slot" | "alive" | "hp" | "maxHp" | "baseMaxHp"> {
   return {
-    rlUntil: emptyUntil(), rlTimed: [], rouletteTime: 0, rouletteLabel: "", rouletteRank: "",
+    untilBuffs: emptyUntil(), timedBuffs: [], rouletteTime: 0, rouletteLabel: "", rouletteRank: "",
     roulettePhase: "", roulettePending: {}, rouletteQueue: [], rouletteFaces: [],
     rouletteSpinId: "", rouletteSpinDur: 0, rouletteDesc: "",
   };
@@ -124,16 +124,16 @@ export function packWantedSnap(state: WantedState): { wantedSlot: number } {
 
 
 export function rouletteStat(hero: RouletteHero, key: keyof RouletteUntil): number {
-  let total = hero.rlUntil[key];
-  for (const buff of hero.rlTimed) {total += buff[key];}
+  let total = hero.untilBuffs[key];
+  for (const buff of hero.timedBuffs) {total += buff[key];}
   return total;
 }
 
 export function clearRouletteBuffs(hero: RouletteHero): void {
   hero.maxHp = hero.baseMaxHp;
   if (hero.hp > hero.baseMaxHp) {hero.hp = hero.baseMaxHp;}
-  hero.rlUntil = emptyUntil();
-  hero.rlTimed = [];
+  hero.untilBuffs = emptyUntil();
+  hero.timedBuffs = [];
   hero.rouletteTime = 0;
   hero.rouletteLabel = "";
   hero.rouletteRank = "";
@@ -161,16 +161,16 @@ export function applyRouletteFace(hero: RouletteHero, face: RouletteFace | Recor
   if (!pending) {return;}
   const hpAdd = pending.hp;
   if (pending.kind === "until") {
-    hero.rlUntil.atk += pending.atk;
-    hero.rlUntil.spd += pending.spd;
-    hero.rlUntil.def += pending.def;
-    hero.rlUntil.hp += hpAdd;
-    hero.rlUntil.rate += pending.rate;
-    hero.rlUntil.range += pending.range;
+    hero.untilBuffs.atk += pending.atk;
+    hero.untilBuffs.spd += pending.spd;
+    hero.untilBuffs.def += pending.def;
+    hero.untilBuffs.hp += hpAdd;
+    hero.untilBuffs.rate += pending.rate;
+    hero.untilBuffs.range += pending.range;
     addHp(hero, hpAdd);
     return;
   }
-  hero.rlTimed.push({
+  hero.timedBuffs.push({
     id: pending.id, name: pending.name, time: pending.dur,
     atk: pending.atk, spd: pending.spd, def: pending.def, hp: hpAdd,
     rate: pending.rate, range: pending.range, shield: pending.shield,
@@ -270,13 +270,13 @@ export function grantKillRoulettes(
 
 function tickTimedBuffs(hero: RouletteHero, dt: number): void {
   const kept: RouletteTimedBuff[] = [];
-  for (const buff of hero.rlTimed) {
+  for (const buff of hero.timedBuffs) {
     const left = Math.max(0, buff.time - dt);
     if (left <= 0) {expireTimedBuff(hero, buff); continue;}
     buff.time = left;
     kept.push(buff);
   }
-  hero.rlTimed = kept;
+  hero.timedBuffs = kept;
 }
 
 function tickBonusPhase(hero: RouletteHero): void {
@@ -348,7 +348,7 @@ export function tickRoulettes(heroes: Iterable<RouletteHero>, dt: number): void 
 
 export function absorbRouletteShield(hero: RouletteHero, amount: number): number {
   let left = amount;
-  for (const buff of hero.rlTimed) {
+  for (const buff of hero.timedBuffs) {
     if (buff.shield <= 0 || left <= 0) {continue;}
     const take = Math.min(buff.shield, left);
     buff.shield -= take;

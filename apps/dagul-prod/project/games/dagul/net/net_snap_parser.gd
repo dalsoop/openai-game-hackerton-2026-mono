@@ -224,16 +224,26 @@ static func parse_events(list: Array) -> Array[Dictionary]:
 	return result
 
 static func _parse_event(e: Dictionary) -> Dictionary:
-	var data: Variant = e.get("d", {})
-	if typeof(data) != TYPE_DICTIONARY:
-		data = {}
 	return {
-		"tick": int(e.get("t", 0)),
-		"kind": StringName(str(e.get("k", ""))),
-		"a": int(e.get("a", -1)),
-		"b": int(e.get("b", -1)),
-		"data": (data as Dictionary).duplicate(true),
+		"tick": int(e.get("tick", 0)),
+		"kind": StringName(str(e.get("kind", ""))),
+		"actor": int(e.get("actor", -1)),
+		"target": int(e.get("target", -1)),
+		"data": _event_data(e.get("data", {})),
 	}
+
+
+static func _event_data(raw: Variant) -> Dictionary:
+	var data: Dictionary = {}
+	if raw is Dictionary:
+		data = (raw as Dictionary).duplicate(true)
+	elif raw is String:
+		var parsed: Variant = JSON.parse_string(raw)
+		if parsed is Dictionary:
+			data = (parsed as Dictionary).duplicate(true)
+	if not data.has("pos") and (data.has("x") or data.has("y")):
+		data["pos"] = Vector2(_f(data, "x", 0.0), _f(data, "y", 0.0))
+	return data
 
 static func parse_loot(list: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -244,7 +254,10 @@ static func parse_loot(list: Array) -> Array[Dictionary]:
 	return result
 
 static func _parse_loot_drop(drop: Dictionary) -> Dictionary:
-	var kind := str(drop.get("itemKind", drop.get("kind", "")))
+	var wire_kind := str(drop.get("kind", ""))
+	var item_kind := str(drop.get("itemKind", ""))
+	var is_gun := wire_kind == "gun"
+	var kind := "gun" if is_gun else (item_kind if item_kind != "" else wire_kind)
 	var entry := {
 		"active": true,
 		"pos": Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
@@ -253,8 +266,10 @@ static func _parse_loot_drop(drop: Dictionary) -> Dictionary:
 		"kind": kind,
 		"disguise": str(drop.get("disguise", "")),
 	}
-	if kind == "gun":
+	if is_gun:
 		entry["gun_name"] = _resolve_loot_gun_name(drop)
+		if item_kind != "" and item_kind != "gun":
+			entry["gun_id"] = item_kind
 	return entry
 
 static func _resolve_loot_gun_name(drop: Dictionary) -> String:

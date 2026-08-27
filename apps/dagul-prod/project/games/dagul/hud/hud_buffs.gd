@@ -10,7 +10,7 @@ static func roulette_rank_color(rank: String) -> Color:
 
 static func collect_buff_icons(me: Dictionary, world_mode: String) -> Array:
 	var icons: Array = []
-	var until_stats: Dictionary = me.get("rl_until", {})
+	var until_stats: Dictionary = me.get("until_buffs", {})
 	var until_meta := [
 		{"key":"atk", "id":"atk", "label":"ATK", "color":Color("#ff6b4a")},
 		{"key":"spd", "id":"spd", "label":"SPD", "color":Color("#70e7ff")},
@@ -24,7 +24,7 @@ static func collect_buff_icons(me: Dictionary, world_mode: String) -> Array:
 		if value > 0.001:
 			var shown := ("%d%%" % int(round(value * 100.0))) if str(meta["key"]) in ["def", "rate", "range"] else ("%d" % int(round(value)))
 			icons.append({"id":str(meta["id"]), "label":str(meta["label"]), "color":meta["color"], "text":shown, "time":0.0, "kind":"until"})
-	for buff in me.get("rl_timed", []):
+	for buff in me.get("timed_buffs", []):
 		var bid := str(buff.get("id", buff.get("name", "buff"))).to_lower()
 		var left := float(buff.get("time", 0.0))
 		var extra := ""
@@ -132,7 +132,8 @@ static func _default_effect_line(won: String) -> String:
 static func draw_buff_glyph(canvas: CanvasItem, c: Vector2, buff_id: String, accent: Color, roulette_icons: Dictionary) -> void:
 	var icon_tex: Texture2D = roulette_icons.get(buff_id) as Texture2D
 	if icon_tex != null:
-		canvas.draw_texture_rect(icon_tex, Rect2(c - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), false)
+		var size := 28.0 if buff_id == "medkit" else 32.0
+		canvas.draw_texture_rect(icon_tex, Rect2(c - Vector2(size, size) * 0.5, Vector2(size, size)), false)
 		return
 	if _draw_stat_glyph(canvas, c, buff_id, accent):
 		return

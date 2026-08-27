@@ -21,7 +21,6 @@ export type LobbyBag = {
   idleTimer: TimerHandle | null;
   authority: MatchAuthority | null;
   hostLossTimer: TimerHandle | null;
-  loadWaitMs: number;
 };
 
 export type LobbyHandle = {
@@ -128,7 +127,6 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;
-  bag.loadWaitMs = 0;
   clearMatchSchema(room.state);
   clearMatchState(room.state.match);
   room.state.phase = "lobby";
@@ -153,7 +151,6 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): b
   clearIdleTimer(room, bag);
   room.state.phase = "playing";
   room.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
-  bag.loadWaitMs = 0;
   room.state.loadHeld = true;
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });

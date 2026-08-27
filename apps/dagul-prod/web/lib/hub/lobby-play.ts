@@ -64,7 +64,7 @@ function syncResolvedCharacterIds(room: LobbyHandle, sim: MatchSim): void {
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   if (room.state.phase !== "playing" || !bag.authority) {return;}
-  releaseLoadBarrier(room, bag, dtMs);
+  tryReleaseLoadBarrier(room, bag);
   const { snap, events } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
   writeMatchState(
     room.state.match, bag.authority.sim, bag.authority.names, room.state.mode, events,
@@ -98,17 +98,13 @@ function sendTickSnap(room: LobbyHandle, snap: Record<string, unknown>): void {
   }
 }
 
-/** READY 직후 틱을 기다리지 않고 장벽을 연다. dtMs=0 이면 대기 시각은 늘리지 않는다. */
+/** 전원 matchReady 면 장벽을 연다. 이후 sim 틱이 START_COUNTDOWN 을 깎는다.
+ * packPct·경과 시간으로는 열지 않는다. READY 직후·좌석 이탈 틱에서 같이 본다. */
 export function tryReleaseLoadBarrier(room: LobbyHandle, bag: LobbyBag): void {
-  releaseLoadBarrier(room, bag, 0);
-}
-
-function releaseLoadBarrier(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   const sim = bag.authority?.sim;
   if (!sim || !sim.countdownHeld) {return;}
-  bag.loadWaitMs += Math.max(0, dtMs);
   const seats = [...room.state.players].map((p) => ({ matchReady: p.matchReady }));
-  if (shouldHoldCountdown(seats, bag.loadWaitMs, HUB_CONFIG.loadReadyTimeoutMs)) {return;}
+  if (shouldHoldCountdown(seats)) {return;}
   sim.countdownHeld = false;
   room.state.loadHeld = false;
 }

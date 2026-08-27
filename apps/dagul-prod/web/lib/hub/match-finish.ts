@@ -3,6 +3,7 @@
  * cancel_finish_cine + hero_movement.gd apply_human(F) 의 결정론 포팅.
  * RNG·시계 없음. down_hero 호출은 콜백(통합 때 match-life.downHero).
  */
+import { clamp01 } from "../util/math.js";
 
 /** 준비 구간(초) — ultimate_effect.gd FINISH_PREP. */
 export const FINISH_PREP = 0.35;
@@ -65,10 +66,6 @@ export type FinishCommand = { finish?: boolean };
 export type FinishKillFn = (atk: number, vic: number) => void;
 
 type FinishActors = { atk: number; vic: number; ah: FinishHero; vh: FinishHero };
-
-function clamp01(t: number): number {
-  return Math.min(1, Math.max(0, t));
-}
 
 function isFinishAttacker(h: FinishHero): boolean {
   return h.alive && !h.downed;

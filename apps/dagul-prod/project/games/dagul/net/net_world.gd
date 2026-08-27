@@ -91,6 +91,10 @@ var _pred_pos: Vector2 = ARENA_CENTER
 var _pred_aim: Vector2 = Vector2.RIGHT
 var _pred_dash_cd: float = 0.0
 var _pred_fire_skip_left: float = 0.0
+## auto 무기를 쥐고 있는 동안 예측 총알을 다시 그려도 되는 시점까지 남은 시간
+## (무기 normal_interval 로 다시 채움) — 없으면 첫 클릭 한 발만 예측되고 나머지
+## 연사는 서버 스냅을 따라가는 느린(≈1 RTT) 위치로만 나가 또 "쏘다 마는" 것처럼 보인다.
+var _pred_fire_cd: float = 0.0
 var _equip_reg = EquipRegScript.new()
 var _has_pred: bool = false
 var _bullets_ready: bool = false
@@ -112,7 +116,6 @@ func _init() -> void:
 
 func set_mode(next_mode: String) -> void:
     mode = next_mode
-
 func reset() -> void:
     tick = 0
     match_time = 0.0
@@ -143,7 +146,6 @@ func reset() -> void:
     covers.clear()
     mid_tower = {}
     event_log.clear()
-
 func _reset_net_session() -> void:
     _prev_bullets.clear()
     _pred_bullets.clear()
@@ -156,6 +158,7 @@ func _reset_net_session() -> void:
     _pred_aim = Vector2.RIGHT
     _pred_dash_cd = 0.0
     _pred_fire_skip_left = 0.0
+    _pred_fire_cd = 0.0
     _has_pred = false
     _bullets_ready = false
     _fight_countdown_fired = false
@@ -176,10 +179,8 @@ static func _f(source: Dictionary, key: String, fallback: float) -> float:
     if v is float or v is int:
         return float(v)
     return fallback
-
 static func snap_per_sec(from_tick: float, to_tick: float) -> float:
     return TICK_RATE / maxf(1.0, to_tick - from_tick)
-
 func push_snap(snap: Dictionary) -> void:
     if snap.is_empty():
         return
@@ -217,14 +218,18 @@ func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
         if not seed.is_empty():
             _pred_pos = Vector2(seed["pos"])
             _has_pred = true
+    _pred_fire_cd = maxf(0.0, _pred_fire_cd - dt)
     _step_pred(mx, my, dash, aim, dt)
     _overlay_prediction()
     return _input_seq
 
-func predict_local_fire(aim_point: Vector2 = Vector2.ZERO) -> bool:
+## sustained=false: 클릭 엣지(첫 발) — 기존 동작 그대로, 모든 발사 모드에 적용.
+## sustained=true: 마우스를 쥐고 있는 동안 매 틱 호출 — auto 무기에서만, 무기
+## normal_interval 간격으로 다시 예측 총알을 그린다. 없으면 연사 중 첫 발만 이동
+## 위치에서 나가고 나머지는 서버 스냅(≈1 RTT 뒤처짐)만 따라가 다시 "쏘다 마는"
+## 것처럼 보인다.
+func predict_local_fire(aim_point: Vector2 = Vector2.ZERO, sustained: bool = false) -> bool:
     if start_countdown > 0.0 or result != &"playing":
-        return false
-    if _pred_fire_skip_left > 0.0:
         return false
     var me := hero_at_slot(local_slot)
     if me.is_empty() or not bool(me.get("alive", true)):
@@ -236,14 +241,24 @@ func predict_local_fire(aim_point: Vector2 = Vector2.ZERO) -> bool:
         return false
     if float(me.get("reload_left", 0.0)) > 0.0:
         return false
-    _spawn_pred_fire_fx(me, aim_point)
+    var eq: Dictionary = me.get("equipment", {})
+    var profile := _equip_reg.fire_profile_for(str(eq.get("id", "")))
+    if sustained:
+        if str(profile.get("fire_mode", "")) != "auto":
+            return false
+        if _pred_fire_cd > 0.0:
+            return false
+    elif _pred_fire_skip_left > 0.0:
+        return false
+    _spawn_pred_fire_fx(me, aim_point, profile)
     _pred_fire_skip_left = PRED_FIRE_SKIP
     _pred_fire_tick = tick
+    _pred_fire_cd = float(profile.get("interval", 0.12))
     return true
 
 ## 클릭 프레임의 실제 조준점(aim_point, 월드 좌표)으로 방향을 잡는다 — 직전 스냅의
 ## 낡은 aim 을 쓰면 방향 전환 직후 트레이서가 옛 방향으로 나가 실탄과 어긋난다.
-func _spawn_pred_fire_fx(me: Dictionary, aim_point: Vector2 = Vector2.ZERO) -> void:
+func _spawn_pred_fire_fx(me: Dictionary, aim_point: Vector2 = Vector2.ZERO, profile: Dictionary = {}) -> void:
     var eq: Dictionary = me.get("equipment", {})
     var eq_id := str(eq.get("id", ""))
     var origin: Vector2 = _pred_pos if _has_pred else Vector2(me.get("pos", _pred_pos))
@@ -257,7 +272,9 @@ func _spawn_pred_fire_fx(me: Dictionary, aim_point: Vector2 = Vector2.ZERO) -> v
     var muzzle: Vector2 = GunSigScript.muzzle_world_pos(origin, aim, eq_id)
     me["muzzle_time"] = maxf(float(me.get("muzzle_time", 0.0)), 0.12)
     _add_effect(&"local_tracer", muzzle, 120.0, 0.12, Color(1.0, 0.95, 0.75, 1.0), aim)
-    NetPredBullet.spawn(self, muzzle, aim, local_slot)
+    var speed := float(profile.get("speed", NetPredBullet.SPEED))
+    var ttl := float(profile.get("range", NetPredBullet.TTL))
+    NetPredBullet.spawn(self, muzzle, aim, local_slot, speed, ttl)
     event_log.emit(tick, &"gun_fire", local_slot, -1, {"equipment": eq_id, "predicted": true})
 
 func present(_dt: float) -> void:
@@ -269,11 +286,15 @@ func present(_dt: float) -> void:
     if not _snaps.is_empty():
         _present_from_snaps(step)
     NetPredBullet.advance(self, step)
-    # projectiles 는 스냅이 안 바뀐 프레임엔 재계산되지 않는다 — 지난 프레임에
-    # 섞어 넣은 예측 총알이 그대로 남으니 매번 걷어내고 지금 살아있는 것만 다시 얹는다.
-    projectiles = projectiles.filter(func(p): return str(p.get("source", "")) != "predicted")
-    if not _pred_bullets.is_empty():
-        projectiles = projectiles + _pred_bullets
+    # 스냅이 안 바뀐 프레임엔 예측 총알이 그대로 남을 수 있다. 서버 탄만 남기고
+    # 지금 살아있는 예측 탄을 다시 얹는다.
+    var server_only: Array = []
+    for shot in projectiles:
+        if str(shot.get("source", "")) != "predicted":
+            server_only.append(shot)
+    for pred in _pred_bullets:
+        server_only.append(pred)
+    projectiles.assign(server_only)
     NetLaunchTrails.synth(self, step)
 
 func _present_from_snaps(dt: float) -> void:
@@ -512,7 +533,6 @@ func _derive_zone_target() -> void:
         safe_zone_target_radius = maxf(SAFE_ZONE_MIN_RADIUS, safe_zone_radius * 0.62)
     else:
         safe_zone_target_radius = safe_zone_radius
-
 func _on_match_ended() -> void:
     var winner := hero_at_slot(winner_slot)
     if not winner.is_empty():
@@ -536,8 +556,7 @@ func _apply_players(list: Array, snap_per_sec: float) -> void:
         _check_death(p, old, slot)
         SfxDerive.player_events(self, p, old, slot)
         next.append(_build_hero(p, old, slot, snap_per_sec))
-    heroes = next
-
+    heroes.assign(next)
 func _check_death(p: Dictionary, old: Dictionary, slot: int) -> void:
     var alive := bool(p.get(SnapContract.P_ALIVE, true))
     var was_alive := bool(old.get("alive", true))
@@ -568,7 +587,7 @@ func _apply_bullets(list: Array, snap_per_sec: float) -> void:
         _emit_inferred_gun_fire(next)
     _bullets_ready = true
     _prev_bullets = next.duplicate()
-    projectiles = next
+    projectiles.assign(next)
     _resolve_pred_fire_skip(local_new)
 
 func _emit_inferred_gun_fire(next: Array) -> void:
@@ -594,12 +613,12 @@ func _ingest_events(snap: Dictionary) -> void:
 
 func _ingest_one_event(ev: Dictionary) -> void:
     var kind := StringName(ev["kind"])
-    var actor := int(ev["a"])
+    var actor := int(ev["actor"])
     if kind == &"gun_fire":
         _snap_had_gun_fire = true
         if _skip_local_pred_gun_fire(actor):
             return
-    event_log.emit(int(ev["tick"]), kind, actor, int(ev["b"]), ev["data"])
+    event_log.emit(int(ev["tick"]), kind, actor, int(ev["target"]), ev["data"])
 
 func _skip_local_pred_gun_fire(slot: int) -> bool:
     return slot == local_slot and _pred_fire_skip_left > 0.0
@@ -628,10 +647,9 @@ func _replace_server_effects(snap: Dictionary) -> void:
     if not snap.has(SnapContract.EFFECTS):
         return
     var locals := _keep_local_effects()
-    effects = NetSnapParser.parse_effects(snap.get(SnapContract.EFFECTS, []))
-    for fx in locals:
-        effects.append(fx)
-
+    var server := NetSnapParser.parse_effects(snap.get(SnapContract.EFFECTS, []))
+    server.append_array(locals)
+    effects.assign(server)
 func _keep_local_effects() -> Array[Dictionary]:
     var kept: Array[Dictionary] = []
     for fx in effects:
@@ -642,8 +660,7 @@ func _keep_local_effects() -> Array[Dictionary]:
 func _apply_loot(list: Array) -> void:
     var next := NetSnapParser.parse_loot(list)
     SfxDerive.loot_events(self, health_pickups, next)
-    health_pickups = next
-
+    health_pickups.assign(next)
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, direction: Vector2 = Vector2.RIGHT) -> void:
     effects.append({
         "kind":kind,

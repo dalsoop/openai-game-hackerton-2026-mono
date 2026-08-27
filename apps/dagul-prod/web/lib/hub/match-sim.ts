@@ -2,7 +2,7 @@
 import { idForBind, matchBindKey, seedSeatIdentities } from "../characters/index.js";
 import {
   ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena,
-  nudgeOutOfCover, pointInCover, resolveCoverMotion, spawnKnockout, spawnPoint, tickKnockouts,
+  nudgeOutOfCover, pointInCover, resolveCoverMotion, resolveCoverMotionSwept, spawnKnockout, spawnPoint, tickKnockouts,
 } from "./match-covers.js";
 import type { CoverRect, SimKnockout } from "./match-covers.js";
 import { CpuFleet } from "./match-cpu-think.js";
@@ -75,7 +75,7 @@ import type { TowerShell, TowerZone } from "./match-tower-fire.js";
 import {
   absorbWoolShield, applyUltimateInput, seedUltWorld, tickFightSurge, tickOxCharges, tickRatTides,
   tickSnakeSkins, tickDragonSmokes, tickTigerRoars, tickRabbitBurrows, tickHorseKicks, tickDogRush,
-  tickRoosterEggs, tickPigMuds, tickWoolShields, tickUltClones, tickPassiveUltCharge,
+  tickRoosterEggs, tickPigMuds, tickWoolShields, tickClones, tickPassiveUltCharge,
   applyHitUltCharge, chargeHeroSeedFields, heroMoveSpeed, ultHeroSeedFields,
   type ChargeHero, type UltHero, type UltWorld,
 } from "./match-ultimate.js";
@@ -271,7 +271,7 @@ export class MatchSim {
   private readonly appliedInputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
   private readonly rng: MatchRng;
-  /** 권위 매치에서만 true — 전원 matchReady 또는 타임아웃 전까지 카운트다운을 깎지 않는다. */
+  /** 권위 매치에서만 true — 전원 matchReady 전까지 카운트다운을 깎지 않는다. */
   countdownHeld = false;
   private timeLimitWarningEmitted = false;
 
@@ -422,7 +422,7 @@ export class MatchSim {
     tickStreakCallout(this.streakState);
     decayEffects(this.effects, dt);
     tickDowns(this.heroes, this.zone, dt);
-    tickUltClones(this.ultWorld, this.heroes, dt);
+    tickClones(this.ultWorld, this.heroes, dt);
     updateHealthPickups(this.loot, this.heroes, dt, this.mode, {
       rng: this.rng, tick: this.tick, events: this.ultWorld.events, effects: this.effects,
     });
@@ -452,20 +452,24 @@ export class MatchSim {
   /** 승자 판정 — 사양 7절: 영구 탈락(eliminated) 기준. 리스폰 대기자는 아직 경기 중이다. */
   private resolveWinner(): void {
     if (this.result !== "playing" || this.heroes.size < 2) {return;}
-    const standing = [...this.heroes.values()].filter((h) => !h.eliminated);
-    if (standing.length > 1) {return;}
-    this.result = standing.length === 0 ? "draw" : "won";
-    this.winner = standing[0]?.slot ?? -1;
-    if (standing.length === 1) {awardWinScore(standing[0]);}
+    let standingCount = 0;
+    let lastStanding: SimHero | undefined;
+    for (const h of this.heroes.values()) {
+      if (!h.eliminated) {standingCount += 1; lastStanding = h;}
+    }
+    if (standingCount > 1) {return;}
+    this.result = standingCount === 0 ? "draw" : "won";
+    this.winner = lastStanding?.slot ?? -1;
+    if (lastStanding) {awardWinScore(lastStanding);}
   }
 
   /** 210초 도달 — 비탈락 생존자 중 HP비율 > 점수(kills*100) > 낮은 슬롯. */
   private resolveTimeLimit(): void {
     if (this.result !== "playing") {return;}
-    const ranks = [...this.heroes.values()].map((h) => ({
-      slot: h.slot, hp: h.hp, maxHp: h.maxHp, kills: h.kills, score: h.score,
-      alive: h.alive && !h.eliminated,
-    }));
+    const ranks: {slot: number; hp: number; maxHp: number; kills: number; score: number; alive: boolean}[] = [];
+    for (const h of this.heroes.values()) {
+      ranks.push({slot: h.slot, hp: h.hp, maxHp: h.maxHp, kills: h.kills, score: h.score, alive: h.alive && !h.eliminated});
+    }
     const best = pickTimeLimitWinner(ranks);
     this.result = best < 0 ? "draw" : "won";
     this.winner = best;
@@ -539,9 +543,9 @@ export class MatchSim {
       h.pocketTime = Math.max(0, h.pocketTime - dt);
       tickLaunchTrailFade(h, dt);
       tickPassiveUltCharge(h, dt);
-      h.turtle = h.rlTimed.some((b) => b.id === "turtle" && b.time > 0);
-      h.rouletteRate = h.rlUntil.rate + h.rlTimed.reduce((s, b) => s + b.rate, 0);
-      h.rouletteRange = h.rlUntil.range + h.rlTimed.reduce((s, b) => s + b.range, 0);
+      h.turtle = h.timedBuffs.some((b) => b.id === "turtle" && b.time > 0);
+      h.rouletteRate = h.untilBuffs.rate + h.timedBuffs.reduce((s, b) => s + b.rate, 0);
+      h.rouletteRange = h.untilBuffs.range + h.timedBuffs.reduce((s, b) => s + b.range, 0);
       h.magMax = h.equipment.magSize;
       h.equipmentId = h.equipment.id;
       h.preferredRange = h.equipment.preferredRange;
@@ -1201,7 +1205,7 @@ export class MatchSim {
       pushHero: (slot, pushX, pushY) => {
         const h = this.heroes.get(slot);
         if (!h) {return;}
-        const slid = resolveCoverMotion(h.x, h.y, pushX, pushY, this.covers);
+        const slid = resolveCoverMotionSwept(h.x, h.y, pushX, pushY, this.covers);
         const next = clampArena(slid.x, slid.y);
         h.x = next.x;
         h.y = next.y;

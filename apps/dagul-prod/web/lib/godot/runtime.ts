@@ -14,6 +14,7 @@ import { BootTicket } from "./boot-ticket";
 import { persistEngineHandoff, type HandoffInfo } from "./handoff";
 import { disposeGodotEngine } from "./engine-dispose";
 import { godotEngineConfig, type EngineInstance } from "./engine-config";
+import { applyRuntimeProgress } from "./load-progress";
 
 export type { HandoffInfo };
 export { persistEngineHandoff, clearEngineHandoff } from "./handoff";
@@ -101,7 +102,7 @@ export class GodotRuntime {
   }
 
   private update(partial: Partial<RuntimeSnapshot>): void {
-    this.snap = { ...this.snap, ...partial };
+    this.snap = applyRuntimeProgress(this.snap, partial);
     for (const fn of this.listeners) {fn(this.snap);}
   }
 
@@ -133,7 +134,7 @@ export class GodotRuntime {
 
   private async doPreload(): Promise<void> {
     if (this.snap.state === "running") {return;}
-    this.update({ state: "downloading", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null });
+    this.update({ state: "downloading", error: null });
 
     const fresh = await this.store.loadManifest(this.pack);
     this.applyManifest(fresh);
@@ -180,7 +181,7 @@ export class GodotRuntime {
     // 이전 WASM 힙이 내려가기 전에 새 인스턴스를 올리면 메모리가 겹친다.
     await this.awaitPreviousExit();
     if (!this.boots.isLive(gen)) {return;}
-    this.update({ state: "downloading", progress: 0.02, error: null });
+    this.update({ state: "downloading", error: null });
     this.applyManifest(await this.store.loadManifest(this.pack));
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
     if (!this.boots.isLive(gen)) {return;}
@@ -229,10 +230,8 @@ export class GodotRuntime {
     this.catchMatchStart();
     await this.store.sideWasm;
     await engine.init(this.plan.engineBase);
-    this.update({ progress: 0.74 });
     engine.copyToFS("index.pck", pckBuffer);
     engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
-    this.update({ progress: 0.86 });
     if (!this.boots.isLive(gen)) {
       disposeGodotEngine(engine, canvas, this.exitPromise);
       restoreDevicePixelRatio();
@@ -273,7 +272,7 @@ export class GodotRuntime {
     this.unbindCanvasFocus = bindCanvasKeyboardFocus(canvas);
     this.unbindAudioUnlock?.();
     this.unbindAudioUnlock = bindAudioUnlock(canvas);
-    this.update({ state: "running" });
+    this.update({ state: "running", progress: 1 });
     this.armWatchdog();
   }
 

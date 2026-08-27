@@ -309,19 +309,14 @@ export function packLootSnap(pickups: readonly LootPickup[]): Array<Record<strin
     const row: Record<string, unknown> = {
       id: String(p.id), kind: gun ? "gun" : "item", x: p.x, y: p.y, n: lootGunLabel(p),
     };
-    if (!gun && p.itemKind !== "") {row.itemKind = p.itemKind;}
+    if (p.itemKind !== "") {row.itemKind = p.itemKind;}
     if (!gun && p.disguise !== "") {row.disguise = p.disguise;}
     out.push(row);
   }
   return out;
 }
 
-/** P_ITEM 스냅 필드 — '' | 'medkit' | 'medkit:N'. 1개는 접미사 없음(하위호환). */
-export function packItemField(medkits: number): string {
-  if (medkits <= 0) {return "";}
-  if (medkits === 1) {return "medkit";}
-  return `medkit:${medkits}`;
-}
+export { packItemField, packItemStack, unpackItemStack, unpackMedkits } from "./match-item-wire.js";
 export const seed = buildHealthPickups;
 export const tick = updateHealthPickups;
 export const apply = handleUseInput;

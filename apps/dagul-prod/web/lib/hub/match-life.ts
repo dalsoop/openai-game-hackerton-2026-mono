@@ -65,13 +65,13 @@ export type DownCombatHero = LifeHero & Partial<RouletteHero> & {
   vx?: number;
   vy?: number;
   vel?: { x: number; y: number };
-  ultClones?: unknown[];
-  ultCloneTime?: number;
+  clones?: unknown[];
+  cloneTime?: number;
   lifeHits?: Record<string, { dmg: number; tick: number }>;
 };
 
 function isRouletteHero(h: DownCombatHero): h is DownCombatHero & RouletteHero {
-  return h.rlUntil !== undefined && h.baseMaxHp !== undefined && h.rlTimed !== undefined;
+  return h.untilBuffs !== undefined && h.baseMaxHp !== undefined && h.timedBuffs !== undefined;
 }
 
 /** 룰렛·차지·런치·분신 소거 — down_hero. */
@@ -83,8 +83,8 @@ export function wipeDownCombat(h: DownCombatHero): void {
   if (h.vx !== undefined) {h.vx = 0;}
   if (h.vy !== undefined) {h.vy = 0;}
   if (h.vel) {h.vel = { x: 0, y: 0 };}
-  if (h.ultClones) {h.ultClones = [];}
-  h.ultCloneTime = 0;
+  if (h.clones) {h.clones = [];}
+  h.cloneTime = 0;
   if (h.lifeHits) {h.lifeHits = {};}
   if (isRouletteHero(h)) {clearRouletteBuffs(h);}
 }

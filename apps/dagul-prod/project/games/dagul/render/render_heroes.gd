@@ -160,7 +160,7 @@ func _draw_knockout_body(knockout_slot: int, knockout_animal: int, knockout_pos:
 
 func _timed_ids(hero: Dictionary) -> Array:
 	var ids: Array = []
-	for buff in hero.get("rl_timed", []):
+	for buff in hero.get("timed_buffs", []):
 		ids.append(str(buff.get("id", "")))
 	return ids
 
@@ -464,7 +464,7 @@ func _draw_hero_auras(hero: Dictionary, pos: Vector2, timed_ids: Array) -> void:
 	if float(hero.get("dmg_orb_time", 0.0)) > 0.0:
 		r.draw_arc(pos, 33.0 + sin(float(world.tick) * 0.28) * 2.0, 0.0, TAU, 28, Color(Color("#ff4f4f"), 0.80), 4.0)
 	var shield_hp := 0.0
-	for buff in hero.get("rl_timed", []):
+	for buff in hero.get("timed_buffs", []):
 		shield_hp += float(buff.get("shield", 0.0))
 	if (shield_hp > 0.01 or timed_ids.has("shield")) and float(hero.get("wool_time", 0.0)) <= 0.0:
 		r.draw_circle(pos, 40.0, Color(0.25, 0.78, 1.0, 0.16))
@@ -531,7 +531,7 @@ func _draw_hero_body(pos: Vector2, body_pos: Vector2, slot: int, aim: Vector2, h
 		r._draw_hero_gun(body_pos, slot, aim, ghost, body_squash)
 		draw_flee_mark(body_pos, hero)
 		draw_dog_alert(body_pos, hero)
-	for clone in hero.get("ult_clones", []):
+	for clone in hero.get("clones", []):
 		_draw_ult_clone(clone, pos, slot, aim, animal, hop_lift, hop_scale, body_squash)
 
 func _draw_turtle_body(pos: Vector2, aim: Vector2) -> void:

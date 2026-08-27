@@ -104,4 +104,18 @@ describe("AssetStore — 공유 캐시", () => {
     const store = new AssetStore(assetPlanOf(pack), () => {});
     await expect(store.pck).rejects.toThrow("404");
   });
+
+  it("캐시된 파일 뒤에 새 파일이 와도 진행률이 줄지 않는다", async () => {
+    const ticks: number[] = [];
+    const pck = godotAssetUrl(pack, "index.pck");
+    const wasm = godotAssetUrl(pack, "index.wasm");
+    stubFetch([], { [pck]: "PACKDATA", [wasm]: "W" });
+    const store = new AssetStore(assetPlanOf(pack), (progress) => {ticks.push(progress);});
+    await store.pck;
+    await store.wasm;
+    for (let i = 1; i < ticks.length; i += 1) {
+      expect(ticks[i]).toBeGreaterThanOrEqual(ticks[i - 1] ?? 0);
+    }
+    expect(ticks.at(-1)).toBe(1);
+  });
 });

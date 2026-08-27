@@ -85,11 +85,11 @@ describe("부활 소진·eliminated", () => {
     h.chargeTime = 0.8;
     h.launchTime = 0.4;
     h.launchVel = { x: 12, y: 3 };
-    h.ultClones = [{ x: 1 }];
-    h.ultCloneTime = 1.2;
+    h.clones = [{ x: 1 }];
+    h.cloneTime = 1.2;
     h.baseMaxHp = 176;
-    h.rlUntil = { atk: 4, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
-    h.rlTimed = [];
+    h.untilBuffs = { atk: 4, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
+    h.timedBuffs = [];
     h.rouletteTime = 0.5;
     h.rouletteLabel = "KILL BONUS!";
     h.rouletteRank = "kill";
@@ -102,9 +102,9 @@ describe("부활 소진·eliminated", () => {
     expect(h.chargeTime).toBe(0);
     expect(h.launchTime).toBe(0);
     expect(h.launchVel).toEqual({ x: 0, y: 0 });
-    expect(h.ultClones).toEqual([]);
-    expect(h.ultCloneTime).toBe(0);
-    expect(h.rlUntil.atk).toBe(0);
+    expect(h.clones).toEqual([]);
+    expect(h.cloneTime).toBe(0);
+    expect(h.untilBuffs.atk).toBe(0);
     expect(h.roulettePhase).toBe("");
   });
 

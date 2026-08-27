@@ -39,6 +39,9 @@ func run(t) -> void:
 	_downed_pred_crawls_at_server_rate(t)
 	_finish_cine_anchors_local_pred(t)
 	_reconnect_ack_adopts_seq_baseline(t)
+	_heroes_assign_preserves_identity(t)
+	_projectiles_assign_preserves_identity(t)
+	_effects_assign_preserves_identity(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -232,8 +235,8 @@ func _events_snap_gun_fire_once(t) -> void:
 	nw.local_slot = 0
 	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
 	snap[SnapContract.EVENTS] = [{
-		"t": 12, "k": "gun_fire", "a": 0, "b": -1,
-		"d": {"equipment": "glock"},
+		"tick": 12, "kind": "gun_fire", "actor": 0, "target": -1,
+		"data": {"equipment": "glock"},
 	}]
 	nw.push_snap(snap)
 	nw.present(1.0 / 60.0)
@@ -248,8 +251,8 @@ func _empty_events_still_infer_gun_fire(t) -> void:
 
 func _events_and_bullet_do_not_double(t) -> void:
 	var nw = _world_after_new_bullet([{
-		"t": 13, "k": "gun_fire", "a": 0, "b": -1,
-		"d": {"equipment": "burst"},
+		"tick": 13, "kind": "gun_fire", "actor": 0, "target": -1,
+		"data": {"equipment": "burst"},
 	}])
 	t.check("서버 gun_fire 가 있으면 탄 역추정을 더하지 않는다", _gun_fire_count(nw) == 1)
 	t.check("서버 equipment 를 유지한다", _gun_fire_equipment(nw) == "burst")
@@ -665,3 +668,35 @@ func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> 
 			SnapContract.P_ACK: 0,
 		}],
 	}
+
+func _heroes_assign_preserves_identity(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.push_snap(_center_snap(100.0, 100.0, 176.0, 1, 10))
+	nw.present(1.0 / 60.0)
+	var ref: Array = nw.heroes
+	ref.append({"marker": true})
+	nw.push_snap(_center_snap(110.0, 100.0, 176.0, 2, 10))
+	nw.present(1.0 / 60.0)
+	t.check("heroes assign 후 외부 참조에 반영됨", not ref.is_empty() and ref.size() == nw.heroes.size())
+	t.check("heroes 내용은 갱신됨", nw.heroes.size() >= 1)
+
+func _projectiles_assign_preserves_identity(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.push_snap(_center_snap(100.0, 100.0, 176.0, 1, 10))
+	nw.present(1.0 / 60.0)
+	var ref: Array = nw.projectiles
+	nw.push_snap(_center_snap(100.0, 100.0, 176.0, 2, 10))
+	nw.present(1.0 / 60.0)
+	t.check("projectiles assign 후 외부 참조에 반영됨", ref.size() == nw.projectiles.size())
+
+func _effects_assign_preserves_identity(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.push_snap(_center_snap(100.0, 100.0, 176.0, 1, 10))
+	nw.present(1.0 / 60.0)
+	var ref: Array = nw.effects
+	nw.push_snap(_center_snap(100.0, 100.0, 176.0, 2, 10))
+	nw.present(1.0 / 60.0)
+	t.check("effects assign 후 외부 참조에 반영됨", ref.size() == nw.effects.size())
