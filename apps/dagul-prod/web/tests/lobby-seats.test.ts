@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { fillMatchSeats, pickHostSessionId } from "@/lib/hub/lobby-seats";
+import { compactLobbySlots, fillMatchSeats, pickHostSessionId } from "@/lib/hub/lobby-seats";
 import type { PlayerSchema } from "@/lib/hub/lobby-state";
 
 function seat(sessionId: string, slot: number, connected = true): PlayerSchema {
   return { sessionId, slot, connected } as PlayerSchema;
 }
+
+describe("compactLobbySlots", () => {
+  it("빈 칸을 메워 0부터 다시 붙인다", () => {
+    const players = [{ slot: 2 }, { slot: 0 }, { slot: 5 }];
+    compactLobbySlots(players);
+    expect(players.map((p) => p.slot).sort((a, b) => a - b)).toEqual([0, 1, 2]);
+  });
+
+  it("이미 붙어 있으면 그대로다", () => {
+    const players = [{ slot: 0 }, { slot: 1 }];
+    compactLobbySlots(players);
+    expect(players.map((p) => p.slot)).toEqual([0, 1]);
+  });
+});
 
 describe("pickHostSessionId", () => {
   it("접속 중인 가장 앞 좌석이 방장이다", () => {

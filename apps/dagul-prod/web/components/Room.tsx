@@ -70,11 +70,6 @@ export default function Room({
       </div>
 
       {matchWait && <p className="wait-match">{t("matchWait")}</p>}
-      {counting && (
-        <p className="wait-start-count" data-lock={leaveLocked || undefined}>
-          {t("startCountdown", { sec: startInSec })}
-        </p>
-      )}
 
       <RoomTools
         isHost={isHost}
@@ -107,18 +102,27 @@ export default function Room({
 
       <div className="host-bar">
         {isHost ? (
-          <button
-            type="button"
-            className="cta block"
-            data-sfx="ok"
-            onClick={() => {
-              playOkButton();
-              onStart();
-            }}
-            disabled={!canStart || counting}
-          >
-            {counting ? t("startCountdown", { sec: startInSec }) : t("startButton")}
-          </button>
+          counting ? (
+            <button type="button" className="cta block" disabled>
+              {t("startCountdown", { sec: startInSec })}
+            </button>
+          ) : canStart ? (
+            <button
+              type="button"
+              className="cta block"
+              data-sfx="ok"
+              onClick={() => {
+                playOkButton();
+                onStart();
+              }}
+            >
+              {t("startButton")}
+            </button>
+          ) : (
+            <div className="host-wait">{t("downloading")}</div>
+          )
+        ) : counting ? (
+          <div className="host-wait">{t("startCountdown", { sec: startInSec })}</div>
         ) : (
           <div className="host-wait">{t("waitingForHost")}</div>
         )}

@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lastInboundSnapOf, rememberInboundSnap, resetInboundSnapForTests } from "@/lib/hub/page-bridge";
 import { useGameFlow } from "@/hooks/useGameFlow";
+import { WEB_STORE } from "@/lib/contract";
 import type { HubStatus } from "@/types";
 
 const hub = vi.hoisted(() => ({
@@ -12,15 +13,23 @@ const hub = vi.hoisted(() => ({
   roomId: "",
   you: 0,
   resumeToken: "",
-  tryResume: (): boolean => false,
+  tryResume: vi.fn((): boolean => false),
   resumeFailed: false,
   dropReason: null,
   sendPackPct: (): void => {},
-  connect: (): void => {},
+  connect: vi.fn(),
+  joinRoom: vi.fn(),
   startMatch: (): void => {},
   disconnect: (): void => {},
   leaveRoom: vi.fn(),
   returnToLobby: vi.fn(),
+}));
+
+const session = vi.hoisted(() => ({
+  nickname: "",
+  guestName: "guest",
+  saveNickname: vi.fn(),
+  clearNickname: vi.fn(),
 }));
 
 vi.mock("@/hooks/useHub", () => ({
@@ -28,17 +37,7 @@ vi.mock("@/hooks/useHub", () => ({
 }));
 
 vi.mock("@/hooks/useSession", () => ({
-  useSession: (): {
-    nickname: string;
-    guestName: string;
-    saveNickname: () => void;
-    clearNickname: () => void;
-  } => ({
-    nickname: "",
-    guestName: "guest",
-    saveNickname: (): void => {},
-    clearNickname: (): void => {},
-  }),
+  useSession: (): typeof session => session,
 }));
 
 vi.mock("@/hooks/useGodotLoader", () => ({
@@ -73,9 +72,16 @@ vi.mock("@/hooks/useLobbyAudio", () => ({
 
 afterEach(() => {
   resetInboundSnapForTests();
+  sessionStorage.clear();
   hub.status = "offline";
+  session.nickname = "";
+  hub.tryResume.mockReset();
+  hub.tryResume.mockReturnValue(false);
+  hub.connect.mockClear();
+  hub.joinRoom.mockClear();
   hub.leaveRoom.mockClear();
   hub.returnToLobby.mockClear();
+  session.saveNickname.mockClear();
 });
 
 describe("useGameFlow inbound snap", () => {
@@ -104,5 +110,46 @@ describe("useGameFlow inbound snap", () => {
     act(() => {result.current.matchEnd();});
     expect(lastInboundSnapOf()).toBeNull();
     expect(hub.returnToLobby).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useGameFlow 로그인 세션 + 공유 링크", () => {
+  it("저장된 닉이 있으면 링크만으로 방에 들어간다", () => {
+    session.nickname = "한스";
+    sessionStorage.setItem(WEB_STORE.PENDING_JOIN, JSON.stringify({ roomId: "r1", password: "0420" }));
+    const { result } = renderHook(() => useGameFlow("player"));
+    expect(hub.connect).toHaveBeenCalledWith("한스");
+    expect(hub.joinRoom).toHaveBeenCalledWith("r1", { password: "0420" });
+    expect(hub.tryResume).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("lobby");
+    expect(sessionStorage.getItem(WEB_STORE.PENDING_JOIN)).toBeNull();
+  });
+
+  it("첫 방문(닉 없음)은 시작하기 전까지 자동 입장하지 않는다", () => {
+    session.nickname = "";
+    sessionStorage.setItem(WEB_STORE.PENDING_JOIN, JSON.stringify({ roomId: "r1", password: "0420" }));
+    const { result } = renderHook(() => useGameFlow("player"));
+    expect(hub.connect).not.toHaveBeenCalled();
+    expect(hub.joinRoom).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("intro");
+    expect(result.current.hasSavedName).toBe(false);
+  });
+
+  it("닉은 있어도 공유 링크가 없으면 로비에 머물지 않는다", () => {
+    session.nickname = "한스";
+    const { result } = renderHook(() => useGameFlow("player"));
+    expect(hub.joinRoom).not.toHaveBeenCalled();
+    expect(result.current.hasSavedName).toBe(true);
+    expect(result.current.phase).toBe("intro");
+  });
+
+  it("수동 시작하기도 대기 입장을 소비한다", () => {
+    session.nickname = "";
+    sessionStorage.setItem(WEB_STORE.PENDING_JOIN, JSON.stringify({ roomId: "open1", password: "" }));
+    const { result } = renderHook(() => useGameFlow("player"));
+    act(() => {result.current.findRoom();});
+    expect(hub.connect).toHaveBeenCalledTimes(1);
+    expect(hub.joinRoom).toHaveBeenCalledWith("open1", { password: "" });
+    expect(sessionStorage.getItem(WEB_STORE.PENDING_JOIN)).toBeNull();
   });
 });

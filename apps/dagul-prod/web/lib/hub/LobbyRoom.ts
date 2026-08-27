@@ -5,7 +5,7 @@ import { hubLimits, parsePlayerName, parseRoomSettings } from "./room-options.js
 import { hasRoomPassword, joinPasswordOk, resolveCreatePassword } from "./room-password.js";
 import { defaultModeOf } from "../games/catalog.js";
 import { LobbyState, PlayerSchema } from "./lobby-state.js";
-import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
+import { compactLobbySlots, firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "./lobby-seats.js";
 import { startBodies } from "./lobby-relay.js";
 import { parseSeatClaim, sameSeatClaim, type SeatClaim } from "../guest-identity.js";
 import {
@@ -266,6 +266,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
       parkSeat(this.bag, this.state.players[idx].slot, true);
       this.state.players.splice(idx, 1);
     }
+    if (!playing) {compactLobbySlots(Array.from(this.state.players));}
     if (playing && wasHost) {
       this.syncHost();
       if (this.state.hostSessionId === "") {scheduleHostLossReset(this, this.bag);}

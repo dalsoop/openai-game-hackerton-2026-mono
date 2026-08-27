@@ -14,6 +14,14 @@ export function pickHostSessionId(players: readonly PlayerSchema[]): string {
   return host?.sessionId ?? "";
 }
 
+/** 대기실에서 빈 칸을 메운다. 플레이 중 슬롯은 시뮬 신원이라 당기지 않는다. */
+export function compactLobbySlots(players: ReadonlyArray<{ slot: number }>): void {
+  const ordered = [...players].sort((a, b) => a.slot - b.slot);
+  for (let i = 0; i < ordered.length; i++) {
+    ordered[i].slot = i;
+  }
+}
+
 export function firstFreeSlot(usedSlots: readonly number[]): number {
   const used = new Set(usedSlots);
   for (let s = 0; s < HUB_CONFIG.maxPlayers; s++) {

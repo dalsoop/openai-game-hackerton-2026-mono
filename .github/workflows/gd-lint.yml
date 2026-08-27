@@ -5,7 +5,7 @@ name: gd-lint
 on:
   pull_request:
     paths:
-      - "apps/server-yjh-dev1/project/**"
+      - "apps/dagul-prod/project/**"
       - "lint_gd.py"
       - "lint_gd_baseline.json"
       - "scripts/gd_test.py"
@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/server-yjh-dev1/project/**"
+      - "apps/dagul-prod/project/**"
 
 jobs:
   lint-and-test:
@@ -25,7 +25,7 @@ jobs:
           python-version: "3.12"
 
       # lint 래칫 — baseline 초과(신규 위반 유입)면 실패
-      - run: python3 lint_gd.py apps/server-yjh-dev1/project --baseline lint_gd_baseline.json
+      - run: python3 lint_gd.py apps/dagul-prod/project --baseline lint_gd_baseline.json
 
       # GD 유닛테스트 — Godot 헤드리스 바이너리 캐시(apply-apps.py 의 다운로드 로직이 miss 시 채움)
       - name: Cache Godot binary
@@ -36,6 +36,6 @@ jobs:
       - name: Cache Godot import
         uses: actions/cache@v4
         with:
-          path: apps/server-yjh-dev1/project/.godot
-          key: godot-import-${{ hashFiles('apps/server-yjh-dev1/project/**/*.gd', 'apps/server-yjh-dev1/project/**/*.tscn') }}
+          path: apps/dagul-prod/project/.godot
+          key: godot-import-${{ hashFiles('apps/dagul-prod/project/**/*.gd', 'apps/dagul-prod/project/**/*.tscn') }}
       - run: python3 scripts/gd_test.py

@@ -19,6 +19,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
+    "test:lobby-start": "vitest run tests/waiting-room-start.test.ts tests/ui/room.test.tsx tests/rooms/lobby-room.test.ts tests/messages.test.ts tests/match-load-ready.test.ts tests/lobby-start-character-resolve.test.ts",
     "verify": "tsc --noEmit && eslint . && npm run schema:check && vitest run && node scripts/check-contract.mjs && npm run test:gd",
     "smoke:handoff": "node scripts/smoke-handoff.mjs",
     "e2e": "node scripts/e2e-dagul.mjs",

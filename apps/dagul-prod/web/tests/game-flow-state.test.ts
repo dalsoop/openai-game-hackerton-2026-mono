@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSurface, deployReloadSafe, displayNameOf, homeSurface, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { createSurface, deployReloadSafe, displayNameOf, homeSurface, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, resumeYieldsToShare, shouldAutoJoinShare, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 import type { HomeSurface } from "@/lib/game-flow-state";
 
@@ -123,6 +123,28 @@ describe("phaseOnMount", () => {
 
   it("반전: FROM_HUB 만으로 플레이에 들어가지 않는다", () => {
     expect(phaseOnMount(false)).toBeNull();
+  });
+});
+
+describe("shouldAutoJoinShare — 로그인 세션 + 공유 링크", () => {
+  it("저장된 닉과 대기 입장이 있으면 인트로를 건너뛴다", () => {
+    expect(shouldAutoJoinShare(true, true)).toBe(true);
+  });
+
+  it("첫 방문(닉 없음)은 시작하기를 눌러야 한다", () => {
+    expect(shouldAutoJoinShare(false, true)).toBe(false);
+  });
+
+  it("공유 링크가 없으면 자동 입장하지 않는다", () => {
+    expect(shouldAutoJoinShare(true, false)).toBe(false);
+    expect(shouldAutoJoinShare(false, false)).toBe(false);
+  });
+});
+
+describe("resumeYieldsToShare", () => {
+  it("공유 링크가 있으면 이전 매치 재개를 양보한다", () => {
+    expect(resumeYieldsToShare(true)).toBe(true);
+    expect(resumeYieldsToShare(false)).toBe(false);
   });
 });
 

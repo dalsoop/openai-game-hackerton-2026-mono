@@ -97,6 +97,19 @@ export function phaseOnMount(resumed: boolean): GamePhase | null {
   return resumed ? "lobby" : null;
 }
 
+/**
+ * 저장된 닉(로그인 세션)이 있고 공유 링크가 남아 있으면 인트로를 건너뛰고 바로 입장한다.
+ * 첫 방문(닉 없음)은 시작하기를 한 번 눌러야 한다.
+ */
+export function shouldAutoJoinShare(hasSavedName: boolean, hasPendingShare: boolean): boolean {
+  return hasSavedName && hasPendingShare;
+}
+
+/** 공유 링크로 들어온 입장은 이전 매치 재개보다 우선한다. */
+export function resumeYieldsToShare(hasPendingShare: boolean): boolean {
+  return hasPendingShare;
+}
+
 /** 유즈맵 팩 받기는 대기실(방 입장 후)에서만 시작한다. 로비에서 돌리면 idle 이 '준비 중'으로 남는다. */
 export function packLoadStartsInRoom(phase: GamePhase): boolean {
   return phase === "room";

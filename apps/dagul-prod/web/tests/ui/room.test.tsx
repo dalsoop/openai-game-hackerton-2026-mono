@@ -76,21 +76,61 @@ function renderCountdown(startInSec: number, extra?: { isHost?: boolean; onLeave
   );
 }
 
+describe("대기실 시작 버튼", () => {
+  it("팩이 없으면 시작 대신 받는 중을 보여 준다", () => {
+    render(
+      <NextIntlClientProvider locale="ko" messages={ko}>
+        <Room
+          players={[new Seat(0, "host", "방장", true, true, 29, defaultCharacterId())]}
+          you={0}
+          isHost
+          gameId={DEFAULT_GAME_ID}
+          mode="classic"
+          roomOpen
+          idleLeftSec={0}
+          onStart={vi.fn()}
+          onLeave={vi.fn()}
+          onSetGame={vi.fn()}
+          onToggleRoom={vi.fn()}
+          onSetCharacter={vi.fn()}
+          onKick={vi.fn()}
+          onSetPassword={vi.fn()}
+          onSetLock={vi.fn()}
+          roomId="abc"
+          password=""
+          matchWait={false}
+          canStart={false}
+          connClass="conn-ok"
+          connText=""
+          rttMs={12}
+          rttText={null}
+          startInSec={0}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText(ko.room.downloading)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: ko.room.startButton })).toBeNull();
+  });
+});
+
 describe("대기실 시작 카운트다운 UI", () => {
   it("5초·4초는 나가기가 살아 있다", () => {
     const onLeave = vi.fn();
     renderCountdown(4, { onLeave });
     const leave = screen.getByRole("button", { name: ko.room.leaveButton });
     expect((leave as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getAllByText("4초 후 시작합니다").length).toBeGreaterThan(0);
+    expect(screen.getByText("4초 후 시작합니다")).toBeTruthy();
+    expect(screen.getAllByText("4초 후 시작합니다")).toHaveLength(1);
     fireEvent.click(leave);
     expect(onLeave).toHaveBeenCalledTimes(1);
   });
 
-  it("세는 동안 시작 버튼은 꺼진다", () => {
+  it("세는 동안 시작 버튼만 카운트를 보여 주고 꺼진다", () => {
     renderCountdown(5);
     const start = screen.getByRole("button", { name: "5초 후 시작합니다" });
     expect((start as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText("5초 후 시작합니다")).toHaveLength(1);
+    expect(document.querySelector(".wait-start-count")).toBeNull();
   });
 
   it("3초부터 나가기 버튼을 끈다", () => {
@@ -103,6 +143,8 @@ describe("대기실 시작 카운트다운 UI", () => {
     renderCountdown(3, { isHost: false });
     const leave = screen.getByRole("button", { name: ko.room.leaveLocked });
     expect((leave as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("3초 후 시작합니다")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "3초 후 시작합니다" })).toBeNull();
   });
 });
 

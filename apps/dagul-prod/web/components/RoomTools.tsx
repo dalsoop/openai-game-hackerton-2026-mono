@@ -41,11 +41,9 @@ export default function RoomTools({
           <button type="button" className="ghost wait-tool" onClick={() => {sheet.open("game");}}>
             <MaterialIcon name="sports_esports" />
             {t("changeGame")}
-            {current ? <span className="wait-tool-sub">{games(current.titleKey)}</span> : null}
           </button>
-        ) : (
-          <span className="wait-game-fixed">{current ? games(current.titleKey) : ""}</span>
-        )}
+        ) : null}
+        <span className="wait-game-fixed">{current ? games(current.titleKey) : ""}</span>
       </div>
 
       {sheet.kind === "pin" && (

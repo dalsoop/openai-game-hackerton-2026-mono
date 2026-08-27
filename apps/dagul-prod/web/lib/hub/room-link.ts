@@ -27,9 +27,7 @@ export function savePendingJoin(store: Pick<Storage, "setItem">, key: string, sh
   store.setItem(key, JSON.stringify(share));
 }
 
-export function takePendingJoin(store: Pick<Storage, "getItem" | "removeItem">, key: string): RoomShare | null {
-  const raw = store.getItem(key);
-  store.removeItem(key);
+function parsePendingRaw(raw: string | null): RoomShare | null {
   if (!raw) {return null;}
   try {
     const parsed = JSON.parse(raw) as { roomId?: unknown; password?: unknown };
@@ -39,4 +37,14 @@ export function takePendingJoin(store: Pick<Storage, "getItem" | "removeItem">, 
   } catch {
     return null;
   }
+}
+
+export function peekPendingJoin(store: Pick<Storage, "getItem">, key: string): RoomShare | null {
+  return parsePendingRaw(store.getItem(key));
+}
+
+export function takePendingJoin(store: Pick<Storage, "getItem" | "removeItem">, key: string): RoomShare | null {
+  const share = parsePendingRaw(store.getItem(key));
+  store.removeItem(key);
+  return share;
 }

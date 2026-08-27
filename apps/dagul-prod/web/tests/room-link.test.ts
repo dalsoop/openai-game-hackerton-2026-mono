@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoomSharePath, buildRoomShareUrl, parseRoomShare, savePendingJoin, takePendingJoin } from "@/lib/hub/room-link";
+import { buildRoomSharePath, buildRoomShareUrl, parseRoomShare, peekPendingJoin, savePendingJoin, takePendingJoin } from "@/lib/hub/room-link";
 
 describe("parseRoomShare", () => {
   it("room 쿼리가 없으면 null", () => {
@@ -38,8 +38,11 @@ describe("pending join 저장", () => {
       removeItem: (k: string): void => {mem.delete(k);},
     };
     savePendingJoin(store, "k", { roomId: "r1", password: "pw" });
+    expect(peekPendingJoin(store, "k")).toEqual({ roomId: "r1", password: "pw" });
+    expect(peekPendingJoin(store, "k")).toEqual({ roomId: "r1", password: "pw" });
     expect(takePendingJoin(store, "k")).toEqual({ roomId: "r1", password: "pw" });
     expect(takePendingJoin(store, "k")).toBeNull();
+    expect(peekPendingJoin(store, "k")).toBeNull();
   });
 
   it("깨진 JSON·방 id 없는 값은 버린다", () => {
