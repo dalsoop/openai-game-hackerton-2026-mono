@@ -32,7 +32,7 @@ static func pack_player(h: Dictionary, cpu: bool, ack: int) -> Dictionary:
 		K.P_ULT: float(h.get("ultimate_charge", 0.0)),
 		K.P_ANIMAL: int(h.get("animal", slot)),
 		K.P_CHARACTER_ID: str(h.get("character_id", "")),
-		K.P_ITEM: _pack_item_field(int(h.get("medkits", 0))),
+		K.P_ITEM: "medkit" if int(h.get("medkits", 0)) > 0 else "",
 		K.P_KILLS: int(h["kills"]),
 		K.P_EMOTE: int(h.get("emote", -1)),
 		K.P_EMOTE_TIME: float(h.get("emote_time", 0.0)),
@@ -113,7 +113,7 @@ static func _apply_player_vitals(hero: Dictionary, p: Dictionary, player_name: S
 	hero["display_name"] = player_name
 	hero["cpu"] = bool(p.get(K.P_CPU, false))
 	hero["parked"] = bool(p.get(K.P_PARKED, false))
-	hero["medkits"] = _unpack_item_field(str(p.get(K.P_ITEM, "")))
+	hero["medkits"] = 1 if str(p.get(K.P_ITEM, "")) != "" else 0
 	hero["emote"] = int(p.get(K.P_EMOTE, -1))
 	hero["emote_time"] = _f(p, K.P_EMOTE_TIME, 0.0)
 	hero["downed"] = bool(p.get(K.P_DOWNED, false))
@@ -176,24 +176,6 @@ static func _apply_elim_and_speed(hero: Dictionary, p: Dictionary) -> void:
 	var eq: Variant = hero.get("equipment", {})
 	if eq is Dictionary:
 		eq["move_speed"] = spd
-
-## '' | 'medkit' | 'medkit:N'. 1개는 접미사 없음. 구 스냅 'medkit' 은 1.
-static func _pack_item_field(medkits: int) -> String:
-	if medkits <= 0:
-		return ""
-	if medkits == 1:
-		return "medkit"
-	return "medkit:%d" % medkits
-
-static func _unpack_item_field(raw: String) -> int:
-	if raw == "":
-		return 0
-	if raw == "medkit":
-		return 1
-	if not raw.begins_with("medkit:"):
-		return 1
-	var n := int(raw.get_slice(":", 1))
-	return n if n > 0 else 1
 
 static func _f(d: Dictionary, key: String, fallback: float) -> float:
 	return NetSnapParser._f(d, key, fallback)

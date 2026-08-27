@@ -7,7 +7,6 @@ const Parser := preload("res://games/dagul/net/net_snap_parser.gd")
 func run(t) -> void:
 	_pack_emits_every_player_key(t)
 	_player_roundtrip(t)
-	_item_field_roundtrip(t)
 	_header_keys(t)
 	_v2_roundtrip(t)
 	_v2_omit_default(t)
@@ -176,32 +175,6 @@ func _v2_hero() -> Dictionary:
 	h["rl_timed"] = [{"id": "berserk", "time": 2.5, "name": "BER"}]
 	h["ult_clones"] = [{"pos": Vector2(10.0, 20.0)}]
 	return h
-
-func _item_field_roundtrip(t) -> void:
-	var packed1 := SnapContract.pack_player(_sample_hero(), false, 0)
-	t.check("1개는 접미사 없는 medkit", str(packed1[SnapContract.P_ITEM]) == "medkit")
-	var one := SnapContract.unpack_player(packed1, {}, 2, 60.0)
-	t.check("1개 왕복", int(one["medkits"]) == 1)
-	var h3 := _sample_hero()
-	h3["medkits"] = 3
-	var packed3 := SnapContract.pack_player(h3, false, 0)
-	t.check("3개는 medkit:3", str(packed3[SnapContract.P_ITEM]) == "medkit:3")
-	var three := SnapContract.unpack_player(packed3, {}, 2, 60.0)
-	t.check("3개 왕복", int(three["medkits"]) == 3)
-	var legacy := SnapContract.unpack_player({
-		SnapContract.P_SLOT: 2,
-		SnapContract.P_X: 0.0, SnapContract.P_Y: 0.0,
-		SnapContract.P_HP: 80.0, SnapContract.P_ALIVE: true,
-		SnapContract.P_ITEM: "medkit",
-	}, {}, 2, 60.0)
-	t.check("구 스냅 medkit 은 1개", int(legacy["medkits"]) == 1)
-	var empty := SnapContract.unpack_player({
-		SnapContract.P_SLOT: 2,
-		SnapContract.P_X: 0.0, SnapContract.P_Y: 0.0,
-		SnapContract.P_HP: 80.0, SnapContract.P_ALIVE: true,
-		SnapContract.P_ITEM: "",
-	}, {}, 2, 60.0)
-	t.check("빈 item 은 0개", int(empty["medkits"]) == 0)
 
 func _header_keys(t) -> void:
 	var world := _header_world()
