@@ -17,6 +17,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const OG_IMAGE = "/og.webp";
+
+function metadataBaseUrl(): URL {
+  const slot = (process.env.SLOT_FOLDER ?? "dagul-prod").trim() || "dagul-prod";
+  return new URL(`https://${slot}.external.kr`);
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -24,7 +31,26 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "app" });
-  return { title: t("title"), description: t("description") };
+  const title = t("title");
+  const description = t("description");
+  return {
+    metadataBase: metadataBaseUrl(),
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      locale,
+      images: [{ url: OG_IMAGE, width: 1200, height: 675, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [OG_IMAGE],
+    },
+  };
 }
 
 export default async function LocaleLayout({
