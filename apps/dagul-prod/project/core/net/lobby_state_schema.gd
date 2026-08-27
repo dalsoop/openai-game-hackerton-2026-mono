@@ -105,6 +105,15 @@ class MatchHero extends Colyseus.Schema:
 			LobbyColyseus.f("rlTimed", Colyseus.Schema.STRING),
 			LobbyColyseus.f("ultClones", Colyseus.Schema.STRING),
 			LobbyColyseus.f("parked", Colyseus.Schema.BOOLEAN),
+			# 서버 match-schema.ts 62-69행과 순서 일치 필수 — 인덱스 기반 디코드.
+			LobbyColyseus.f("pullT", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("pocketT", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hopT", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hopMax", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("hopHeight", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("mobCd", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("mvSpd", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("elim", Colyseus.Schema.BOOLEAN),
 		]
 
 class MatchBullet extends Colyseus.Schema:

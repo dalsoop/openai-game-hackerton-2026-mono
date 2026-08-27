@@ -10,6 +10,7 @@ import type { LootHero } from "@/lib/hub/match-loot";
 import { ARENA_CENTER } from "@/lib/hub/match-covers";
 import { MatchSim } from "@/lib/hub/match-sim";
 import { packAuthoritySnap } from "@/lib/hub/match-authority";
+import { equipmentForAnimal, makeEquipment } from "@/lib/hub/match-equipment";
 
 /** 회복 픽업·메드킷 — 사양(pickups-items.md) full 모드 수치 그대로의 회귀. */
 
@@ -199,9 +200,11 @@ describe("스냅 계약", () => {
     });
   });
 
-  it("P_ITEM — medkits > 0 이면 medkit, 아니면 빈 문자열", () => {
+  it("P_ITEM — 0은 빈 문자열, 1은 medkit, 2 이상은 medkit:N", () => {
     expect(packItemField(0)).toBe("");
-    expect(packItemField(2)).toBe("medkit");
+    expect(packItemField(1)).toBe("medkit");
+    expect(packItemField(2)).toBe("medkit:2");
+    expect(packItemField(3)).toBe("medkit:3");
   });
 
   it("MatchSim 스냅 — loot 16개 + players.item 전달", () => {
@@ -216,6 +219,10 @@ describe("스냅 계약", () => {
     const again = packAuthoritySnap(sim, new Map(), "full");
     const players2 = again.players as Array<Record<string, unknown>>;
     expect(players2[0].item).toBe("medkit");
+    if (h) {h.medkits = 3;}
+    const stacked = packAuthoritySnap(sim, new Map(), "full");
+    const players3 = stacked.players as Array<Record<string, unknown>>;
+    expect(players3[0].item).toBe("medkit:3");
   });
 
   it("총 루팅 드랍 습득은 applyGunLoot 를 호출해 체인 다음 총으로 교체한다", () => {
@@ -241,13 +248,14 @@ describe("스냅 계약", () => {
     const h = sim.heroes.get(0);
     expect(h).toBeDefined();
     if (!h) {return;}
-    expect(h.equipment.id).not.toBe("rail");
-    const startId = h.equipment.id;
+    expect(h.equipment.id).toBe(equipmentForAnimal(h.animal));
+    h.equipment = makeEquipment("rail");
+    h.equipmentId = "rail";
     const drop = spawnGunLootPickup(sim.loot, h.x, h.y);
     updateHealthPickups(sim.loot, sim.heroes, DT, "classic");
     expect(drop.active).toBe(false);
-    expect(h.equipment.id).not.toBe(startId);
-    expect(h.equipmentId).toBe(h.equipment.id);
+    expect(h.equipment.id).toBe("burst");
+    expect(h.equipmentId).toBe("burst");
   });
 
   it("총 드랍 스냅 n 은 장비 이름, 아이템은 itemKind·disguise 를 싣는다", () => {

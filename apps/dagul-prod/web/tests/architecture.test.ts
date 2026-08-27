@@ -275,6 +275,17 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("send_ready");
   });
 
+  it("Godot 스키마 거울은 서버 MatchHero 필드 순서와 정확히 일치한다", () => {
+    const server = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
+    const heroBlock = server.split(/class\s+\w+/)[1];
+    const serverFields = [...heroBlock.matchAll(/@type\([^)]+\)\s+(\w+)/g)].map((m) => m[1]);
+    const mirror = sourceOf(join(ROOT, "..", "project", "core/net/lobby_state_schema.gd"));
+    const heroMirror = mirror.split("class MatchHero")[1].split(/\nclass /)[0];
+    const mirrorFields = [...heroMirror.matchAll(/f\("(\w+)"/g)].map((m) => m[1]);
+    expect(serverFields.length).toBeGreaterThan(50);
+    expect(mirrorFields).toEqual(serverFields);
+  });
+
   it("카운트다운은 하드코딩 없이 첫 SNAP 의 startCountdown 을 따른다", () => {
     const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
     expect(src).toMatch(/start_countdown\s*=\s*0\.0/);

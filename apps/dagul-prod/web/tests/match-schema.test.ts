@@ -155,6 +155,25 @@ describe("writeMatchState", () => {
     expect(bullet?.y).toBe(b.y);
   });
 
+  it("row.item 과 JSON 스냅 item 이 메드킷 개수를 같이 싣는다", () => {
+    const sim = new MatchSim(
+      [{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }],
+      7,
+      "full",
+    );
+    const names = new Map([[0, "호스트"], [1, "게스트"]]);
+    const hero0 = sim.heroes.get(0);
+    if (hero0) {hero0.medkits = 3;}
+    const match = new MatchStateSchema();
+    writeMatchState(match, sim, names, "full");
+    const snap = packAuthoritySnap(sim, names, "full") as {
+      players: Array<{ slot: number; item?: string }>;
+    };
+    const p0 = snap.players.find((p) => p.slot === 0);
+    expect(p0?.item).toBe("medkit:3");
+    expect(match.heroes.get("0")?.item).toBe("medkit:3");
+  });
+
   it("스키마 events 가 JSON 스냅 events 와 같다", () => {
     const auth = seedAuthority(
       [{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }],
