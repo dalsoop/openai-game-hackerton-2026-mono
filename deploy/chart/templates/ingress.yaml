@@ -4,10 +4,14 @@ metadata:
   name: {{ include "hackertone-games.fullname" . }}
   labels:
     {{- include "hackertone-games.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- if and .Values.maintenance.enabled (or (.Capabilities.APIVersions.Has "traefik.io/v1alpha1") (.Capabilities.APIVersions.Has "traefik.containo.us/v1alpha1")) }}
+    # 502-504 를 "새 버전 배포 중" 페이지로 바꾼다 (templates/maintenance.yaml).
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "hackertone-games.fullname" . }}-maintenance@kubernetescrd
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.tls.enabled }}

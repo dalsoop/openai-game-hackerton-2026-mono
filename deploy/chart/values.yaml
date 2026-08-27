@@ -31,6 +31,11 @@ tls:
       - external.kr
     existingCloudflareSecret: cloudflare-api-token
 
+# web/hub 가 502-504 를 낼 때(배포 재시작·다운) Traefik errors 미들웨어가
+# 상시 대기 파드의 "새 버전 배포 중" 페이지로 바꿔 보여준다. CRD 없으면 자동 생략.
+maintenance:
+  enabled: true
+
 web:
   replicaCount: 1
   image:

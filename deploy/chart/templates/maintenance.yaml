@@ -1,0 +1,147 @@
+{{- /*
+배포·장애로 web/hub 가 502-504 를 낼 때 Cloudflare 기본 오류 화면 대신
+"새 버전 배포 중" 페이지를 보여준다. Traefik errors 미들웨어가 5xx 를 가로채
+상시 대기하는 초경량 파드의 정적 페이지로 바꾼다. 이 파드는 슬롯 ship 에
+영향받지 않아 앱이 내려간 동안에도 살아 있다.
+Traefik CRD 가 없는 클러스터에서는 미들웨어·주석이 통째로 빠져 기존 동작 유지.
+*/}}
+{{- define "hackertone-games.maintenanceCaddy" -}}
+{
+  auto_https off
+  admin off
+}
+:8080 {
+  encode zstd gzip
+  header Cache-Control "no-store"
+  handle /healthz {
+    respond "ok" 200
+  }
+  handle {
+    root * /srv/maintenance
+    rewrite * /index.html
+    file_server
+  }
+}
+{{- end }}
+{{- if .Values.maintenance.enabled }}
+{{- $crd := "" }}
+{{- if .Capabilities.APIVersions.Has "traefik.io/v1alpha1" }}
+{{- $crd = "traefik.io/v1alpha1" }}
+{{- else if .Capabilities.APIVersions.Has "traefik.containo.us/v1alpha1" }}
+{{- $crd = "traefik.containo.us/v1alpha1" }}
+{{- end }}
+{{- if $crd }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-maintenance
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+data:
+  Caddyfile: |
+    {{- include "hackertone-games.maintenanceCaddy" . | nindent 4 }}
+  index.html: |
+    {{- .Files.Get "files/maintenance-index.html" | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-maintenance
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "hackertone-games.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: maintenance
+  template:
+    metadata:
+      labels:
+        {{- include "hackertone-games.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: maintenance
+      annotations:
+        # subPath 마운트는 ConfigMap 갱신을 못 따라간다 — 페이지가 바뀌면 재기동.
+        checksum/page: {{ print (include "hackertone-games.maintenanceCaddy" .) (.Files.Get "files/maintenance-index.html") | sha256sum }}
+    spec:
+      enableServiceLinks: false
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: maintenance
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: page
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+            - name: page
+              mountPath: /srv/maintenance/index.html
+              subPath: index.html
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: page
+          configMap:
+            name: {{ include "hackertone-games.fullname" . }}-maintenance
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-maintenance
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  selector:
+    {{- include "hackertone-games.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: {{ $crd }}
+kind: Middleware
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-maintenance
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  errors:
+    status:
+      - "502-504"
+    service:
+      name: {{ include "hackertone-games.fullname" . }}-maintenance
+      port: 80
+    query: /
+{{- end }}
+{{- end }}
