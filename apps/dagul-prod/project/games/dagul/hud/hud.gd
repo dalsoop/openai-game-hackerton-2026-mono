@@ -45,6 +45,8 @@ func _ready() -> void:
         gun_texture = load("res://games/dagul/assets/items/gun.png")
     if ResourceLoader.exists("res://games/dagul/assets/items/medkit.png"):
         medkit_texture = load("res://games/dagul/assets/items/medkit.png")
+        # 버프 칩(draw_buff_glyph)도 십자 폴리곤 폴백 대신 실제 아이콘을 쓴다.
+        roulette_icons["medkit"] = medkit_texture
     if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
         ammo_round_texture = load("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
     if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoCasing.png"):
