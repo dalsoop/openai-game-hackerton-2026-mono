@@ -168,16 +168,29 @@ def push_web(folder: str) -> None:
 
 
 
-def docker_push(ref: str, attempts: int = 3) -> None:
-    last = 1
+def docker_push(ref: str, attempts: int = 3) -> bool:
     for attempt in range(1, attempts + 1):
         ran = subprocess.run(["docker", "push", ref], check=False)
-        last = ran.returncode
-        if last == 0:
+        if ran.returncode == 0:
             print(f"pushed {ref}")
-            return
+            return True
         print(f"harbor push 실패 ({attempt}/{attempts}) {ref}", file=sys.stderr)
-    raise SystemExit(f"{ref}: harbor push 실패")
+    return False
+
+
+def ready_node_count() -> int:
+    listed = remote("kubectl get nodes --no-headers")
+    if listed.returncode:
+        return 0
+    return len([line for line in listed.stdout.splitlines() if line.strip()])
+
+
+def require_registry_or_single_node(ref: str) -> None:
+    nodes = ready_node_count()
+    if nodes == 1:
+        print(f"warn {ref}: harbor 없음 — 단일 노드 ctr import")
+        return
+    raise SystemExit(f"{ref}: harbor push 실패 (nodes={nodes})")
 
 
 def build_hub(folder: str) -> None:
@@ -198,7 +211,8 @@ def build_hub(folder: str) -> None:
         ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
         check=True,
     )
-    docker_push(ref)
+    if not docker_push(ref):
+        require_registry_or_single_node(ref)
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
     load = subprocess.run(k3s_argv("k3s ctr images import -"), stdin=save.stdout, check=False)
     save.wait()
