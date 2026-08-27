@@ -15,6 +15,7 @@
     "godot:build": "bash ../../../deploy/scripts/build-godot.sh",
     "godot:publish": "node scripts/publish-godot-assets.mjs",
     "godot:link": "node scripts/publish-godot-assets.mjs --link",
+    "godot:ship": "npm run godot:build && npm run godot:publish && npm run restart",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3k8h7iev0hiv"
-path="res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.ctex"
+path.s3tc="res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.s3tc.ctex"
+path.etc2="res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/def.png"
-dest_files=["res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.ctex"]
+dest_files=["res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.s3tc.ctex", "res://.godot/imported/def.png-6dd6793cfd06acdec442a101e7743573.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

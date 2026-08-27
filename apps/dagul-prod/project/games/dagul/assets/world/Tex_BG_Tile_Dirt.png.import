@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cog10x7norlef"
-path="res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.ctex"
+path.s3tc="res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.s3tc.ctex"
+path.etc2="res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/world/Tex_BG_Tile_Dirt.png"
-dest_files=["res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.ctex"]
+dest_files=["res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.s3tc.ctex", "res://.godot/imported/Tex_BG_Tile_Dirt.png-feb2297bb89b5b10288ae922d518af1a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
