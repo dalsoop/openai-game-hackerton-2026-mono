@@ -87,7 +87,9 @@ func stop() -> void:
 
 func push_snap(snap: Dictionary) -> void:
 	if world != null and bool(world.get("is_net")):
-		world.push_snap(snap)
+		# 어댑터는 상주 Dictionary 를 제자리 갱신한다 — 사본 없이 넣으면 보간 버퍼의
+		# from/to 가 같은 객체가 되어 원격 위치 보간이 통째로 무효가 된다.
+		world.push_snap(snap.duplicate(true))
 
 func push_gun_fire(fx: Dictionary) -> void:
 	if world == null or world.event_log == null:

@@ -296,6 +296,18 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(gdFields("MatchHeroHud")).toEqual(hudFields);
   });
 
+  it("게임 모듈은 상주 스냅을 사본으로만 push 한다 — 공유 참조는 보간을 죽인다", () => {
+    const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
+    expect(src).toMatch(/push_snap\(snap\.duplicate\(true\)\)/);
+  });
+
+  it("HUD 리셋은 킬 피드 커서를 함께 지운다 — 2회차 킬이 전부 걸러진다", () => {
+    const hud = sourceOf(join(ROOT, "..", "project", "games/dagul/hud/hud.gd"));
+    const reset = hud.slice(hud.indexOf("func reset_match_visuals"), hud.indexOf("func _zodiac_name"));
+    expect(reset).toContain("_kill_feed.clear()");
+    expect(reset).toContain("_last_kill_event_id = 0");
+  });
+
   it("카운트다운은 하드코딩 없이 첫 SNAP 의 startCountdown 을 따른다", () => {
     const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
     expect(src).toMatch(/start_countdown\s*=\s*0\.0/);
@@ -309,6 +321,8 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("tryReleaseLoadBarrier");
     const reconn = src.slice(src.indexOf("onReconnect"), src.indexOf("onLeave"));
     expect(reconn).not.toContain("matchReady = false");
+    expect(reconn).toContain("resendStart");
+    expect(reconn).toContain("snapOptOut.delete");
   });
 
   it("반전: START 경로가 leaveOnceForHandoff 로 좌석을 넘기면 실패한다", () => {

@@ -161,7 +161,11 @@ export class LobbyRoom extends Room implements LobbyHandle {
     player.connected = true;
     parkSeat(this.bag, player.slot, false);
     resetSeatAck(this.bag, player.slot);
+    // 직전 세션이 SNAP_OFF 였으면 같은 sessionId 가 opt-out 에 남는다.
+    // 새 WASM 은 JSON SNAP 이 다시 와야 HUD·카메라가 산다.
+    this.snapOptOut.delete(client.sessionId);
     this.syncHost();
+    if (this.state.phase === "playing") {this.resendStart(client, player);}
   }
 
   onLeave(client: Client, _code?: number): void {

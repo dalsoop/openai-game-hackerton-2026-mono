@@ -1,6 +1,8 @@
 // START 페이로드 경계 — 서버·React·Godot 가 같은 형태로만 핸드오프한다.
 import { describe, expect, it } from "vitest";
-import { matchInfoFromStoredStart, parseStartPayload } from "@/lib/hub/start-payload";
+import {
+  matchInfoFromPlayingState, matchInfoFromStoredStart, parseStartPayload, startPayloadFromPlayingState,
+} from "@/lib/hub/start-payload";
 
 const valid = {
   you: 0,
@@ -66,6 +68,42 @@ describe("parseStartPayload", () => {
     })?.engineJoin).toEqual({ roomId: "abc", endpoint: "https://play.example" });
     expect(parseStartPayload({ ...valid, engineJoin: { roomId: "" } })?.engineJoin)
       .toBeUndefined();
+  });
+
+  it("playing 스키마에서 START 동등 본문을 다시 만든다", () => {
+    const payload = startPayloadFromPlayingState({
+      phase: "playing",
+      seed: 42,
+      mode: "full",
+      hostSessionId: "s1",
+      players: [
+        { slot: 1, sessionId: "s1", name: "호스트", connected: true, characterId: "a3" },
+        { slot: 2, sessionId: "s2", name: "게스트", connected: true },
+      ],
+    }, "s1", "r1");
+    expect(payload?.you).toBe(1);
+    expect(payload?.host).toBe(true);
+    expect(payload?.seed).toBe(42);
+    expect(payload?.engineJoin).toEqual({ roomId: "r1" });
+    expect(payload?.seats.map((s) => s.slot)).toEqual([1, 2]);
+    const info = matchInfoFromPlayingState({
+      phase: "playing", seed: 42, mode: "full", hostSessionId: "s0", gameId: "dagul",
+      players: [{ slot: 0, sessionId: "me", name: "나", connected: true }],
+    }, "me", { roomId: "r9", reconnectionToken: "tok", gameId: "sparring" }, "나");
+    expect(info?.slot).toBe(0);
+    expect(info?.match.you).toBe(0);
+    expect(info?.gameId).toBe("sparring");
+  });
+
+  it("반전: lobby·시드 없음·내 좌석 없으면 재구성하지 않는다", () => {
+    const playing = {
+      phase: "playing", seed: 42, mode: "full", hostSessionId: "s1",
+      players: [{ slot: 0, sessionId: "s1", name: "호스트", connected: true }],
+    };
+    expect(startPayloadFromPlayingState({ ...playing, phase: "lobby" }, "s1", "r1")).toBeNull();
+    expect(startPayloadFromPlayingState({ ...playing, seed: 0 }, "s1", "r1")).toBeNull();
+    expect(startPayloadFromPlayingState(playing, "other", "r1")).toBeNull();
+    expect(matchInfoFromPlayingState(playing, "", { roomId: "r1", reconnectionToken: "t" }, "A")).toBeNull();
   });
 
   it("좌석 characterId 는 카탈로그만 통과하고 그 외는 기본값이다", () => {

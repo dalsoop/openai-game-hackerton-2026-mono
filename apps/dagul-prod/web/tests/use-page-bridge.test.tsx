@@ -64,12 +64,13 @@ describe("usePageBridge", () => {
     window.removeEventListener(DOM_EVT.TO_ENGINE, onTo);
   });
 
-  it("브릿지 해제 때 SNAP_ON 을 보내 죽은 세션 opt-out 을 지운다", () => {
+  it("브릿지 부착·해제 때 SNAP_ON 을 보내 재접속 세션 opt-out 을 푼다", () => {
     const send = vi.fn();
     const room = { roomId: "r1", sessionId: "s1", send, leave: vi.fn() } as unknown as Room;
     const view = renderHook(() => usePageBridge(room, matchInfo, snap));
-    view.unmount();
     expect(send).toHaveBeenCalledWith(MSG.SNAP_ON, {});
+    view.unmount();
+    expect(send.mock.calls.filter((c) => c[0] === MSG.SNAP_ON)).toHaveLength(2);
   });
 
   it("반전: matchInfo 없으면 엔진 출력을 허브로 보내지 않는다", () => {

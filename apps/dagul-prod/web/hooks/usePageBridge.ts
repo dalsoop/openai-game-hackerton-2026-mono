@@ -21,6 +21,8 @@ export function usePageBridge(
     }, {
       onLeave: (): void => {void room.leave(ROOM_LEAVE.CONSENTED);},
     });
+    // 재접속 세션은 직전 SNAP_OFF 가 남아 있을 수 있다. 엔진이 다시 끄기 전까지 JSON SNAP 을 연다.
+    room.send(MSG.SNAP_ON, {});
     return (): void => {
       // 엔진이 SNAP_OFF 만 보내고 죽으면 죽은 세션이 opt-out 에 남아 2회차 SNAP 이 끊긴다.
       room.send(MSG.SNAP_ON, {});

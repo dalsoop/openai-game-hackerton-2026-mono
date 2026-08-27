@@ -12,11 +12,36 @@ import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-add
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
 import { seatClaimNow } from "@/lib/guest-identity";
 import { roomEndKindFromCode, type RoomEndKind } from "@/lib/hub/room-end";
-import { matchInfoFromStoredStart, parseStartPayload, type StartPayload } from "@/lib/hub/start-payload";
+import {
+  matchInfoFromPlayingState, matchInfoFromStoredStart, parseStartPayload, type StartPayload,
+} from "@/lib/hub/start-payload";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import type { JoinRequest, BridgeableRoom, MatchInfo } from "@/types";
 
 export type { RoomEndKind };
+
+function restoreMatchHandoff(
+  room: {
+    roomId: string;
+    sessionId: string;
+    reconnectionToken: string;
+    state?: RosterSnapshot & { seed?: unknown };
+  },
+  name: string,
+): MatchInfo | null {
+  const roomMeta = {
+    roomId: room.roomId,
+    reconnectionToken: room.reconnectionToken,
+    gameId: room.state?.gameId,
+  };
+  const stored = matchInfoFromStoredStart(
+    sessionStorage.getItem(HANDOFF.MATCH),
+    roomMeta,
+    name,
+  );
+  if (stored) {return stored;}
+  return matchInfoFromPlayingState(room.state, room.sessionId, roomMeta, name);
+}
 
 // 인게임 핸드오프 — START 정보와 재접속 토큰을 sessionStorage 에 남긴다.
 // 탭 스코프로 둬야 새 탭이 남의 재접속 토큰을 주워 자동 reconnect 하지 않는다.
@@ -86,15 +111,7 @@ export function useGameRoom(
               gameId: (r.state as RosterSnapshot | undefined)?.gameId,
             });
           });
-          const restored = matchInfoFromStoredStart(
-            sessionStorage.getItem(HANDOFF.MATCH),
-            {
-              roomId: r.roomId,
-              reconnectionToken: r.reconnectionToken,
-              gameId: (r.state as RosterSnapshot | undefined)?.gameId,
-            },
-            playerName(),
-          );
+          const restored = restoreMatchHandoff(r, playerName());
           if (restored) {setMatchInfo(restored);}
           r.onLeave((code?: number) => {
             setMatchInfo(null);

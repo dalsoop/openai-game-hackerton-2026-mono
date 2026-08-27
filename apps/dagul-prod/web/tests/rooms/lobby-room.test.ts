@@ -676,6 +676,29 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     expect(room.state.players.find((p) => p.sessionId === host.sessionId)?.matchReady).toBe(true);
   });
 
+  it("플레이 중 재접속은 START 를 다시 보내고 SNAP_OFF 를 푼다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.SNAP_OFF, {});
+    await new Promise((r) => setTimeout(r, 20));
+    expect(room.snapOptOut.has(host.sessionId)).toBe(true);
+    const seated = room.clients.find((c) => c.sessionId === host.sessionId);
+    const row = room.state.players.find((p) => p.sessionId === host.sessionId);
+    expect(seated && row).toBeTruthy();
+    if (!seated || !row) {return;}
+    row.connected = false;
+    const startP = host.waitForMessage(MSG.START);
+    room.onReconnect(seated);
+    const payload = parseStartPayload(await startP);
+    expect(payload?.you).toBe(0);
+    expect(payload?.seed).toBeGreaterThan(0);
+    expect(payload?.engineJoin?.roomId).toBe(room.roomId);
+    expect(room.snapOptOut.has(host.sessionId)).toBe(false);
+  });
+
   it("접속 좌석이 모두 ready 면 카운트다운이 같이 깎인다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });

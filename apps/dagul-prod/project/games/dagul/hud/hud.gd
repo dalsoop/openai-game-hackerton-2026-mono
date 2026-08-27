@@ -61,6 +61,9 @@ func _ready() -> void:
 func reset_match_visuals() -> void:
     if _pjh != null:
         _pjh.reset_match_visuals()
+    # 2회차: 이벤트 id 가 1부터 다시 시작한다 — 커서를 안 지우면 새 킬이 전부 걸러진다.
+    _kill_feed.clear()
+    _last_kill_event_id = 0
 
 func _zodiac_name(slot: int) -> String:
     return ZODIAC_NAMES[posmod(slot, 12)]

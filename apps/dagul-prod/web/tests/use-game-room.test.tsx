@@ -13,7 +13,14 @@ interface FakeRoom {
   sessionId: string;
   reconnectionToken: string;
   connection: { url: string };
-  state: { gameId: string };
+  state: {
+    gameId: string;
+    phase?: string;
+    seed?: number;
+    mode?: string;
+    hostSessionId?: string;
+    players?: Array<{ slot: number; sessionId: string; name: string; connected: boolean }>;
+  };
   leave: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
   onMessage: (type: string, cb: Handler) => void;
@@ -111,6 +118,29 @@ describe("useGameRoom START", () => {
     act(() => {room.emit(MSG.START, { you: 0, seed: 0 });});
     expect(room.leave).not.toHaveBeenCalled();
     expect(result.current.matchInfo).toBeNull();
+  });
+
+  it("MATCH 가 없어도 playing 스키마로 matchInfo 를 재구성한다", async () => {
+    const room = makeRoom();
+    room.state = {
+      gameId: "dagul",
+      phase: "playing",
+      seed: 42,
+      mode: "full",
+      hostSessionId: "s1",
+      players: [{ slot: 1, sessionId: "s1", name: "호스트", connected: true }],
+    };
+    const joinRequest = { kind: "resume" as const };
+    const { result } = renderHook(() => useGameRoom(
+      joinRequest,
+      () => "호스트",
+      () => ({ reconnect: () => Promise.resolve(room) }) as unknown as Client,
+      vi.fn(),
+      vi.fn(),
+    ));
+    await waitFor(() => {expect(result.current.matchInfo?.match?.you).toBe(1);});
+    expect(result.current.matchInfo?.slot).toBe(1);
+    expect(result.current.matchInfo?.match?.seed).toBe(42);
   });
 
   it("저장된 MATCH 로 브릿지용 matchInfo 를 복원한다", async () => {

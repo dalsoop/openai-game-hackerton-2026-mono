@@ -1,4 +1,5 @@
 import { asCharacterId } from "../characters/index.js";
+import { seatListOf } from "../domain/roster.js";
 
 // START 메시지 계약 — 서버가 보내고 React 가 sessionStorage 에 남기며 Godot 가 읽는다.
 // 경계에서만 unknown 을 받고, 이후는 StartPayload 만 흐르게 한다.
@@ -64,6 +65,53 @@ export function parseStartPayload(raw: unknown): StartPayload | null {
     mode: typeof o.mode === "string" ? o.mode : "",
     seats,
     ...(engineJoin ? { engineJoin } : {}),
+  };
+}
+
+/** 플레이 중 재입장 — 스키마에서 START 동등 본문을 다시 만든다. MATCH 가 비어도 부팅 가능하게. */
+export interface PlayingRoomView {
+  readonly phase?: string;
+  readonly seed?: unknown;
+  readonly mode?: unknown;
+  readonly hostSessionId?: string;
+  readonly gameId?: string;
+  readonly players?: unknown;
+}
+
+export function startPayloadFromPlayingState(
+  state: PlayingRoomView | null | undefined,
+  sessionId: string,
+  roomId: string,
+): StartPayload | null {
+  if (!state || state.phase !== "playing" || sessionId === "" || roomId === "") {return null;}
+  const rows = seatListOf(state.players);
+  const me = rows.find((p) => p.sessionId === sessionId);
+  if (!me || !Number.isFinite(me.slot)) {return null;}
+  return parseStartPayload({
+    you: me.slot,
+    host: state.hostSessionId === sessionId,
+    seed: state.seed,
+    mode: typeof state.mode === "string" ? state.mode : "",
+    seats: rows,
+    engineJoin: { roomId },
+  });
+}
+
+export function matchInfoFromPlayingState(
+  state: PlayingRoomView | null | undefined,
+  sessionId: string,
+  room: { roomId: string; reconnectionToken: string; gameId?: string },
+  name: string,
+): ReturnType<typeof matchInfoFromStoredStart> {
+  const payload = startPayloadFromPlayingState(state, sessionId, room.roomId);
+  if (!payload) {return null;}
+  return {
+    roomId: room.roomId,
+    name,
+    slot: payload.you,
+    resumeToken: room.reconnectionToken,
+    match: payload,
+    gameId: room.gameId ?? state?.gameId,
   };
 }
 
