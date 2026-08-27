@@ -62,16 +62,20 @@
   h1 { font-size: 30px; font-weight: 700; margin: 16px 0 0; letter-spacing: 1px; }
   h1 .accent { color: var(--gold); }
   p { color: var(--sub); line-height: 1.75; font-size: 14px; }
-  .spinner {
-    margin: 28px auto 0; width: 44px; height: 44px; position: relative;
+  .dots {
+    display: flex; gap: 12px; justify-content: center; margin-top: 28px;
   }
-  .spinner i {
-    position: absolute; left: 50%; top: 50%; display: block;
-    width: 3px; height: 11px; border-radius: 2px;
-    background: rgba(46, 46, 51, 1.0);
-    transform-origin: 50% -7px;
+  .dots i {
+    display: block; width: 8px; height: 8px;
+    background: var(--green); image-rendering: pixelated;
+    animation: dotbounce 1.0s ease-in-out infinite;
   }
-  .spinner i.on { background: var(--green); }
+  .dots i:nth-child(2) { animation-delay: 0.15s; }
+  .dots i:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes dotbounce {
+    0%, 70%, 100% { transform: translateY(0); opacity: 0.25; }
+    35% { transform: translateY(-10px); opacity: 1; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .hero, .shadow, .bar i { animation: none; }
   }
@@ -84,7 +88,7 @@
     <span class="hero" id="hero" role="img" aria-label="다굴 캐릭터"></span>
   </div>
   <h1>업데이트 <span class="accent">중</span></h1>
-  <div class="spinner" aria-hidden="true" id="spinner"></div>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
 </main>
 <script>
   // 인게임 렌더러와 같은 아틀라스 매핑 (debug_renderer ANIMAL_ATLAS_FRAME).
@@ -105,20 +109,28 @@
     fetch("/healthz", { cache: "no-store" })
       .then(function (r) { if (r.ok) location.reload(); })
       .catch(function () {});
-  // 인게임 reload_spinner 재현 — 8막대 원형, 하나씩 초록으로 켜지며 회전
-  var spinEl = document.getElementById("spinner");
-  for (var b = 0; b < 8; b++) {
-    var bar = document.createElement("i");
-    bar.style.transform = "rotate(" + (b * 45) + "deg) translateY(18px)";
-    spinEl.appendChild(bar);
-  }
-  var sp = 0;
-  setInterval(function () {
-    sp = (sp + 1) % 8;
-    var bars = spinEl.children;
-    for (var j = 0; j < 8; j++) { bars[j].className = j === sp ? "on" : ""; }
-  }, 120);
+
   }, 3000);
+  // 파비콘 — 아틀라스에서 올해 띠 셀을 canvas로 잘라 동적 교체
+  var ATLAS_FRAME_FAV = [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11];
+  var zodiacAnimal = ((new Date().getFullYear() - 4) % 12 + 12) % 12;
+  var frameFav = ATLAS_FRAME_FAV[zodiacAnimal];
+  var favImg = new Image();
+  favImg.onload = function () {
+    var cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 64;
+    var cx = cv.getContext("2d");
+    var cw = favImg.naturalWidth / 4, ch = favImg.naturalHeight / 3;
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(favImg, (frameFav % 4) * cw, Math.floor(frameFav / 4) * ch, cw, ch, 0, 0, 64, 64);
+    var link = document.createElement("link");
+    link.rel = "icon"; link.type = "image/png"; link.href = cv.toDataURL("image/png");
+    document.head.appendChild(link);
+  };
+  // hero의 background-image는 CSS url(data:...) 형태 — 정규식으로 data URI를 추출
+  var bgRaw = getComputedStyle(document.getElementById("hero")).backgroundImage;
+  var m = bgRaw.match(/url\("?(data:[^"]+)"?\)/);
+  if (m) favImg.src = m[1];
 </script>
 </body>
 </html>
