@@ -207,7 +207,7 @@ func _merge_hud(src: Dictionary) -> void:
 	var hud := _as_dict(src.get("hud", {}))
 	if hud.is_empty():
 		return
-	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT"]:
+	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT", "mvSpd", "elim"]:
 		if hud.has(key):
 			src[key] = hud[key]
 

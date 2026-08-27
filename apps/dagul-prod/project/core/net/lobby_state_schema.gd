@@ -55,6 +55,8 @@ class MatchHeroHud extends Colyseus.Schema:
 			LobbyColyseus.f("rouDesc", Colyseus.Schema.STRING),
 			LobbyColyseus.f("hitstunT", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("comboCaptureT", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("mvSpd", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("elim", Colyseus.Schema.BOOLEAN),
 		]
 
 class MatchHero extends Colyseus.Schema:
@@ -123,8 +125,7 @@ class MatchHero extends Colyseus.Schema:
 			LobbyColyseus.f("hopMax", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("hopHeight", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("mobCd", Colyseus.Schema.FLOAT32),
-			LobbyColyseus.f("mvSpd", Colyseus.Schema.FLOAT32),
-			LobbyColyseus.f("elim", Colyseus.Schema.BOOLEAN),
+			# 필드 64개(인덱스 0~63) 초과 금지 — 넘치는 필드는 hud 중첩으로 뺀다.
 			LobbyColyseus.f("hud", Colyseus.Schema.REF, LobbyColyseus.MatchHeroHud),
 		]
 

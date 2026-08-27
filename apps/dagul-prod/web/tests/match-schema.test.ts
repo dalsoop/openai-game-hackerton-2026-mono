@@ -70,11 +70,12 @@ function assertV2SchemaRow(match: MatchStateSchema, weaponId: string): void {
   expect(JSON.parse(row.ultClones)).toEqual([]);
   assertV2MotionRow(row);
   assertV2HudRow(row.hud);
+  expect(row.hud.elim).toBe(true);
 }
 
 function assertV2MotionRow(row: {
   pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
-  mobCd: number; elim: boolean;
+  mobCd: number;
 }): void {
   expect(row.pullT).toBeCloseTo(0.55);
   expect(row.pocketT).toBeCloseTo(5);
@@ -82,7 +83,6 @@ function assertV2MotionRow(row: {
   expect(row.hopMax).toBeCloseTo(0.3);
   expect(row.hopHeight).toBeCloseTo(19);
   expect(row.mobCd).toBeCloseTo(1.25);
-  expect(row.elim).toBe(true);
 }
 
 function assertV2HudRow(row: {
@@ -109,8 +109,9 @@ function assertV2SnapPlayer(
   expect(typeof packed.rouSpin).toBe("string");
   assertV2MotionRow(packed as unknown as {
     pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
-    mobCd: number; elim: boolean;
+    mobCd: number;
   });
+  expect(packed.elim).toBe(true);
   assertV2HudRow(packed as unknown as {
     reloadFlash: number; respawnLeft: number; sprayIndex: number; rouDesc: string;
     hitstunT: number; comboCaptureT: number;
@@ -119,11 +120,11 @@ function assertV2SnapPlayer(
 
 function assertSchemaSnapParity(
   row: { pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
-    mobCd: number; elim: boolean; mvSpd: number },
+    mobCd: number; hud: { elim: boolean; mvSpd: number } },
   packed: Record<string, unknown>,
   mvSpd: number,
 ): void {
-  expect(row.mvSpd).toBe(mvSpd);
+  expect(row.hud.mvSpd).toBe(mvSpd);
   expect(packed.mvSpd).toBe(mvSpd);
   expect(row.pullT).toBe(packed.pullT);
   expect(row.pocketT).toBe(packed.pocketT);
@@ -131,7 +132,7 @@ function assertSchemaSnapParity(
   expect(row.hopMax).toBe(packed.hopMax);
   expect(row.hopHeight).toBe(packed.hopHeight);
   expect(row.mobCd).toBe(packed.mobCd);
-  expect(row.elim).toBe(packed.elim);
+  expect(row.hud.elim).toBe(packed.elim);
 }
 
 function assertOmittedV2Keys(row: Record<string, unknown>, mvSpd: number): void {
@@ -305,14 +306,14 @@ describe("writeMatchState", () => {
     const schema = requireHero0(match);
     expect(schema.mobCd).toBe(0);
     expect(schema.hopT).toBe(0);
-    expect(schema.elim).toBe(false);
+    expect(schema.hud.elim).toBe(false);
     expect(schema.hud.reloadFlash).toBe(0);
     expect(schema.hud.respawnLeft).toBe(0);
     expect(schema.hud.sprayIndex).toBe(0);
     expect(schema.hud.rouDesc).toBe("");
     expect(schema.hud.hitstunT).toBe(0);
     expect(schema.hud.comboCaptureT).toBe(0);
-    expect(schema.mvSpd).toBe(hero.equipment.moveSpeed);
+    expect(schema.hud.mvSpd).toBe(hero.equipment.moveSpeed);
   });
 
   it("탄 schema 가 radius·arc·heavy·src 를 싣는다", () => {

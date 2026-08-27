@@ -75,8 +75,6 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.hopMax = h.hopMax;
   row.hopHeight = h.hopHeight;
   row.mobCd = h.mobilityCd;
-  row.mvSpd = h.equipment.moveSpeed;
-  row.elim = h.eliminated;
   row.rlTimed = JSON.stringify(h.rlTimed);
   row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
   row.parked = h.parked;
@@ -90,6 +88,8 @@ function fillHeroHudV2(row: MatchHeroSchema, h: SimHero): void {
   row.hud.rouDesc = h.rouletteDesc;
   row.hud.hitstunT = h.hitstunTime;
   row.hud.comboCaptureT = h.comboCaptureTime;
+  row.hud.mvSpd = h.equipment.moveSpeed;
+  row.hud.elim = h.eliminated;
 }
 
 function writeHeroes(

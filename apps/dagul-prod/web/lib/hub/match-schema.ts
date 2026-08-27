@@ -1,6 +1,10 @@
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
 
-/** MatchHeroSchema 가 Colyseus 64필드 한도에 닿아 HUD 필드를 중첩한다. */
+/**
+ * MatchHeroSchema 가 Colyseus 64필드 한도에 닿아 넘치는 필드를 중첩한다.
+ * 한도는 실재한다 — 인코더가 (index | operation) 한 바이트 패킹이라
+ * 인덱스 64 이상은 DELETE(64)/ADD(128) 비트와 충돌해 "refId not found" 로 붕괴한다.
+ */
 export class MatchHeroHudSchema extends Schema {
   @type("float32") reloadFlash = 0;
   @type("float32") respawnLeft = 0;
@@ -8,6 +12,8 @@ export class MatchHeroHudSchema extends Schema {
   @type("string") rouDesc = "";
   @type("float32") hitstunT = 0;
   @type("float32") comboCaptureT = 0;
+  @type("float32") mvSpd = 0;
+  @type("boolean") elim = false;
 }
 
 /** packAuthoritySnap SnapPlayer 와 같은 필드. */
@@ -75,8 +81,6 @@ export class MatchHeroSchema extends Schema {
   @type("float32") hopMax = 0;
   @type("float32") hopHeight = 0;
   @type("float32") mobCd = 0;
-  @type("float32") mvSpd = 0;
-  @type("boolean") elim = false;
   @type(MatchHeroHudSchema) hud = new MatchHeroHudSchema();
 }
 

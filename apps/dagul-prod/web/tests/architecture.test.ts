@@ -275,26 +275,7 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("send_ready");
   });
 
-  it("Godot 스키마 거울은 서버 MatchHero 필드 순서와 정확히 일치한다", () => {
-    const server = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
-    const mirror = sourceOf(join(ROOT, "..", "project", "core/net/lobby_state_schema.gd"));
-    const tsFields = (className: string): string[] => {
-      const block = server.split(new RegExp(`class\\s+${className}`))[1]?.split(/class\s+\w+/)[0] ?? "";
-      return [...block.matchAll(/@type\([^)]+\)\s+(\w+)/g)].map((m) => m[1]);
-    };
-    const gdFields = (className: string): string[] => {
-      const block = mirror.split(`class ${className} extends`)[1]?.split(/\nclass /)[0] ?? "";
-      return [...block.matchAll(/f\("(\w+)"/g)].map((m) => m[1]);
-    };
-    const serverFields = tsFields("MatchHeroSchema");
-    expect(serverFields.length).toBeGreaterThan(50);
-    expect(gdFields("MatchHero")).toEqual(serverFields);
-    const hudFields = tsFields("MatchHeroHudSchema");
-    expect(hudFields).toEqual([
-      "reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT",
-    ]);
-    expect(gdFields("MatchHeroHud")).toEqual(hudFields);
-  });
+  // Godot 스키마 거울 전 클래스 대조는 tests/schema-mirror.test.ts 가 담당한다.
 
   it("게임 모듈은 상주 스냅을 사본으로만 push 한다 — 공유 참조는 보간을 죽인다", () => {
     const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
