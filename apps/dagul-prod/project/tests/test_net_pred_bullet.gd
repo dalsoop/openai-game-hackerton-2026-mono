@@ -20,6 +20,7 @@ func run(t) -> void:
 	_sustained_fire_waits_for_weapon_interval(t)
 	_sustained_fire_ignored_for_semi_weapons(t)
 	_absorbed_by_cover_not_bounced(t)
+	_real_bullet_arrival_retires_oldest_predicted(t)
 
 func _spawn_pure(t) -> void:
 	var w := FakeWorld.new()
@@ -119,6 +120,26 @@ func _absorbed_by_cover_not_bounced(t) -> void:
 		if w._pred_bullets.is_empty():
 			break
 	t.check("커버에 닿으면 튕기지 않고 소멸한다", w._pred_bullets.is_empty())
+
+## 회귀: "총알이 두 개로 따로 나온다" — 예측 유령이 TTL 만료까지 살아있으면 실탄이
+## 도착해도 화면에 둘 다 보인다. 실탄이 도착한 순간(=같은 발이 이제 권위로 확인된
+## 순간) 가장 오래된 예측 유령을 그만큼 치워야 한다.
+func _real_bullet_arrival_retires_oldest_predicted(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	nw.push_snap(_snap(3920.0, 2380.0, 25, "leech"))
+	nw.predict_local_fire()
+	t.check("예측 총알 하나가 쌓였다", nw._pred_bullets.size() == 1)
+	var with_bullet := _snap(3920.0, 2380.0, 24, "leech")
+	with_bullet[SnapContract.TICK] = 13
+	with_bullet[SnapContract.BULLETS] = [{
+		"id": 1, "x": 3920.0, "y": 2380.0, "vx": 980.0, "vy": 0.0, "owner": 0, "kind": "bolt",
+	}]
+	nw.push_snap(with_bullet)
+	nw.present(0.0)
+	t.check("실탄이 도착하면 예측 유령이 치워진다", nw._pred_bullets.is_empty())
+	t.check("실탄 자체는 projectiles 에 남는다", nw.projectiles.size() == 1)
 
 func _snap(x: float, y: float, mag: int, weapon_id: String = "net") -> Dictionary:
 	return {

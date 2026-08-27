@@ -2,6 +2,7 @@
  * 아레나 지오메트리 + 커버·knockout — 레거시 arena_geometry.gd 의 결정론 포팅.
  * RNG·시계 없음: 상수와 입력만으로 결과가 정해진다.
  */
+import { moveToward } from "../util/math.js";
 
 export const SOURCE_ARENA_SIZE = { x: 2800, y: 1700 };
 export const ARENA_TILE_SCALE = 1.4;
@@ -153,13 +154,6 @@ export function spawnPoint(slot: number, count: number): { x: number; y: number 
   );
 }
 
-function moveToward(x: number, y: number, tx: number, ty: number, delta: number): { x: number; y: number } {
-  const dx = tx - x;
-  const dy = ty - y;
-  const dist = Math.hypot(dx, dy);
-  if (dist <= delta || dist === 0) {return { x: tx, y: ty };}
-  return { x: x + (dx / dist) * delta, y: y + (dy / dist) * delta };
-}
 
 /** 커버 안이면 아레나 중심 방향으로 28px 씩 밀어낸다 (레거시 nudge_out_of_cover). */
 export function nudgeOutOfCover(

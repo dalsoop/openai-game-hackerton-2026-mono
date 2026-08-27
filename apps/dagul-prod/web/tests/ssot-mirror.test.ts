@@ -56,7 +56,7 @@ function gdReturnDicts(src: string, fn: string): Record<string, Record<string, s
       const raw = f[2].trim();
       row[f[1]] = raw.startsWith("\"") ? raw.slice(1, -1) : Number(raw);
     }
-    out[m[1]] = row;
+    out[typeof m[1] === "string" ? m[1] : "_"] = row;
   }
   return out;
 }

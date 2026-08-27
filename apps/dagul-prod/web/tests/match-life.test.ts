@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOWN_BLEED_TIME, DOWN_MOVE_MULT, MAX_REVIVES, RESPAWN_BASE, RESPAWN_MAX, RESPAWN_RANK_STEP,
   SPAWN_PROTECT_RESPAWN, SPAWN_PROTECT_STAND_UP, STAND_UP_HP_RATIO,
-  applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns,
+  applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns, willConfirmKill,
   type DownCombatHero,
 } from "@/lib/hub/match-life";
 import type { LifeHero } from "@/lib/hub/match-life";
@@ -34,6 +34,13 @@ describe("다운·확인사살", () => {
     expect(target.hp).toBe(0);
     expect(target.downLeft).toBe(DOWN_BLEED_TIME);
     expect(shooter.kills).toBe(0);
+  });
+
+  it("willConfirmKill 은 downHero 전에 막타 여부를 본다", () => {
+    const target = hero(1, { downed: true, hp: 0, downTaken: 40 });
+    expect(willConfirmKill(target, 7)).toBe(false);
+    expect(willConfirmKill(target, 8)).toBe(true);
+    expect(willConfirmKill(hero(1, { hp: 10 }), 80)).toBe(false);
   });
 
   it("다운 중 누적 48 이상이면 확정 킬 — 이 시점에 킬 크레딧 적립", () => {

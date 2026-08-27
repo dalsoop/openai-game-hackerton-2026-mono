@@ -78,6 +78,18 @@ describe("계약: godot 빌드 실패는 배포로 이어지지 않는다", () =
     const src = sourceOf(join(ROOT, "..", "..", "..", "deploy/scripts/build-godot.sh"));
     expect(src).toMatch(/set -[a-z]*e[a-z]*\b/);
   });
+
+  it("압축은 glue strip 이후에만 돈다 — 옛 index.js.br 가 패치본을 덮는 재발 방지", () => {
+    const src = sourceOf(join(ROOT, "..", "..", "..", "deploy/scripts/build-godot.sh"));
+    expect(src.indexOf("prepare-godot-export.mjs")).toBeLessThan(src.indexOf("brotli -f"));
+  });
+
+  it("godot:build 가 stale 스탬프를 같이 찍는다 — 로컬 재익스포트 뒤에도 검사가 옛 스탬프를 들지 않는다", () => {
+    const src = sourceOf(join(ROOT, "..", "..", "..", "deploy/scripts/build-godot.sh"));
+    expect(src).toContain("check-godot-stale.mjs");
+    expect(src).toContain("--write-stamp");
+    expect(src.indexOf("gen-godot-manifest.mjs")).toBeLessThan(src.indexOf("--write-stamp"));
+  });
 });
 
 describe("계약: 매치 재시작 시 잔존 상태를 지운다", () => {

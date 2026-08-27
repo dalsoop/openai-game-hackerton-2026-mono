@@ -13,6 +13,7 @@ import { isWebGL2Available, type GodotEngineApi } from "./webgl";
 import { BootTicket } from "./boot-ticket";
 import { persistEngineHandoff, type HandoffInfo } from "./handoff";
 import { disposeGodotEngine } from "./engine-dispose";
+import { installWasmErrorMonitor } from "./wasm-error-monitor";
 import { godotEngineConfig, type EngineInstance } from "./engine-config";
 import { applyRuntimeProgress } from "./load-progress";
 
@@ -148,7 +149,6 @@ export class GodotRuntime {
     const [wasmBuf] = await Promise.all([
       this.store.wasm,
       this.store.pck,
-      this.store.sideWasm,
     ]);
 
     this.update({ state: "compiling" });
@@ -160,6 +160,7 @@ export class GodotRuntime {
   // startGame() 대신 수동 시퀀스(init→copyToFS→start)를 쓴다:
   // 프리로드한 버퍼를 FS 에 직접 넣어 엔진의 재다운로드를 원천 차단한다.
   boot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
+    installWasmErrorMonitor();
     this.writeHandoff(handoff);
     if (this.engine && this.boundCanvas === canvas) {return Promise.resolve();}
     if (this.bootPromise && this.boundCanvas === canvas) {return this.bootPromise;}
@@ -183,19 +184,18 @@ export class GodotRuntime {
     if (!this.boots.isLive(gen)) {return;}
     this.update({ state: "downloading", error: null });
     this.applyManifest(await this.store.loadManifest(this.pack));
-    const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
+    const pckBuffer = await this.store.pck;
     if (!this.boots.isLive(gen)) {return;}
     this.writeHandoff(handoff);
     captureAudioContexts();
     await this.loadEngineScript();
     if (!this.boots.isLive(gen)) {return;}
-    await this.launchPrepared(canvas, pckBuffer, extBuffer, gen);
+    await this.launchPrepared(canvas, pckBuffer, gen);
   }
 
   private async launchPrepared(
     canvas: HTMLCanvasElement,
     pckBuffer: ArrayBuffer,
-    extBuffer: ArrayBuffer,
     gen: number,
   ): Promise<void> {
     const EngineCtor = (window as unknown as { Engine?: EngineCtor }).Engine;
@@ -205,7 +205,7 @@ export class GodotRuntime {
     }
     applyDevicePixelRatioCap();
     try {
-      await this.launchEngine(EngineCtor, canvas, pckBuffer, extBuffer, gen);
+      await this.launchEngine(EngineCtor, canvas, pckBuffer, gen);
     } catch (e: unknown) {
       restoreDevicePixelRatio();
       throw e;
@@ -216,22 +216,19 @@ export class GodotRuntime {
     EngineCtor: new (cfg: unknown) => EngineInstance,
     canvas: HTMLCanvasElement,
     pckBuffer: ArrayBuffer,
-    extBuffer: ArrayBuffer,
     gen: number,
   ): Promise<void> {
     if (!this.boots.isLive(gen)) {
       restoreDevicePixelRatio();
       return;
     }
-    const config = godotEngineConfig(canvas, this.plan.engineBase, this.plan.extLibFile, this.wasmModule);
+    const config = godotEngineConfig(canvas, this.plan.engineBase, this.wasmModule);
     this.attachExitPromise(config);
     captureAudioContexts();
     const engine = new EngineCtor(config);
     this.catchMatchStart();
-    await this.store.sideWasm;
     await engine.init(this.plan.engineBase);
     engine.copyToFS("index.pck", pckBuffer);
-    engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
     if (!this.boots.isLive(gen)) {
       disposeGodotEngine(engine, canvas, this.exitPromise);
       restoreDevicePixelRatio();

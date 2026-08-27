@@ -42,6 +42,8 @@ BANNED_FILES = {
     'scripts/ui/flow_screens.gd': '오프라인 로비 UI — React(web/)가 대체',
     'scripts/ui/lobby_builder.gd': '오프라인 로비 UI — React(web/)가 대체',
     'scripts/ui/room_builder.gd': '오프라인 대기실 UI — React(web/)가 대체',
+    'core/net/lobby_state_schema.gd': 'Colyseus GDExtension 스키마 — side.wasm 메모리 크래시 유발. 브릿지 전용',
+    'addons/colyseus/plugin.cfg': 'GDExtension side.wasm — WASM memory access out of bounds 유발',
 }
 RE_LOBBY_VERB = re.compile(r'"t"\s*:\s*"(create|join|rooms|kick|mode|chat)"')
 RE_WS_NEW = re.compile(r'WebSocketPeer\.new\(\)')

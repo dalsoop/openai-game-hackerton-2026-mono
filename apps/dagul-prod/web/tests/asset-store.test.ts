@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AssetStore, assetPlanOf, godotAssetUrl, godotWorkletAssetPath, isExtLibPath, versionedAssetUrl } from "@/lib/godot/asset-store";
+import {
+  AssetStore, assetPlanOf, godotAssetUrl, godotPageRelativeName, godotWorkletAssetPath,
+  versionedAssetUrl,
+} from "@/lib/godot/asset-store";
 import { DEFAULT_GAME_ID, packOf } from "@/lib/games/catalog";
 
 const pack = packOf(DEFAULT_GAME_ID);
@@ -29,32 +32,34 @@ afterEach(() => {
 });
 
 describe("assetPlanOf — URL 체계 SSOT", () => {
-  it("팩 경로 4종 + 확장 라이브러리", () => {
+  it("팩 경로 3종 — GDExtension 없음", () => {
     const plan = assetPlanOf(pack);
     expect(plan.engineBase).toBe(godotAssetUrl(pack, "index"));
     expect(plan.files.wasm).toBe(godotAssetUrl(pack, "index.wasm"));
     expect(plan.files.pck).toBe(godotAssetUrl(pack, "index.pck"));
-    expect(plan.files.sideWasm).toBe(godotAssetUrl(pack, "index.side.wasm"));
-    expect(plan.extLibUrl).toBe("/libcolyseus_godot.web.wasm32.release.wasm");
-  });
-
-  it("로케일 상대 경로도 같은 확장 라이브러리다", () => {
-    const file = assetPlanOf(pack).extLibFile;
-    expect(isExtLibPath(`/${file}`)).toBe(true);
-    expect(isExtLibPath(`/ko/${file}`)).toBe(true);
-    expect(isExtLibPath(`/en/${file}`)).toBe(true);
-    expect(isExtLibPath("/godot/dagul/index.wasm")).toBe(false);
+    expect("extLibUrl" in plan).toBe(false);
+    expect("extLibFile" in plan).toBe(false);
   });
 
   it("루트·로케일 상대 오디오 워크릿은 팩 URL 로 붙인다", () => {
     expect(godotWorkletAssetPath("/index.audio.worklet.js"))
       .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
-    expect(godotWorkletAssetPath("/ko/index.audio.worklet.js"))
-      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
     expect(godotWorkletAssetPath("/index.audio.position.worklet.js"))
       .toBe(godotAssetUrl(pack, "index.audio.position.worklet.js"));
+    expect(godotWorkletAssetPath("/ko/index.audio.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
+    expect(godotWorkletAssetPath("/en/index.audio.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
+    expect(godotWorkletAssetPath("/ja/index.audio.worklet.js"))
+      .toBe(godotAssetUrl(pack, "index.audio.worklet.js"));
     expect(godotWorkletAssetPath("/godot/dagul/index.audio.worklet.js")).toBeNull();
     expect(godotWorkletAssetPath("/favicon.ico")).toBeNull();
+  });
+
+  it("페이지 상대 이름은 로케일 접두사를 버리고 파일명만 남긴다", () => {
+    expect(godotPageRelativeName("/en/index.audio.worklet.js")).toBe("index.audio.worklet.js");
+    expect(godotPageRelativeName("/ja/room/index.audio.worklet.js")).toBe("index.audio.worklet.js");
+    expect(godotPageRelativeName("/godot/dagul/index.audio.worklet.js")).toBeNull();
   });
 });
 

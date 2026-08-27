@@ -72,7 +72,8 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.roulettePhase = h.roulettePhase;
   row.rouletteSpin = String(h.rouletteSpinId);
   row.rouletteLabel = h.rouletteLabel;
-  row.action = skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "idle";
+  const isSkillAction = h.action === "CHARGING_SKILL" || h.action === "CHARGED_SKILL";
+  row.action = !skillsEnabled() && isSkillAction ? "idle" : h.action;
   row.heldItem = h.heldItem;
   row.springTime = h.springTime;
   row.slideTime = h.slideTime;

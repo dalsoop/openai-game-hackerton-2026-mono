@@ -19,7 +19,8 @@ import {
   sendStartBodies, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import {
-  applyPlayInput, bootAuthority, parkSeat, resetSeatAck, tickAuthority, tryReleaseLoadBarrier,
+  applyPlayInput, bootAuthority, holdLoadBarrier, parkSeat, resetSeatAck, tickAuthority,
+  tryReleaseLoadBarrier,
 } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
@@ -29,7 +30,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null,
+    hostLossTimer: null, loadWaitMs: 0,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -157,6 +158,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     player.sessionId = client.sessionId;
     player.connected = true;
     player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
+    holdLoadBarrier(this, this.bag);
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();
@@ -228,6 +230,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
     this.removeSeat(client.sessionId);
   }
 
+  dropSeat(sessionId: string): void {
+    this.removeSeat(sessionId);
+  }
+
   private removeSeat(sessionId: string): void {
     this.claims.delete(sessionId);
     const wasHost = sessionId === this.state.hostSessionId;
@@ -251,6 +257,20 @@ export class LobbyRoom extends Room implements LobbyHandle {
     clearIdleTimer(this, this.bag);
     cancelHostLossReset(this.bag);
     if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
+  }
+
+  /** 배포(SIGTERM) 때 호출 — Colyseus 기본은 전원 즉시 disconnect. 대기실은 그대로
+   * 바로 끊지만, 진행 중 매치는 안내만 보내고 HUB_CONFIG.shutdownDrainMs 만큼
+   * 더 살려서(room.clock 은 방이 disposed 되면 자동 정리된다) 자연 종료를 기다린다.
+   * k8s 쪽 terminationGracePeriodSeconds 를 이 값과 맞춰야 실제로 의미가 있다
+   * (deploy/chart 템플릿 참고). */
+  onBeforeShutdown(): void {
+    if (this.state.phase !== "playing") {
+      super.onBeforeShutdown();
+      return;
+    }
+    this.broadcast(MSG.SERVER_SHUTDOWN, KO.SERVER_SHUTDOWN_MSG);
+    this.clock.setTimeout(() => {void this.disconnect();}, HUB_CONFIG.shutdownDrainMs);
   }
 
   burstIdle(): void {

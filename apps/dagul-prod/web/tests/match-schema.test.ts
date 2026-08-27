@@ -160,6 +160,10 @@ function collectGunFireSchema(): { packed: SnapEvent[]; row: { tick: number; act
     "full",
   );
   auth.sim.countdown = 0;
+  // MatchAuthority 는 인간 좌석이 있으면 countdownHeld=true 로 시작한다 — 실제로는
+  // 방의 tryReleaseLoadBarrier(전원 matchReady)가 풀어준다. 단위테스트는 그 방 계층이
+  // 없으니 직접 풀어야 스텝이 READY 로 얼어붙지 않고 실제로 진행된다.
+  auth.sim.countdownHeld = false;
   const hero0 = auth.sim.heroes.get(0);
   const aimX = (hero0?.x ?? 0) + 80;
   auth.pushInput(0, {

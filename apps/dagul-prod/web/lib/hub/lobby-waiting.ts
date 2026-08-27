@@ -21,6 +21,7 @@ export type LobbyBag = {
   idleTimer: TimerHandle | null;
   authority: MatchAuthority | null;
   hostLossTimer: TimerHandle | null;
+  loadWaitMs: number;
 };
 
 export type LobbyHandle = {
@@ -33,6 +34,7 @@ export type LobbyHandle = {
   roomId?: string;
   slotOfSession?(sessionId: string): number;
   snapOptOut?: Set<string>;
+  dropSeat?(sessionId: string): void;
 };
 
 /** 호스트가 순간적으로 사라져도 곧바로 리셋하지 않고, 유예 뒤 여전히 없을 때만 리셋한다.
@@ -127,6 +129,7 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;
+  bag.loadWaitMs = 0;
   clearMatchSchema(room.state);
   clearMatchState(room.state.match);
   room.state.phase = "lobby";
@@ -151,6 +154,7 @@ export function handleStart(room: LobbyHandle, bag: LobbyBag, client: Client): b
   clearIdleTimer(room, bag);
   room.state.phase = "playing";
   room.state.seed = Math.floor(Math.random() * HUB_CONFIG.seedMax) + 1;
+  bag.loadWaitMs = 0;
   room.state.loadHeld = true;
   for (const p of room.state.players) {p.matchReady = false;}
   void room.setMetadata({ ...room.metadata, phase: room.state.phase });

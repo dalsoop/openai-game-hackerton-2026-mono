@@ -8,6 +8,7 @@ import { applyGunLoot, type GunHero } from "./match-gun.js";
 import {
   collectItemPickup, isItemPoolMode, isNoLootMode, rollPickupKind, tryUseActiveItem,
   tryUseHeldItem as tryHeldPoolItem,
+  MEDKIT_HEAL_RATIO, MEDKIT_MIN_MISSING,
   type ItemEvent, type ItemHero, type ItemPickup, type ItemWorld,
 } from "./match-item.js";
 import type { EffectStore } from "./match-effects.js";
@@ -16,8 +17,8 @@ import type { MatchRng } from "./match-rng.js";
 export {
   SPRING_AIR, SPRING_LIFT, SPRING_EVADE, SPRING_BOOST, SLIDE_DURATION, SLIDE_ACCEL, SLIDE_FRICTION,
   PULL_DURATION, PULL_RADIUS, PULL_LAUNCH, POCKET_DURATION, POCKET_RADIUS, DECOY_DAMAGE, DECOY_KNOCK,
-  ITEM_POOL_MODE, NO_LOOT_MODES, ITEM_DROP_IGNORE, steerSlide, tryUseHeldItem, tryUseActiveItem,
-  rollPickupKind, collectItemPickup, updateItemPulses, heroInOwnPocket, explodeDecoy,
+  ITEM_POOL_MODE, NO_LOOT_MODES, ITEM_DROP_IGNORE, MEDKIT_HEAL_RATIO, steerSlide, tryUseHeldItem,
+  tryUseActiveItem, rollPickupKind, collectItemPickup, updateItemPulses, heroInOwnPocket, explodeDecoy,
   spawnDroppedPickup, isItemPoolMode, isNoLootMode,
 } from "./match-item.js";
 
@@ -30,9 +31,7 @@ export const HEALTH_PICKUP_RETURN_SPEED = 280;
 /** 자석 유지 반경 배율 — pickup_target_valid(crate_pickup.gd)의 MAGNET_RADIUS * 1.65. */
 export const MAGNET_KEEP_MULT = 1.65;
 export const MEDKIT_MAX = 3;
-export const MEDKIT_HEAL_RATIO = 0.30;
-/** 사용 가능 최소 결손 — try_use_medkit(active_item.gd): hp < max_hp - 0.5. */
-const MEDKIT_MIN_MISSING = 0.5;
+/** MEDKIT_HEAL_RATIO, MEDKIT_MIN_MISSING — match-item.ts SSOT 에서 임포트. */
 /** 습득 판정 거리 — HERO_RADIUS(20) + HEALTH_PICKUP_RADIUS(27) = 47. */
 const COLLECT_DIST = HERO_RADIUS + HEALTH_PICKUP_RADIUS;
 

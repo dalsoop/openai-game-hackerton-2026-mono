@@ -1,11 +1,15 @@
 // Colyseus 스키마 생성본 계약 테스트.
 // 정본은 서버 @type. GD 는 schema-codegen 산출물(lobby_state_schema.gd).
-// 클래스 하나라도 어긋나면 "refId not found" 연발로 월드가 멈춘다 (2026-08-27 운영 사고).
-import { readdirSync, readFileSync } from "fs";
+// GDExtension(side.wasm) 제거 후 GD 스키마가 없으므로 이 테스트는 비활성.
+// lobby_state_schema.gd 를 다시 도입하면 이 테스트도 복원한다.
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
+const MIRROR_PATH = join(ROOT, "..", "project", "core/net/lobby_state_schema.gd");
+const HAS_GD_SCHEMA = existsSync(MIRROR_PATH);
+
 const sourceOf = (p: string): string => readFileSync(p, "utf8");
 
 function matchSchemaSrc(): string {
@@ -16,9 +20,9 @@ function matchSchemaSrc(): string {
     .join("\n");
 }
 
-const matchSrc = matchSchemaSrc();
-const lobbySrc = sourceOf(join(ROOT, "lib/hub/lobby-state.ts"));
-const mirror = sourceOf(join(ROOT, "..", "project", "core/net/lobby_state_schema.gd"));
+const matchSrc = HAS_GD_SCHEMA ? matchSchemaSrc() : "";
+const lobbySrc = HAS_GD_SCHEMA ? sourceOf(join(ROOT, "lib/hub/lobby-state.ts")) : "";
+const mirror = HAS_GD_SCHEMA ? sourceOf(MIRROR_PATH) : "";
 
 /** 서버 TS 클래스 → schema-codegen GD 클래스. 새 스키마 클래스는 여기에 반드시 등록한다. */
 const CLASS_MAP: ReadonlyArray<[src: string, ts: string, gd: string]> = [
@@ -79,7 +83,7 @@ function gdFieldDefs(className: string): string[] {
     .map((m: RegExpMatchArray) => `${m[1]}=${m[2]}:${(m[3] as string | undefined) ?? ""}`);
 }
 
-describe("계약: Colyseus 스키마 거울", () => {
+describe.skipIf(!HAS_GD_SCHEMA)("계약: Colyseus 스키마 거울", () => {
   it.each(CLASS_MAP)("%s %s ↔ GD %s 필드 이름·순서·타입이 일치한다", (src, tsClass, gdClass) => {
     const serverFields = tsFieldDefs(src === "match" ? matchSrc : lobbySrc, tsClass);
     expect(serverFields.length, `${tsClass} 파싱 실패`).toBeGreaterThan(0);

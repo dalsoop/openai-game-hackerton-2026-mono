@@ -44,6 +44,51 @@ body {
 	</div>
 	<canvas id="canvas"></canvas>
 	$GODOT_HEAD_INCLUDE
+	<script>
+	(function() {
+		var orig = console.error;
+		var W = window.__godotErrors = { groups: {}, firstAt: 0, total: 0, snapshot: null };
+		function classify(args) {
+			var s = Array.prototype.join.call(args, ' ');
+			if (s.indexOf('_fp') >= 0 && s.indexOf('null') >= 0) return 'array_fp_null';
+			if (s.indexOf('mem') >= 0 && s.indexOf('null') >= 0) return 'mem_null';
+			if (s.indexOf('read-only') >= 0) return 'array_readonly';
+			if (s.indexOf('alloc_static') >= 0) return 'alloc_static';
+			return 'other';
+		}
+		function gameState() {
+			try {
+				var d = window.__dagulDebug || {};
+				return { phase: d.phase || '', playerCount: d.playerCount || 0, rttMs: d.rttMs || 0, t: Date.now() };
+			} catch(e) { return { t: Date.now() }; }
+		}
+		console.error = function() {
+			var key = classify(arguments);
+			var g = W.groups[key];
+			if (!g) { g = W.groups[key] = { count: 0, first: null, lastLog: 0 }; }
+			g.count++;
+			W.total++;
+			if (!g.first) {
+				g.first = { args: Array.prototype.slice.call(arguments, 0, 2), state: gameState(), stack: new Error().stack?.split('\n').slice(0, 5) };
+				if (!W.firstAt) { W.firstAt = Date.now(); W.snapshot = gameState(); }
+			}
+			var now = Date.now();
+			if (now - g.lastLog > 3000) {
+				g.lastLog = now;
+				orig.call(console, '[engine:' + key + '] x' + g.count, arguments[0]);
+			}
+		};
+		window.__godotErrorSummary = function() {
+			orig.call(console, '=== Godot WASM Error Summary ===');
+			orig.call(console, 'total:', W.total, 'first at:', W.firstAt ? new Date(W.firstAt).toISOString() : 'none');
+			orig.call(console, 'snapshot:', JSON.stringify(W.snapshot));
+			for (var k in W.groups) {
+				var g = W.groups[k];
+				orig.call(console, k + ':', g.count, 'times, first:', g.first);
+			}
+		};
+	})();
+	</script>
 	<script src="$GODOT_URL"></script>
 	<script>
 	const bar = document.getElementById('bar');

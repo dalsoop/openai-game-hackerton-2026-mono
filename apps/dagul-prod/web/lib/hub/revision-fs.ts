@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { DEFAULT_GAME_ID, packOf } from "../games/catalog.js";
 
 /** next build 가 남긴 BUILD_ID. 없으면 Next dev 와 같이 development. */
 export function deployedBuildId(
@@ -16,7 +17,7 @@ export function deployedBuildId(
 }
 
 /** 웹에 물린 Godot 팩 해시. 없으면 빈 문자열. */
-export function godotFilesHash(cwd = process.cwd(), pack = "dagul"): string {
+export function godotFilesHash(cwd = process.cwd(), pack = packOf(DEFAULT_GAME_ID)): string {
   try {
     const raw = readFileSync(join(cwd, "public", "godot", pack, "manifest.json"), "utf8");
     const body = JSON.parse(raw) as { filesHash?: unknown; version?: unknown };
@@ -32,7 +33,7 @@ export function godotFilesHash(cwd = process.cwd(), pack = "dagul"): string {
 export function liveRevisionId(
   cwd = process.cwd(),
   env = process.env.NODE_ENV,
-  pack = "dagul",
+  pack = packOf(DEFAULT_GAME_ID),
 ): string {
   return [deployedBuildId(cwd, env), godotFilesHash(cwd, pack)].filter((p) => p !== "").join(":");
 }

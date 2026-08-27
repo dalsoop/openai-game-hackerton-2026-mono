@@ -4,6 +4,7 @@
  * + active_item.gd try_mobility / try_equipment_attack / try_gun_loot.
  */
 import { clampArena, resolveCoverMotionSwept, type CoverRect } from "./match-covers.js";
+import { pelletOffset, rotateVec } from "./match-gun-geom.js";
 import {
   GUN_LOOT_MODES, equipmentReach, fxForEquipment, makeEquipment, muzzleWorldPos,
   nextGunLootId, sprayKick, sprayRecoverRate,
@@ -11,7 +12,7 @@ import {
 } from "./match-equipment.js";
 import type { EffectStore } from "./match-effects.js";
 import {
-  applySkillInput, tickSkillChargeGuard,
+  applySkillInput, CANCEL_FIRE_CD, tickSkillChargeGuard,
   type SkillAttackResult, type SkillMineSpec, type SkillWallSpec, type SkillZoneSpec,
 } from "./match-skill.js";
 
@@ -44,7 +45,6 @@ export const BRAWLER_HP_RATIO = 0.5;
 export const RAIL_PASSIVE_DIST = 430.0;
 export const SPEAR_PASSIVE_DIST = 280.0;
 export const MOBILITY_EVADE = 0.20;
-export const CANCEL_FIRE_CD = 0.04;
 export const LEECH_HEAL = 8.0;
 export const BLAST_HOP_RADIUS = 120.0;
 export const BLAST_HOP_DAMAGE = 2.0;
@@ -123,15 +123,7 @@ export function attackDirection(x: number, y: number): Vec2 {
   if (len === 0) {return { x: 1, y: 0 };}
   return { x: x / len, y: y / len };
 }
-export function rotateVec(x: number, y: number, angle: number): Vec2 {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  return { x: x * c - y * s, y: x * s + y * c };
-}
-export function pelletOffset(index: number, count: number, spread: number): number {
-  if (count <= 1) {return 0;}
-  return (index - (count - 1) * 0.5) * spread;
-}
+export { pelletOffset, rotateVec };
 export function projectileKind(equipmentId: string, kind: string): string {
   if (equipmentId === "rail") {return "tracer";}
   if (kind === "pellet" || kind === "bolt" || kind === "shell") {return kind;}

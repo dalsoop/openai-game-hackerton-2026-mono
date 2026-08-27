@@ -47,6 +47,8 @@ export const MSG = {
   LEAVE: "leave",
   PING: "ping",
   PONG: "pong",
+  /** 배포 SIGTERM — 진행 중 매치는 즉시 끊지 않고 이 안내를 먼저 보낸다. */
+  SERVER_SHUTDOWN: "server_shutdown",
 } as const;
 
 export const CLOSE_CODE = {

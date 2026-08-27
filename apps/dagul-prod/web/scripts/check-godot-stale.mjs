@@ -6,10 +6,11 @@
  * 우회: SKIP_GODOT_STALE_CHECK=1 npm run dev
  */
 import { createHash } from "crypto";
-import { readdirSync, readFileSync, statSync } from "fs";
-import { join, resolve, relative } from "path";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join, resolve, relative } from "path";
 
-if (process.env.SKIP_GODOT_STALE_CHECK === "1") process.exit(0);
+const WRITE_STAMP = process.argv.includes("--write-stamp");
+if (!WRITE_STAMP && process.env.SKIP_GODOT_STALE_CHECK === "1") process.exit(0);
 
 const root = resolve(import.meta.dirname, "..", "..", "project");
 const stampPath = resolve(import.meta.dirname, "..", "public", "godot", ".export-src-hash");
@@ -26,6 +27,7 @@ function sourceHash() {
       if (SKIP_PARTS.has(e.name)) continue;
       const full = join(dir, e.name);
       if (e.isDirectory()) { walk(full); continue; }
+      if (!e.isFile()) { continue; }
       files.push(full);
     }
   }
@@ -38,11 +40,18 @@ function sourceHash() {
   return hash.digest("hex").slice(0, 12);
 }
 
+const current = sourceHash();
+if (WRITE_STAMP) {
+  mkdirSync(dirname(stampPath), { recursive: true });
+  writeFileSync(stampPath, `${current}\n`);
+  console.log(`check-godot-stale: wrote stamp ${current}`);
+  process.exit(0);
+}
+
 let stamp;
 try { stamp = readFileSync(stampPath, "utf8").trim(); } catch { process.exit(0); }
 if (!stamp) process.exit(0);
 
-const current = sourceHash();
 if (stamp === current) process.exit(0);
 
 console.error(

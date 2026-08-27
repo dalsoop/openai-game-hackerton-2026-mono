@@ -13,12 +13,8 @@ static func available() -> bool:
 	return ENABLED and ClassDB.class_exists(&"_ColyseusClient")
 
 ## room 이 준비됐고 네이티브 예측 클래스가 있으면 바인딩, 아니면 null.
-static func bind(room) -> EnginePredict:
-	if room == null or not room.has_method("get_state") or not available():
-		return null
-	var p := EnginePredict.new()
-	p._native = Colyseus.Predict.of(room)
-	return p
+static func bind(_room) -> EnginePredict:
+	return null
 
 ## 이번 프레임에 밀린 스텝 수. 호출자가 그만큼 defineInput 을 flush 한다.
 func tick() -> int:

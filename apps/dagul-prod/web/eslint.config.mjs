@@ -55,6 +55,16 @@ const JPEG_SYNTAX = [
   },
 ];
 
+// 회귀: wasm-error-monitor.ts(3곳)·usePageBridge.ts(1곳) 모두 `window as
+// Record<string, unknown>` 한 단계 캐스팅을 썼다가 "neither type sufficiently
+// overlaps" tsc 에러로 같은 날 네 번 반복됐다. Window/globalThis 는 인덱스
+// 시그니처가 없어서 Record 로 한 번에 캐스팅이 안 된다 — `as unknown as
+// Record<...>` 두 단계만 허용한다.
+const WINDOW_CAST_SYNTAX = {
+  selector: "TSAsExpression[expression.type='Identifier'][expression.name=/^(window|globalThis)$/][typeAnnotation.typeName.name='Record']",
+  message: "window/globalThis 를 Record<...> 로 한 번에 캐스팅 금지 — `as unknown as Record<...>` 두 단계로.",
+};
+
 const PAGE_HOOK_SYNTAX = {
   selector: "CallExpression > MemberExpression > Identifier[name='useEffect'], CallExpression > MemberExpression > Identifier[name='useState'], CallExpression > MemberExpression > Identifier[name='useRef'], CallExpression > MemberExpression > Identifier[name='useCallback']",
   message: "page.tsx 렌더 전용 — 로직/상태/이펙트는 hooks/ 로. 페이즈 판단도 컴포넌트 밖에서.",
@@ -114,7 +124,7 @@ const config = [
       // || 폴스티 삼킴 방지 — 널 병합은 ?? 로만 (문자열 ""·숫자 0·false 오용 차단)
       "@typescript-eslint/prefer-nullish-coalescing": "error",
       // 하드코딩 한글·계약 리터럴 금지 — 문구는 i18n/KO, 프로토콜은 config 상수
-      "no-restricted-syntax": ["error", KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
+      "no-restricted-syntax": ["error", KOREAN_SYNTAX, WINDOW_CAST_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
 
       // React — 인라인 스타일 전면 금지 (동적 값은 eslint-disable + 사유 주석)
       // no-inline-styles 규칙은 이 버전에 없어서 DOM+컴포넌트 양쪽 style prop 을 차단한다.
@@ -185,7 +195,7 @@ const config = [
   {
     files: ["app/**/page.tsx", "components/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
+      "no-restricted-syntax": ["error", PAGE_HOOK_SYNTAX, KOREAN_SYNTAX, WINDOW_CAST_SYNTAX, ...CONTRACT_SYNTAX, ...GODOT_PACK_SYNTAX, ...JPEG_SYNTAX],
     },
   },
 
@@ -215,6 +225,40 @@ const config = [
             {
               group: ["@/*"],
               message: "lib/ 는 상대 경로만 쓴다. @/ 는 컴포넌트·훅 전용이다.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // 회귀: match-skill.ts·match-ultimate.ts·match-sim.ts(pushHero) 전부 대시/넉백처럼
+  // 한 틱에 큰 거리를 움직이는 곳에서 resolveCoverMotion 단발 호출을 썼다가 "시작점·
+  // 도착점 둘 다 커버 밖이면 충돌을 못 본다"는 같은 터널링 버그가 세 번 났다.
+  // match-covers.ts 자기 자신 말고는 resolveCoverMotionSwept 만 쓰게 강제한다.
+  {
+    files: ["lib/hub/**/*.ts"],
+    // match-covers.ts 는 정의 자체. match-sim.ts 는 더 이상 직접 호출하지 않고
+    // match-covers 의 공개 표면을 통째로 재노출만 한다(export * from) — 배럴이라 예외.
+    ignores: ["lib/hub/match-covers.ts", "lib/hub/match-sim.ts"],
+    rules: {
+      // lib/**/*.ts 의 @/* 금지 규칙을 이어서, resolveCoverMotion 단발 호출 금지를
+      // 더한다 — no-restricted-imports 는 같은 규칙을 나중 블록이 덮어써서, 위
+      // lib/**/*.ts 블록의 patterns 도 여기서 같이 선언해야 둘 다 산다.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*"],
+              message: "lib/ 는 상대 경로만 쓴다. @/ 는 컴포넌트·훅 전용이다.",
+            },
+          ],
+          paths: [
+            {
+              name: "./match-covers.js",
+              importNames: ["resolveCoverMotion"],
+              message: "큰 이동(대시·넉백 등)은 커버를 관통할 수 있다 — resolveCoverMotionSwept 만 쓴다.",
             },
           ],
         },

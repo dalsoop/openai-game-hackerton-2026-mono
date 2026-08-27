@@ -48,6 +48,8 @@
     "idleBody": "The room closed because nobody started in time.",
     "takeoverTitle": "Signed in from another window",
     "takeoverBody": "This screen was deactivated because you joined from a new window.",
+    "loadWaitTitle": "Loading did not finish",
+    "loadWaitBody": "You left the match because you were not ready in time.",
     "back": "Back",
     "resuming": "Reconnecting to your previous session...",
     "startFresh": "Start fresh",

@@ -56,7 +56,8 @@ function putOmit(dst: Record<string, unknown>, key: string, value: unknown): voi
 
 function packPlayerV2(h: SimHero): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  putOmit(out, "action", skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "");
+  const isSkillAction = h.action === "CHARGING_SKILL" || h.action === "CHARGED_SKILL";
+  putOmit(out, "action", !skillsEnabled() && isSkillAction ? "idle" : h.action);
   putOmit(out, "stunTime", h.stunTime);
   putOmit(out, "rootTime", h.rootTime);
   putOmit(out, "ccTime", h.ccTime);
@@ -177,6 +178,7 @@ export function packAuthoritySnap(
   }));
   const loot = packLootSnap(sim.loot);
   const wanted = packWantedSnap(sim.wanted);
+  const cine = packFinishCine(sim.finishCine);
   const snap: Record<string, unknown> = {
     tick: sim.tick,
     time: sim.matchTime,
@@ -188,8 +190,8 @@ export function packAuthoritySnap(
     zoneCY: ARENA_CENTER.y,
     zonePhase: sim.zone.phase,
     startCountdown: sim.countdown,
-    finishCine: packFinishCine(sim.finishCine),
-    finish_cine: packFinishCine(sim.finishCine),
+    finishCine: cine,
+    finish_cine: cine,
     callout: sim.callout,
     calloutTicks: sim.calloutTicks,
     streakCallout: sim.streakState.streakCallout,

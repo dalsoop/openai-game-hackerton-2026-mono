@@ -12,7 +12,8 @@ import { LobbyRoom } from "./lib/hub/LobbyRoom.js";
 import { HUB_CONFIG, ROOM_NAME } from "./lib/hub/config.js";
 import { hubPublicAddress } from "./lib/hub/public-address.js";
 import { roomsHttpBody, withDeadline } from "./lib/hub/rooms-http.js";
-import { assetPlanOf, godotWorkletAssetPath, isExtLibPath } from "./lib/godot/asset-store.js";
+import { godotWorkletAssetPath } from "./lib/godot/asset-store.js";
+import { shouldServeEncoding } from "./lib/godot/serve-encoding.js";
 import { healthBody } from "./lib/hub/health.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
@@ -86,15 +87,30 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
 
   const base = path.join(GODOT_DIR, rel);
   const accept = String(req.headers["accept-encoding"] ?? "");
+  const rawMtime = mtimeMs(base);
   const candidates: Array<[string, string | null]> = [];
   if (accept.includes("br")) {candidates.push([`${base}.br`, "br"]);}
   if (accept.includes("gzip")) {candidates.push([`${base}.gz`, "gzip"]);}
   candidates.push([base, null]);
 
   for (const [file, encoding] of candidates) {
+    if (encoding && !isEncodingCandidateFresh(file, rawMtime)) {continue;}
     if (serveOne(file, encoding, req, res, mime, cacheControl)) {return true;}
   }
   return false;
+}
+
+function isEncodingCandidateFresh(file: string, rawMtime: number | null): boolean {
+  return shouldServeEncoding(rawMtime, mtimeMs(file));
+}
+
+function mtimeMs(file: string): number | null {
+  try {
+    const st = statSync(file);
+    return st.isFile() ? st.mtimeMs : null;
+  } catch {
+    return null;
+  }
 }
 
 // 후보 하나를 응답에 싣는다 — 성공 여부만 반환 (max-depth: 루프 안 try/isFile 중첩 방지)
@@ -113,8 +129,7 @@ function serveOne(
     return false;
   }
   if (!st.isFile()) {return false;}
-  // 무버전 요청도 ETag 검증으로 304 를 돌려준다 — 엔진이 스스로 fetch 하는
-  // index.side.wasm(8MB+)의 재전송을 본문 없이 갱신 검사로 끝낸다.
+  // 무버전 요청도 ETag 검증으로 304 를 돌려준다 — 대용량 파일의 재전송을 갱신 검사로 끝낸다.
   const etag = `"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
   if (req.headers["if-none-match"] === etag) {
     res.writeHead(304, { etag, "cache-control": cacheControl });
@@ -173,19 +188,22 @@ function serveRoomsList(pathname: string, res: ServerResponse): boolean {
   return false;
 }
 
+/** 로케일 접두사로 들어오는 워크릿. 허브 폴백과 정적 서버가 같이 쓴다. */
+function servePageRelativeGodotAssets(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+): boolean {
+  const worklet = godotWorkletAssetPath(pathname);
+  return Boolean(worklet && serveGodotAsset(req, res, worklet));
+}
+
 function servePackAssets(
   req: IncomingMessage,
   res: ServerResponse,
   pathname: string,
 ): boolean {
-  // extlib 는 Godot dlopen 이 페이지 루트에서 파일명만 요청한다.
-  // HUB_STATIC_SPLIT 이어도 Caddy 가 static 으로 못 넘기면 Next 404 가 난다.
-  if (isExtLibPath(pathname) &&
-      serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {
-    return true;
-  }
-  const worklet = godotWorkletAssetPath(pathname);
-  if (worklet && serveGodotAsset(req, res, worklet)) {return true;}
+  if (servePageRelativeGodotAssets(req, res, pathname)) {return true;}
   const servePack = process.env.HUB_STATIC_SPLIT !== "1";
   if (servePack && pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {
     return true;
@@ -220,12 +238,7 @@ function startStatic(): void {
     res.setHeader("cross-origin-resource-policy", "same-origin");
     const pathname = (req.url ?? "/").split("?")[0];
     if (serveMeta(pathname, res)) {return;}
-    if (isExtLibPath(pathname) &&
-        serveAddonsAsset(req, res, "/addons/colyseus/bin/" + assetPlanOf("dagul").extLibFile)) {return;}
-    {
-      const worklet = godotWorkletAssetPath(pathname);
-      if (worklet && serveGodotAsset(req, res, worklet)) {return;}
-    }
+    if (servePageRelativeGodotAssets(req, res, pathname)) {return;}
     if (pathname.startsWith("/addons/") && serveAddonsAsset(req, res, pathname)) {return;}
     if (pathname.startsWith("/godot/") && serveGodotAsset(req, res, pathname)) {return;}
     res.writeHead(404).end();

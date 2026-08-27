@@ -2,20 +2,23 @@
 import { idForBind, matchBindKey, seedSeatIdentities } from "../characters/index.js";
 import {
   ARENA_SIZE, HERO_RADIUS, buildTiledCovers, clampArena,
-  nudgeOutOfCover, pointInCover, resolveCoverMotion, resolveCoverMotionSwept, spawnKnockout, spawnPoint, tickKnockouts,
+  nudgeOutOfCover, pointInCover, resolveCoverMotionSwept, spawnKnockout, spawnPoint, tickKnockouts,
 } from "./match-covers.js";
 import type { CoverRect, SimKnockout } from "./match-covers.js";
 import { CpuFleet } from "./match-cpu-think.js";
 import { applyEmoteInput, emoteSeedFields, tickEmotes, type EmoteFields } from "./match-emote.js";
 import {
-  applyZoneLifeDamage, crawlDowned, downHero, lifeSeedFields, tickDowns,
-  tickSpawnProtect, updateRespawns,
+  applyZoneLifeDamage, crawlDowned, lifeSeedFields, tickDowns,
+  tickSpawnProtect, updateRespawns, willConfirmKill,
 } from "./match-life.js";
 import type { LifeHero } from "./match-life.js";
 import {
-  applyScoredDamage, awardWinScore, resetDeadStreaks, scoreSeedFields, streakCalloutSeed,
-  tickStreakCallout, type ScoreFields, type StreakCalloutState,
+  applyScoredDamage, awardWinScore, resetDeadStreaks, scoreSeedFields,
+  streakCalloutSeed, tickStreakCallout, type ScoreFields, type StreakCalloutState,
 } from "./match-score.js";
+import {
+  grantKillCreditRoulettes, settleExecuteKill, snapshotKillCredit,
+} from "./match-kill-credit.js";
 import {
   handleUseInput, lootSeedFields, seedHealthPickups, spawnGunLootPickup, tryCollectGunLoot,
   updateHealthPickups, steerSlide, SPRING_BOOST,
@@ -80,7 +83,7 @@ import {
   type ChargeHero, type UltHero, type UltWorld,
 } from "./match-ultimate.js";
 import {
-  absorbRouletteShield, assistSlots, createWantedState, grantKillRoulettes, isBountyVictim,
+  absorbRouletteShield, createWantedState,
   packWantedSnap, queueRoulette, recordLifeHit, rouletteSeedFields, rouletteStat, tickRoulettes,
   updateThreat, wantedSeedFields,
   type LifeHitRec, type RouletteHero, type WantedHero, type WantedState,
@@ -95,6 +98,7 @@ export type { MatchInput } from "./match-input-queue.js";
 export * from "./match-life.js";
 export * from "./match-loot.js";
 export * from "./match-score.js";
+export * from "./match-kill-credit.js";
 export * from "./match-zone.js";
 
 /** 허브 권위 시뮬 — 방장 Godot 이 아니라 방이 월드의 원본이다. */
@@ -216,7 +220,7 @@ function truthy(v: unknown): boolean {
   return Boolean(v);
 }
 
-/** DAGUL_SKILLS=off 이면 우클릭 차지/스킬 입력을 버리고 차지 상태를 끈다. */
+/** DAGUL_SKILLS=off 이면 우클릭 차지/스킬 입력을 버리고 차지 상태를 끈다. 기본은 켠다. */
 function skillFlags(
   hero: SimHero,
   cmd: MatchInput,
@@ -271,6 +275,10 @@ export class MatchSim {
   private readonly appliedInputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
   private readonly rng: MatchRng;
+  /** 킬 크레딧 등 외부 헬퍼가 매치와 같은 결정론적 RNG를 쓰게 한다 — 쓰기는 막는다. */
+  get matchRng(): MatchRng {
+    return this.rng;
+  }
   /** 권위 매치에서만 true — 전원 matchReady 전까지 카운트다운을 깎지 않는다. */
   countdownHeld = false;
   private timeLimitWarningEmitted = false;
@@ -397,11 +405,12 @@ export class MatchSim {
     this.matchTime = Math.min(MATCH_TIME_LIMIT, this.matchTime + dt);
     this.stepFightAndClock();
     this.updateTimers(dt);
-    updateItemPulses(this.itemWorld(dt), dt);
+    const iw = this.itemWorld(dt);
+    updateItemPulses(iw, dt);
     updateSafeZone(this.zone, dt);
-    this.applyHumans(dt);
+    this.applyHumans(dt, iw);
     this.stepFinishCine(dt);
-    this.applyCpus(dt);
+    this.applyCpus(dt, iw);
     tickOxCharges(this.ultWorld, this.heroes, dt);
     tickRatTides(this.ultWorld, this.heroes, dt);
     tickSnakeSkins(this.ultWorld, dt);
@@ -415,7 +424,7 @@ export class MatchSim {
     tickRoosterEggs(this.ultWorld, this.heroes, dt);
     tickPigMuds(this.ultWorld, dt);
     tickWoolShields(this.heroes.values(), dt);
-    for (const downed of applyZoneLifeDamage(this.zoneDamageHeroes(), this.zone, dt)) {
+    for (const downed of applyZoneLifeDamage(this.heroes, this.zone, dt, heroInOwnPocket)) {
       this.knockouts.push(spawnKnockout(downed));
     }
     applySafeZoneCrateDamage(this.zone, this.crates, this.crateOrbs, dt);
@@ -492,11 +501,11 @@ export class MatchSim {
   }
 
   private stepCountdown(dt: number): boolean {
-    if (this.countdown <= 0) {return false;}
     if (this.countdownHeld) {
       this.freezeReady();
       return true;
     }
+    if (this.countdown <= 0) {return false;}
     this.countdown = Math.max(0, this.countdown - dt);
     this.freezeReady();
     if (this.countdown > 0.0001) {return true;}
@@ -553,7 +562,8 @@ export class MatchSim {
     }
   }
 
-  private applyHumans(dt: number): void {
+  private applyHumans(dt: number, iw: ItemWorld): void {
+    this.appliedInputs.clear();
     for (const [slot, hero] of this.heroes) {
       if (hero.cpu) {continue;}
       const forced = this.tickInputs.get(slot);
@@ -566,7 +576,7 @@ export class MatchSim {
         this.syncHoldFlags(hero, cmd);
         continue;
       }
-      this.applyHero(hero, cmd, dt);
+      this.applyHero(hero, cmd, dt, iw);
     }
   }
 
@@ -590,14 +600,14 @@ export class MatchSim {
     }
   }
 
-  private applyCpus(dt: number): void {
+  private applyCpus(dt: number, iw: ItemWorld): void {
     for (const hero of this.heroes.values()) {
       if (!hero.alive || !hero.cpu) {continue;}
-      this.driveCpu(hero, dt);
+      this.driveCpu(hero, dt, iw);
     }
   }
 
-  private driveCpu(hero: SimHero, dt: number): void {
+  private driveCpu(hero: SimHero, dt: number, iw: ItemWorld): void {
     const cmd = this.cpuFleet.command(hero, this.heroes.values(), this.tick, {
       zone: this.zone,
       pickups: this.loot,
@@ -621,7 +631,7 @@ export class MatchSim {
       mobility: cmd.mobility, use: cmd.use,
       equipment: cmd.equipment, equipmentPressed: cmd.equipmentPressed,
       equipmentReleased: cmd.equipmentReleased,
-    }, dt);
+    }, dt, iw);
   }
 
   private stepFinishCine(dt: number): void {
@@ -629,8 +639,12 @@ export class MatchSim {
     tickFinishCine(this.finishCine, this.heroes, { finish: truthy(atkCmd?.finish) }, dt, (atk, vic) => {
       const victim = this.heroes.get(vic);
       if (!victim) {return;}
-      downHero(this.heroes, atk, victim);
+      settleExecuteKill(
+        this.heroes, atk, victim, this.tick, this.wanted, this.rng, this.streakState,
+      );
       this.knockouts.push(spawnKnockout(victim));
+      const killer = this.heroes.get(atk);
+      if (killer && isGunLootMode(this.mode)) {tryCollectGunLoot(killer, this.mode);}
     });
   }
 
@@ -695,16 +709,7 @@ export class MatchSim {
     };
   }
 
-  private zoneDamageHeroes(): Map<number, SimHero> {
-    const out = new Map<number, SimHero>();
-    for (const [slot, h] of this.heroes) {
-      if (heroInOwnPocket(h)) {continue;}
-      out.set(slot, h);
-    }
-    return out;
-  }
-
-  private applyHero(hero: SimHero, cmd: MatchInput, dt: number): void {
+  private applyHero(hero: SimHero, cmd: MatchInput, dt: number, iw: ItemWorld): void {
     const seq = Math.max(0, Math.floor(num(cmd.seq)));
     if (seq > hero.ack) {hero.ack = seq;}
     applyEmoteInput(hero, Math.floor(num(cmd.emote, -1)));
@@ -750,7 +755,7 @@ export class MatchSim {
       return;
     }
     this.stepHeroMove(hero, mx, my, mlen, ctrl.mult, dt);
-    handleUseInput(hero, truthy(cmd.use), this.itemWorld(dt));
+    handleUseInput(hero, truthy(cmd.use), iw);
     const savedAimX = hero.aimX;
     const savedAimY = hero.aimY;
     const others = [...this.heroes.values()].filter((h) => h.slot !== hero.slot);
@@ -807,7 +812,7 @@ export class MatchSim {
       if (hero.springTime > 0) {this.applySpringBoost(hero, mx, my);}
       hero.vel = { x: hero.vx, y: hero.vy };
     }
-    const slid = resolveCoverMotion(hero.x, hero.y, hero.vx * dt, hero.vy * dt, this.covers);
+    const slid = resolveCoverMotionSwept(hero.x, hero.y, hero.vx * dt, hero.vy * dt, this.covers);
     const next = clampArena(slid.x, slid.y);
     hero.x = next.x;
     hero.y = next.y;
@@ -931,7 +936,7 @@ export class MatchSim {
     b.y = b.landingY;
     this.zones.push({
       x: b.landingX, y: b.landingY, radius: b.splash, owner: b.owner, delay: 0.01,
-      damage: b.damage, effectKind: "explosion", label: b.label, source: b.source || "normal",
+      damage: b.damage, effectKind: "explosion", label: b.label, source: b.source,
       ccTime: b.ccTime, knockback: b.knockback, leech: false, comboFinisher: b.comboFinisher,
       controlKind: b.controlKind,
     });
@@ -1038,9 +1043,7 @@ export class MatchSim {
       return false;
     }
     hurtTower(t, b.owner, b.damage, this.tick, this.heroes, this.effects);
-    if (b.splash > 0) {
-      hurtTower(t, b.owner, b.damage * 0.35, this.tick, this.heroes, this.effects);
-    }
+    if (b.splash > 0) {this.splashAround(b, -1);}
     return true;
   }
 
@@ -1114,7 +1117,11 @@ export class MatchSim {
       fromX: attacker?.x ?? victim.x, fromY: attacker?.y ?? victim.y,
     });
     if (owner >= 0) {recordLifeHit(victim.lifeHits, owner, scaled.amount, this.tick);}
+    const credit = willConfirmKill(victim, scaled.amount)
+      ? snapshotKillCredit(owner, victim, this.heroes, this.tick, this.wanted)
+      : null;
     const event = applyScoredDamage(this.heroes, owner, victim, scaled.amount, this.streakState);
+    if (credit) {grantKillCreditRoulettes(this.heroes, credit, this.rng);}
     if (attacker) {
       applyHitUltCharge(attacker, victim, scaled.amount, source, owner === victim.slot);
       this.applyGunShove(attacker, victim, source, ctx);
@@ -1125,15 +1132,6 @@ export class MatchSim {
     if (event === "down") {
       this.knockouts.push(spawnKnockout(victim));
     }
-    if (event === "dead") {
-      this.queueKillRoulettes(owner, victim);
-    }
-  }
-
-  private queueKillRoulettes(owner: number, victim: SimHero): void {
-    if (owner < 0 || owner === victim.slot) {return;}
-    const assists = assistSlots(owner, victim.slot, victim.lifeHits, this.heroes, this.tick);
-    grantKillRoulettes(this.heroes, owner, victim.slot, isBountyVictim(this.wanted, victim.slot), assists, this.rng);
   }
 
   private applyGunShove(attacker: SimHero, victim: SimHero, source: string, ctx: HurtCtx): void {

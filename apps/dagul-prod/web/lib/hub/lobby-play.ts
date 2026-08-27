@@ -1,7 +1,7 @@
 import type { Client } from "colyseus";
-import { HUB_CONFIG } from "./config.js";
-import { MSG } from "../contract/wire.js";
-import { shouldHoldCountdown } from "../domain/match-load-ready.js";
+import { HUB_CONFIG, KO } from "./config.js";
+import { CLOSE_CODE, MSG } from "../contract/wire.js";
+import { loadWaitTimedOut, shouldHoldCountdown } from "../domain/match-load-ready.js";
 import { matchJustEnded } from "./lobby-relay.js";
 import { resetToLobby, type LobbyBag, type LobbyHandle } from "./lobby-waiting.js";
 import {
@@ -64,7 +64,7 @@ function syncResolvedCharacterIds(room: LobbyHandle, sim: MatchSim): void {
 
 export function tickAuthority(room: LobbyHandle, bag: LobbyBag, dtMs: number): void {
   if (room.state.phase !== "playing" || !bag.authority) {return;}
-  tryReleaseLoadBarrier(room, bag);
+  tryReleaseLoadBarrier(room, bag, dtMs);
   const { snap, events } = tickAuthoritySim(bag.authority, Math.max(0, dtMs) / 1000, room.state);
   writeMatchState(
     room.state.match, bag.authority.sim, bag.authority.names, room.state.mode, events,
@@ -98,15 +98,54 @@ function sendTickSnap(room: LobbyHandle, snap: Record<string, unknown>): void {
   }
 }
 
-/** 전원 matchReady 면 장벽을 연다. 이후 sim 틱이 START_COUNTDOWN 을 깎는다.
- * packPct·경과 시간으로는 열지 않는다. READY 직후·좌석 이탈 틱에서 같이 본다. */
-export function tryReleaseLoadBarrier(room: LobbyHandle, bag: LobbyBag): void {
+/** dropSeat → tryRelease 재진입에서 같은 틱에 강퇴를 두 번 보내지 않는다. */
+let kickingLoadWait = false;
+
+/** 전원 matchReady 이면 장벽을 연다. 1분이 지나도 미완료면 그 좌석만 내보낸다.
+ * packPct·20초로는 열지 않는다. */
+export function tryReleaseLoadBarrier(room: LobbyHandle, bag: LobbyBag, dtMs = 0): void {
   const sim = bag.authority?.sim;
   if (!sim || !sim.countdownHeld) {return;}
+  bag.loadWaitMs += Math.max(0, dtMs);
   const seats = [...room.state.players].map((p) => ({ matchReady: p.matchReady }));
-  if (shouldHoldCountdown(seats)) {return;}
-  sim.countdownHeld = false;
-  room.state.loadHeld = false;
+  if (!shouldHoldCountdown(seats)) {
+    sim.countdownHeld = false;
+    room.state.loadHeld = false;
+    return;
+  }
+  if (kickingLoadWait) {return;}
+  if (!loadWaitTimedOut(bag.loadWaitMs, HUB_CONFIG.loadReadyWaitMs)) {return;}
+  kickingLoadWait = true;
+  try {
+    kickUnreadyLoadWait(room);
+  } finally {
+    kickingLoadWait = false;
+  }
+}
+
+const LOAD_WAIT_KICK = { msg: KO.LOAD_WAIT_TIMEOUT, reason: "load-wait" } as const;
+
+function kickUnreadyLoadWait(room: LobbyHandle): void {
+  const unreadyIds = [...room.state.players]
+    .filter((p) => !p.matchReady)
+    .map((p) => p.sessionId);
+  for (const sessionId of unreadyIds) {
+    const client = room.clients.find((c) => c.sessionId === sessionId);
+    if (client) {
+      client.send(MSG.KICKED, LOAD_WAIT_KICK);
+      client.leave(CLOSE_CODE.KICKED);
+    }
+    room.dropSeat?.(sessionId);
+  }
+}
+
+/** 이어받기처럼 좌석이 다시 로딩해야 하면 카운트다운·개전을 붙잡고 1분 대기를 다시 잰다. */
+export function holdLoadBarrier(room: LobbyHandle, bag: LobbyBag): void {
+  const sim = bag.authority?.sim;
+  if (!sim || room.state.phase !== "playing") {return;}
+  sim.countdownHeld = true;
+  room.state.loadHeld = true;
+  bag.loadWaitMs = 0;
 }
 
 /** 결과 스냅을 먼저 뿌리고, 전원 같은 시각에 대기실로 돌린다. */

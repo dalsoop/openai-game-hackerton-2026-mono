@@ -57,8 +57,10 @@ if [ ! -f "$OUT/index.pck" ] || [ ! -f "$OUT/index.wasm" ] || [ ! -f "$OUT/index
   exit 1
 fi
 
-echo "[3/4] brotli/gzip 사전압축"
-for f in index.wasm index.pck index.js index.side.wasm; do
+echo "[3/4] glue strip 후 brotli/gzip 사전압축"
+# strip 이 압축보다 먼저여야 한다. 순서가 바뀌면 패치된 index.js 위에 옛 .br 가 남는다.
+node "$WEB/scripts/prepare-godot-export.mjs" "$OUT"
+for f in index.wasm index.pck index.js; do
   if [ ! -f "$OUT/$f" ]; then
     continue
   fi
@@ -74,3 +76,7 @@ echo "[4/4] 버전 매니페스트"
 SOURCE_HASH="$(python3 "$ROOT/deploy/scripts/plant-apps.py" source-hash "$SLOT")"
 node "$WEB/scripts/gen-godot-manifest.mjs" "$OUT" "$SOURCE_HASH"
 cat "$OUT/manifest.json"
+# 로컬 godot:build 뒤에도 stale 검사가 옛 스탬프를 들고 실패하지 않게 한다.
+# 알고리즘은 check-godot-stale / export_web.py 와 같다 (plant-apps source-hash 가 아님).
+mkdir -p "$WEB/public/godot"
+node "$WEB/scripts/check-godot-stale.mjs" --write-stamp

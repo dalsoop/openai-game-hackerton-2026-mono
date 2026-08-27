@@ -109,6 +109,33 @@ describe("계약: i18n 키 전수 실존", () => {
     const missing = tsSources.flatMap(missingKeysOfFile);
     expect(missing, "ko.json 에 없는 키 — 런타임에서 깨진다").toEqual([]);
   });
+
+  it("소스의 t(\"...\") 키는 messages/*.json 전 로케일에 실재한다", () => {
+    const dir = join(ROOT, "messages");
+    const files = readdirSync(dir).filter((name) => name.endsWith(".json"));
+    expect(files).toEqual(expect.arrayContaining(["ko.json", "en.json"]));
+    const missingKeysOfFileForLocale = (p: string, knownLoc: Set<string>): string[] => {
+      const src = sourceOf(p);
+      if (!/\bt\(/.test(src)) {return [];}
+      const namespaces = [
+        ...src.matchAll(/useTranslations\(\s*["']([^"']*)["']\s*\)/g),
+        ...src.matchAll(/getTranslations\(\s*\{[^}]*namespace:\s*["']([^"']*)["']/g),
+      ].map((m) => m[1]);
+      return [...src.matchAll(/\bt\(\s*["']([^"']+)["']/g)].map((m) => m[1])
+        .filter((key) => !isDynamicKey(key))
+        .filter((key) => !resolveKey(key, namespaces).some((k) => knownLoc.has(k)))
+        .map((key) => `${rel(p)}: ${key}`);
+    };
+    const missingKeysOfLocale = (file: string): string[] => {
+      const knownLoc = new Set(flatten(
+        JSON.parse(readFileSync(join(dir, file), "utf8")) as Record<string, unknown>,
+      ));
+      return tsSources.flatMap((p) => missingKeysOfFileForLocale(p, knownLoc))
+        .map((entry) => `${file}: ${entry}`);
+    };
+    const missing = files.flatMap(missingKeysOfLocale);
+    expect(missing, "메시지 로케일에 없는 키 — 그 언어 화면에서 깨진다").toEqual([]);
+  });
 });
 
 describe("계약: 방 만들기는 별도 페이지", () => {
@@ -337,12 +364,15 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(sourceOf(join(ROOT, "server.ts"))).not.toContain("RoomListRoom");
   });
 
-  it("스케일 분리여도 extlib 루트는 허브가 서빙한다", () => {
+  it("페이지 루트 WASM 은 로케일 상대도 붙이고, 팩 경로(/godot)로는 두지 않는다", () => {
     const server = sourceOf(join(ROOT, "server.ts"));
-    expect(server).toContain("isExtLibPath(pathname)");
-    expect(server).not.toMatch(/servePack && isExtLibPath/);
+    expect(server).not.toContain("isExtLibPath");
+    expect(server).toContain("servePageRelativeGodotAssets");
+    expect(server).toContain("shouldServeEncoding");
     expect(server).toContain("godotWorkletAssetPath(pathname)");
     expect(server).not.toMatch(/servePack && godotWorkletAssetPath/);
+    expect(server).not.toContain("libcolyseus");
+    expect(server).not.toContain("servePageRootWasm");
   });
 
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
@@ -438,12 +468,13 @@ describe("계약: 웹 인게임 오디오는 Sample + Master", () => {
   });
 });
 
+const HAS_GD_SCHEMA = existsSync(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+
 describe("계약: 히어로 배열 칸은 ArraySchema", () => {
   it("timedBuffs·clones 가 JSON 문자열이 아니다", () => {
     const ts = sourceOf(join(ROOT, "lib/hub/match-schema/hero.ts"))
       + sourceOf(join(ROOT, "lib/hub/match-schema/event.ts"));
     const write = sourceOf(join(ROOT, "lib/hub/match-schema-write.ts"));
-    const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
     expect(ts).toContain("@type([MatchTimedBuffSchema]) timedBuffs");
     expect(ts).toContain("@type([MatchCloneSchema]) clones");
     expect(ts).not.toContain('@type("string") timedBuffs');
@@ -454,8 +485,11 @@ describe("계약: 히어로 배열 칸은 ArraySchema", () => {
     expect(write).not.toContain("row.clones = JSON.stringify");
     expect(write).not.toContain("row.data = JSON.stringify");
     expect(ts).toContain("@type(MatchEventDataSchema) data");
-    expect(gd).toContain('Colyseus.Schema.Field.new("timedBuffs", Colyseus.Schema.ARRAY, MatchTimedBuffSchema)');
-    expect(gd).toContain('Colyseus.Schema.Field.new("clones", Colyseus.Schema.ARRAY, MatchCloneSchema)');
+    if (HAS_GD_SCHEMA) {
+      const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+      expect(gd).toContain('Colyseus.Schema.Field.new("timedBuffs", Colyseus.Schema.ARRAY, MatchTimedBuffSchema)');
+      expect(gd).toContain('Colyseus.Schema.Field.new("clones", Colyseus.Schema.ARRAY, MatchCloneSchema)');
+    }
   });
 });
 
@@ -463,13 +497,15 @@ describe("계약: 매치 events 는 Map 이다", () => {
   it("TS·GD 스키마가 ARRAY+shift 가 아니라 MAP 이다", () => {
     const ts = sourceOf(join(ROOT, "lib/hub/match-schema/state.ts"));
     const write = sourceOf(join(ROOT, "lib/hub/match-schema-write.ts"));
-    const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
     expect(ts).toContain("@type({ map: MatchEventSchema }) events");
     expect(ts).not.toContain("@type([MatchEventSchema]) events");
     expect(write).toContain("match.events.set(String(match.eventSeq)");
     expect(write).toContain("match.events.delete");
     expect(write).not.toContain("match.events.shift()");
-    expect(gd).toContain('Colyseus.Schema.Field.new("events", Colyseus.Schema.MAP, MatchEventSchema)');
+    if (HAS_GD_SCHEMA) {
+      const gd = sourceOf(join(ROOT, "..", "project/core/net/lobby_state_schema.gd"));
+      expect(gd).toContain('Colyseus.Schema.Field.new("events", Colyseus.Schema.MAP, MatchEventSchema)');
+    }
   });
 });
 

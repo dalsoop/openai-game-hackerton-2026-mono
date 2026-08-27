@@ -53,13 +53,18 @@ describe("usePageBridge", () => {
     expect(leave).not.toHaveBeenCalled();
   });
 
-  it("허브 SNAP 은 TO_ENGINE 으로 나간다", () => {
+  it("허브 SNAP 은 TO_ENGINE 으로 나간다", async () => {
+    // postToEngine 이 requestAnimationFrame 으로 디스패치를 미루므로(page-bridge.ts)
+    // 한 프레임 흘려보내야 이벤트가 도착한다.
     const seen: string[] = [];
     const onTo = (ev: Event): void => {seen.push(String((ev as CustomEvent).detail));};
     window.addEventListener(DOM_EVT.TO_ENGINE, onTo);
     const room = { roomId: "r1", sessionId: "s1", send: vi.fn(), leave: vi.fn() } as unknown as Room;
     renderHook(() => usePageBridge(room, matchInfo, snap));
-    act(() => {inbound.get(MSG.SNAP)?.({ t: 3 });});
+    await act(async () => {
+      inbound.get(MSG.SNAP)?.({ t: 3 });
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
     expect(seen.some((d) => d.includes(MSG.SNAP) && d.includes("3"))).toBe(true);
     window.removeEventListener(DOM_EVT.TO_ENGINE, onTo);
   });

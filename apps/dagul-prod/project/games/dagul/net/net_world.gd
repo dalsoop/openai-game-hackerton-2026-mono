@@ -11,6 +11,7 @@ const NetPredBullet = preload("res://games/dagul/net/net_pred_bullet.gd")
 const NetStandings = preload("res://games/dagul/net/net_standings.gd")
 const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
 const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
+const NetEffects = preload("res://games/dagul/net/net_effects.gd")
 
 const PLAYER_COUNT := 8
 const ARENA_SIZE := ArenaGeo.ARENA_SIZE
@@ -288,7 +289,7 @@ func present(_dt: float) -> void:
     NetPredBullet.advance(self, step)
     # 스냅이 안 바뀐 프레임엔 예측 총알이 그대로 남을 수 있다. 서버 탄만 남기고
     # 지금 살아있는 예측 탄을 다시 얹는다.
-    var server_only: Array = []
+    var server_only: Array[Dictionary] = []
     for shot in projectiles:
         if str(shot.get("source", "")) != "predicted":
             server_only.append(shot)
@@ -582,13 +583,17 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int, snap_per_sec: float)
 
 func _apply_bullets(list: Array, snap_per_sec: float) -> void:
     var next := NetSnapParser.parse_bullets(list, _prev_bullets, snap_per_sec)
-    var local_new := _has_new_local_bullet(next)
+    var local_new_count := _count_new_local_bullets(next)
     if _bullets_ready and not _snap_had_gun_fire:
         _emit_inferred_gun_fire(next)
     _bullets_ready = true
     _prev_bullets = next.duplicate()
     projectiles.assign(next)
-    _resolve_pred_fire_skip(local_new)
+    _resolve_pred_fire_skip(local_new_count > 0)
+    # 실탄이 도착했으면 그 발만큼 가장 오래된 예측 총알을 치운다 — 안 그러면
+    # 실탄이 따라붙는 동안 예측 유령과 실탄이 같이 보여서 "총알이 두 개로
+    # 따로 나온다"는 중복 묘사가 생긴다(특히 비행시간이 긴 저격총 계열).
+    _retire_predicted_bullets(local_new_count)
 
 func _emit_inferred_gun_fire(next: Array) -> void:
     var seen := {}
@@ -623,16 +628,32 @@ func _ingest_one_event(ev: Dictionary) -> void:
 func _skip_local_pred_gun_fire(slot: int) -> bool:
     return slot == local_slot and _pred_fire_skip_left > 0.0
 
-func _has_new_local_bullet(next: Array) -> bool:
+## 이번 스냅에서 처음 보인(= 실탄이 막 도착한) 로컬 소유 총알이 몇 발인지.
+func _count_new_local_bullets(next: Array) -> int:
     var seen := {}
     for prev_b in _prev_bullets:
         seen[int(prev_b.get("id", -1))] = true
+    var count := 0
     for bullet in next:
         if seen.has(int(bullet.get("id", -1))):
             continue
         if int(bullet.get("owner", -1)) == local_slot:
-            return true
-    return false
+            count += 1
+    return count
+
+## 실탄이 도착한 발 수만큼, 가장 먼저 예측했던(= 가장 먼저 쏜) 유령부터 치운다.
+## _pred_bullets 는 발사 순서대로 append 되므로 앞쪽이 가장 오래된 발이다.
+func _retire_predicted_bullets(count: int) -> void:
+    if count <= 0 or _pred_bullets.is_empty():
+        return
+    var kept: Array[Dictionary] = []
+    var to_retire := count
+    for bullet in _pred_bullets:
+        if to_retire > 0:
+            to_retire -= 1
+            continue
+        kept.append(bullet)
+    _pred_bullets = kept
 
 func _resolve_pred_fire_skip(local_new_bullet: bool) -> void:
     if _pred_fire_skip_left <= 0.0:
@@ -644,45 +665,17 @@ func _resolve_pred_fire_skip(local_new_bullet: bool) -> void:
     _pred_fire_skip_left = 0.0
 
 func _replace_server_effects(snap: Dictionary) -> void:
-    if not snap.has(SnapContract.EFFECTS):
-        return
-    var locals := _keep_local_effects()
-    var server := NetSnapParser.parse_effects(snap.get(SnapContract.EFFECTS, []))
-    server.append_array(locals)
-    effects.assign(server)
-func _keep_local_effects() -> Array[Dictionary]:
-    var kept: Array[Dictionary] = []
-    for fx in effects:
-        if str(fx.get("kind", "")).begins_with("local_"):
-            kept.append(fx)
-    return kept
+    NetEffects.replace_server(effects, snap)
 
 func _apply_loot(list: Array) -> void:
     var next := NetSnapParser.parse_loot(list)
     SfxDerive.loot_events(self, health_pickups, next)
     health_pickups.assign(next)
 func _add_effect(kind: StringName, pos: Vector2, radius: float, duration: float, color: Color, direction: Vector2 = Vector2.RIGHT) -> void:
-    effects.append({
-        "kind":kind,
-        "pos":pos,
-        "radius":radius,
-        "time":duration,
-        "max_time":duration,
-        "color":color,
-        "direction":direction,
-        "label":""
-    })
+    NetEffects.add(effects, kind, pos, radius, duration, color, direction)
 
 func _decay_effects(dt: float) -> void:
-    if dt <= 0.0:
-        dt = 1.0 / TICK_RATE
-    for i in range(effects.size() - 1, -1, -1):
-        var effect: Dictionary = effects[i]
-        effect["time"] = float(effect["time"]) - dt
-        if float(effect["time"]) <= 0.0:
-            effects.remove_at(i)
-        else:
-            effects[i] = effect
+    NetEffects.decay(effects, dt, TICK_RATE)
     if impact_ticks > 0:
         impact_ticks = maxi(0, impact_ticks - 1)
 

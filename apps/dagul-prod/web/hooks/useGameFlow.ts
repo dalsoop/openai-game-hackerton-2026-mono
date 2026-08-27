@@ -123,7 +123,7 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
     if (phaseAfterMatchEnd(hub.status) === "lobby") {hub.returnToLobby(displayName);}
   }, [hub, displayName]);
 
-  const errorToIntro = useCallback(() => setPhase("intro"), []);
+  const errorToIntro = leaveToLobby;
 
   const resetName = useCallback(() => {
     clearNickname();

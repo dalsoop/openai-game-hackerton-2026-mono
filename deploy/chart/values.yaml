@@ -59,6 +59,10 @@ hub:
   # (printf 형식 — %s 자리에 슬롯 폴더가 들어간다. /hubp/<pod-name> 직접연결)
   strategy: RollingUpdate
   publicPrefix: "%s.external.kr/hubp"
+  # apps/dagul-prod/web/lib/hub/config.ts HUB_CONFIG.shutdownDrainMs(240s) 와 반드시
+  # 같은 쪽으로 맞춘다 — 앱이 진행 중 매치를 봐주려고 기다려도, kubelet 이 먼저
+  # SIGKILL 하면 소용없다. 드레인(240s) + 정리 여유(30s).
+  terminationGracePeriodSeconds: 270
   staticSplit: true
   scale:
     folders:

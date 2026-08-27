@@ -56,6 +56,12 @@ export function usePageBridge(
   useEffect(() => {
     if (!room || !matchInfo || !snap) {return;}
     const encoded = encodeHubState(snap, room.sessionId, rttMs);
-    if (encoded) {postToEngine(MSG.STATE, encoded);}
+    if (encoded) {
+      postToEngine(MSG.STATE, encoded);
+      (window as unknown as Record<string, unknown>).__dagulDebug = {
+        phase: snap.phase, playerCount: snap.players.length,
+        sessionId: room.sessionId, rttMs, t: Date.now(),
+      };
+    }
   }, [room, matchInfo, snap, rttMs]);
 }

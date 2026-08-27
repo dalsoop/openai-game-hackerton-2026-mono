@@ -48,6 +48,8 @@
     "idleBody": "제한 시간 안에 시작하지 않아 방이 사라졌습니다.",
     "takeoverTitle": "다른 창에서 접속했습니다",
     "takeoverBody": "새 환경에서 로그인되어 이 화면은 비활성화되었습니다.",
+    "loadWaitTitle": "로딩이 끝나지 않았습니다",
+    "loadWaitBody": "제한 시간 안에 경기를 준비하지 못해 방에서 나갔습니다.",
     "back": "뒤로",
     "resuming": "이전 세션에 재접속 중입니다...",
     "startFresh": "새로 시작하기",
