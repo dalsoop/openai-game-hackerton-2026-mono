@@ -155,8 +155,9 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
 const MINIMAP_CENTER := Vector2(1486.0, 158.0)
 const MINIMAP_HALF_MAX := 88.0
 
+# 원형 레이더 패널(과거 스타일) 안에 사각 지형이 온전히 들어가는 배율 — 대각선 기준.
 func _minimap_scale() -> float:
-    return (MINIMAP_HALF_MAX * 2.0) / maxf(world.ARENA_SIZE.x, world.ARENA_SIZE.y)
+    return (MINIMAP_HALF_MAX * 2.0 * 0.96) / Vector2(world.ARENA_SIZE).length()
 
 func _minimap_offset(pos: Vector2, scale: float, half: Vector2, margin: float) -> Vector2:
     var offset := (pos - Vector2(world.ARENA_CENTER)) * scale
@@ -170,11 +171,13 @@ func _draw_minimap() -> void:
     var scale := _minimap_scale()
     var half := Vector2(world.ARENA_SIZE) * scale * 0.5
     var map := Rect2(MINIMAP_CENTER - half, half * 2.0)
-    draw_rect(map.grow(7.0), PANEL_BG)
+    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, PANEL_BG)
+    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#17456f"))
     draw_rect(map, Color("#cbb37a"))
+    draw_rect(map, Color(0.16, 0.24, 0.34, 0.55), false, 1.5)
     _draw_minimap_zone(scale, map)
     _draw_minimap_dots(scale, half)
-    draw_rect(map.grow(7.0), Color("#8aa0b8", 0.62), false, 2.0)
+    draw_arc(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, 0.0, TAU, 56, Color("#8aa0b8", 0.62), 2.0)
 
 # 존 원은 맵보다 클 수 있다 — 지형 사각에서 잘라 그린다 (원 채움은 클램프 폴리곤,
 # 링은 사각 안에 온전히 든 호 구간만).
