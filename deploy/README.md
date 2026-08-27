@@ -22,7 +22,7 @@ python3 deploy/scripts/apply-apps.py helm
 `.github/workflows/apps.yml`이 한 줄이다.
 
 1. **plan** (`ubuntu-latest`): `test_ship_contracts.py` 후 `ci-plan.py`가 올릴 폴더를 고른다.
-2. **lint-web** (`ubuntu-latest`): `lint-web.py`가 `tsc --noEmit`(서버 tsconfig 포함)·eslint·(있으면) `npm test`를 돌린다.
+2. **lint-web** (`ubuntu-latest`): `lint-web.py`가 `tsc --noEmit`(서버 tsconfig 포함)과 eslint를 돌린다.
    폴더가 없으면 skip 하고 성공한다. apply는 이 잡을 기다린다.
 3. **apply** (`self-hosted, hackertone`): `apply-apps.py ship` 다음 `helm`. 동시성은 `apps-ship` 하나다.
 
