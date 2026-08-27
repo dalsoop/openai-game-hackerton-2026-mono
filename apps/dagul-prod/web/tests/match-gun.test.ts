@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { makeEquipment } from "@/lib/hub/match-equipment";
 import {
   BLAST_HOP_DAMAGE, BLAST_HOP_KB, BLADE_EVADE, BRACE_GUARD, BREAKER_GUARD, BURST_LEFT_DEFAULT,
-  ARC_BOMB_RADIUS, BOMB_ARC_BLAST, BOMB_ARC_DISTANCE, BOMB_ARC_FLIGHT,
   BRAWLER_HEAVY_DMG, BRAWLER_HEAVY_RADIUS, BRAWLER_KICK_MUL, BRAWLER_KICK_Y, LEECH_HEAL,
-  MORTAR_SPLASH, MUZZLE_FRAME, PASSIVE_MUL, RADIUS_FIRE_MUL, RAIL_PASSIVE_DIST,
+  MORTAR_RADIUS_MIN, MORTAR_SPLASH, MUZZLE_FRAME, PASSIVE_MUL, RADIUS_FIRE_MUL, RAIL_PASSIVE_DIST,
   RELOAD_MIN, SPEAR_PASSIVE_DIST, WEAVE_IMMUNITY, apply, applyEquipmentAttack, applyGunInput,
   applyGunLoot, applyMobility, attackDirection, equipmentSkillTable, gunReach, gunSeedFields,
   pelletOffset, projectileKind, rotateVec, seedGun, tick, tickGun, tryNormalAttack, tryStartReload,
@@ -55,21 +54,23 @@ describe("발사 모드·펠릿·스플래시·관통", () => {
     expect(mortar.projectiles).toHaveLength(1);
     expect(mortar.projectiles[0]?.kind).toBe("shell");
     expect(mortar.projectiles[0]?.splash).toBe(MORTAR_SPLASH);
-    expect(mortar.projectiles[0]?.radius).toBe(ARC_BOMB_RADIUS);
+    expect(mortar.projectiles[0]?.radius).toBe(Math.max(9 * RADIUS_FIRE_MUL, MORTAR_RADIUS_MIN));
     expect(mortar.projectiles[0]?.pierce).toBe(0);
-    expect(mortar.projectiles[0]?.arc).toBe(true);
+    expect(mortar.projectiles[0]?.arc).toBeFalsy();
+    expect(mortar.projectiles[0]?.vx).toBeCloseTo(620, 8);
   });
 
-  it("bomb mag_size>0 이라 burst 게이트는 건너뛰고 포물선 유탄 1발", () => {
+  it("DOUBLE BARREL(bomb) 은 펠릿 6발·버스트 2·mag 2, 유탄이 아니다", () => {
     const h = hero("bomb");
     expect(h.equipment.burstShots).toBe(2);
     expect(h.equipment.magSize).toBe(2);
+    expect(h.equipment.projectiles).toBe(6);
     const r = tryNormalAttack(h, { x: 1, y: 0 });
-    expect(r.projectiles).toHaveLength(1);
-    expect(r.projectiles[0]?.arc).toBe(true);
-    expect(r.projectiles[0]?.ttl).toBe(BOMB_ARC_FLIGHT);
-    expect(r.projectiles[0]?.splash).toBe(BOMB_ARC_BLAST);
-    expect(r.projectiles[0]?.landingX).toBeCloseTo(h.x + BOMB_ARC_DISTANCE, 8);
+    expect(r.projectiles).toHaveLength(6);
+    expect(r.projectiles[0]?.arc).toBeFalsy();
+    expect(r.projectiles[0]?.kind).toBe("pellet");
+    expect(r.projectiles[0]?.radius).toBe(6 * RADIUS_FIRE_MUL);
+    expect(r.projectiles[0]?.splash).toBe(0);
     expect(h.mag).toBe(1);
     expect(h.fireCd).toBe(0.22);
   });
@@ -216,7 +217,7 @@ describe("우클릭 스킬 테이블·모빌리티·루트", () => {
     const h = hero("burst");
     const idle = applyGunInput(h, {
       primary: true, primaryPressed: false, reload: false, mobility: false,
-      moveX: 0, moveY: 0, equipmentPressed: true,
+      moveX: 0, moveY: 0, equipmentPressed: false,
     }, []);
     expect(idle.used).toBe(true);
     expect(idle.kind).toBe("fire");
@@ -232,8 +233,26 @@ describe("우클릭 스킬 테이블·모빌리티·루트", () => {
       primary: true, primaryPressed: true, reload: false, mobility: true,
       moveX: 1, moveY: 0, equipmentPressed: false,
     }, []);
-    expect(mob.kind).toBe("mobility");
-    expect(dash.fireCd).toBe(0);
+    expect(mob.kind).toBe("fire");
+    expect(mob.projectiles).toHaveLength(1);
+    expect(dash.fireCd).toBeGreaterThan(0);
+  });
+
+  it("우클릭 차지 중에는 홀드 발사가 차지를 취소하지 않는다", () => {
+    const h = hero("burst");
+    const charging = applyGunInput(h, {
+      primary: true, primaryPressed: true, reload: false, mobility: false,
+      moveX: 0, moveY: 0, equipment: true, equipmentPressed: true, dt: 1 / 60,
+    }, []);
+    expect(charging.kind).not.toBe("fire");
+    expect(h.chargingSkill).toBe(true);
+    const held = applyGunInput(h, {
+      primary: true, primaryPressed: false, reload: false, mobility: false,
+      moveX: 0, moveY: 0, equipment: true, equipmentPressed: false, dt: 1 / 60,
+    }, []);
+    expect(held.kind).toBe("idle");
+    expect(h.chargingSkill).toBe(true);
+    expect(h.chargeTime).toBeGreaterThan(0);
   });
 });
 

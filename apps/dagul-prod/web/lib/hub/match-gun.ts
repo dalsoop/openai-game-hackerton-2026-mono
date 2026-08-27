@@ -11,7 +11,7 @@ import {
 } from "./match-equipment.js";
 import type { EffectStore } from "./match-effects.js";
 import {
-  applySkillInput, cancelSkillCharge, tickSkillChargeGuard,
+  applySkillInput, tickSkillChargeGuard,
   type SkillAttackResult, type SkillMineSpec, type SkillWallSpec, type SkillZoneSpec,
 } from "./match-skill.js";
 
@@ -263,26 +263,13 @@ export function spawnArcBomb(
   };
 }
 
-function wantsArcBomb(eq: Equipment): boolean {
-  return eq.fireMode === "gl" || eq.id === "mortar" || eq.id === "bomb";
-}
-
-function spawnArcForEquipment(h: GunHero, dir: Vec2, damage: number, ttl: number, heavy: boolean): GunProjectile {
-  const eq = h.equipment;
-  if (eq.id === "bomb") {
-    return spawnArcBomb(
-      h, dir, BOMB_ARC_DISTANCE, BOMB_ARC_FLIGHT, damage, BOMB_ARC_BLAST, eq.cc, eq.knockback, heavy,
-    );
-  }
-  const splash = eq.splash > 1.0 ? eq.splash : MORTAR_SPLASH;
-  return spawnArcBomb(
-    h, dir, equipmentReach(eq, h.rouletteRange), Math.max(0.01, ttl), damage, splash, eq.cc, eq.knockback, heavy,
-  );
-}
-
 function spawnVolley(h: GunHero, dir: Vec2, damage: number, radius: number, ttl: number, heavy: boolean): GunProjectile[] {
   const eq = h.equipment;
-  if (wantsArcBomb(eq)) {return [spawnArcForEquipment(h, dir, damage, ttl, heavy)];}
+  // damage_system.gd:137-144 — mortar 일반공격은 직선 shell. spawn_arc_bomb 는 일반공격에서 안 탄다.
+  if (eq.id === "mortar") {
+    const splash = eq.splash > 1.0 ? eq.splash : MORTAR_SPLASH;
+    return [spawnShot(h, dir, damage, Math.max(radius, MORTAR_RADIUS_MIN), ttl, splash, 0, "shell", heavy)];
+  }
   const count = Math.max(1, eq.projectiles);
   const kind = projectileKind(eq.id, eq.kind);
   const shots: GunProjectile[] = [];
@@ -380,7 +367,18 @@ export function applyGunLoot(h: GunHero, mode: string): boolean {
   h.mag = h.equipment.magSize;
   h.reloadLeft = 0;
   h.reloadFlash = 0;
+  syncLootedGunFields(h, nextId);
   return true;
+}
+
+function syncLootedGunFields(h: GunHero, nextId: string): void {
+  const row = h as GunHero & {
+    equipmentId?: string; magMax?: number; preferredRange?: number; normalReach?: number;
+  };
+  row.equipmentId = nextId;
+  if (typeof row.magMax === "number") {row.magMax = h.equipment.magSize;}
+  if (typeof row.preferredRange === "number") {row.preferredRange = h.equipment.preferredRange;}
+  if (typeof row.normalReach === "number") {row.normalReach = equipmentReach(h.equipment, h.rouletteRange);}
 }
 
 function skillApply(skill: SkillAttackResult): GunApplyResult {
@@ -390,32 +388,35 @@ function skillApply(skill: SkillAttackResult): GunApplyResult {
   };
 }
 
+function tryMobilityInput(
+  h: GunHero, input: GunInput, covers: readonly CoverRect[], others: readonly GunHero[],
+): { hits: MobilityHit[]; used: boolean } {
+  if (!input.mobility) {return { hits: [], used: false };}
+  const lenSq = input.moveX * input.moveX + input.moveY * input.moveY;
+  const dir = lenSq > 0.1 ? { x: input.moveX, y: input.moveY } : { x: h.facingX, y: h.facingY };
+  return applyMobility(h, dir, covers, others);
+}
+
 export function applyGunInput(
   h: GunHero, input: GunInput, covers: readonly CoverRect[], others: readonly GunHero[] = [],
 ): GunApplyResult {
   const aim = { x: h.facingX, y: h.facingY };
-  if (input.mobility) {
-    const lenSq = input.moveX * input.moveX + input.moveY * input.moveY;
-    const dir = lenSq > 0.1 ? { x: input.moveX, y: input.moveY } : aim;
-    const mob = applyMobility(h, dir, covers, others);
-    return { ...IDLE_APPLY, kind: "mobility", hits: mob.hits, used: mob.used };
-  }
+  // 피어/CPU: 대시 다음 틱에 발사를 이어 친다 (hero_movement.gd:157-162).
+  const mob = tryMobilityInput(h, input, covers, others);
   if (input.reload) {tryStartReload(h);}
-  let fire: GunFireResult | null = null;
-  if (wantsFire(h.equipment.fireMode, input.primary, input.primaryPressed)) {
-    cancelSkillCharge(h);
-    fire = tryNormalAttack(h, aim);
-  }
   const dt = (input.dt ?? 0) > 0 ? input.dt ?? 1 / 60 : 1 / 60;
   const held = Boolean(input.equipment) || Boolean(input.equipmentPressed);
   const skill = applySkillInput(
     h, held, Boolean(input.equipmentPressed), Boolean(input.equipmentReleased), dt, aim, covers,
     input.effects,
   );
-  if (skill.fired) {return skillApply(skill);}
+  if (skill.fired) {return { ...skillApply(skill), hits: mob.hits };}
+  const canFire = !h.chargingSkill && wantsFire(h.equipment.fireMode, input.primary, input.primaryPressed);
+  const fire = canFire ? tryNormalAttack(h, aim) : null;
   if (fire?.fired) {
-    return { ...IDLE_APPLY, kind: "fire", projectiles: fire.projectiles, used: true };
+    return { ...IDLE_APPLY, kind: "fire", projectiles: fire.projectiles, hits: mob.hits, used: true };
   }
+  if (mob.used) {return { ...IDLE_APPLY, kind: "mobility", hits: mob.hits, used: true };}
   if (input.reload) {return { ...IDLE_APPLY, kind: "reload" };}
   return IDLE_APPLY;
 }

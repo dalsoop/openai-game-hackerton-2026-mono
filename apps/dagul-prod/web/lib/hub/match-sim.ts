@@ -36,7 +36,8 @@ import {
 } from "./match-cc.js";
 import type { CcHeroState } from "./match-cc.js";
 import {
-  packCoresSnap, spawnCores, damageCore, coreExposed, projectileHitsCore, streakDamageMultiplier,
+  packCoresSnap, spawnCores, damageCore, coreExposed, projectileHitsCore, zoneCoversCore,
+  streakDamageMultiplier, PROJECTILE_CORE_DAMAGE_MULT, ZONE_CORE_DAMAGE_MULT,
 } from "./match-core.js";
 import type { SimCore } from "./match-core.js";
 import {
@@ -50,7 +51,7 @@ import {
   type DeployableCore, type DeployableEvent, type DeployableState,
 } from "./match-deployable.js";
 import { snapDeployables, tickWallHitCd } from "./match-deployable-hit.js";
-import { GUN_LOOT_MODES, makeEquipment, startEquipmentId, equipmentReach } from "./match-equipment.js";
+import { GUN_LOOT_MODES, makeEquipment, startEquipmentId, equipmentReach, nextGunLootId } from "./match-equipment.js";
 import {
   applyGunInput, gunSeedFields, tickGun, weaponPassiveDamageMul,
   HOP_AIR, HOP_LIFT_DEFAULT, type GunHero, type GunApplyResult, type GunProjectile,
@@ -65,12 +66,13 @@ import {
 import type { LaunchState } from "./match-launch.js";
 import { MatchRng } from "./match-rng.js";
 import {
-  packMidTowerSnap, resetMidTower, updateMidTower, type SimMidTower, type TowerHooks,
+  hurtTower, packMidTowerSnap, resetMidTower, updateMidTower, TOWER_RADIUS,
+  type SimMidTower, type TowerHooks,
 } from "./match-tower.js";
 import type { TowerShell, TowerZone } from "./match-tower-fire.js";
 import {
-  applyUltimateInput, seedUltWorld, tickFightSurge, tickOxCharges, tickRatTides, tickSnakeSkins,
-  tickDragonSmokes, tickTigerRoars, tickRabbitBurrows, tickHorseKicks, tickDogRush,
+  absorbWoolShield, applyUltimateInput, seedUltWorld, tickFightSurge, tickOxCharges, tickRatTides,
+  tickSnakeSkins, tickDragonSmokes, tickTigerRoars, tickRabbitBurrows, tickHorseKicks, tickDogRush,
   tickRoosterEggs, tickPigMuds, tickWoolShields, tickUltClones, tickPassiveUltCharge,
   applyHitUltCharge, chargeHeroSeedFields, heroMoveSpeed, ultHeroSeedFields,
   type ChargeHero, type UltHero, type UltWorld,
@@ -205,9 +207,11 @@ export type SimZone = {
   damage: number;
   effectKind: string;
   label: string;
+  source?: string;
   ccTime?: number;
   knockback?: number;
   leech?: boolean;
+  comboFinisher?: boolean;
   controlKind?: "slow" | "root" | "stun";
 };
 
@@ -518,6 +522,9 @@ export class MatchSim {
       h.rouletteRate = h.rlUntil.rate + h.rlTimed.reduce((s, b) => s + b.rate, 0);
       h.rouletteRange = h.rlUntil.range + h.rlTimed.reduce((s, b) => s + b.range, 0);
       h.magMax = h.equipment.magSize;
+      h.equipmentId = h.equipment.id;
+      h.preferredRange = h.equipment.preferredRange;
+      h.normalReach = equipmentReach(h.equipment, h.rouletteRange);
     }
   }
 
@@ -650,7 +657,6 @@ export class MatchSim {
   private applyHero(hero: SimHero, cmd: MatchInput, dt: number): void {
     const seq = Math.max(0, Math.floor(num(cmd.seq)));
     if (seq > hero.ack) {hero.ack = seq;}
-    handleUseInput(hero, truthy(cmd.use), this.itemWorld(dt));
     applyEmoteInput(hero, Math.floor(num(cmd.emote, -1)));
     applyFinish(this.finishCine, this.heroes, hero.slot, truthy(cmd.finish));
     if (this.finishCine.on && (this.finishCine.atk === hero.slot || this.finishCine.vic === hero.slot)) {
@@ -694,6 +700,7 @@ export class MatchSim {
       return;
     }
     this.stepHeroMove(hero, mx, my, mlen, ctrl.mult, dt);
+    handleUseInput(hero, truthy(cmd.use), this.itemWorld(dt));
     const savedAimX = hero.aimX;
     const savedAimY = hero.aimY;
     const others = [...this.heroes.values()].filter((h) => h.slot !== hero.slot);
@@ -726,14 +733,16 @@ export class MatchSim {
     hero.aimY = savedAimY;
     hero.facing = { x: hero.facingX, y: hero.facingY };
     hero.aim = { x: hero.facingX, y: hero.facingY };
-    if (gun.kind === "mobility" && gun.used) {
-      const dashLen = Math.hypot(hero.x - preDashX, hero.y - preDashY) || 1;
-      addMobilityDashEffects(this.effects, {
-        equipmentId: hero.equipment.id, slot: hero.slot,
-        oldX: preDashX, oldY: preDashY, x: hero.x, y: hero.y,
-        dirX: (hero.x - preDashX) / dashLen, dirY: (hero.y - preDashY) / dashLen,
-        comboKind: preDashCombo,
-      });
+    if (hero.x !== preDashX || hero.y !== preDashY) {
+      if (truthy(cmd.dash) || truthy(cmd.mobility)) {
+        const dashLen = Math.hypot(hero.x - preDashX, hero.y - preDashY) || 1;
+        addMobilityDashEffects(this.effects, {
+          equipmentId: hero.equipment.id, slot: hero.slot,
+          oldX: preDashX, oldY: preDashY, x: hero.x, y: hero.y,
+          dirX: (hero.x - preDashX) / dashLen, dirY: (hero.y - preDashY) / dashLen,
+          comboKind: preDashCombo,
+        });
+      }
     }
     this.consumeGunResult(hero, gun);
   }
@@ -854,10 +863,37 @@ export class MatchSim {
       this.splashAround(b, -1);
       return true;
     }
-    this.hitCrates(b);
-    this.hitCores(b);
+    return this.consumeSolidHit(b);
+  }
+
+  /** projectile_hit.gd:101-103 — 착탄 시 풀딜 add_zone(delay=0.01). */
+  private expireArcBomb(b: SimBullet, dt: number): boolean {
+    b.ttl -= dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.ttl > 0) {return false;}
+    b.x = b.landingX;
+    b.y = b.landingY;
+    this.zones.push({
+      x: b.landingX, y: b.landingY, radius: b.splash, owner: b.owner, delay: 0.01,
+      damage: b.damage, effectKind: "explosion", label: b.label, source: b.source || "normal",
+      ccTime: b.ccTime, knockback: b.knockback, leech: false, comboFinisher: b.comboFinisher,
+      controlKind: b.controlKind,
+    });
+    return true;
+  }
+
+  /** projectile_hit.gd:142-195 — 울 방패 → 히어로 → 코어 → 상자 → 타워. 명중 시 탄 소거. */
+  private consumeSolidHit(b: SimBullet): boolean {
+    if (this.hitWoolShield(b)) {return true;}
     const victim = this.hitHero(b);
-    if (!victim) {return false;}
+    if (victim) {return this.finishHeroPierce(b, victim);}
+    if (this.hitOneCore(b)) {return true;}
+    if (this.hitOneCrate(b)) {return true;}
+    return this.hitMidTower(b);
+  }
+
+  private finishHeroPierce(b: SimBullet, victim: SimHero): boolean {
     this.applyBulletHeroHit(b, victim);
     if (b.pierce > 0) {
       b.pierce -= 1;
@@ -867,16 +903,15 @@ export class MatchSim {
     return true;
   }
 
-  /** projectile_hit.gd:92-108 — 비행 중 무충돌, ttl 소진 시 landing 스플래시. */
-  private expireArcBomb(b: SimBullet, dt: number): boolean {
-    b.ttl -= dt;
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
-    if (b.ttl > 0) {return false;}
-    b.x = b.landingX;
-    b.y = b.landingY;
-    this.splashAround(b, -1);
-    return true;
+  private hitWoolShield(b: SimBullet): boolean {
+    const radius = b.radius || BULLET_RADIUS;
+    for (const h of this.heroes.values()) {
+      if (h.slot === b.owner) {continue;}
+      if (absorbWoolShield(this.ultWorld, this.heroes, b.owner, h.slot, { x: b.x, y: b.y }, radius)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private applyBulletHeroHit(b: SimBullet, victim: SimHero): void {
@@ -913,25 +948,45 @@ export class MatchSim {
     damageCratesAt(this.crates, this.crateOrbs, b.x, b.y, b.splash, dmg);
   }
 
-  private hitCrates(b: SimBullet): void {
+  private hitOneCrate(b: SimBullet): boolean {
+    const reach = (b.radius || BULLET_RADIUS) + CRATE_RADIUS;
     for (let i = 0; i < this.crates.length; i += 1) {
       const c = this.crates[i];
       if (!c.alive) {continue;}
-      if (Math.hypot(b.x - c.x, b.y - c.y) > (b.radius || BULLET_RADIUS) + CRATE_RADIUS) {continue;}
+      if (Math.hypot(b.x - c.x, b.y - c.y) > reach) {continue;}
       if (hurtCrate(this.crates, this.crateOrbs, i, b.damage) && isGunLootMode(this.mode)) {
-        spawnGunLootPickup(this.loot, c.x, c.y);
+        const breaker = this.heroes.get(b.owner);
+        spawnGunLootPickup(this.loot, c.x, c.y, breaker ? nextGunLootId(breaker.equipment.id) : "");
       }
+      if (b.splash > 0) {damageCratesAt(this.crates, this.crateOrbs, b.x, b.y, b.splash, b.damage);}
+      return true;
     }
+    return false;
   }
 
-  private hitCores(b: SimBullet): void {
+  private hitOneCore(b: SimBullet): boolean {
+    const attacker = this.heroes.get(b.owner);
+    if (!attacker) {return false;}
     for (const core of this.cores) {
+      if (core.slot === b.owner) {continue;}
       if (!projectileHitsCore(b.x, b.y, b.radius || BULLET_RADIUS, core)) {continue;}
-      const owner = this.heroes.get(core.slot);
-      const attacker = this.heroes.get(b.owner);
-      if (!attacker) {continue;}
-      damageCore(core, owner, attacker, b.damage * 0.78);
+      damageCore(core, this.heroes.get(core.slot), attacker, b.damage * PROJECTILE_CORE_DAMAGE_MULT);
+      return true;
     }
+    return false;
+  }
+
+  private hitMidTower(b: SimBullet): boolean {
+    const t = this.midTower;
+    if (!t.alive) {return false;}
+    if (Math.hypot(b.x - t.x, b.y - t.y) >= (b.radius || BULLET_RADIUS) + TOWER_RADIUS) {
+      return false;
+    }
+    hurtTower(t, b.owner, b.damage, this.tick, this.heroes, this.effects);
+    if (b.splash > 0) {
+      hurtTower(t, b.owner, b.damage * 0.35, this.tick, this.heroes, this.effects);
+    }
+    return true;
   }
 
   private hitHero(b: SimBullet): SimHero | null {
@@ -1119,20 +1174,35 @@ export class MatchSim {
         kept.push(z);
         continue;
       }
-      for (const h of this.heroes.values()) {
-        if (!h.alive || h.slot === z.owner) {continue;}
-        if (Math.hypot(h.x - z.x, h.y - z.y) > z.radius + HERO_RADIUS) {continue;}
-        this.hurtHero(z.owner, h, z.damage, "equipment", {
-          knockback: z.knockback ?? 0, impactX: z.x, impactY: z.y, effectKind: z.effectKind, label: z.label,
-          ccTime: z.ccTime ?? 0, controlKind: z.controlKind ?? "slow",
-        });
-        if (z.leech) {
-          const atk = this.heroes.get(z.owner);
-          if (atk?.alive) {atk.hp = Math.min(atk.maxHp, atk.hp + z.damage * PROJECTILE_LEECH_MUL);}
-        }
-      }
+      this.applyZonePulse(z);
     }
     this.zones = kept;
+  }
+
+  private applyZonePulse(z: SimZone): void {
+    const source = z.source ?? "equipment";
+    for (const h of this.heroes.values()) {
+      if (!h.alive || h.slot === z.owner) {continue;}
+      if (Math.hypot(h.x - z.x, h.y - z.y) > z.radius + HERO_RADIUS) {continue;}
+      this.hurtHero(z.owner, h, z.damage, source, {
+        knockback: z.knockback ?? 0, impactX: z.x, impactY: z.y, effectKind: z.effectKind, label: z.label,
+        ccTime: z.ccTime ?? 0, controlKind: z.controlKind ?? "slow", attackFinisher: z.comboFinisher,
+      });
+      if (z.leech) {
+        const atk = this.heroes.get(z.owner);
+        if (atk?.alive) {atk.hp = Math.min(atk.maxHp, atk.hp + z.damage * PROJECTILE_LEECH_MUL);}
+      }
+    }
+    this.applyZoneCores(z);
+  }
+
+  private applyZoneCores(z: SimZone): void {
+    const attacker = this.heroes.get(z.owner);
+    if (!attacker) {return;}
+    for (const core of this.cores) {
+      if (core.slot === z.owner || !zoneCoversCore(z.x, z.y, z.radius, core)) {continue;}
+      damageCore(core, this.heroes.get(core.slot), attacker, z.damage * ZONE_CORE_DAMAGE_MULT);
+    }
   }
 
   private stepThreat(dt: number): void {

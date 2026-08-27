@@ -13,11 +13,11 @@ static func _f(d: Dictionary, key: String, fallback: float) -> float:
 		return float(v)
 	return fallback
 
-static func _use_server_events(w) -> bool:
-	return bool(w._server_events_active)
+## 서버 events 는 gun_fire·궁/아이템만 보낸다. 히트·재장전·메드킷·픽업·존 수축은 스냅 차분으로 파생한다.
+static func _use_server_events(_w) -> bool:
+	return false
 
 ## start_countdown 양수→0 = combat_started, shrinking false→true = safe_zone_shrink.
-## 서버 events 채널이 켜지면 전부 서버가 보내므로 파생하지 않는다.
 static func header_events(w, prev_countdown: float, prev_shrinking: bool) -> void:
 	if _use_server_events(w):
 		return

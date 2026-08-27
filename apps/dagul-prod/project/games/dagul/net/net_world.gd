@@ -5,6 +5,7 @@ const ArenaGeo = preload("res://games/dagul/sim/arena_geometry.gd")
 const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 const SfxDerive = preload("res://games/dagul/net/net_sfx_derive.gd")
+const NetPred = preload("res://games/dagul/net/net_pred.gd")
 const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
 const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
 
@@ -419,48 +420,13 @@ func _reconcile(snap: Dictionary) -> void:
         _step_pred(_f(item, "mx", 0.0), _f(item, "my", 0.0), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), _f(item, "dt", 1.0 / 60.0))
 
 func _step_pred(mx: float, my: float, dash: bool, aim: Vector2, dt: float) -> void:
-    _pred_dash_cd = maxf(0.0, _pred_dash_cd - dt)
-    var move := Vector2(mx, my)
-    _apply_pred_move(move, dt)
-    if dash:
-        _apply_pred_dash(move)
-    _pred_pos = clamp_arena(_pred_pos)
-    if aim.distance_squared_to(_pred_pos) > 1.0:
-        _pred_aim = _pred_pos.direction_to(aim)
+    NetPred.step(self, mx, my, dash, aim, dt)
 
 func _apply_pred_move(move: Vector2, dt: float) -> void:
-    var mlen := move.length()
-    if mlen > 0.05:
-        _pred_pos += move / maxf(1.0, mlen) * MOVE_SPEED * dt
+    NetPred.apply_move(self, hero_at_slot(local_slot), move, dt)
 
 func _apply_pred_dash(move: Vector2) -> void:
-    if _pred_dash_cd > 0.0:
-        return
-    var dir := _pred_dash_dir(move)
-    var stats := _pred_dash_stats()
-    _pred_pos += dir * stats.x
-    _pred_dash_cd = stats.y
-
-func _pred_dash_dir(move: Vector2) -> Vector2:
-    var dir := move
-    if dir.length_squared() <= 0.1:
-        dir = _pred_aim
-    var dlen := dir.length()
-    if dlen <= 0.0001:
-        return Vector2.RIGHT
-    return dir / dlen
-
-func _pred_dash_stats() -> Vector2:
-    var me := hero_at_slot(local_slot)
-    var eq_id := ""
-    if not me.is_empty():
-        var eq: Variant = me.get("equipment", {})
-        if eq is Dictionary:
-            eq_id = str(eq.get("id", ""))
-    if eq_id == "" or eq_id == "net":
-        return Vector2(DASH_DISTANCE, DASH_COOLDOWN)
-    var mob: Dictionary = _equip_reg.mobility_for(eq_id)
-    return Vector2(float(mob.get("mobility_distance", DASH_DISTANCE)), float(mob.get("mobility_cooldown", DASH_COOLDOWN)))
+    NetPred.apply_dash(self, hero_at_slot(local_slot), move)
 
 static func clamp_arena(pos: Vector2) -> Vector2:
     return Vector2(

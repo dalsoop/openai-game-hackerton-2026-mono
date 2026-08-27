@@ -28,6 +28,9 @@ func run(t) -> void:
 	_effects_empty_array_clears_non_local(t)
 	_slot_not_array_index(t)
 	_dash_pred_moves_then_cools(t)
+	_dash_pred_uses_equipment_distance(t)
+	_dash_pred_blocked_by_cover(t)
+	_dash_pred_ignored_during_cc(t)
 	_pred_fire_skips_empty_mag(t)
 	_launch_trail_accumulates_and_fades(t)
 
@@ -418,6 +421,60 @@ func _dash_pred_moves_then_cools(t) -> void:
 	nw.predict_local(Vector2.RIGHT, true, aim, 1.0 / 60.0)
 	var after_cd: Vector2 = nw.heroes[0]["pos"]
 	t.check("대시 쿨다운 중엔 두 번째 점프가 없다", after_cd.x - after_dash.x < 20.0)
+
+func _dash_pred_uses_equipment_distance(t) -> void:
+	var blade := _dash_dx_for_weapon("blade")
+	var breaker := _dash_dx_for_weapon("breaker")
+	t.check("장비별 대시 거리 반영: blade 가 breaker 보다 길다", blade > breaker + 80.0)
+	t.check("장비별 대시 거리 반영: blade 가 305 근처다", absf(blade - 305.0) < 20.0)
+
+func _dash_dx_for_weapon(weapon_id: String) -> float:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.PLAYERS][0][SnapContract.P_WEAPON_ID] = weapon_id
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		return -1.0
+	var before: Vector2 = nw.heroes[0]["pos"]
+	nw.predict_local(Vector2.RIGHT, true, before + Vector2(400.0, 0.0), 1.0 / 60.0)
+	return Vector2(nw.heroes[0]["pos"]).x - before.x
+
+func _dash_pred_blocked_by_cover(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.PLAYERS][0][SnapContract.P_WEAPON_ID] = "blade"
+	# 짧은 변 반지름 150 + 히어로 패딩 20. blade 대시(305) 착지점이 원 안에 남는다.
+	snap[SnapContract.COVERS] = [{"x": 3950.0, "y": 2230.0, "w": 300.0, "h": 300.0}]
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		t.check("엄폐 예측 히어로가 있다", false)
+		return
+	var before: Vector2 = nw.heroes[0]["pos"]
+	nw.predict_local(Vector2.RIGHT, true, before + Vector2(400.0, 0.0), 1.0 / 60.0)
+	var dx := Vector2(nw.heroes[0]["pos"]).x - before.x
+	t.check("엄폐에 막히는 예측: 대시가 커버를 통과하지 않는다", dx < 20.0)
+
+func _dash_pred_ignored_during_cc(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.PLAYERS][0][SnapContract.P_WEAPON_ID] = "blade"
+	snap[SnapContract.PLAYERS][0][SnapContract.P_STUN_T] = 1.0
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		t.check("CC 예측 히어로가 있다", false)
+		return
+	var before: Vector2 = nw.heroes[0]["pos"]
+	nw.predict_local(Vector2.RIGHT, true, before + Vector2(400.0, 0.0), 1.0 / 60.0)
+	t.check("CC 중 대시 무시: stun 이면 위치가 안 바뀐다", Vector2(nw.heroes[0]["pos"]).distance_to(before) < 1.0)
 
 func _pred_fire_skips_empty_mag(t) -> void:
 	var loaded = NetWorldScript.new()

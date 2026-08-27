@@ -3,6 +3,7 @@
  * 아이템 풀(roll/습득/use)은 match-item.ts (active_item.gd ITEM_POOL_MODE).
  */
 import { ARENA_TILE_SCALE, HERO_RADIUS, SOURCE_ARENA_SIZE } from "./match-covers.js";
+import { makeEquipment } from "./match-equipment.js";
 import { applyGunLoot, type GunHero } from "./match-gun.js";
 import {
   collectItemPickup, isItemPoolMode, isNoLootMode, rollPickupKind, tryUseActiveItem,
@@ -53,6 +54,7 @@ export type LootHero = {
   maxHp: number;
   alive: boolean;
   eliminated: boolean;
+  downed?: boolean;
   medkits: number;
   useHeld: boolean;
   heldItem: string;
@@ -175,11 +177,11 @@ export function tryCollectGunLoot(hero: GunHero, mode: string): boolean {
   return applyGunLoot(hero, mode);
 }
 
-/** 크레이트/킬 자리의 총 드랍. ephemeral 이라 습득 후 재생성하지 않는다. */
-export function spawnGunLootPickup(pickups: LootPickup[], x: number, y: number): LootPickup {
+/** 크레이트/킬 자리의 총 드랍. ephemeral 이라 습득 후 재생성하지 않는다. gunId 가 있으면 라벨 n 에 쓴다. */
+export function spawnGunLootPickup(pickups: LootPickup[], x: number, y: number, gunId = ""): LootPickup {
   const pickup: LootPickup = {
     id: pickups.length, x, y, homeX: x, homeY: y, magnetSlot: -1, active: true, respawn: 0,
-    kind: "gun", itemKind: "", disguise: "", ephemeral: true, ignoreSlot: -1, ignoreTime: 0,
+    kind: "gun", itemKind: gunId, disguise: "", ephemeral: true, ignoreSlot: -1, ignoreTime: 0,
   };
   pickups.push(pickup);
   return pickup;
@@ -273,7 +275,7 @@ export function updateHealthPickups(
 
 /** 메드킷 사용 — try_use_medkit(active_item.gd:369-384). 성공 시 true. */
 export function tryUseMedkit(hero: LootHero): boolean {
-  if (!hero.alive || hero.eliminated || hero.medkits <= 0) {return false;}
+  if (!hero.alive || hero.eliminated || hero.downed || hero.medkits <= 0) {return false;}
   if (hero.hp >= hero.maxHp - MEDKIT_MIN_MISSING) {return false;}
   hero.medkits -= 1;
   hero.hp = Math.min(hero.maxHp, hero.hp + hero.maxHp * MEDKIT_HEAL_RATIO);
@@ -282,6 +284,10 @@ export function tryUseMedkit(hero: LootHero): boolean {
 
 /** use 입력 에지 검출 — 허브는 마지막 입력을 매 틱 재적용하므로 홀드 연속 사용을 막는다. */
 export function handleUseInput(hero: LootHero, wantUse: boolean, world?: ItemWorld): void {
+  if (hero.downed) {
+    hero.useHeld = wantUse;
+    return;
+  }
   if (wantUse && !hero.useHeld) {
     if (world && isItemPoolMode(world.mode)) {tryUseActiveItem(asItemHero(hero), world);}
     else if (!tryHeldPoolItem(hero)) {tryUseMedkit(hero);}
@@ -289,12 +295,23 @@ export function handleUseInput(hero: LootHero, wantUse: boolean, world?: ItemWor
   hero.useHeld = wantUse;
 }
 
+function lootGunLabel(p: LootPickup): string {
+  if (p.kind !== "gun" || p.itemKind === "") {return "";}
+  return makeEquipment(p.itemKind).name;
+}
+
 /** 스냅 loot 배열 — _snap_loot(network_host.gd): active 만, Godot parse_loot 필드 id·kind·x·y·n. */
 export function packLootSnap(pickups: readonly LootPickup[]): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
   for (const p of pickups) {
     if (!p.active) {continue;}
-    out.push({ id: String(p.id), kind: p.kind === "gun" ? "gun" : "item", x: p.x, y: p.y, n: "" });
+    const gun = p.kind === "gun";
+    const row: Record<string, unknown> = {
+      id: String(p.id), kind: gun ? "gun" : "item", x: p.x, y: p.y, n: lootGunLabel(p),
+    };
+    if (!gun && p.itemKind !== "") {row.itemKind = p.itemKind;}
+    if (!gun && p.disguise !== "") {row.disguise = p.disguise;}
+    out.push(row);
   }
   return out;
 }

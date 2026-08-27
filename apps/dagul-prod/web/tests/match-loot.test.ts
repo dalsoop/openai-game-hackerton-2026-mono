@@ -177,6 +177,14 @@ describe("메드킷 사용·소진", () => {
     handleUseInput(h, true);
     expect(h.medkits).toBe(1);
   });
+
+  it("다운이면 메드킷을 쓰지 않는다", () => {
+    const h = hero(0, { hp: 0, medkits: 2, downed: true });
+    handleUseInput(h, true);
+    expect(h.medkits).toBe(2);
+    expect(h.hp).toBe(0);
+    expect(tryUseMedkit(h)).toBe(false);
+  });
 });
 
 describe("스냅 계약", () => {
@@ -187,6 +195,7 @@ describe("스냅 계약", () => {
     expect(arr).toHaveLength(15);
     expect(arr[0]).toEqual({
       id: "0", kind: "item", x: pickups[0].x, y: pickups[0].y, n: "",
+      itemKind: "medkit", disguise: "medkit",
     });
   });
 
@@ -221,8 +230,15 @@ describe("스냅 계약", () => {
     updateHealthPickups(sim.loot, sim.heroes, DT, "gun-semi");
     expect(drop.active).toBe(false);
     expect(h.equipment.id).toBe("burst");
+    expect(h.equipmentId).toBe("burst");
     expect(h.mag).toBe(h.equipment.magSize);
     expect(tryCollectGunLoot(h, "item")).toBe(false);
+  });
+
+  it("총 드랍 스냅 n 은 장비 이름, 아이템은 itemKind·disguise 를 싣는다", () => {
+    const guns = spawnGunLootPickup([], 10, 20, "bomb");
+    const packed = packLootSnap([guns]);
+    expect(packed[0]).toMatchObject({ kind: "gun", n: "DOUBLE BARREL", x: 10, y: 20 });
   });
 
   it("use 입력 통합 — 카운트다운 뒤 use 로 메드킷을 소비한다", () => {
