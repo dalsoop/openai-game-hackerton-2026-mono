@@ -7,7 +7,7 @@ import { useGodotLoader } from "@/hooks/useGodotLoader";
 import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
 import { useWaitingRoomPack } from "@/hooks/useWaitingRoomPack";
-import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount } from "@/lib/game-flow-state";
+import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount, deployReloadSafe } from "@/lib/game-flow-state";
 import { holdLobbyBgmOff } from "@/hooks/useLobbyAudio";
 import type { GamePhase, MatchInfo } from "@/types";
 
@@ -42,6 +42,11 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   const fallbackName = guestName || defaultPlayer;
   const [name, setName] = useState(nickname || guestName);
   const revision = useDeployRevision(buildId);
+
+  // 안전한 화면(intro·lobby)에서는 stale 셸을 자동 새로고침한다 — 배너 클릭 대기 없이.
+  useEffect(() => {
+    if (deployReloadSafe(phase, revision.stale)) {revision.reload();}
+  }, [phase, revision.stale, revision.reload, revision]);
 
   const displayName = displayNameOf(name, fallbackName);
   // START 이후에도 React 방이 살아 있다. matchInfo 가 있으면 그 확정본을 쓴다.

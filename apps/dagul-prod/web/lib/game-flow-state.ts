@@ -38,6 +38,15 @@ export function lobbyBgmOn(phase: GamePhase): boolean {
   return phase === "intro";
 }
 
+/**
+ * 배포 stale 자동 새로고침 허용 화면. 옛 번들·옛 팩이 새 서버 스키마와 만나면
+ * 디코드가 깨지므로, 자리(대기실)나 매치를 잡고 있지 않은 화면에서는 즉시 리로드한다.
+ * room·playing 에서는 배너만 두고, 로비로 돌아온 순간 이 판정이 리로드를 발화시킨다.
+ */
+export function deployReloadSafe(phase: GamePhase, stale: boolean): boolean {
+  return stale && (phase === "intro" || phase === "lobby");
+}
+
 /** 방 생성·입장 matchmake 중에는 로비 목록을 그리지 않는다. */
 export function matchmakePending(
   kind: "create" | "join" | "resume" | null | undefined,

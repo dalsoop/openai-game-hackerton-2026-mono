@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSurface, displayNameOf, homeSurface, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
+import { createSurface, deployReloadSafe, displayNameOf, homeSurface, lobbyBgmOn, matchmakePending, packLoadStartsInRoom, godotMayHubReconnect, phaseAfterMatchEnd, phaseFromHubStatus, phaseOnMount, reactOwnsResume, shouldShowConnectionLost } from "@/lib/game-flow-state";
 import type { GamePhase, HubStatus } from "@/types";
 import type { HomeSurface } from "@/lib/game-flow-state";
 
@@ -230,6 +230,21 @@ describe("createSurface — /create 빈 화면 금지", () => {
     const allowed = ["form", "pending", "redirect"];
     for (const row of createSurfaceRows()) {
       expect(allowed).toContain(createSurface(row.phase, row.status, row.kind));
+    }
+  });
+});
+
+describe("deployReloadSafe — 배포 stale 자동 새로고침 판정", () => {
+  it("자리를 잡지 않은 화면에서만 리로드한다", () => {
+    expect(deployReloadSafe("intro", true)).toBe(true);
+    expect(deployReloadSafe("lobby", true)).toBe(true);
+    expect(deployReloadSafe("room", true)).toBe(false);
+    expect(deployReloadSafe("playing", true)).toBe(false);
+  });
+
+  it("stale 이 아니면 어느 화면에서도 리로드하지 않는다", () => {
+    for (const phase of ["intro", "lobby", "room", "playing"] as const) {
+      expect(deployReloadSafe(phase, false)).toBe(false);
     }
   });
 });
