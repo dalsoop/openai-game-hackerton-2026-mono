@@ -549,6 +549,107 @@ class PurgeCacheGate(unittest.TestCase):
         self.assertIn("nodes=2", str(ctx.exception))
 
 
+class ShipPipeline(unittest.TestCase):
+    """Harbor·lint-web·노드 수 — 실행 가능한 ship 게이트."""
+
+    def _apply(self, name: str):
+        import importlib.util
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location(name, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def _lint(self):
+        import importlib.util
+
+        path = Path(__file__).with_name("lint-web.py")
+        spec = importlib.util.spec_from_file_location("lint_web_gate", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_ready_node_count_parses_kubectl(self) -> None:
+        from unittest import mock
+
+        apply = self._apply("apply_nodes")
+        with mock.patch.object(
+            apply,
+            "remote",
+            return_value=mock.Mock(returncode=0, stdout="n1 Ready\nn2 Ready\n\n"),
+        ):
+            self.assertEqual(apply.ready_node_count(), 2)
+        with mock.patch.object(apply, "remote", return_value=mock.Mock(returncode=1, stdout="")):
+            self.assertEqual(apply.ready_node_count(), 0)
+
+    def test_harbor_fail_on_zero_nodes(self) -> None:
+        from unittest import mock
+
+        apply = self._apply("apply_zero_nodes")
+        with mock.patch.object(apply, "ready_node_count", return_value=0):
+            with self.assertRaises(SystemExit) as ctx:
+                apply.require_registry_or_single_node("harbor.50.internal.xz/library/dagul-prod:x")
+        self.assertIn("nodes=0", str(ctx.exception))
+
+    def test_build_hub_push_then_import(self) -> None:
+        src = Path(__file__).with_name("apply-apps.py").read_text()
+        fn = src.split("def build_hub", 1)[1].split("def hub_refs", 1)[0]
+        self.assertLess(fn.find("docker_push(ref)"), fn.find("require_registry_or_single_node(ref)"))
+        self.assertLess(fn.find("require_registry_or_single_node(ref)"), fn.find("k3s ctr images import"))
+        self.assertIn('raise SystemExit(f"{folder} 이미지 올리기 실패")', fn)
+
+    def test_lint_web_argv_and_skip(self) -> None:
+        import sys
+        from unittest import mock
+
+        lint = self._lint()
+        self.assertEqual(
+            lint.folders_from_argv(["foo", "dagul-prod", "server-fig-dev1"]),
+            ["dagul-prod", "server-fig-dev1"],
+        )
+        with mock.patch.object(sys, "argv", ["lint-web.py"]):
+            self.assertEqual(lint.main(), 0)
+
+    def test_lint_web_typecheck_order(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        lint = self._lint()
+        with TemporaryDirectory() as tmp:
+            web = Path(tmp)
+            cmds = lint.typecheck_cmds(web)
+            self.assertEqual(cmds[0], ["npm", "ci"])
+            self.assertEqual(cmds[1], ["npx", "tsc", "--noEmit"])
+            self.assertEqual(cmds[-1], ["npm", "run", "lint"])
+            self.assertNotIn("--project", " ".join(" ".join(c) for c in cmds))
+            (web / "tsconfig.server.json").write_text("{}")
+            cmds = lint.typecheck_cmds(web)
+        self.assertIn(["npx", "tsc", "--project", "tsconfig.server.json", "--noEmit"], cmds)
+        tsc = [c for c in cmds if c[:2] == ["npx", "tsc"]]
+        self.assertEqual(tsc[0], ["npx", "tsc", "--noEmit"])
+        self.assertEqual(cmds[-1], ["npm", "run", "lint"])
+
+    def test_lint_web_skips_slot_without_package(self) -> None:
+        import sys
+        from tempfile import TemporaryDirectory
+        from unittest import mock
+
+        lint = self._lint()
+        with TemporaryDirectory() as tmp:
+            apps = Path(tmp)
+            (apps / "dagul-prod" / "web").mkdir(parents=True)
+            with mock.patch.object(lint, "APPS", apps):
+                with mock.patch.object(sys, "argv", ["lint-web.py", "dagul-prod", "not-a-slot"]):
+                    self.assertEqual(lint.main(), 0)
+
+    def test_export_hash_write_is_hard_error(self) -> None:
+        src = Path(__file__).with_name("apply-apps.py").read_text()
+        fn = src.split("def push_web", 1)[1].split("def docker_push", 1)[0]
+        self.assertIn(".export-hash 기록 실패", fn)
+        self.assertIn("raise SystemExit", fn)
+        self.assertNotIn("warn", fn)
+
+
 class HelmContractTail(unittest.TestCase):
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
         import os
