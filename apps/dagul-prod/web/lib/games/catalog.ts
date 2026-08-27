@@ -26,7 +26,7 @@ export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
     id: "dagul" as GameId,
     titleKey: "games.dagul.title",
     blurbKey: "games.dagul.blurb",
-    thumbSrc: "/games/dagul.webp?v=2",
+    thumbSrc: "/games/dagul.webp?v=3",
     defaultMode: "classic",
     pack: "dagul",
   },
