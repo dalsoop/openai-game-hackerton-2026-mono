@@ -22,6 +22,7 @@ const SUITES := [
 	"res://tests/test_layout_keys.gd",
 	"res://tests/test_net_world.gd",
 	"res://tests/test_net_pred.gd",
+	"res://tests/test_net_pred_bullet.gd",
 	"res://tests/test_render_locomotion.gd",
 	"res://tests/test_render_effect_kind.gd",
 	"res://tests/test_snap_contract.gd",

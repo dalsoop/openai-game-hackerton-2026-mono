@@ -7,6 +7,7 @@ const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 const SfxDerive = preload("res://games/dagul/net/net_sfx_derive.gd")
 const NetPred = preload("res://games/dagul/net/net_pred.gd")
 const NetLaunchTrails = preload("res://games/dagul/net/net_launch_trails.gd")
+const NetPredBullet = preload("res://games/dagul/net/net_pred_bullet.gd")
 const NetStandings = preload("res://games/dagul/net/net_standings.gd")
 const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
 const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
@@ -35,6 +36,7 @@ var tick: int = 0
 var heroes: Array[Dictionary] = []
 var cores: Array[Dictionary] = []
 var projectiles: Array[Dictionary] = []
+var _pred_bullets: Array[Dictionary] = []
 var zones: Array[Dictionary] = []
 var deployables: Array[Dictionary] = []
 var effects: Array[Dictionary] = []
@@ -144,6 +146,7 @@ func reset() -> void:
 
 func _reset_net_session() -> void:
     _prev_bullets.clear()
+    _pred_bullets.clear()
     _deaths.clear()
     _snaps.clear()
     _pending.clear()
@@ -254,6 +257,7 @@ func _spawn_pred_fire_fx(me: Dictionary, aim_point: Vector2 = Vector2.ZERO) -> v
     var muzzle: Vector2 = GunSigScript.muzzle_world_pos(origin, aim, eq_id)
     me["muzzle_time"] = maxf(float(me.get("muzzle_time", 0.0)), 0.12)
     _add_effect(&"local_tracer", muzzle, 120.0, 0.12, Color(1.0, 0.95, 0.75, 1.0), aim)
+    NetPredBullet.spawn(self, muzzle, aim, local_slot)
     event_log.emit(tick, &"gun_fire", local_slot, -1, {"equipment": eq_id, "predicted": true})
 
 func present(_dt: float) -> void:
@@ -264,6 +268,12 @@ func present(_dt: float) -> void:
     local_hit_shake = maxi(0, local_hit_shake - 1)
     if not _snaps.is_empty():
         _present_from_snaps(step)
+    NetPredBullet.advance(self, step)
+    # projectiles 는 스냅이 안 바뀐 프레임엔 재계산되지 않는다 — 지난 프레임에
+    # 섞어 넣은 예측 총알이 그대로 남으니 매번 걷어내고 지금 살아있는 것만 다시 얹는다.
+    projectiles = projectiles.filter(func(p): return str(p.get("source", "")) != "predicted")
+    if not _pred_bullets.is_empty():
+        projectiles = projectiles + _pred_bullets
     NetLaunchTrails.synth(self, step)
 
 func _present_from_snaps(dt: float) -> void:
