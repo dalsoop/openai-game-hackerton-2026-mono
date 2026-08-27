@@ -37,7 +37,7 @@ body.wait::before { background: linear-gradient(rgba(11,14,20,0.82), rgba(11,14,
 body::after { content:""; position:fixed; inset:0; z-index:-1; opacity:.4; background-image:radial-gradient(circle, var(--line) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg,transparent,black 30%,black 70%,transparent); pointer-events:none; }
 
 /* --- sections --- */
-#hub, #wait { display:none; min-height: 100%; padding: 32px; max-width: 960px; margin: 0 auto; animation: fadeUp .35s ease both; }
+#hub, #wait { display:none; min-height: 100%; padding: 32px; max-width: 768px; margin: 0 auto; animation: fadeUp .35s ease both; }
 body:not(.wait) #hub { display: block; }
 body.wait #hub { display: none; }
 body.wait #wait { display: block; }
@@ -234,7 +234,7 @@ body.wait #wait { display: block; }
 /* ===== React 앱 전용 (인라인 스타일 금지 — 클래스로만) ===== */
 
 /* --- 페이지 셸 --- */
-.page-shell { min-height:100%; padding:32px; max-width:960px; margin:0 auto; animation:fadeUp .35s ease both; }
+.page-shell { min-height:100%; padding:32px; max-width:768px; margin:0 auto; animation:fadeUp .35s ease both; }
 .fade-in { animation:fadeUp .35s ease both; }
 
 /* --- 인트로 --- */

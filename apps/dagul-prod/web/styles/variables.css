@@ -51,7 +51,7 @@
   --transition-slow: 0.2s ease;
 
   /* 레이아웃 */
-  --max-width: 960px;
+  --max-width: 768px;
   --header-height: 60px;
 
   /* 기타 */
