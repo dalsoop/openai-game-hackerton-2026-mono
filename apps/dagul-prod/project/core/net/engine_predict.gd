@@ -13,6 +13,7 @@ static func available() -> bool:
 	return ENABLED and ClassDB.class_exists(&"_ColyseusClient")
 
 ## room 이 준비됐고 네이티브 예측 클래스가 있으면 바인딩, 아니면 null.
+## GDExtension 컷 이후 네이티브 Predict 가 없다 — 항상 null.
 static func bind(_room) -> EnginePredict:
 	return null
 
