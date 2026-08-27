@@ -21,6 +21,7 @@ const SUITES := [
 	"res://tests/test_input_release.gd",
 	"res://tests/test_layout_keys.gd",
 	"res://tests/test_net_world.gd",
+	"res://tests/test_render_locomotion.gd",
 	"res://tests/test_snap_contract.gd",
 	"res://tests/test_network_bridge.gd",
 	"res://tests/test_match_snap_adapter.gd",

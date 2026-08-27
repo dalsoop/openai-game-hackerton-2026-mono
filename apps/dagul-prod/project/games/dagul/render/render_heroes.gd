@@ -2,9 +2,11 @@ class_name RenderHeroes
 extends RefCounted
 
 const TextCacheScript = preload("res://games/dagul/render/text_cache.gd")
+const RenderLocomotionScript = preload("res://games/dagul/render/render_locomotion.gd")
 
 var r: Node2D
 var world
+var _loco = RenderLocomotionScript.new()
 
 func _init(renderer: Node2D) -> void:
 	r = renderer
@@ -355,6 +357,8 @@ func draw_rat_tides() -> void:
 			r.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func draw_heroes() -> void:
+	# 원본 hero_movement 의 이동 연출(기울임·출발 스쿼시·급정지 눌림)을 vel 로 합성한다.
+	_loco.synth(world, 1.0 / 60.0)
 	for hero in world.heroes:
 		var slot := int(hero["slot"])
 		if not bool(hero["alive"]):
