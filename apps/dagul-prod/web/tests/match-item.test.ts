@@ -192,19 +192,19 @@ describe("pull/pocket 발동", () => {
     expect(a.pocketTime).toBeCloseTo(POCKET_DURATION - DT, 6);
   });
 
-  it("packPlayerV2 는 pullT·pocketT 를 omit-default 로 싣는다", () => {
+  it("packPlayerV2 는 pullTime·pocketTime 를 omit-default 로 싣는다", () => {
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }], 5, ITEM_POOL_MODE);
     const h = sim.heroes.get(0);
     if (!h) {return;}
     const empty = packAuthoritySnap(sim, new Map(), ITEM_POOL_MODE);
     const row0 = (empty.players as Array<Record<string, unknown>>)[0];
-    expect(row0.pullT).toBeUndefined();
-    expect(row0.pocketT).toBeUndefined();
+    expect(row0.pullTime).toBeUndefined();
+    expect(row0.pocketTime).toBeUndefined();
     h.pullTime = 0.55;
     h.pocketTime = 5;
     const packed = packAuthoritySnap(sim, new Map(), ITEM_POOL_MODE);
     const row = (packed.players as Array<Record<string, unknown>>)[0];
-    expect(row.pullT).toBeCloseTo(0.55);
-    expect(row.pocketT).toBeCloseTo(5);
+    expect(row.pullTime).toBeCloseTo(0.55);
+    expect(row.pocketTime).toBeCloseTo(5);
   });
 });

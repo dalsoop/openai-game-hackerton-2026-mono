@@ -34,3 +34,16 @@ export function seatedSession(
 ): boolean {
   return players.some((p) => p.sessionId === sessionId);
 }
+
+/** 좌석당 입력 채널 하나. 엔진 보조 세션이 있으면 그쪽이 주인. */
+export function inputOwnerSession(
+  slot: number,
+  players: ReadonlyArray<{ sessionId: string; slot: number }>,
+  claims: ReadonlyMap<string, SeatClaim>,
+  engineClaims: ReadonlyMap<string, SeatClaim>,
+): string | undefined {
+  for (const [sid, claim] of engineClaims) {
+    if (slotOfEngineClaim(players, claims, claim) === slot) {return sid;}
+  }
+  return players.find((p) => p.slot === slot)?.sessionId;
+}

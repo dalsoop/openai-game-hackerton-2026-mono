@@ -116,7 +116,7 @@ describe("SafeZone", () => {
     a.maxHp = 100;
     b.maxHp = 100;
     a.hp = 10;
-    b.hp = 90;
+    b.hp = 20;
     sim.matchTime = MATCH_TIME_LIMIT - DT;
     sim.bullets.set(9001, {
       id: 9001, x: b.x, y: b.y, vx: 0, vy: 0, owner: 0, ttl: 1, kind: "bolt",

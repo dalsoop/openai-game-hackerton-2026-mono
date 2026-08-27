@@ -187,6 +187,17 @@ describe("우클릭 스킬 테이블·모빌리티·루트", () => {
     expect(shield.guardTime).toBe(BRACE_GUARD);
   });
 
+  // 회귀: applyMobility 가 resolveCoverMotion 을 단발로 쓰면 blade(305px) 급
+  // 대시가 얇은 커버(반지름 35 안팎)를 관통한다 — resolveCoverMotionSwept 로
+  // 고정됐는지 통합 레벨에서 확인한다.
+  it("blade 대시는 정면의 얇은 벽을 관통하지 않는다", () => {
+    const thinWall = [{ x: 3850, y: 2100, w: 300, h: 70 }]; // 중심 (4000,2135), r=35
+    const blade = hero("blade", { x: 4000, y: 1900 });
+    applyMobility(blade, { x: 0, y: 1 }, thinWall);
+    expect(blade.y).toBeLessThan(2135 - 35 + 1);
+    expect(blade.y).toBeLessThan(1900 + 305 - 100);
+  });
+
   it("mortar BLAST HOP 은 120px 안 적에게 2/0.12/72", () => {
     const mortar = hero("mortar", { slot: 0, x: 4000, y: 2400 });
     const near = hero("burst", { slot: 1, x: 4000 + 50, y: 2400 });

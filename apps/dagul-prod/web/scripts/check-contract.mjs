@@ -2,11 +2,13 @@
 // React↔Godot 핸드오프 계약 대조 게이트.
 // 정본: web/lib/contract/wire.ts · web/lib/games/catalog.ts
 // 거울: project/core/contract/web_contract.gd
-import { readFileSync, existsSync } from "fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync } from "fs";
 import { createHash } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { readCatalogPacks } from "./catalog-packs.mjs";
+import { listStaleEncodings } from "../lib/godot/encoding-freshness.mjs";
+import { wasmHasDylinkSection } from "../lib/godot/wasm-template.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tsPath = path.join(here, "..", "lib", "contract", "wire.ts");
@@ -34,6 +36,28 @@ let errors = 0;
 function fail(msg) {
   console.error(`  ✗ ${msg}`);
   errors++;
+}
+
+function assertNoSideWasmGlue(file, label) {
+  if (!existsSync(file)) {return;}
+  const src = readFileSync(file, "utf8");
+  if (src.includes(".side.wasm")) {fail(`${label} index.js 가 .side.wasm 을 아직 가리킵니다`);}
+}
+
+function readHead(file, n = 64) {
+  const fd = openSync(file, "r");
+  try {
+    const buf = Buffer.alloc(n);
+    const got = readSync(fd, buf, 0, n, 0);
+    return buf.subarray(0, got);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function assertNoDlinkWasm(file, label) {
+  if (!existsSync(file)) {return;}
+  if (wasmHasDylinkSection(readHead(file))) {fail(`${label} index.wasm 이 dlink(GDExtension) 템플릿입니다`);}
 }
 
 const HANDOFF = tsBlock(ts, "HANDOFF");
@@ -97,6 +121,24 @@ if (!existsSync(godotDir) || (!existsSync(manifestPath) && !hasArtifacts)) {
   if (actual !== manifest.filesHash) {
     fail(`Godot 산출물 해시 불일치: manifest=${manifest.filesHash} 실제=${actual} — npm run godot:build 로 재생성하세요`);
   }
+  const staleExport = listStaleEncodings(godotDir);
+  if (staleExport.length > 0) {
+    fail(`project/web 낡은 압축본: ${staleExport.join(", ")} — prepare-godot-export 후 재압축하세요`);
+  }
+  assertNoSideWasmGlue(path.join(godotDir, "index.js"), "project/web");
+  assertNoDlinkWasm(path.join(godotDir, "index.wasm"), "project/web");
+}
+
+const publicGodot = path.join(here, "..", "public", "godot");
+for (const pack of packs) {
+  const packDir = path.join(publicGodot, pack);
+  if (!existsSync(packDir)) {continue;}
+  const stalePub = listStaleEncodings(packDir);
+  if (stalePub.length > 0) {
+    fail(`public/godot/${pack} 낡은 압축본: ${stalePub.join(", ")} — npm run godot:publish`);
+  }
+  assertNoSideWasmGlue(path.join(packDir, "index.js"), `public/godot/${pack}`);
+  assertNoDlinkWasm(path.join(packDir, "index.wasm"), `public/godot/${pack}`);
 }
 
 const charCanon = path.join(here, "..", "lib", "characters", "characters.json");

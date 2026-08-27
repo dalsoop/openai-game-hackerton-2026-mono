@@ -3,6 +3,7 @@ extends RefCounted
 
 const SnapContract := preload("res://games/dagul/net/snap_contract.gd")
 const Parser := preload("res://games/dagul/net/net_snap_parser.gd")
+const PlayerCodec := preload("res://games/dagul/net/snap_player_codec.gd")
 
 const NetPred := preload("res://games/dagul/net/net_pred.gd")
 
@@ -19,9 +20,10 @@ func run(t) -> void:
 
 func _pack_emits_every_player_key(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), false, 7)
-	t.check("플레이어 키 개수가 계약과 같다", packed.size() == SnapContract.PLAYER_KEYS.size())
 	for key in SnapContract.PLAYER_KEYS:
 		t.check("pack 에 %s" % key, packed.has(key))
+	t.check("medkits 칸을 v1 키 위에 싣는다", packed.has(SnapContract.P_MEDKITS))
+	t.check("v1+medkits 크기", packed.size() == SnapContract.PLAYER_KEYS.size() + 1)
 
 func _player_roundtrip(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), true, 4)
@@ -56,6 +58,42 @@ func _player_roundtrip(t) -> void:
 	t.check("emoteTime 왕복", is_equal_approx(float(hero["emote_time"]), 1.5))
 	t.check("cpu 왕복", bool(hero["cpu"]) == true)
 	t.check("ack 는 와이어에만 있다", int(packed[SnapContract.P_ACK]) == 4)
+	t.check("item 빈칸은 0", PlayerCodec.unpack_item_field("") == 0)
+	t.check("item medkit 은 1", PlayerCodec.unpack_item_field("medkit") == 1)
+	t.check("item medkit:3 은 3", PlayerCodec.unpack_item_field("medkit:3") == 3)
+	t.check("pack 0 은 빈칸", PlayerCodec.pack_item_field(0) == "")
+	t.check("pack 1 은 medkit", PlayerCodec.pack_item_field(1) == "medkit")
+	t.check("pack 3 은 medkit:3", PlayerCodec.pack_item_field(3) == "medkit:3")
+	t.check("wire spring 1", PlayerCodec.pack_item_wire("spring", 1) == "spring")
+	t.check("wire pull 2", PlayerCodec.pack_item_wire("pull", 2) == "pull:2")
+	t.check("unpack spring kind", str(PlayerCodec.unpack_item_wire("spring").get("kind", "")) == "spring")
+	t.check("unpack spring 은 메드킷 0", PlayerCodec.unpack_item_field("spring") == 0)
+	t.check("unpack pull:2 count", int(PlayerCodec.unpack_item_wire("pull:2").get("count", 0)) == 2)
+	var three := _sample_hero()
+	three["medkits"] = 3
+	var packed3 := SnapContract.pack_player(three, false, 0)
+	t.check("pack 와이어 medkit:3", str(packed3.get(SnapContract.P_ITEM, "")) == "medkit:3")
+	var unpacked3 := SnapContract.unpack_player(packed3, {}, 2, 60.0)
+	t.check("unpack medkits 3", int(unpacked3.get("medkits", 0)) == 3)
+	var from_wire := SnapContract.unpack_player({
+		SnapContract.P_SLOT: 2,
+		SnapContract.P_ITEM: "medkit:2",
+		SnapContract.P_X: 0.0,
+		SnapContract.P_Y: 0.0,
+		SnapContract.P_HP: 10.0,
+		SnapContract.P_ALIVE: true,
+	}, {}, 2, 60.0)
+	t.check("서버 와이어 medkit:2", int(from_wire.get("medkits", 0)) == 2)
+	var prefer := SnapContract.unpack_player({
+		SnapContract.P_SLOT: 2,
+		SnapContract.P_ITEM: "medkit:1",
+		SnapContract.P_MEDKITS: 5,
+		SnapContract.P_X: 0.0,
+		SnapContract.P_Y: 0.0,
+		SnapContract.P_HP: 10.0,
+		SnapContract.P_ALIVE: true,
+	}, {}, 2, 60.0)
+	t.check("medkits 칸이 item 문자열보다 우선", int(prefer.get("medkits", 0)) == 5)
 
 func _v2_roundtrip(t) -> void:
 	var packed := SnapContract.pack_player(_v2_hero(), false, 1)
@@ -71,10 +109,10 @@ func _v2_roundtrip(t) -> void:
 	t.check("rouPhase 왕복", str(hero["roulette_phase"]) == "spin")
 	t.check("rouSpin 문자열 왕복", str(hero["roulette_spin_id"]) == "atk")
 	t.check("rouSpin 와이어가 문자열이다", typeof(packed.get(SnapContract.P_ROU_SPIN, 0)) == TYPE_STRING)
-	t.check("rlTimed 왕복", (hero["rl_timed"] as Array).size() == 1)
-	t.check("ultClones 왕복", (hero["ult_clones"] as Array).size() == 1)
-	var clone: Dictionary = hero["ult_clones"][0]
-	t.check("ultClones pos", is_equal_approx(Vector2(clone["pos"]).x, 10.0))
+	t.check("timedBuffs 왕복", (hero["timed_buffs"] as Array).size() == 1)
+	t.check("clones 왕복", (hero["clones"] as Array).size() == 1)
+	var clone: Dictionary = hero["clones"][0]
+	t.check("clones pos", is_equal_approx(Vector2(clone["pos"]).x, 10.0))
 	t.check("mobCd 왕복", is_equal_approx(float(hero["mobility_cd"]), 4.5))
 	t.check("hopT 왕복", is_equal_approx(float(hero["hop_time"]), 0.12))
 	t.check("elim 왕복", bool(hero["eliminated"]) == true)
@@ -85,9 +123,12 @@ func _v2_roundtrip(t) -> void:
 	t.check("rouDesc 왕복", str(hero["roulette_desc"]) == "이번 목숨 동안 공격력이 올라갑니다")
 	t.check("hitstunT 왕복", is_equal_approx(float(hero["hitstun_time"]), 0.18))
 	t.check("comboCaptureT 왕복", is_equal_approx(float(hero["combo_capture_time"]), 0.4))
+	t.check("mobilityDist 왕복", is_equal_approx(float(hero["equipment"].get("mobility_distance", 0.0)), 219.0))
 
 func _v2_omit_default(t) -> void:
-	var packed := SnapContract.pack_player(_sample_hero(), false, 7)
+	var h := _sample_hero()
+	h["medkits"] = 0
+	var packed := SnapContract.pack_player(h, false, 7)
 	t.check("v1 키 개수는 유지", packed.size() == SnapContract.PLAYER_KEYS.size())
 	for key in SnapContract.PLAYER_KEYS_V2:
 		t.check("omit %s" % key, not packed.has(key))
@@ -105,7 +146,7 @@ func _v2_legacy_defaults(t) -> void:
 	t.check("구 스냅 stun 기본", is_equal_approx(float(hero.get("stun_time", -1.0)), 0.0))
 	t.check("구 스냅 charging 기본", bool(hero.get("charging_skill", true)) == false)
 	t.check("구 스냅 heldItem 기본", str(hero.get("held_item", "x")) == "")
-	t.check("구 스냅 ultClones 기본", (hero.get("ult_clones", [1]) as Array).is_empty())
+	t.check("구 스냅 clones 기본", (hero.get("clones", [1]) as Array).is_empty())
 	t.check("구 스냅 elim 은 not alive", bool(hero.get("eliminated", true)) == false)
 	t.check("구 스냅 hop 기본", is_equal_approx(float(hero.get("hop_time", -1.0)), 0.0))
 	t.check("구 스냅 mobCd 기본", is_equal_approx(float(hero.get("mobility_cd", -1.0)), 0.0))
@@ -140,17 +181,19 @@ func _parse_v2_wire(t) -> void:
 	}])
 	t.check("구 이펙트 start_pos 는 pos", Vector2(fx_legacy[0]["start_pos"]).is_equal_approx(Vector2(3.0, 4.0)))
 	t.check("구 이펙트 draw_departure 기본 true", bool(fx_legacy[0]["draw_departure"]) == true)
-	var evs: Array = Parser.parse_events([{"t": 9, "k": "gun_fire", "a": 1, "b": -1, "d": {"eq": "glock"}}])
+	var evs: Array = Parser.parse_events([{"tick": 9, "kind": "gun_fire", "actor": 1, "target": -1, "data": {"eq": "glock"}}])
 	t.check("이벤트 tick", int(evs[0]["tick"]) == 9)
 	t.check("이벤트 kind", str(evs[0]["kind"]) == "gun_fire")
 	t.check("이벤트 data", str(evs[0]["data"].get("eq", "")) == "glock")
 	var loot: Array = Parser.parse_loot([
-		{"id": "g1", "kind": "gun", "itemKind": "gun", "n": "샷건", "x": 1.0, "y": 2.0},
+		{"id": "g1", "kind": "gun", "itemKind": "bomb", "n": "DOUBLE BARREL", "x": 1.0, "y": 2.0},
 		{"id": "d1", "itemKind": "decoy", "disguise": "spring", "x": 3.0, "y": 4.0},
 		"bad",
 	])
 	t.check("loot 2건 Dictionary만", loot.size() == 2)
-	t.check("loot n 총이름", str(loot[0].get("gun_name", "")) == "샷건")
+	t.check("loot kind gun", str(loot[0].get("kind", "")) == "gun")
+	t.check("loot n 총이름", str(loot[0].get("gun_name", "")) == "DOUBLE BARREL")
+	t.check("loot gun_id", str(loot[0].get("gun_id", "")) == "bomb")
 	t.check("loot disguise", str(loot[1].get("disguise", "")) == "spring")
 	t.check("loot itemKind", str(loot[1].get("kind", "")) == "decoy")
 
@@ -190,6 +233,7 @@ func _v2_hero() -> Dictionary:
 	h["hop_height"] = 19.0
 	h["eliminated"] = true
 	h["equipment"]["move_speed"] = 420.0
+	h["equipment"]["mobility_distance"] = 219.0
 	h["dmg_orb_time"] = 0.7
 	h["down_taken"] = 12.0
 	h["wool_time"] = 2.0
@@ -200,8 +244,8 @@ func _v2_hero() -> Dictionary:
 	h["roulette_phase"] = "spin"
 	h["roulette_spin_id"] = "atk"
 	h["roulette_label"] = "BER"
-	h["rl_timed"] = [{"id": "berserk", "time": 2.5, "name": "BER"}]
-	h["ult_clones"] = [{"pos": Vector2(10.0, 20.0)}]
+	h["timed_buffs"] = [{"id": "berserk", "time": 2.5, "name": "BER"}]
+	h["clones"] = [{"pos": Vector2(10.0, 20.0)}]
 	h["reload_flash"] = 0.55
 	h["respawn_left"] = 2.4
 	h["spray_index"] = 3.2

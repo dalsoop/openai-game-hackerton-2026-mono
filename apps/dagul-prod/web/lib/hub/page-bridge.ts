@@ -94,9 +94,17 @@ function windowDomBus(): DomBus {
   };
 }
 
+const DEFER_TYPES = new Set<string>([MSG.STATE]);
+
 export function postToEngine(type: string, payload: unknown, bus?: DomBus): void {
   if (!isEngineInbound(type)) {return;}
-  (bus ?? windowDomBus()).dispatchEvent({ type: DOM_EVT.TO_ENGINE, detail: encodeBridgePacket(type, payload) });
+  const detail = encodeBridgePacket(type, payload);
+  const b = bus ?? windowDomBus();
+  if (typeof requestAnimationFrame !== "undefined" && !bus && DEFER_TYPES.has(type)) {
+    requestAnimationFrame(() => b.dispatchEvent({ type: DOM_EVT.TO_ENGINE, detail }));
+  } else {
+    b.dispatchEvent({ type: DOM_EVT.TO_ENGINE, detail });
+  }
 }
 
 export interface HubWire {

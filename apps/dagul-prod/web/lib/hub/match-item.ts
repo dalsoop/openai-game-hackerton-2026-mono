@@ -7,6 +7,7 @@ import { addEffect, type EffectStore } from "./match-effects.js";
 import { enterDown, type LifeHero } from "./match-life.js";
 import { LAUNCH_SPEED_BASE, LAUNCH_SPEED_KB_MUL } from "./match-launch.js";
 import type { MatchRng } from "./match-rng.js";
+import { moveToward } from "../util/math.js";
 
 export const ITEM_POOL_MODE = "item";
 /** game_world.gd:84 */
@@ -42,6 +43,10 @@ const KIND_COLOR: Record<string, string> = {
 };
 
 export type PoolItemKind = "medkit" | "spring" | "slide" | "pull" | "pocket" | "decoy";
+export {
+  packItemField, packItemStack, unpackItemStack, unpackMedkits, ITEM_WIRE_CASES,
+  type ItemStack,
+} from "./match-item-wire.js";
 export type ItemEvent = { tick: number; type: string; actor: number; target: number; data: Record<string, unknown> };
 export type ItemPickup = {
   id: number; x: number; y: number; homeX: number; homeY: number; magnetSlot: number;
@@ -150,11 +155,6 @@ export function tryUseHeldItem(hero: object): boolean {
   return false;
 }
 
-function moveToward(x: number, y: number, tx: number, ty: number, delta: number): { x: number; y: number } {
-  const dx = tx - x; const dy = ty - y; const len = Math.hypot(dx, dy);
-  if (len <= delta || len === 0) {return { x: tx, y: ty };}
-  return { x: x + (dx / len) * delta, y: y + (dy / len) * delta };
-}
 
 /** active_item.gd:247-259 */
 export function steerSlide(h: SlideBody, wishX: number, wishY: number, maxSpeed: number, dt: number): void {
@@ -239,7 +239,7 @@ export function explodeDecoy(hero: ItemHero, originX: number, originY: number, w
 
 /** active_item.gd:222-245 */
 export function collectItemPickup(hero: ItemHero, pickup: ItemPickup, world: ItemWorld): void {
-  const kind = pickup.itemKind || "medkit";
+  const kind = pickup.itemKind;
   if (kind === "decoy") {explodeDecoy(hero, pickup.x, pickup.y, world); deactivateItem(pickup); return;}
   const oldItem = hero.heldItem;
   if (oldItem !== "") {

@@ -8,15 +8,19 @@ import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "
 import { startBodies } from "./lobby-relay.js";
 import { parseSeatClaim, sameSeatClaim, type SeatClaim } from "../guest-identity.js";
 import {
-  isEngineJoin, playerJoinAllowed, seatClaimTakeover, slotOfEngineClaim,
+  inputOwnerSession, isEngineJoin, playerJoinAllowed, seatClaimTakeover, slotOfEngineClaim,
 } from "./match-engine.js";
+import {
+  idleHoldFrame, MATCH_INPUT_SANITIZE, MatchInputSchema, matchInputFromFrame,
+} from "./match-input-schema.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   sendStartBodies, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import {
-  applyPlayInput, bootAuthority, parkSeat, resetSeatAck, tickAuthority, tryReleaseLoadBarrier,
+  applyPlayInput, bootAuthority, holdLoadBarrier, parkSeat, resetSeatAck, tickAuthority,
+  tryReleaseLoadBarrier,
 } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
@@ -55,7 +59,35 @@ export class LobbyRoom extends Room implements LobbyHandle {
     });
     armIdleTimer(this, this.bag);
     this.patchRate = 1000 / HUB_CONFIG.patchHz;
-    this.setSimulationInterval((dt) => {tickAuthority(this, this.bag, dt);}, 1000 / 60);
+    this.armFixedNetcode();
+  }
+
+  private armFixedNetcode(): void {
+    this.inputs = this.defineInput(MatchInputSchema, {
+      bufferMaxSize: 32,
+      sanitize: MATCH_INPUT_SANITIZE,
+      idle: ({ latest }) => idleHoldFrame(latest),
+    });
+    this.setFixedTimestep((ctx) => {
+      this.pullDefinedInputs();
+      tickAuthority(this, this.bag, ctx.dtMs);
+    }, 60);
+  }
+
+  /** 좌석 주인 세션의 defineInput 한 프레임을 이번 틱의 유일한 명령으로 둔다. */
+  private pullDefinedInputs(): void {
+    if (!this.inputs || this.state.phase !== "playing" || !this.bag.authority) {return;}
+    const players = [...this.state.players];
+    for (const p of players) {
+      if (p.slot < 0) {continue;}
+      const sid = inputOwnerSession(p.slot, players, this.claims, this.engineClaims);
+      if (!sid) {continue;}
+      const acc = this.inputs.get(sid);
+      const frame = acc.next();
+      if (!frame) {continue;}
+      if (acc.wasIdle && this.bag.authority.hasQueuedInput(p.slot)) {continue;}
+      this.bag.authority.setTickInput(p.slot, matchInputFromFrame(frame, acc.consumedCount));
+    }
   }
 
   messages = {
@@ -126,6 +158,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     player.sessionId = client.sessionId;
     player.connected = true;
     player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
+    holdLoadBarrier(this, this.bag);
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
     this.syncHost();
@@ -197,6 +230,10 @@ export class LobbyRoom extends Room implements LobbyHandle {
     this.removeSeat(client.sessionId);
   }
 
+  dropSeat(sessionId: string): void {
+    this.removeSeat(sessionId);
+  }
+
   private removeSeat(sessionId: string): void {
     this.claims.delete(sessionId);
     const wasHost = sessionId === this.state.hostSessionId;
@@ -212,6 +249,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     } else {
       this.syncHost();
     }
+    if (playing) {tryReleaseLoadBarrier(this, this.bag);}
     if (this.state.players.length === 0) {void this.disconnect();}
   }
 
@@ -221,11 +259,26 @@ export class LobbyRoom extends Room implements LobbyHandle {
     if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
   }
 
+  /** 배포(SIGTERM) 때 호출 — Colyseus 기본은 전원 즉시 disconnect. 대기실은 그대로
+   * 바로 끊지만, 진행 중 매치는 안내만 보내고 HUB_CONFIG.shutdownDrainMs 만큼
+   * 더 살려서(room.clock 은 방이 disposed 되면 자동 정리된다) 자연 종료를 기다린다.
+   * k8s 쪽 terminationGracePeriodSeconds 를 이 값과 맞춰야 실제로 의미가 있다
+   * (deploy/chart 템플릿 참고). */
+  onBeforeShutdown(): void {
+    if (this.state.phase !== "playing") {
+      super.onBeforeShutdown();
+      return;
+    }
+    this.broadcast(MSG.SERVER_SHUTDOWN, KO.SERVER_SHUTDOWN_MSG);
+    this.clock.setTimeout(() => {void this.disconnect();}, HUB_CONFIG.shutdownDrainMs);
+  }
+
   burstIdle(): void {
     fireIdleBurst(this);
   }
 
   stepSim(dtMs = 50): void {
+    this.pullDefinedInputs();
     tickAuthority(this, this.bag, dtMs);
   }
 

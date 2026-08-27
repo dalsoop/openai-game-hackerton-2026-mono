@@ -41,13 +41,14 @@ const PLAYER_COPY := [
 	"hp", "maxHp", "alive", "weapon", "weaponId", "mag", "magMax", "reloadLeft",
 	"ult", "animal", "characterId", "item", "kills", "emote", "emoteTime", "ack",
 	"downed", "downLeft", "deaths", "score", "streak",
-	"action", "stunT", "rootT", "ccT", "guardT", "armorT", "spawnT",
-	"launchT", "launchVX", "launchVY", "charging", "chargeT",
-	"heldItem", "springT", "slideT", "pullT", "pocketT", "dmgOrbT", "downTaken",
-	"woolT", "woolHp", "woolMax", "rouT", "rouRank", "rouPhase", "rouSpin", "rouLabel",
-	"rlTimed", "ultClones",
-	"mobCd", "hopT", "hopMax", "hopHeight", "mvSpd", "elim",
-	"reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT",
+	"action", "stunTime", "rootTime", "ccTime", "guardTime", "armorTime", "spawnProtect",
+	"launchTime", "launchVX", "launchVY", "charging", "chargeTime",
+	"heldItem", "springTime", "slideTime", "pullTime", "pocketTime", "dmgOrbTime", "downTaken",
+	"woolTime", "woolHp", "woolMax", "rouletteTime", "rouletteRank", "roulettePhase", "rouletteSpin", "rouletteLabel",
+	"timedBuffs", "clones", "untilBuffs",
+	"mobilityCd", "hopTime", "hopMax", "hopHeight", "moveSpeed", "eliminated",
+	"reloadFlash", "respawnLeft", "sprayIndex", "rouletteDesc", "hitstunTime", "comboCaptureTime",
+	"medkits", "mobilityDist",
 ]
 const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src", "ttl", "maxTtl", "lx", "ly", "splash"]
 const EFFECT_COPY := ["k", "x", "y", "r", "t", "maxT", "color", "label", "dx", "dy", "follow", "sx", "sy", "dep"]
@@ -134,21 +135,26 @@ func _event_items(raw: Variant) -> Array:
 
 func _event_row(src: Dictionary) -> Dictionary:
 	return {
-		"t": int(src.get("t", 0)),
-		"k": str(src.get("k", "")),
-		"a": int(src.get("a", -1)),
-		"b": int(src.get("b", -1)),
-		"d": _event_data(src.get("d", {})),
+		"tick": int(src.get("tick", 0)),
+		"kind": str(src.get("kind", "")),
+		"actor": int(src.get("actor", -1)),
+		"target": int(src.get("target", -1)),
+		"data": _event_data(src.get("data", {})),
 	}
 
 func _event_data(raw: Variant) -> Dictionary:
+	var data := {}
 	if raw is Dictionary:
-		return raw
-	if raw is String:
+		data = raw
+	elif raw is String:
 		var parsed: Variant = JSON.parse_string(raw)
 		if parsed is Dictionary:
-			return parsed
-	return {}
+			data = parsed
+	else:
+		data = _as_dict(raw)
+	if not data.has("pos") and (data.has("x") or data.has("y")):
+		data["pos"] = Vector2(float(data.get("x", 0.0)), float(data.get("y", 0.0)))
+	return data
 
 func _write_header(src: Dictionary) -> void:
 	_snap[TICK] = int(src.get("tick", 0))
@@ -185,8 +191,8 @@ func _refill(dst: Array, rows: Array) -> void:
 func _hero_rows(raw: Variant) -> Array:
 	var rows: Array = _hero_map_rows(raw)
 	for row in rows:
-		_decode_json_array(row, "rlTimed")
-		_decode_json_array(row, "ultClones")
+		_decode_json_array(row, "timedBuffs")
+		_decode_json_array(row, "clones")
 	return rows
 
 func _hero_map_rows(raw: Variant) -> Array:
@@ -207,22 +213,39 @@ func _merge_hud(src: Dictionary) -> void:
 	var hud := _as_dict(src.get("hud", {}))
 	if hud.is_empty():
 		return
-	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT", "mvSpd", "elim"]:
-		if hud.has(key):
-			src[key] = hud[key]
+	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouletteDesc", "hitstunTime", "comboCaptureTime", "moveSpeed", "eliminated", "medkits", "mobilityDist", "untilBuffs"]:
+		if not hud.has(key):
+			continue
+		var value: Variant = hud[key]
+		if value is Dictionary:
+			src[key] = value
+		else:
+			var nested := _as_dict(value)
+			src[key] = nested if not nested.is_empty() else value
 
 func _decode_json_array(row: Dictionary, key: String) -> void:
 	if not row.has(key):
 		return
 	var raw: Variant = row[key]
 	if raw is Array:
+		row[key] = _array_of_dicts(raw)
 		return
 	if raw is String:
 		var parsed: Variant = JSON.parse_string(raw)
 		if parsed is Array:
-			row[key] = parsed
+			row[key] = _array_of_dicts(parsed)
 			return
 	row[key] = []
+
+
+func _array_of_dicts(raw: Array) -> Array:
+	var out: Array = []
+	for item in raw:
+		if item is Dictionary:
+			out.append(item)
+		else:
+			out.append(_as_dict(item))
+	return out
 
 func _rows_from_map(raw: Variant, keys: Array, sort_key: String) -> Array:
 	var rows: Array = []

@@ -19,6 +19,20 @@ var defs := [
     {"id":"shield", "name":"WINCHESTER", "normal_name":"LEVER SHOT", "skill_name":"", "skill_desc":"", "ultimate_name":"", "ultimate_desc":"", "fire_mode":"lever", "normal_damage":70.2, "normal_interval":0.62, "normal_speed":1200.0, "normal_range":0.78, "normal_spread":0.014, "normal_projectiles":1, "normal_splash":0.0, "normal_leech":false, "normal_cc":0.0, "normal_knockback":12.0, "normal_kind":"bolt", "normal_radius":5.0, "normal_pierce":0, "burst_shots":0, "mag_size":8, "reload_time":1.60, "preferred_range":360.0, "cooldown":99.0, "damage":70.2, "speed":1200.0, "range":0.78}
 ]
 
+## 일반공격 발사 프로필(발사 모드·간격·탄속·사거리=비행시간) — match-gun.ts spawnShot/
+## tryNormalAttack 과 같은 weapon_id 키. 로컬 발사 예측이 실탄과 같은 탄속·TTL로
+## 시각 총알을 그리고, auto 무기의 연사 간격을 아는 데 쓴다.
+func fire_profile_for(equipment_id: String) -> Dictionary:
+    for def in defs:
+        if str(def["id"]) == equipment_id:
+            return {
+                "fire_mode": str(def.get("fire_mode", "auto")),
+                "interval": float(def.get("normal_interval", 0.12)),
+                "speed": float(def.get("normal_speed", 1000.0)),
+                "range": float(def.get("normal_range", 0.5)),
+            }
+    return {"fire_mode": "auto", "interval": 0.12, "speed": 1000.0, "range": 0.5}
+
 func identity_for(equipment_id: String) -> Dictionary:
     match equipment_id:
         "scatter": return {"character_name":"REX", "role":"BRAWLER", "badge":"SG"}

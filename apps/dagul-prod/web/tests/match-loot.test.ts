@@ -261,7 +261,7 @@ describe("스냅 계약", () => {
   it("총 드랍 스냅 n 은 장비 이름, 아이템은 itemKind·disguise 를 싣는다", () => {
     const guns = spawnGunLootPickup([], 10, 20, "bomb");
     const packed = packLootSnap([guns]);
-    expect(packed[0]).toMatchObject({ kind: "gun", n: "DOUBLE BARREL", x: 10, y: 20 });
+    expect(packed[0]).toMatchObject({ kind: "gun", n: "DOUBLE BARREL", itemKind: "bomb", x: 10, y: 20 });
   });
 
   it("use 입력 통합 — 카운트다운 뒤 use 로 메드킷을 소비한다", () => {

@@ -8,7 +8,6 @@ export type EngineInstance = {
 export function godotEngineConfig(
   canvas: HTMLCanvasElement,
   engineBase: string,
-  extLibFile: string,
   wasmModule: WebAssembly.Module | null,
 ): Record<string, unknown> {
   const config: Record<string, unknown> = {
@@ -17,7 +16,7 @@ export function godotEngineConfig(
     focusCanvas: true,
     executable: engineBase,
     args: ["--main-pack", "index.pck"],
-    gdextensionLibs: [extLibFile],
+    gdextensionLibs: [],
   };
   if (!wasmModule) {return config;}
   config.instantiateWasm = (

@@ -14,6 +14,15 @@ describe("계약: restart-dev 파이프라인", () => {
     expect(existsSync(script), "scripts/restart-dev.sh 가 없다").toBe(true);
   });
 
+  it("로컬 기동은 DAGUL_SKILLS 기본 on 이다", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts.dev).toContain("DAGUL_SKILLS=${DAGUL_SKILLS:-on}");
+    const script = readFileSync(join(ROOT, "scripts/restart-dev.sh"), "utf8");
+    expect(script).toContain('DAGUL_SKILLS="${DAGUL_SKILLS:-on}"');
+  });
+
   it("package.json 에 restart 스크립트가 등록되어 있다", () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
       scripts: Record<string, string>;
@@ -73,5 +82,35 @@ describe("계약: restart-dev 파이프라인", () => {
     for (const call of lsofCalls) {
       expect(call, `LISTEN 필터 없는 lsof 호출: ${call}`).toContain("-sTCP:LISTEN");
     }
+  });
+
+  // 회귀: 재시작이 바로 kill -9(SIGKILL)를 쏘면 Colyseus Server 의 기본
+  // gracefullyShutdown(SIGTERM 에서 matchMaker.gracefullyShutdown 호출 → Redis
+  // 방 등록 해제)을 건너뛴다. 그러면 재배포마다 Redis 에 낡은 방 등록이 쌓여서
+  // 다음 프로세스가 새 스키마로 그 방을 잘못 이어받는 사고로 이어진다.
+  // kill_old() 는 반드시 SIGTERM 을 먼저 보내고, 끝날 시간을 기다린 뒤에만
+  // SIGKILL 로 넘어가야 한다.
+  it("kill_old 는 SIGKILL 전에 SIGTERM 으로 graceful shutdown 시간을 준다", () => {
+    const script = readFileSync(join(ROOT, "scripts/restart-dev.sh"), "utf8");
+    const fnStart = script.indexOf("kill_old()");
+    expect(fnStart, "kill_old 함수가 없다").toBeGreaterThanOrEqual(0);
+    const fnEnd = script.indexOf("\n}", fnStart);
+    const body = script.slice(fnStart, fnEnd);
+
+    const termIdx = body.search(/kill\s+-TERM\b/);
+    const killNineIdx = body.indexOf("kill -9");
+    expect(termIdx, "kill_old 안에 SIGTERM 이 없다").toBeGreaterThanOrEqual(0);
+    expect(killNineIdx, "kill_old 안에 SIGKILL 폴백이 없다").toBeGreaterThanOrEqual(0);
+    expect(termIdx, "SIGTERM 이 SIGKILL 보다 먼저 나와야 한다").toBeLessThan(killNineIdx);
+
+    // SIGTERM 과 SIGKILL 사이에 실제로 기다리는 루프(while/sleep)가 있어야
+    // graceful shutdown 이 끝날 시간을 준다 — 즉시 이어지는 SIGKILL 은 무의미하다.
+    const between = body.slice(termIdx, killNineIdx);
+    expect(between, "SIGTERM 뒤에 대기 없이 바로 SIGKILL 한다").toMatch(/while|sleep/);
+  });
+
+  it("server.ts 는 Colyseus 기본 gracefullyShutdown 을 끄지 않는다", () => {
+    const src = readFileSync(join(ROOT, "server.ts"), "utf8");
+    expect(src).not.toMatch(/gracefullyShutdown\s*:\s*false/);
   });
 });

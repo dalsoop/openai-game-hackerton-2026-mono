@@ -39,6 +39,7 @@ export function shouldSendPackPct(prev: number | null, next: number): boolean {
   const pct = clampPackPct(next);
   if (prev === null) {return true;}
   if (pct === prev) {return false;}
-  if (pct === 0 || pct === 100) {return true;}
+  if (pct < prev) {return false;}
+  if (pct === 100) {return true;}
   return pct >= prev + 5;
 }

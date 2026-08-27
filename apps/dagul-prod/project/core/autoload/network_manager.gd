@@ -24,8 +24,15 @@ const STATUS_IDLE := "대기"  # lint-gd: public-api
 var player_name := "플레이어"  # lint-gd: public-api
 var mode := WebContract.DEFAULT_MODE  # lint-gd: public-api
 var status := STATUS_IDLE  # lint-gd: public-api
-var players: Array = []  # lint-gd: public-api
-var room: Dictionary = {}  # lint-gd: public-api
+var _players: Array = []
+var _room: Dictionary = {}
+
+func get_players() -> Array:  # lint-gd: public-api
+    return _players.duplicate(true)
+
+func get_room() -> Dictionary:  # lint-gd: public-api
+    return _room.duplicate(true)
+
 var you := -1  # lint-gd: public-api
 var in_room := false  # lint-gd: public-api
 var match_running := false  # lint-gd: public-api
@@ -130,15 +137,15 @@ func _apply_start(msg: Dictionary) -> void:
     is_host = bool(msg.get("host", false))
     var seats: Array = msg.get("seats", [])
     if not seats.is_empty():
-        players = SeatCodec.from_start(seats)
+        _players = SeatCodec.from_start(seats)
     if msg.has("room"):
-        room = msg.get("room", room)
+        _room = msg.get("room", _room)
     if msg.has("seed"):
-        room["seed"] = int(msg["seed"])
+        _room["seed"] = int(msg["seed"])
     resume_token = _read_ls(WebContract.KEY_RESUME)
     _last_input_fp = ""
     _set_status(STATUS_LOBBY)
-    match_started.emit(you, room)
+    match_started.emit(you, _room.duplicate(true))
 
 ## 방 state 를 우리 인터페이스로 번역한다 — sessionId 는 React 가 패키지에 넣는다.
 func _sync_state(state: Variant) -> void:
@@ -166,19 +173,19 @@ func _sync_state(state: Variant) -> void:
     elif match_ready or (phase == "playing" and not load_held):
         _ready_repeat = false
     var next_players: Array = SeatCodec.from_state(raw_players)
-    for ev in SeatCodec.diff_dropped(players, next_players):
+    for ev in SeatCodec.diff_dropped(_players, next_players):
         if ev.get("kind") == "parked":
             peer_parked_received.emit(int(ev.get("slot", -1)))
         else:
             peer_reclaimed_received.emit(int(ev.get("slot", -1)), str(ev.get("name", "")))
-    players = next_players
+    _players = next_players
     if HubStateSync.match_ended(_last_phase, phase):
         match_running = false
         _ready_repeat = false
         _ready_sent = false
         match_ready = false
         load_held = false
-        joined_room.emit(room, players, you)
+        joined_room.emit(_room.duplicate(true), _players.duplicate(true), you)
     _last_phase = HubStateSync.next_phase(_last_phase, phase)
 
 func _own_match_ready(raw_players: Array, my_sid: String) -> bool:

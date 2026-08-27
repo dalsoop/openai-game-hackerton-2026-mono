@@ -43,6 +43,12 @@ describe("dropReasonFromKick", () => {
     expect(canOfferReconnect("takeover")).toBe(false);
     expect(reconnectJoinId("takeover", "abc")).toBeNull();
   });
+
+  it("reason=load-wait 는 로딩 타임아웃 퇴장이다 — 재접속 제안 없음", () => {
+    expect(dropReasonFromKick({ msg: "x", reason: "load-wait" })).toBe("load-wait");
+    expect(canOfferReconnect("load-wait")).toBe(false);
+    expect(reconnectJoinId("load-wait", "abc")).toBeNull();
+  });
 });
 
 describe("canOfferReconnect / reconnectJoinId", () => {
@@ -51,6 +57,7 @@ describe("canOfferReconnect / reconnectJoinId", () => {
     expect(canOfferReconnect("offline")).toBe(true);
     expect(canOfferReconnect("kicked")).toBe(false);
     expect(canOfferReconnect("idle")).toBe(false);
+    expect(canOfferReconnect("load-wait")).toBe(false);
     expect(reconnectJoinId("dropped", "abc")).toBe("abc");
     expect(reconnectJoinId("idle", "abc")).toBeNull();
     expect(reconnectJoinId("kicked", "abc")).toBeNull();

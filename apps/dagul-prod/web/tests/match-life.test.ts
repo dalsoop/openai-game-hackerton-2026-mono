@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOWN_BLEED_TIME, DOWN_MOVE_MULT, MAX_REVIVES, RESPAWN_BASE, RESPAWN_MAX, RESPAWN_RANK_STEP,
   SPAWN_PROTECT_RESPAWN, SPAWN_PROTECT_STAND_UP, STAND_UP_HP_RATIO,
-  applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns,
+  applyHeroDamage, downHero, respawnDelayFor, tickDowns, updateRespawns, willConfirmKill,
   type DownCombatHero,
 } from "@/lib/hub/match-life";
 import type { LifeHero } from "@/lib/hub/match-life";
@@ -34,6 +34,13 @@ describe("다운·확인사살", () => {
     expect(target.hp).toBe(0);
     expect(target.downLeft).toBe(DOWN_BLEED_TIME);
     expect(shooter.kills).toBe(0);
+  });
+
+  it("willConfirmKill 은 downHero 전에 막타 여부를 본다", () => {
+    const target = hero(1, { downed: true, hp: 0, downTaken: 40 });
+    expect(willConfirmKill(target, 7)).toBe(false);
+    expect(willConfirmKill(target, 8)).toBe(true);
+    expect(willConfirmKill(hero(1, { hp: 10 }), 80)).toBe(false);
   });
 
   it("다운 중 누적 48 이상이면 확정 킬 — 이 시점에 킬 크레딧 적립", () => {
@@ -85,11 +92,11 @@ describe("부활 소진·eliminated", () => {
     h.chargeTime = 0.8;
     h.launchTime = 0.4;
     h.launchVel = { x: 12, y: 3 };
-    h.ultClones = [{ x: 1 }];
-    h.ultCloneTime = 1.2;
+    h.clones = [{ x: 1 }];
+    h.cloneTime = 1.2;
     h.baseMaxHp = 176;
-    h.rlUntil = { atk: 4, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
-    h.rlTimed = [];
+    h.untilBuffs = { atk: 4, spd: 0, def: 0, hp: 0, rate: 0, range: 0 };
+    h.timedBuffs = [];
     h.rouletteTime = 0.5;
     h.rouletteLabel = "KILL BONUS!";
     h.rouletteRank = "kill";
@@ -102,9 +109,9 @@ describe("부활 소진·eliminated", () => {
     expect(h.chargeTime).toBe(0);
     expect(h.launchTime).toBe(0);
     expect(h.launchVel).toEqual({ x: 0, y: 0 });
-    expect(h.ultClones).toEqual([]);
-    expect(h.ultCloneTime).toBe(0);
-    expect(h.rlUntil.atk).toBe(0);
+    expect(h.clones).toEqual([]);
+    expect(h.cloneTime).toBe(0);
+    expect(h.untilBuffs.atk).toBe(0);
     expect(h.roulettePhase).toBe("");
   });
 

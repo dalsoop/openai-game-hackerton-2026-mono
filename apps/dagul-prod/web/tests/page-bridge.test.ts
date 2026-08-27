@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { describe, expect, it, vi } from "vitest";
 import { DOM_EVT, MSG } from "@/lib/contract";
 import {
@@ -173,6 +175,16 @@ describe("postToEngine", () => {
   });
 });
 
+describe("SNAP 지연 방지", () => {
+  it("SNAP 은 DEFER_TYPES 에 포함되지 않는다", () => {
+    const src = readFileSync(join(process.cwd(), "lib/hub/page-bridge.ts"), "utf8");
+    const deferLine = src.split("\n").find((l) => l.includes("DEFER_TYPES"));
+    expect(deferLine).toBeDefined();
+    expect(deferLine).not.toContain("SNAP");
+    expect(deferLine).not.toContain("GUN_FIRE");
+  });
+});
+
 describe("encodeHubState", () => {
   it("sessionId 를 넣어 Godot 호스트 판정에 쓴다", () => {
     expect(encodeHubState({
@@ -198,5 +210,56 @@ describe("encodeHubState", () => {
 
   it("반전: 0ms 는 필드 없이 보낸다", () => {
     expect(encodeHubState({ phase: "lobby" }, "s1", 0)).not.toHaveProperty("rttMs");
+  });
+});
+
+describe("postToEngine dispatch 경로", () => {
+  it("bus 전달 시 동기 dispatch", () => {
+    const bus = memoryBus();
+    const seen: string[] = [];
+    bus.addEventListener(DOM_EVT.TO_ENGINE, (ev) => { seen.push(String(ev.detail)); });
+    postToEngine(MSG.SNAP, { tick: 1 }, bus);
+    postToEngine(MSG.GUN_FIRE, { slot: 0 }, bus);
+    postToEngine(MSG.STATE, { phase: "playing" }, bus);
+    expect(seen.length).toBe(3);
+    expect(seen[0]).toContain(MSG.SNAP);
+    expect(seen[1]).toContain(MSG.GUN_FIRE);
+    expect(seen[2]).toContain(MSG.STATE);
+  });
+
+  it("bus 없으면 rAF 경로를 탄다 — bus 있으면 동기", () => {
+    const bus = memoryBus();
+    const syncSeen: string[] = [];
+    bus.addEventListener(DOM_EVT.TO_ENGINE, (ev) => { syncSeen.push(String(ev.detail)); });
+    postToEngine(MSG.SNAP, { tick: 99 }, bus);
+    expect(syncSeen.length).toBe(1);
+    postToEngine(MSG.STATE, { phase: "lobby" }, bus);
+    expect(syncSeen.length).toBe(2);
+  });
+
+  it("SNAP 20회 연속 bus dispatch — 누락 없음", () => {
+    const bus = memoryBus();
+    const received: string[] = [];
+    bus.addEventListener(DOM_EVT.TO_ENGINE, (ev) => { received.push(String(ev.detail)); });
+    for (let i = 0; i < 20; i++) {
+      postToEngine(MSG.SNAP, { tick: i }, bus);
+    }
+    expect(received.length).toBe(20);
+    expect(received[19]).toContain("19");
+  });
+
+  it("혼합 타입 연속 dispatch — 순서 유지", () => {
+    const bus = memoryBus();
+    const received: string[] = [];
+    bus.addEventListener(DOM_EVT.TO_ENGINE, (ev) => { received.push(String(ev.detail)); });
+    postToEngine(MSG.SNAP, { tick: 1 }, bus);
+    postToEngine(MSG.STATE, { phase: "playing" }, bus);
+    postToEngine(MSG.GUN_FIRE, { slot: 0 }, bus);
+    postToEngine(MSG.ERROR, { msg: "test" }, bus);
+    postToEngine(MSG.SNAP, { tick: 2 }, bus);
+    expect(received.length).toBe(5);
+    expect(received[0]).toContain(MSG.SNAP);
+    expect(received[1]).toContain(MSG.STATE);
+    expect(received[4]).toContain(MSG.SNAP);
   });
 });

@@ -3,6 +3,7 @@
  * hero_movement.gd + cpu_behavior.gd + active_item.gd + match_lifecycle.gd 의 결정론 포팅.
  * RNG·시계 없음: 순수 함수와 상태 객체만. 피해 파이프라인 배선은 통합 단계 몫.
  */
+import { ComboCap, type ComboCapHitTarget } from "./match-combo-cap.js";
 import {
   addControlEffect, type EffectStore,
 } from "./match-effects.js";
@@ -118,9 +119,12 @@ export function comboAmplifier(comboHit: number): number {
   return 1 + Math.min(COMBO_AMP_CAP, (comboHit - 1) * COMBO_AMP_STEP);
 }
 
-/** 콤보 누적 피해 적립 — damage_system.gd:262-263(가드/방어 계수 적용 후 amount, downed 제외). */
-export function accumulateComboDamage(h: CcHeroState, amount: number): void {
-  h.comboDamage += amount;
+/**
+ * 콤보 누적 피해 적립 — original_game_world.gd:3780-3784.
+ * ComboCap 이 잔여 예산을 자르고 comboDamage 에 적립한다. 반환 = 실제로 들어가는 양.
+ */
+export function accumulateComboDamage(h: CcHeroState & ComboCapHitTarget, amount: number): number {
+  return ComboCap.takeHit(h, amount);
 }
 
 /**

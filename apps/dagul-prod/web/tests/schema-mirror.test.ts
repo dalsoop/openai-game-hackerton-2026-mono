@@ -1,38 +1,54 @@
-// Colyseus 스키마 거울 계약 테스트.
-// Colyseus 델타는 필드 인덱스 기반 디코드다. 서버 @type 선언과 GD 거울이
-// 클래스 하나라도 어긋나면 "refId not found" 연발로 월드가 멈춘다 (2026-08-27 운영 사고).
-import { readFileSync } from "fs";
+// Colyseus 스키마 생성본 계약 테스트.
+// 정본은 서버 @type. GD 는 schema-codegen 산출물(lobby_state_schema.gd).
+// GDExtension(side.wasm) 제거 후 GD 스키마가 없으므로 이 테스트는 비활성.
+// lobby_state_schema.gd 를 다시 도입하면 이 테스트도 복원한다.
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
+const MIRROR_PATH = join(ROOT, "..", "project", "core/net/lobby_state_schema.gd");
+const HAS_GD_SCHEMA = existsSync(MIRROR_PATH);
+
 const sourceOf = (p: string): string => readFileSync(p, "utf8");
 
-const matchSrc = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
-const lobbySrc = sourceOf(join(ROOT, "lib/hub/lobby-state.ts"));
-const mirror = sourceOf(join(ROOT, "..", "project", "core/net/lobby_state_schema.gd"));
+function matchSchemaSrc(): string {
+  const dir = join(ROOT, "lib/hub/match-schema");
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".ts") && name !== "index.ts")
+    .map((name) => sourceOf(join(dir, name)))
+    .join("\n");
+}
 
-/** 서버 TS 클래스 → GD 거울 클래스 대응. 새 스키마 클래스는 여기에 반드시 등록한다. */
+const matchSrc = HAS_GD_SCHEMA ? matchSchemaSrc() : "";
+const lobbySrc = HAS_GD_SCHEMA ? sourceOf(join(ROOT, "lib/hub/lobby-state.ts")) : "";
+const mirror = HAS_GD_SCHEMA ? sourceOf(MIRROR_PATH) : "";
+
+/** 서버 TS 클래스 → schema-codegen GD 클래스. 새 스키마 클래스는 여기에 반드시 등록한다. */
 const CLASS_MAP: ReadonlyArray<[src: string, ts: string, gd: string]> = [
-  ["match", "MatchHeroHudSchema", "MatchHeroHud"],
-  ["match", "MatchHeroSchema", "MatchHero"],
-  ["match", "MatchBulletSchema", "MatchBullet"],
-  ["match", "MatchCoverSchema", "MatchCover"],
-  ["match", "MatchCrateSchema", "MatchCrate"],
-  ["match", "MatchCrateOrbSchema", "MatchCrateOrb"],
-  ["match", "MatchMidTowerSchema", "MatchMidTower"],
-  ["match", "MatchLootSchema", "MatchLoot"],
-  ["match", "MatchDeployableSchema", "MatchDeployable"],
-  ["match", "MatchZoneSchema", "MatchZone"],
-  ["match", "MatchKnockoutSchema", "MatchKnockout"],
-  ["match", "MatchFinishCineSchema", "MatchFinishCine"],
-  ["match", "MatchCoreSchema", "MatchCore"],
-  ["match", "MatchEffectSchema", "MatchEffect"],
-  ["match", "MatchEventSchema", "MatchEvent"],
-  ["match", "MatchStateSchema", "MatchState"],
-  ["lobby", "PlayerSchema", "PlayerRow"],
-  ["lobby", "HeroSchema", "LobbyHero"],
-  ["lobby", "BulletSchema", "LobbyBullet"],
+  ["match", "MatchUntilBuffSchema", "MatchUntilBuffSchema"],
+  ["match", "MatchHeroHudSchema", "MatchHeroHudSchema"],
+  ["match", "MatchTimedBuffSchema", "MatchTimedBuffSchema"],
+  ["match", "MatchCloneSchema", "MatchCloneSchema"],
+  ["match", "MatchHeroSchema", "MatchHeroSchema"],
+  ["match", "MatchBulletSchema", "MatchBulletSchema"],
+  ["match", "MatchCoverSchema", "MatchCoverSchema"],
+  ["match", "MatchCrateSchema", "MatchCrateSchema"],
+  ["match", "MatchCrateOrbSchema", "MatchCrateOrbSchema"],
+  ["match", "MatchMidTowerSchema", "MatchMidTowerSchema"],
+  ["match", "MatchLootSchema", "MatchLootSchema"],
+  ["match", "MatchDeployableSchema", "MatchDeployableSchema"],
+  ["match", "MatchZoneSchema", "MatchZoneSchema"],
+  ["match", "MatchKnockoutSchema", "MatchKnockoutSchema"],
+  ["match", "MatchFinishCineSchema", "MatchFinishCineSchema"],
+  ["match", "MatchCoreSchema", "MatchCoreSchema"],
+  ["match", "MatchEffectSchema", "MatchEffectSchema"],
+  ["match", "MatchEventDataSchema", "MatchEventDataSchema"],
+  ["match", "MatchEventSchema", "MatchEventSchema"],
+  ["match", "MatchStateSchema", "MatchStateSchema"],
+  ["lobby", "PlayerSchema", "PlayerSchema"],
+  ["lobby", "HeroSchema", "HeroSchema"],
+  ["lobby", "BulletSchema", "BulletSchema"],
   ["lobby", "LobbyState", "LobbyState"],
 ];
 
@@ -62,12 +78,12 @@ function tsFieldDefs(source: string, className: string): string[] {
 
 function gdFieldDefs(className: string): string[] {
   const block = mirror.split(`class ${className} extends`)[1]?.split(/\nclass /)[0] ?? "";
-  const fieldRe = /f\("(\w+)",\s*Colyseus\.Schema\.(\w+)(?:,\s*LobbyColyseus\.(\w+))?\)/g;
+  const fieldRe = /Field\.new\("(\w+)",\s*Colyseus\.Schema\.(\w+)(?:,\s*(\w+))?\)/g;
   return [...block.matchAll(fieldRe)]
     .map((m: RegExpMatchArray) => `${m[1]}=${m[2]}:${(m[3] as string | undefined) ?? ""}`);
 }
 
-describe("계약: Colyseus 스키마 거울", () => {
+describe.skipIf(!HAS_GD_SCHEMA)("계약: Colyseus 스키마 거울", () => {
   it.each(CLASS_MAP)("%s %s ↔ GD %s 필드 이름·순서·타입이 일치한다", (src, tsClass, gdClass) => {
     const serverFields = tsFieldDefs(src === "match" ? matchSrc : lobbySrc, tsClass);
     expect(serverFields.length, `${tsClass} 파싱 실패`).toBeGreaterThan(0);
@@ -80,6 +96,27 @@ describe("계약: Colyseus 스키마 거울", () => {
       for (const m of source.matchAll(/class\s+(\w+)\s+extends\s+Schema\b/g)) {
         expect(declared.has(m[1]), `${m[1]} 이 CLASS_MAP 에 등록되지 않았다`).toBe(true);
       }
+    }
+  });
+
+  it("매치 스키마 클래스는 객체 파일 하나에 산다", () => {
+    const dir = join(ROOT, "lib/hub/match-schema");
+    const files = readdirSync(dir).filter((name) => name.endsWith(".ts") && name !== "index.ts");
+    const byClass = new Map<string, string>();
+    for (const name of files) {
+      const src = sourceOf(join(dir, name));
+      for (const m of src.matchAll(/export class\s+(\w+)\s+extends\s+Schema\b/g)) {
+        expect(byClass.has(m[1]), `${m[1]} 가 ${byClass.get(m[1])} 와 ${name} 에 중복`).toBe(false);
+        byClass.set(m[1], name);
+      }
+    }
+    const matchClasses = CLASS_MAP.filter(([src]) => src === "match").map(([, ts]) => ts);
+    expect([...byClass.keys()].sort()).toEqual([...matchClasses].sort());
+    for (const [cls, file] of byClass) {
+      const stem = file.replace(/\.ts$/, "");
+      const object = cls.replace(/^Match/, "").replace(/Schema$/, "")
+        .replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+      expect(stem, `${cls} 파일명이 ${object} 가 아니다`).toBe(object);
     }
   });
 

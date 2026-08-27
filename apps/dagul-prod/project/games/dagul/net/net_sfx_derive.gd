@@ -4,6 +4,7 @@ extends RefCounted
 ## 이벤트 이름·payload 는 sfx_events.gd 가 listen 하는 형식과 일치해야 한다.
 
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
+const PlayerCodec = preload("res://games/dagul/net/snap_player_codec.gd")
 
 const FIGHT_COUNTDOWN_LEFT := 60.0
 
@@ -72,11 +73,11 @@ static func _respawn_event(w, p: Dictionary, old: Dictionary, slot: int) -> void
 		return
 	w.event_log.emit(w.tick, &"hero_respawned", slot, -1, {})
 
-## item "medkit"→"" 전이 = medkit_used.
+## 메드킷 개수가 줄면 medkit_used. 3→2 도 친다.
 static func _medkit_event(w, p: Dictionary, old: Dictionary, slot: int) -> void:
-	if int(old.get("medkits", 0)) <= 0:
-		return
-	if str(p.get(SnapContract.P_ITEM, "")) != "":
+	var old_n := int(old.get("medkits", 0))
+	var next_n := int(p[SnapContract.P_MEDKITS]) if p.has(SnapContract.P_MEDKITS) else PlayerCodec.unpack_item_field(str(p.get(SnapContract.P_ITEM, "")))
+	if old_n <= next_n:
 		return
 	w.event_log.emit(w.tick, &"medkit_used", slot, -1, {})
 

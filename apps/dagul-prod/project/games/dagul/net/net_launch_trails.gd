@@ -8,6 +8,8 @@ const LAUNCH_TRAIL_FADE := 0.34
 static func synth(world, dt: float) -> void:
 	var live := {}
 	for hero in world.heroes:
+		if not hero.has("slot"):
+			continue
 		var slot := int(hero["slot"])
 		var st: Dictionary = world._launch_trails.get(slot, {"pts": [], "fade": 0.0, "tick": -1})
 		_advance(world, hero, st, dt)

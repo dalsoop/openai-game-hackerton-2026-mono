@@ -6,7 +6,7 @@
  * 히어로 이동측 벽 충돌·스냅 직렬화는 match-deployable-hit.ts 에 있다.
  */
 import {
-  ARENA_MARGIN, ARENA_SIZE, HERO_RADIUS, pointInCover, resolveCoverMotion,
+  ARENA_MARGIN, ARENA_SIZE, HERO_RADIUS, pointInCover, resolveCoverMotionSwept,
 } from "./match-covers.js";
 import type { CoverRect } from "./match-covers.js";
 import { addEffect, type EffectStore } from "./match-effects.js";
@@ -206,7 +206,7 @@ export function placeMine(
   fx?: EffectStore,
 ): DeployableEvent[] {
   const events: DeployableEvent[] = [];
-  const slid = resolveCoverMotion(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
+  const slid = resolveCoverMotionSwept(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
   const x = clampInset(slid.x, ARENA_SIZE.x, MINE_CLAMP_INSET);
   const y = clampInset(slid.y, ARENA_SIZE.y, MINE_CLAMP_INSET);
   const ultimate = opts.ultimate ?? false;
@@ -263,7 +263,7 @@ export function placeBounceWall(
     });
     state.deployables.splice(i, 1);
   }
-  const slid = resolveCoverMotion(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
+  const slid = resolveCoverMotionSwept(owner.x, owner.y, desiredX - owner.x, desiredY - owner.y, covers);
   const travel = attackDirection(facingX, facingY);
   const x = clampInset(slid.x, ARENA_SIZE.x, WALL_CLAMP_INSET);
   const y = clampInset(slid.y, ARENA_SIZE.y, WALL_CLAMP_INSET);

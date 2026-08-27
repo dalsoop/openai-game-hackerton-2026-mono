@@ -46,12 +46,57 @@ body {
 	<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 
+	<script>
+	(function() {
+		var orig = console.error;
+		var W = window.__godotErrors = { groups: {}, firstAt: 0, total: 0, snapshot: null };
+		function classify(args) {
+			var s = Array.prototype.join.call(args, ' ');
+			if (s.indexOf('_fp') >= 0 && s.indexOf('null') >= 0) return 'array_fp_null';
+			if (s.indexOf('mem') >= 0 && s.indexOf('null') >= 0) return 'mem_null';
+			if (s.indexOf('read-only') >= 0) return 'array_readonly';
+			if (s.indexOf('alloc_static') >= 0) return 'alloc_static';
+			return 'other';
+		}
+		function gameState() {
+			try {
+				var d = window.__dagulDebug || {};
+				return { phase: d.phase || '', playerCount: d.playerCount || 0, rttMs: d.rttMs || 0, t: Date.now() };
+			} catch(e) { return { t: Date.now() }; }
+		}
+		console.error = function() {
+			var key = classify(arguments);
+			var g = W.groups[key];
+			if (!g) { g = W.groups[key] = { count: 0, first: null, lastLog: 0 }; }
+			g.count++;
+			W.total++;
+			if (!g.first) {
+				g.first = { args: Array.prototype.slice.call(arguments, 0, 2), state: gameState(), stack: new Error().stack?.split('\n').slice(0, 5) };
+				if (!W.firstAt) { W.firstAt = Date.now(); W.snapshot = gameState(); }
+			}
+			var now = Date.now();
+			if (now - g.lastLog > 3000) {
+				g.lastLog = now;
+				orig.call(console, '[engine:' + key + '] x' + g.count, arguments[0]);
+			}
+		};
+		window.__godotErrorSummary = function() {
+			orig.call(console, '=== Godot WASM Error Summary ===');
+			orig.call(console, 'total:', W.total, 'first at:', W.firstAt ? new Date(W.firstAt).toISOString() : 'none');
+			orig.call(console, 'snapshot:', JSON.stringify(W.snapshot));
+			for (var k in W.groups) {
+				var g = W.groups[k];
+				orig.call(console, k + ':', g.count, 'times, first:', g.first);
+			}
+		};
+	})();
+	</script>
 	<script src="index.js"></script>
 	<script>
 	const bar = document.getElementById('bar');
 	const pct = document.getElementById('pct');
 	const loading = document.getElementById('loading');
-	const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":214673820,"index.wasm":1508095},"focusCanvas":true,"gdextensionLibs":["libcolyseus_godot.web.wasm32.release.wasm"],"godotPoolSize":4};
+	const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":229637384,"index.wasm":39513091},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 	const engine = new Engine(GODOT_CONFIG);
 	engine.setProgressFunc(function(current, total) {
 		if (total > 0) {

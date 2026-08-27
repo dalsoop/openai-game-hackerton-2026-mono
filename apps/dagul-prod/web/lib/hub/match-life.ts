@@ -2,7 +2,7 @@
  * 다운·부활·리스폰·스폰 보호 — 원본 match_lifecycle.gd + damage_system.gd 의 결정론 포팅.
  * RNG·시계 없음: 상수와 dt(1/60 고정틱)만으로 상태가 정해진다.
  */
-import { ARENA_CENTER, clampArena, nudgeOutOfCover, resolveCoverMotion } from "./match-covers.js";
+import { ARENA_CENTER, clampArena, nudgeOutOfCover, resolveCoverMotionSwept } from "./match-covers.js";
 import type { CoverRect } from "./match-covers.js";
 import { SAFE_ZONE_DAMAGE_PER_SEC, heroInSafeZone } from "./match-zone.js";
 import type { SafeZoneState } from "./match-zone.js";
@@ -65,13 +65,13 @@ export type DownCombatHero = LifeHero & Partial<RouletteHero> & {
   vx?: number;
   vy?: number;
   vel?: { x: number; y: number };
-  ultClones?: unknown[];
-  ultCloneTime?: number;
+  clones?: unknown[];
+  cloneTime?: number;
   lifeHits?: Record<string, { dmg: number; tick: number }>;
 };
 
 function isRouletteHero(h: DownCombatHero): h is DownCombatHero & RouletteHero {
-  return h.rlUntil !== undefined && h.baseMaxHp !== undefined && h.rlTimed !== undefined;
+  return h.untilBuffs !== undefined && h.baseMaxHp !== undefined && h.timedBuffs !== undefined;
 }
 
 /** 룰렛·차지·런치·분신 소거 — down_hero. */
@@ -83,8 +83,8 @@ export function wipeDownCombat(h: DownCombatHero): void {
   if (h.vx !== undefined) {h.vx = 0;}
   if (h.vy !== undefined) {h.vy = 0;}
   if (h.vel) {h.vel = { x: 0, y: 0 };}
-  if (h.ultClones) {h.ultClones = [];}
-  h.ultCloneTime = 0;
+  if (h.clones) {h.clones = [];}
+  h.cloneTime = 0;
   if (h.lifeHits) {h.lifeHits = {};}
   if (isRouletteHero(h)) {clearRouletteBuffs(h);}
 }
@@ -107,6 +107,12 @@ export function enterDown(hero: LifeHero): void {
   hero.downLeft = DOWN_BLEED_TIME;
   hero.downTaken = 0;
   hero.hp = 0;
+}
+
+/** 다운 중 피해가 확인사살 임계를 넘기는지. downHero 전에 어시 원장을 읽기 위해 쓴다. */
+export function willConfirmKill(target: LifeHero, amount: number): boolean {
+  if (!target.alive || target.spawnProtect > 0 || !target.downed) {return false;}
+  return target.downTaken + amount >= DOWN_FINISH_HP;
 }
 
 /**
@@ -241,10 +247,12 @@ export function applyZoneLifeDamage<H extends LifeHero>(
   heroes: ReadonlyMap<number, H>,
   zone: SafeZoneState,
   dt: number,
+  skip?: (h: H) => boolean,
 ): H[] {
   const downedNow: H[] = [];
   for (const h of heroes.values()) {
     if (!h.alive || heroInSafeZone(zone, h.x, h.y)) {continue;}
+    if (skip?.(h)) {continue;}
     if (h.downed) {
       bleedZoneDamage(heroes, h, SAFE_ZONE_DAMAGE_PER_SEC * dt);
       continue;
@@ -320,7 +328,7 @@ export function crawlDowned(
   covers: readonly CoverRect[],
 ): void {
   const step = speed * DOWN_MOVE_MULT * dt;
-  const slid = resolveCoverMotion(hero.x, hero.y, mx * step, my * step, covers);
+  const slid = resolveCoverMotionSwept(hero.x, hero.y, mx * step, my * step, covers);
   const next = clampArena(slid.x, slid.y);
   hero.x = next.x;
   hero.y = next.y;

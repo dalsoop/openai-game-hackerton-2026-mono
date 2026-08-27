@@ -66,7 +66,6 @@ export default function Home(): JSX.Element {
     backToIntro,
     leaveToLobby,
     matchEnd,
-    errorToIntro,
     deployStale,
     reloadDeploy,
   } = useGameFlowContext();
@@ -98,7 +97,7 @@ export default function Home(): JSX.Element {
         matchInfo={matchInfo}
         pendingNames={matchWaitNames(hub.players, hub.you, hub.loadHeld)}
         onMatchEnd={matchEnd}
-        onError={errorToIntro}
+        onError={leaveToLobby}
       />
     );
   }

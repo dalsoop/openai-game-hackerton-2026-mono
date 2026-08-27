@@ -6,6 +6,7 @@ import {
   buildTiledCovers,
   pointInCover,
   resolveCoverMotion,
+  resolveCoverMotionSwept,
 } from "@/lib/hub/match-covers";
 import { MatchSim } from "@/lib/hub/match-sim";
 import { packAuthoritySnap } from "@/lib/hub/match-authority";
@@ -44,6 +45,46 @@ describe("match-covers", () => {
     expect(slid.y).toBe(C0_CENTER.y + 30);
     const free = resolveCoverMotion(600, 600, 20, 30, covers);
     expect(free).toEqual({ x: 620, y: 630 });
+  });
+
+  // 회귀: 대시(최대 305px, blade 기준)가 얇은 커버(반지름 35 안팎)를 한 번에
+  // 관통하는 버그 — 시작점·도착점 둘 다 커버 밖이라 resolveCoverMotion 단독
+  // 호출은 충돌을 아예 못 본다.
+  it("resolveCoverMotion 단독 호출은 대시급 이동에서 얇은 벽을 관통한다(재현)", () => {
+    const covers = [{ x: 400, y: 490, w: 300, h: 70 }]; // 중심 (550,525), r=35
+    const start = { x: 550, y: 300 };
+    const end = { x: 550, y: 750 }; // 벽을 정면으로 관통하는 450px
+    const moved = resolveCoverMotion(start.x, start.y, end.x - start.x, end.y - start.y, covers);
+    expect(moved.y).toBeCloseTo(end.y, 0);
+  });
+
+  it("resolveCoverMotionSwept 는 같은 대시를 벽 앞에서 막는다", () => {
+    const covers = [{ x: 400, y: 490, w: 300, h: 70 }];
+    const start = { x: 550, y: 300 };
+    const end = { x: 550, y: 750 };
+    const moved = resolveCoverMotionSwept(start.x, start.y, end.x - start.x, end.y - start.y, covers);
+    expect(moved.y).toBeLessThan(525 - 35 + 1);
+    expect(moved.y).toBeLessThan(end.y - 100);
+  });
+
+  it("resolveCoverMotionSwept 는 짧은 이동엔 resolveCoverMotion 과 같은 결과를 낸다", () => {
+    const covers = buildTiledCovers();
+    const a = resolveCoverMotion(600, 600, 10, 5, covers);
+    const b = resolveCoverMotionSwept(600, 600, 10, 5, covers);
+    expect(b).toEqual(a);
+  });
+
+  it("resolveCoverMotionSwept 는 벽에 대각선으로 부딪히면 옆으로 미끄러진다", () => {
+    const covers = [{ x: 400, y: 490, w: 300, h: 70 }];
+    const start = { x: 550, y: 300 };
+    const moved = resolveCoverMotionSwept(start.x, start.y, 300, 220, covers);
+    expect(moved.x).toBeGreaterThan(start.x + 250);
+  });
+
+  it("resolveCoverMotionSwept 는 커버가 없으면 전체 거리를 그대로 이동한다", () => {
+    const moved = resolveCoverMotionSwept(0, 0, 305, 0, []);
+    expect(moved.x).toBeCloseTo(305, 6);
+    expect(moved.y).toBeCloseTo(0, 6);
   });
 
   it("히어로 이동은 커버를 관통하지 못한다", () => {

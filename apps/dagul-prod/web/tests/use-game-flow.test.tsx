@@ -87,6 +87,16 @@ describe("useGameFlow inbound snap", () => {
     expect(hub.leaveRoom).toHaveBeenCalledTimes(1);
   });
 
+  it("엔진 오류 로비로 돌아가기는 방을 떠난다", () => {
+    hub.status = "playing";
+    rememberInboundSnap({ tick: 4, winner: 0 });
+    const { result } = renderHook(() => useGameFlow("player"));
+    act(() => {result.current.errorToIntro();});
+    expect(lastInboundSnapOf()).toBeNull();
+    expect(hub.leaveRoom).toHaveBeenCalledTimes(1);
+    expect(result.current.phase).toBe("lobby");
+  });
+
   it("matchEnd 는 lastInboundSnap 을 비운다", () => {
     hub.status = "playing";
     rememberInboundSnap({ tick: 3, winner: 2 });

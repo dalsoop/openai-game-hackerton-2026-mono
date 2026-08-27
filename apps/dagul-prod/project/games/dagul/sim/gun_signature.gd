@@ -166,6 +166,21 @@ static func visual_for_equipment(equipment_id: String) -> Dictionary:
     return EQUIP_VISUAL["burst"]
 
 
+static func equipment_id_for_label(label: String) -> String:
+    var key := label.strip_edges()
+    if key != "" and EQUIP_VISUAL.has(key):
+        return key
+    var upper := key.to_upper()
+    for id in EQUIP_VISUAL.keys():
+        var vis: Dictionary = EQUIP_VISUAL[id]
+        var gun_name := str(vis.get("gun", "")).to_upper()
+        if gun_name == upper or gun_name.begins_with(upper + " ") or upper.begins_with(str(id).to_upper()):
+            return str(id)
+        if gun_name.begins_with(upper):
+            return str(id)
+    return ""
+
+
 static func is_signature(animal: int, equipment_id: String) -> bool:
     return equipment_for_animal(animal) == equipment_id
 

@@ -7,12 +7,13 @@ COPY web/package-lock.json ./
 RUN test -s package-lock.json && grep -q '"lockfileVersion"' package-lock.json
 RUN npm ci
 COPY web/ ./
-COPY project/addons/colyseus/bin ./public/addons/colyseus/bin
-# Godot dlopen 은 페이지 루트 파일명을 요청한다. Next 폴백이어도 public 에서 나오게.
-RUN cp ./public/addons/colyseus/bin/libcolyseus_godot.web.wasm32.release.wasm \
-  ./public/libcolyseus_godot.web.wasm32.release.wasm
 RUN test -n "$(find public/godot -name index.pck -print -quit)" \
   || (echo "godot pack missing — Apps ship 이 godot:build+publish 뒤에 이 이미지를 굽는다" && exit 1)
+# --link 심링크를 구우면 이미지 안에 project/web 이 없어 엔진이 404 가 난다.
+RUN if [ -n "$(find public/godot -type l -print -quit)" ]; then \
+      echo "godot public assets are symlinks — npm run godot:publish (copy, not --link)" >&2; \
+      exit 1; \
+    fi
 ENV HACKERTONE_IMAGE_BUILD=1
 RUN npx next build
 RUN npx tsc --project tsconfig.server.json
@@ -31,5 +32,6 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV DAGUL_SKILLS=on
 EXPOSE 8080
 CMD ["node", "-r", "./dist/alias-register.js", "dist/server.js"]

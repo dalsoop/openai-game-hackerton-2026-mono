@@ -262,11 +262,16 @@ func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2
 	_apply_recoil_mouse(world_view)
 
 func _try_local_fire_conceal(command: Dictionary) -> void:
-	if not bool(command.get("primary_pressed", false)):
+	var pressed := bool(command.get("primary_pressed", false))
+	var held := bool(command.get("primary", false))
+	if not pressed and not held:
 		return
 	if world == null or not world.has_method("predict_local_fire"):
 		return
-	if not bool(world.predict_local_fire(Vector2(command.get("aim", Vector2.ZERO)))):
+	var aim: Vector2 = Vector2(command.get("aim", Vector2.ZERO))
+	# pressed 가 아니라 쥐고만 있는 프레임이면 연사(auto) 예측 경로로 보낸다 —
+	# 그래야 이동하며 연사할 때 첫 발 이후에도 예측 위치에서 계속 나간다.
+	if not bool(world.predict_local_fire(aim, held and not pressed)):
 		return
 	if world.get("local_fire_shake") != null:
 		world.local_fire_shake = maxi(int(world.local_fire_shake), 4)

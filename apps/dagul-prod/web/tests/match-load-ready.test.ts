@@ -1,6 +1,9 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
 import {
-  allSeatsMatchReady, lobbyReadySig, matchWaitNames, pendingLoadNames, shouldHoldCountdown,
+  allSeatsMatchReady, loadWaitTimedOut, lobbyReadySig, matchWaitNames, pendingLoadNames,
+  shouldHoldCountdown,
 } from "@/lib/domain/match-load-ready";
 import { lobbyFieldsOf } from "@/lib/hub/waiting-room-roster";
 import type { RosterSnapshot } from "@/lib/domain/roster";
@@ -33,14 +36,28 @@ describe("allSeatsMatchReady", () => {
 });
 
 describe("shouldHoldCountdown", () => {
-  it("타임아웃 전이면 미완료를 붙잡는다", () => {
-    expect(shouldHoldCountdown([seat(false)], 0, 20_000)).toBe(true);
-    expect(shouldHoldCountdown([seat(true)], 0, 20_000)).toBe(false);
+  it("미완료 좌석이 있으면 붙잡고, 전원이 ready 면 연다", () => {
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
+    expect(shouldHoldCountdown([seat(true)])).toBe(false);
+    expect(shouldHoldCountdown([seat(true), seat(true)])).toBe(false);
   });
 
-  it("타임아웃이면 미완료여도 푼다", () => {
-    expect(shouldHoldCountdown([seat(false)], 20_000, 20_000)).toBe(false);
-    expect(shouldHoldCountdown([seat(false)], 19_999, 20_000)).toBe(true);
+  it("대기 상한이 지나도 미완료면 붙잡는다 — 상한은 강퇴 신호다", () => {
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
+    expect(loadWaitTimedOut(59_999, 60_000)).toBe(false);
+    expect(loadWaitTimedOut(60_000, 60_000)).toBe(true);
+    expect(shouldHoldCountdown([seat(true)])).toBe(false);
+  });
+
+  it("20초 강제 시작은 컷오프하고 대기는 1분이다", () => {
+    const root = process.cwd();
+    const src = (rel: string): string => readFileSync(join(root, rel), "utf8");
+    expect(src("lib/hub/config.ts")).not.toContain("loadReadyTimeoutMs");
+    expect(src("lib/hub/config.ts")).not.toContain("20_000");
+    expect(HUB_CONFIG.loadReadyWaitMs).toBe(60_000);
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
+    expect(loadWaitTimedOut(20_000, HUB_CONFIG.loadReadyWaitMs)).toBe(false);
+    expect(loadWaitTimedOut(60_000, HUB_CONFIG.loadReadyWaitMs)).toBe(true);
   });
 });
 
@@ -133,7 +150,7 @@ describe("로딩 경로 — 팩 받기와 인게임 ready 는 다르다", () => 
 
   it("컴파일 완료(100)만으로 카운트다운을 풀지 않는다", () => {
     expect(packPctFromLoader("ready", 1)).toBe(100);
-    expect(shouldHoldCountdown([seat(false)], 100, HUB_CONFIG.loadReadyTimeoutMs)).toBe(true);
+    expect(shouldHoldCountdown([seat(false)])).toBe(true);
   });
 });
 
@@ -144,6 +161,23 @@ describe("MatchSim 카운트다운 장벽", () => {
     sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
     for (let i = 0; i < 60; i += 1) {sim.step(1 / 60);}
     expect(sim.countdown).toBe(START_COUNTDOWN);
+  });
+
+  it("개전 뒤 held 를 다시 켜면 움직임을 멈춘다", () => {
+    const sim = new MatchSim([{ slot: 0 }]);
+    sim.countdownHeld = false;
+    sim.countdown = 0;
+    const hero = sim.heroes.get(0);
+    if (!hero) {return;}
+    const x0 = hero.x;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 1 });
+    sim.step(1 / 60);
+    expect(hero.x).toBeGreaterThan(x0);
+    sim.countdownHeld = true;
+    const x1 = hero.x;
+    sim.pushInput(0, { mx: 1, my: 0, seq: 2 });
+    sim.step(1 / 60);
+    expect(hero.x).toBe(x1);
   });
 
   it("held 를 끄면 같은 틱에서 깎이기 시작한다", () => {

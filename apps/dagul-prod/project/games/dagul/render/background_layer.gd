@@ -48,8 +48,7 @@ func _copy_from_view() -> void:
 	if _view == null:
 		return
 	world = _view.world
-	grass_tile_textures = _view.grass_tile_textures
-
+	grass_tile_textures.assign(_view.grass_tile_textures)
 
 func _is_dirty() -> bool:
 	var tiles := RenderEnvScript.vis_tile_rect(visible_world_rect(), grass_cell())

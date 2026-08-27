@@ -11,6 +11,7 @@ func run(t) -> void:
 	_events_new_seq_only(t)
 	_events_map_new_seq_only(t)
 	_v2_effects_callout(t)
+	_json_string_array_fallback(t)
 
 func _builds_contract_snap(t) -> void:
 	var adapter = AdapterScript.new()
@@ -70,8 +71,8 @@ func _events_new_seq_only(t) -> void:
 	t.check("첫 seq 는 넘긴다", adapter.ingest(first) == true)
 	var evs: Array = adapter.snap()[SnapContract.EVENTS]
 	t.check("events 1건", evs.size() == 1)
-	var d: Dictionary = (evs[0] as Dictionary).get("d", {})
-	t.check("d JSON 파싱", str(d.get("equipment", "")) == "glock")
+	var d: Dictionary = (evs[0] as Dictionary).get("data", {})
+	t.check("data JSON 파싱", str(d.get("equipment", "")) == "glock")
 	t.check("같은 seq 는 넘기지 않는다", adapter.ingest(first) == false)
 	t.check("no-op 후 기존 events 유지", (adapter.snap()[SnapContract.EVENTS] as Array).size() == 1)
 	var same_tick := _sample_match(3)
@@ -82,7 +83,7 @@ func _events_new_seq_only(t) -> void:
 	t.check("새 seq 만 넘긴다", adapter.ingest(same_tick) == true)
 	var fresh: Array = adapter.snap()[SnapContract.EVENTS]
 	t.check("새 seq 1건", fresh.size() == 1)
-	t.check("새 seq actor", int((fresh[0] as Dictionary).get("a", -1)) == 1)
+	t.check("새 seq actor", int((fresh[0] as Dictionary).get("actor", -1)) == 1)
 	adapter.reset()
 	t.check("reset 후 같은 seq 다시 전달", adapter.ingest(first) == true)
 	t.check("reset 전달 1건", (adapter.snap()[SnapContract.EVENTS] as Array).size() == 1)
@@ -101,7 +102,7 @@ func _events_map_new_seq_only(t) -> void:
 	t.check("맵 새 seq 만 넘긴다", adapter.ingest(next) == true)
 	var fresh: Array = adapter.snap()[SnapContract.EVENTS]
 	t.check("맵 새 seq 1건", fresh.size() == 1)
-	t.check("맵 새 seq actor", int((fresh[0] as Dictionary).get("a", -1)) == 1)
+	t.check("맵 새 seq actor", int((fresh[0] as Dictionary).get("actor", -1)) == 1)
 
 func _v2_effects_callout(t) -> void:
 	var adapter = AdapterScript.new()
@@ -116,25 +117,25 @@ func _v2_effects_callout(t) -> void:
 	}]
 	var hero: Dictionary = src["heroes"]["0"]
 	hero["weaponId"] = "burst"
-	hero["stunT"] = 0.4
+	hero["stunTime"] = 0.4
 	hero["action"] = "STUNNED"
-	hero["pullT"] = 0.2
-	hero["pocketT"] = 0.3
-	hero["mobCd"] = 4.2
-	hero["hopT"] = 0.1
-	hero["mvSpd"] = 419.0
-	hero["elim"] = true
+	hero["pullTime"] = 0.2
+	hero["pocketTime"] = 0.3
+	hero["mobilityCd"] = 4.2
+	hero["hopTime"] = 0.1
+	hero["moveSpeed"] = 419.0
+	hero["eliminated"] = true
 	hero["hud"] = {
 		"reloadFlash": 0.55,
 		"respawnLeft": 2.4,
 		"sprayIndex": 3.2,
-		"rouDesc": "이번 목숨 동안 공격력이 올라갑니다",
-		"hitstunT": 0.18,
-		"comboCaptureT": 0.4,
+		"rouletteDesc": "이번 목숨 동안 공격력이 올라갑니다",
+		"hitstunTime": 0.18,
+		"comboCaptureTime": 0.4,
 	}
-	hero["rouSpin"] = "tiger"
-	hero["rlTimed"] = "[{\"id\":\"turtle\",\"time\":1}]"
-	hero["ultClones"] = "[{\"x\":3,\"y\":4}]"
+	hero["rouletteSpin"] = "tiger"
+	hero["timedBuffs"] = [{"id": "turtle", "time": 1}]
+	hero["clones"] = [{"x": 3, "y": 4}]
 	var bullet: Dictionary = src["bullets"]["9"]
 	bullet["radius"] = 6.0
 	bullet["arc"] = false
@@ -144,23 +145,23 @@ func _v2_effects_callout(t) -> void:
 	var snap: Dictionary = adapter.snap()
 	var p0: Dictionary = snap[SnapContract.PLAYERS][0]
 	t.check("weaponId", str(p0.get(SnapContract.P_WEAPON_ID, "")) == "burst")
-	t.check("stunT", is_equal_approx(float(p0.get(SnapContract.P_STUN_T, 0)), 0.4))
+	t.check("stunTime", is_equal_approx(float(p0.get(SnapContract.P_STUN_T, 0)), 0.4))
 	t.check("action", str(p0.get(SnapContract.P_ACTION, "")) == "STUNNED")
-	t.check("pullT", is_equal_approx(float(p0.get(SnapContract.P_PULL_T, 0)), 0.2))
-	t.check("mobCd", is_equal_approx(float(p0.get(SnapContract.P_MOB_CD, 0)), 4.2))
-	t.check("elim", bool(p0.get(SnapContract.P_ELIM, false)) == true)
-	t.check("mvSpd", is_equal_approx(float(p0.get(SnapContract.P_MV_SPD, 0)), 419.0))
+	t.check("pullTime", is_equal_approx(float(p0.get(SnapContract.P_PULL_T, 0)), 0.2))
+	t.check("mobilityCd", is_equal_approx(float(p0.get(SnapContract.P_MOB_CD, 0)), 4.2))
+	t.check("eliminated", bool(p0.get(SnapContract.P_ELIM, false)) == true)
+	t.check("moveSpeed", is_equal_approx(float(p0.get(SnapContract.P_MV_SPD, 0)), 419.0))
 	t.check("reloadFlash", is_equal_approx(float(p0.get(SnapContract.P_RELOAD_FLASH, 0)), 0.55))
 	t.check("respawnLeft", is_equal_approx(float(p0.get(SnapContract.P_RESPAWN_LEFT, 0)), 2.4))
 	t.check("sprayIndex", is_equal_approx(float(p0.get(SnapContract.P_SPRAY_INDEX, 0)), 3.2))
-	t.check("rouDesc", str(p0.get(SnapContract.P_ROU_DESC, "")) == "이번 목숨 동안 공격력이 올라갑니다")
-	t.check("hitstunT", is_equal_approx(float(p0.get(SnapContract.P_HITSTUN_T, 0)), 0.18))
-	t.check("comboCaptureT", is_equal_approx(float(p0.get(SnapContract.P_COMBO_CAPTURE_T, 0)), 0.4))
-	t.check("rouSpin 문자열", str(p0.get(SnapContract.P_ROU_SPIN, "")) == "tiger")
-	var timed: Variant = p0.get(SnapContract.P_RL_TIMED, [])
-	t.check("rlTimed 배열", timed is Array and (timed as Array).size() == 1)
-	var clones: Variant = p0.get(SnapContract.P_ULT_CLONES, [])
-	t.check("ultClones 배열", clones is Array and int((clones as Array)[0].get("x", 0)) == 3)
+	t.check("rouletteDesc", str(p0.get(SnapContract.P_ROU_DESC, "")) == "이번 목숨 동안 공격력이 올라갑니다")
+	t.check("hitstunTime", is_equal_approx(float(p0.get(SnapContract.P_HITSTUN_T, 0)), 0.18))
+	t.check("comboCaptureTime", is_equal_approx(float(p0.get(SnapContract.P_COMBO_CAPTURE_T, 0)), 0.4))
+	t.check("rouletteSpin 문자열", str(p0.get(SnapContract.P_ROU_SPIN, "")) == "tiger")
+	var timed: Variant = p0.get(SnapContract.P_TIMED_BUFFS, [])
+	t.check("timedBuffs 배열", timed is Array and (timed as Array).size() == 1)
+	var clones: Variant = p0.get(SnapContract.P_CLONES, [])
+	t.check("clones 배열", clones is Array and int((clones as Array)[0].get("x", 0)) == 3)
 	var fx: Dictionary = (snap[SnapContract.EFFECTS] as Array)[0]
 	t.check("effect k", str(fx.get("k", "")) == "afterimage")
 	t.check("streakCallout", str(snap.get(SnapContract.STREAK_CALLOUT, "")) == "TRIPLE")
@@ -173,8 +174,21 @@ func _v2_effects_callout(t) -> void:
 	adapter.ingest(src)
 	t.check("빈 effects 로 잔여 정리", (adapter.snap()[SnapContract.EFFECTS] as Array).size() == 0)
 
+func _json_string_array_fallback(t) -> void:
+	var adapter = AdapterScript.new()
+	var src := _sample_match(4)
+	var hero: Dictionary = src["heroes"]["0"]
+	hero["timedBuffs"] = "[{\"id\":\"turtle\",\"time\":1}]"
+	hero["clones"] = "[{\"x\":9,\"y\":8}]"
+	t.check("옛 JSON 문자열도 ingest", adapter.ingest(src) == true)
+	var p0: Dictionary = adapter.snap()[SnapContract.PLAYERS][0]
+	var timed: Variant = p0.get(SnapContract.P_TIMED_BUFFS, [])
+	t.check("문자열 timedBuffs 도 배열", timed is Array and str((timed as Array)[0].get("id", "")) == "turtle")
+	var clones: Variant = p0.get(SnapContract.P_CLONES, [])
+	t.check("문자열 clones 도 배열", clones is Array and int((clones as Array)[0].get("x", 0)) == 9)
+
 func _schema_event(seq: int, tick: int, actor: int, data: Variant) -> Dictionary:
-	return {"seq": seq, "t": tick, "k": "gun_fire", "a": actor, "b": -1, "d": data}
+	return {"seq": seq, "tick": tick, "kind": "gun_fire", "actor": actor, "target": -1, "data": data}
 
 func _sample_match(tick: int) -> Dictionary:
 	return {

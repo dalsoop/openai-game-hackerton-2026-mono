@@ -22,6 +22,9 @@ func run(t) -> void:
 	# 비주얼·계열은 등록된 장비만, 미등록은 폴백("burst")
 	t.check("visual has frame+gun", GunSignature.visual_for_equipment("spear").has("frame") and GunSignature.visual_for_equipment("spear").has("gun"))
 	t.check("visual fallback to burst", GunSignature.visual_for_equipment("unknown").get("gun", "") == "Glock 18")
+	t.check("label AWM 은 rail", GunSignature.equipment_id_for_label("AWM") == "rail")
+	t.check("label DOUBLE BARREL 은 bomb", GunSignature.equipment_id_for_label("DOUBLE BARREL") == "bomb")
+	t.check("label id 그대로", GunSignature.equipment_id_for_label("scatter") == "scatter")
 	t.check("family of registered", GunSignature.family_of("rail") == "heavy")
 	t.check("family fallback empty-ish", GunSignature.family_of("unknown") != "heavy")
 

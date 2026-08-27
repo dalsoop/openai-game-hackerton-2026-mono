@@ -50,4 +50,4 @@ common/physics_ticks_per_second=60
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/colyseus/plugin.cfg")
+enabled=PackedStringArray()

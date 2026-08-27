@@ -19,10 +19,41 @@ describe("KO 안내문 함수", () => {
   it("호스트 이탈 안내에 이름이, 강퇴 안내에 사유가 들어간다", () => {
     expect(KO.hostLeftEnd("한스")).toContain("한스");
     expect(KO.KICKED_MSG.length).toBeGreaterThan(0);
+    expect(KO.LOAD_WAIT_TIMEOUT.length).toBeGreaterThan(0);
   });
 
   it("ROOM_FULL 은 maxPlayers 와 함께 렌더링된다", () => {
     expect(KO.ROOM_FULL).toBe(`방이 가득 찼습니다 (${HUB_CONFIG.maxPlayers})`);
+  });
+});
+
+function messageKeys(obj: unknown, prefix = ""): string[] {
+  if (typeof obj !== "object" || obj === null) {return [];}
+  return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
+    typeof v === "object" && v !== null ? messageKeys(v, `${prefix}${k}.`) : [`${prefix}${k}`],
+  );
+}
+
+describe("ko/en 키 트리 대칭", () => {
+  it("메시지 키가 양쪽 로케일에 같고 비어 있지 않다", () => {
+    const koKeys = messageKeys(ko).sort();
+    const enKeys = messageKeys(en).sort();
+    expect(enKeys).toEqual(koKeys);
+    const read = (bag: unknown, dotted: string): unknown =>
+      dotted.split(".").reduce<unknown>((cur, key) => (
+        cur && typeof cur === "object" ? (cur as Record<string, unknown>)[key] : undefined
+      ), bag);
+    for (const key of koKeys) {
+      expect(String(read(ko, key)).length, `ko ${key}`).toBeGreaterThan(0);
+      expect(String(read(en, key)).length, `en ${key}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("로딩 타임아웃·로비 복귀 키가 영어에도 있다", () => {
+    expect(en.game.loadWaitTitle).not.toBe(ko.game.loadWaitTitle);
+    expect(en.game.loadWaitBody).not.toBe(ko.game.loadWaitBody);
+    expect(en.godot.backToLobby).not.toBe(ko.godot.backToLobby);
+    expect(en.godot.backToLobby).toBe("Back to lobby");
   });
 });
 

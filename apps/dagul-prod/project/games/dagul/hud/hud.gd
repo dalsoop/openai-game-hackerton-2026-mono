@@ -19,6 +19,7 @@ const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
 var medkit_texture: Texture2D = null
+var item_textures: Dictionary = {}
 var ammo_round_texture: Texture2D = null
 var ammo_casing_texture: Texture2D = null
 var zone_lightning_texture: Texture2D = null
@@ -47,6 +48,10 @@ func _ready() -> void:
         medkit_texture = load("res://games/dagul/assets/items/medkit.png")
         # 버프 칩(draw_buff_glyph)도 십자 폴리곤 폴백 대신 실제 아이콘을 쓴다.
         roulette_icons["medkit"] = medkit_texture
+    for kind in ["medkit", "spring", "slide", "pull", "pocket", "decoy"]:
+        var item_path := "res://games/dagul/assets/items/%s.png" % kind
+        if ResourceLoader.exists(item_path):
+            item_textures[kind] = load(item_path)
     if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
         ammo_round_texture = load("res://games/dagul/assets/fx/ui/Tex_UI_AmmoRound_4x1.png")
     if ResourceLoader.exists("res://games/dagul/assets/fx/ui/Tex_UI_AmmoCasing.png"):
@@ -280,6 +285,7 @@ func _draw_hotbar(me: Dictionary) -> void:
     _text(bar.position + Vector2(328.0, 15.0), "ULT READY" if ult_ready else "ULT  %d%%" % roundi(power_ratio * 100.0), 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
     _pjh.draw_status_blocks(Rect2(bar.position + Vector2(326.0, 19.0), Vector2(168.0, 16.0)), power_ratio, 8, ult_color, false, ult_ready, 0.7)
     _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
+    _draw_medkit_slot(Rect2(bar.position.x - 100.0, bar.position.y + 8.0, 92.0, 70.0), me)
 
 func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
     var mag_now: int = int(me.get("mag", 0))
@@ -329,28 +335,46 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
         var label := HudBuffs.held_item_label(kind)
         var usable := label != "EMPTY"
         var accent: Color = HudBuffs.held_item_color(kind)
-        draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
-        draw_rect(rect, Color(accent, 0.85 if usable else 0.25), false, 2.0)
-        if kind == "medkit" and medkit_texture != null:
-            draw_texture_rect(medkit_texture, Rect2(rect.position + Vector2(10.0, 15.0), Vector2(34.0, 34.0)), false)
+        _draw_medkit_frame(rect, accent, usable)
+        var icon_tex: Texture2D = null
+        if item_textures.has(kind):
+            icon_tex = item_textures[kind]
+        elif kind == "medkit":
+            icon_tex = medkit_texture
+        if icon_tex != null:
+            draw_texture_rect(
+                icon_tex,
+                Rect2(rect.position + Vector2(8.0, 16.0), Vector2(40.0, 40.0)),
+                false,
+                Color.WHITE if usable else Color(1.0, 1.0, 1.0, 0.28),
+            )
+        elif kind == "medkit":
+            _draw_medkit_icon(rect, Color.WHITE if usable else Color(1.0, 1.0, 1.0, 0.28))
         else:
-            draw_circle(rect.position + Vector2(27.0, 34.0), 12.0, Color(accent, 0.85 if usable else 0.28))
-        _text(rect.position + Vector2(52.0, 40.0), label, 16, accent if usable else Color("#6b7480"))
-        _text(rect.position + Vector2(10.0, 15.0), "E", 11, accent if usable else Color("#6b7480"))
+            draw_circle(rect.position + Vector2(28.0, 38.0), 13.0, Color(accent, 0.85 if usable else 0.28))
+        _text(rect.position + Vector2(52.0, 42.0), label, 14, accent if usable else Color("#6b7480"), 36.0)
+        _text(rect.position + Vector2(6.0, 12.0), "E", 11, accent if usable else Color("#6b7480"))
         return
     var carried := int(me.get("medkits", 0))
     var usable := carried > 0
+    var tint := Color.WHITE if usable else Color(1.0, 1.0, 1.0, 0.28)
+    _draw_medkit_frame(rect, Color("#6ef3a5"), usable)
+    _draw_medkit_icon(rect, tint)
+    var count_color := Color("#6ef3a5") if usable else Color("#6b7480")
+    _text(rect.position + Vector2(52.0, 38.0), "x%d" % carried, 20, count_color)
+    _text(rect.position + Vector2(6.0, 12.0), "약" if touch_hints else "E", 11, count_color)
+
+func _draw_medkit_frame(rect: Rect2, accent: Color, usable: bool) -> void:
     draw_rect(rect, Color(0.055, 0.064, 0.082, 0.94))
-    draw_rect(rect, Color("#6ef3a5", 0.85 if usable else 0.25), false, 2.0)
-    var tint := Color.WHITE if usable else Color(1.0, 1.0, 1.0, 0.30)
+    draw_rect(rect, Color(accent, 0.90 if usable else 0.22), false, 2.0)
+
+func _draw_medkit_icon(rect: Rect2, tint: Color) -> void:
+    var icon := Rect2(rect.position + Vector2(8.0, 16.0), Vector2(40.0, 40.0))
     if medkit_texture != null:
-        draw_texture_rect(medkit_texture, Rect2(rect.position + Vector2(10.0, 15.0), Vector2(34.0, 34.0)), false, tint)
-    else:
-        draw_rect(Rect2(rect.position + Vector2(22.0, 18.0), Vector2(10.0, 28.0)), tint)
-        draw_rect(Rect2(rect.position + Vector2(13.0, 27.0), Vector2(28.0, 10.0)), tint)
-    _text(rect.position + Vector2(52.0, 40.0), "x%d" % carried, 22, Color("#6ef3a5") if usable else Color("#6b7480"))
-    _text(rect.position + Vector2(10.0, 15.0), "약" if touch_hints else "E", 11, Color("#6ef3a5") if usable else Color("#6b7480"))
-    _text(rect.position + Vector2(52.0, 55.0), "메드킷", 11, Color("#aebaca"))
+        draw_texture_rect(medkit_texture, icon, false, tint)
+        return
+    draw_rect(Rect2(icon.position + Vector2(15.0, 4.0), Vector2(10.0, 32.0)), tint)
+    draw_rect(Rect2(icon.position + Vector2(4.0, 15.0), Vector2(32.0, 10.0)), tint)
 
 func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> void:
     var mobility_cd: float = float(me["mobility_cd"])

@@ -29,6 +29,9 @@ spec:
         hackertone-games/slot: {{ .folder }}
     spec:
       enableServiceLinks: false
+      # LobbyRoom.onBeforeShutdown 이 진행 중 매치를 HUB_CONFIG.shutdownDrainMs 만큼
+      # 봐준다 — kubelet 기본 30s 로는 그 전에 SIGKILL 돼서 드레인이 무의미해진다.
+      terminationGracePeriodSeconds: {{ $.Values.hub.terminationGracePeriodSeconds }}
       # hostname 은 StatefulSet 이 <folder>-hub-N 으로 넣는다. 템플릿에 비우지 않는다.
       subdomain: {{ .folder }}-hub-pods
       {{- with $.Values.nodeSelector }}
@@ -44,6 +47,8 @@ spec:
               value: {{ $.Values.hub.env.PORT | quote }}
             - name: SLOT_FOLDER
               value: {{ .folder | quote }}
+            - name: DAGUL_SKILLS
+              value: "on"
             {{- if and $.Values.redis.enabled $.Values.redis.url }}
             - name: REDIS_URL
               value: {{ include "hackertone-games.hubRedisUrl" (dict "root" $ "folder" .folder "hub" .) | quote }}

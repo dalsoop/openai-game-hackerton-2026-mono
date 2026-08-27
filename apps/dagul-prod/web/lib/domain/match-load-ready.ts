@@ -7,14 +7,17 @@ export function allSeatsMatchReady(
   return players.every((p) => p.matchReady);
 }
 
-/** true 면 3초 카운트다운을 깎지 않는다. 타임아웃이 지나면 강제 해제. */
+/** true 면 3초 카운트다운을 깎지 않는다. packPct·대기 상한으로는 풀지 않는다.
+ * 상한이 지나면 미완료 좌석을 내보낸 뒤, 남은 좌석이 전부 ready 일 때 연다. */
 export function shouldHoldCountdown(
   players: readonly { matchReady: boolean; connected?: boolean; name?: string }[],
-  waitedMs: number,
-  timeoutMs: number,
 ): boolean {
-  if (waitedMs >= timeoutMs) {return false;}
   return !allSeatsMatchReady(players);
+}
+
+/** 1분 대기 상한. 넘으면 미완료를 강퇴한다. 20초 강제 시작은 쓰지 않는다. */
+export function loadWaitTimedOut(waitedMs: number, waitCapMs: number): boolean {
+  return Number.isFinite(waitCapMs) && waitedMs >= waitCapMs;
 }
 
 export function pendingLoadNames(

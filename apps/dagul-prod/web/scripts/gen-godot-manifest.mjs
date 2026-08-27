@@ -5,7 +5,7 @@
 // 바뀌지 않아 브라우저 불변 캐시가 그대로 살아 있다(빌드 1회 효과).
 // 내용이 달라진 경우에만 새 타임스탬프로 버전이 올라간다.
 import { createHash } from "crypto";
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 
 const outDir = process.argv[2];
@@ -15,7 +15,13 @@ if (!outDir) {
   process.exit(1);
 }
 
-const files = ["index.js", "index.wasm", "index.pck", "index.side.wasm"];
+const files = ["index.js", "index.wasm", "index.pck"].filter((f) =>
+  existsSync(path.join(outDir, f)),
+);
+if (files.length < 3) {
+  console.error("gen-godot-manifest: index.js/wasm/pck 이 없습니다 (side.wasm 은 쓰지 않습니다)");
+  process.exit(1);
+}
 const hash = createHash("sha1");
 for (const f of files) hash.update(readFileSync(path.join(outDir, f)));
 const filesHash = hash.digest("hex").slice(0, 12);

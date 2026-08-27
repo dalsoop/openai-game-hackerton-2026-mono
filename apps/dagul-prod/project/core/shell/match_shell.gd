@@ -25,6 +25,8 @@ var _ctx: Dictionary = {}
 var _play_probe_acc := 0.0
 var _play_probe_on := false
 var _js_visibility_cb = null
+var _match_module_started := false
+var _match_ready_sent := false
 
 func _ready() -> void:
 	hub = get_node_or_null("/root/NetworkManager")
@@ -67,6 +69,7 @@ func _on_match_resumed(you: int, room: Dictionary, snap: Dictionary) -> void:
 func _on_snapshot_received(snap: Dictionary) -> void:
 	if module != null:
 		module.push_snap(snap)
+	_try_send_match_ready()
 
 func _on_gun_fire_received(fx: Dictionary) -> void:
 	if module != null and module.has_method("push_gun_fire"):
@@ -117,11 +120,12 @@ func _on_match_started(you: int, room: Dictionary) -> void:
 		"host": hub.is_host,
 		"seed": int(room.get("seed", 0)),
 		"mode": str(room.get("mode", WebContract.DEFAULT_MODE)),
-		"seats": hub.players,
+		"seats": hub.get_players(),
 	}, _ctx)
 	gs.request(GameStateScript.State.PLAYING)
 	_apply_playing_visuals(true)
-	_notify_match_loaded()
+	_match_module_started = true
+	_try_send_match_ready()
 	if settings != null:
 		if settings.has_method("select_mode"):
 			settings.select_mode(SettingsStoreScript.load_control_mode())
@@ -164,6 +168,23 @@ func _notify_match_loaded() -> void:
 	if hub != null and hub.has_method("send_ready"):
 		hub.send_ready()
 
+func _world_has_heroes() -> bool:
+	if module == null:
+		return false
+	var world = module.get("world")
+	if world == null:
+		return false
+	var heroes = world.get("heroes")
+	return heroes is Array and heroes.size() > 0
+
+func _try_send_match_ready() -> void:
+	if _match_ready_sent or not _match_module_started:
+		return
+	if not _world_has_heroes():
+		return
+	_match_ready_sent = true
+	_notify_match_loaded()
+
 
 func _leave_match() -> void:
 	var gs := _game_state()
@@ -176,6 +197,8 @@ func _leave_match() -> void:
 
 ## 매치가 끝나거나 연결이 사라지면 웹 셸에 복귀를 알린다.
 func _return_to_hub() -> void:
+	_match_module_started = false
+	_match_ready_sent = false
 	if module != null:
 		module.stop()
 	var gs := _game_state()

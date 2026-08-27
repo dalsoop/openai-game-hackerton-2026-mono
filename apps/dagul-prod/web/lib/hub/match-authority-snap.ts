@@ -1,18 +1,19 @@
 import {
   ARENA_CENTER, packCoresSnap, packCrateOrbsSnap, packCratesSnap,
-  packFinishCine, packItemField, packLootSnap, packMidTowerSnap,
+  packFinishCine, packLootSnap, packMidTowerSnap,
   packWantedSnap, packZonesSnap, snapDeployables,
   type MatchSim, type SimBullet, type SimHero,
 } from "./match-sim.js";
+import { packItemField } from "./match-item-wire.js";
 import { packEffects } from "./match-effects.js";
 import { skillsEnabled } from "./config.js";
 
 export type SnapEvent = {
-  t: number;
-  k: string;
-  a: number;
-  b: number;
-  d: Record<string, unknown>;
+  tick: number;
+  kind: string;
+  actor: number;
+  target: number;
+  data: Record<string, unknown>;
 };
 
 export type SnapPlayer = {
@@ -55,50 +56,61 @@ function putOmit(dst: Record<string, unknown>, key: string, value: unknown): voi
 
 function packPlayerV2(h: SimHero): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  putOmit(out, "action", skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "");
-  putOmit(out, "stunT", h.stunTime);
-  putOmit(out, "rootT", h.rootTime);
-  putOmit(out, "ccT", h.ccTime);
-  putOmit(out, "guardT", h.guardTime);
-  putOmit(out, "armorT", h.superArmorTime);
-  putOmit(out, "spawnT", h.spawnProtect);
-  putOmit(out, "launchT", h.launchTime);
+  const isSkillAction = h.action === "CHARGING_SKILL" || h.action === "CHARGED_SKILL";
+  putOmit(out, "action", !skillsEnabled() && isSkillAction ? "idle" : h.action);
+  putOmit(out, "stunTime", h.stunTime);
+  putOmit(out, "rootTime", h.rootTime);
+  putOmit(out, "ccTime", h.ccTime);
+  putOmit(out, "guardTime", h.guardTime);
+  putOmit(out, "armorTime", h.superArmorTime);
+  putOmit(out, "spawnProtect", h.spawnProtect);
+  putOmit(out, "launchTime", h.launchTime);
   putOmit(out, "launchVX", h.launchVel.x);
   putOmit(out, "launchVY", h.launchVel.y);
   if (skillsEnabled()) {
     putOmit(out, "charging", h.chargingSkill);
-    putOmit(out, "chargeT", h.chargeTime);
+    putOmit(out, "chargeTime", h.chargeTime);
   }
   putOmit(out, "heldItem", h.heldItem);
-  putOmit(out, "springT", h.springTime);
-  putOmit(out, "slideT", h.slideTime);
-  putOmit(out, "pullT", h.pullTime);
-  putOmit(out, "pocketT", h.pocketTime);
-  putOmit(out, "hopT", h.hopTime);
+  putOmit(out, "springTime", h.springTime);
+  putOmit(out, "slideTime", h.slideTime);
+  putOmit(out, "pullTime", h.pullTime);
+  putOmit(out, "pocketTime", h.pocketTime);
+  putOmit(out, "hopTime", h.hopTime);
   putOmit(out, "hopMax", h.hopTime > 0 ? h.hopMax : 0);
   putOmit(out, "hopHeight", h.hopTime > 0 ? h.hopHeight : 0);
-  putOmit(out, "mobCd", h.mobilityCd);
-  putOmit(out, "mvSpd", h.equipment.moveSpeed);
-  putOmit(out, "elim", h.eliminated);
-  putOmit(out, "dmgOrbT", h.dmgOrbTime);
+  putOmit(out, "mobilityCd", h.mobilityCd);
+  putOmit(out, "moveSpeed", h.equipment.moveSpeed);
+  putOmit(out, "eliminated", h.eliminated);
+  putOmit(out, "dmgOrbTime", h.dmgOrbTime);
   putOmit(out, "downTaken", h.downTaken);
-  putOmit(out, "woolT", h.woolTime);
+  putOmit(out, "woolTime", h.woolTime);
   putOmit(out, "woolHp", h.woolHp);
   putOmit(out, "woolMax", h.woolMax);
-  putOmit(out, "rouT", h.rouletteTime);
-  putOmit(out, "rouRank", h.rouletteRank);
-  putOmit(out, "rouPhase", h.roulettePhase);
-  putOmit(out, "rouSpin", String(h.rouletteSpinId));
-  putOmit(out, "rouLabel", h.rouletteLabel);
-  putOmit(out, "rlTimed", h.rlTimed);
-  putOmit(out, "ultClones", h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
+  putOmit(out, "rouletteTime", h.rouletteTime);
+  putOmit(out, "rouletteRank", h.rouletteRank);
+  putOmit(out, "roulettePhase", h.roulettePhase);
+  putOmit(out, "rouletteSpin", String(h.rouletteSpinId));
+  putOmit(out, "rouletteLabel", h.rouletteLabel);
+  putOmit(out, "timedBuffs", h.timedBuffs);
+  putOmit(out, "clones", h.clones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
   putOmit(out, "reloadFlash", h.reloadFlash);
   putOmit(out, "respawnLeft", h.respawnLeft);
   putOmit(out, "sprayIndex", h.sprayIndex);
-  putOmit(out, "rouDesc", h.rouletteDesc);
-  putOmit(out, "hitstunT", h.hitstunTime);
-  putOmit(out, "comboCaptureT", h.comboCaptureTime);
+  putOmit(out, "rouletteDesc", h.rouletteDesc);
+  putOmit(out, "hitstunTime", h.hitstunTime);
+  putOmit(out, "comboCaptureTime", h.comboCaptureTime);
+  putOmit(out, "medkits", h.medkits);
+  putOmit(out, "mobilityDist", h.equipment.mobilityDistance);
+  putOmit(out, "untilBuffs", packUntilBuffs(h.untilBuffs));
   return out;
+}
+
+function packUntilBuffs(u: SimHero["untilBuffs"]): Record<string, number> | 0 {
+  if (u.atk === 0 && u.spd === 0 && u.def === 0 && u.hp === 0 && u.rate === 0 && u.range === 0) {
+    return 0;
+  }
+  return { atk: u.atk, spd: u.spd, def: u.def, hp: u.hp, rate: u.rate, range: u.range };
 }
 
 function packBullet(b: SimBullet): Record<string, unknown> {
@@ -166,6 +178,7 @@ export function packAuthoritySnap(
   }));
   const loot = packLootSnap(sim.loot);
   const wanted = packWantedSnap(sim.wanted);
+  const cine = packFinishCine(sim.finishCine);
   const snap: Record<string, unknown> = {
     tick: sim.tick,
     time: sim.matchTime,
@@ -177,8 +190,8 @@ export function packAuthoritySnap(
     zoneCY: ARENA_CENTER.y,
     zonePhase: sim.zone.phase,
     startCountdown: sim.countdown,
-    finishCine: packFinishCine(sim.finishCine),
-    finish_cine: packFinishCine(sim.finishCine),
+    finishCine: cine,
+    finish_cine: cine,
     callout: sim.callout,
     calloutTicks: sim.calloutTicks,
     streakCallout: sim.streakState.streakCallout,

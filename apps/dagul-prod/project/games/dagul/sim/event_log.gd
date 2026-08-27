@@ -44,4 +44,4 @@ func discard_up_to(last_id: int) -> void:
     var i := first_index_after(last_id)
     if i <= 0:
         return
-    events = events.slice(i)
+    events.assign(events.slice(i))

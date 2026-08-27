@@ -92,6 +92,14 @@ export class MatchAuthority {
     this.sim.pushInput(slot, data);
   }
 
+  setTickInput(slot: number, data: MatchInput): void {
+    this.sim.setTickInput(slot, data);
+  }
+
+  hasQueuedInput(slot: number): boolean {
+    return this.sim.hasQueuedInput(slot);
+  }
+
   /** 인간 좌석만. CPU 는 항상 false. */
   setParked(slot: number, parked: boolean): void {
     const hero = this.sim.heroes.get(slot);
@@ -132,7 +140,9 @@ export class MatchAuthority {
   private ingestEvents(stepFx: readonly GunFireFx[]): void {
     const ult = this.sim.ultWorld.events;
     for (const ev of ult.slice(this.ultEventAt)) {
-      this.pendingEvents.push({ t: ev.tick, k: ev.type, a: ev.actor, b: ev.target, d: ev.data });
+      this.pendingEvents.push({
+        tick: ev.tick, kind: ev.type, actor: ev.actor, target: ev.target, data: ev.data,
+      });
     }
     this.ultEventAt = ult.length;
     for (const fire of stepFx) {
@@ -143,8 +153,8 @@ export class MatchAuthority {
   private toGunFireEvent(fire: GunFireFx): SnapEvent {
     const hero = this.sim.heroes.get(fire.slot);
     return {
-      t: this.sim.tick, k: "gun_fire", a: fire.slot, b: -1,
-      d: { equipment: hero?.equipment.id ?? "", x: fire.x, y: fire.y },
+      tick: this.sim.tick, kind: "gun_fire", actor: fire.slot, target: -1,
+      data: { equipment: hero?.equipment.id ?? "", x: fire.x, y: fire.y },
     };
   }
 

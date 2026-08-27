@@ -6,6 +6,7 @@
 import {
   ARENA_CENTER, ARENA_MARGIN, ARENA_SIZE, pointInCover, type CoverRect,
 } from "./match-covers.js";
+import { moveToward } from "../util/math.js";
 
 /** game_world.gd:36 CORE_MAX_HP. */
 export const CORE_MAX_HP = 210;
@@ -78,13 +79,6 @@ function clampCorePoint(x: number, y: number): { x: number; y: number } {
   };
 }
 
-function moveToward(x: number, y: number, tx: number, ty: number, delta: number): { x: number; y: number } {
-  const dx = tx - x;
-  const dy = ty - y;
-  const dist = Math.hypot(dx, dy);
-  if (dist <= delta || dist === 0) {return { x: tx, y: ty };}
-  return { x: x + (dx / dist) * delta, y: y + (dy / dist) * delta };
-}
 
 /** 커버 안이면 중심 방향으로 밀어낸다 — nudge_out_of_cover(radius=CORE_RADIUS). */
 function nudgeCoreOutOfCover(

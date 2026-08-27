@@ -247,21 +247,29 @@ func _draw_pickup(pickup: Dictionary) -> void:
 	var pickup_pos: Vector2 = pickup["pos"]
 	var pulse := 1.0 + sin(float(world.tick) * 0.10 + float(pickup["id"])) * 0.10
 	var gun_name := str(pickup.get("gun_name", ""))
-	if gun_name != "":
+	if str(pickup.get("kind", "")) == "gun" or gun_name != "":
 		_draw_gun_pickup(pickup, pickup_pos, pulse, gun_name)
 		return
 	_draw_item_pickup(pickup, pickup_pos, pulse)
 
 func _draw_gun_pickup(pickup: Dictionary, pickup_pos: Vector2, pulse: float, gun_name: String) -> void:
-	r.draw_circle(pickup_pos, 24.0 * pulse, Color(1.0, 0.82, 0.25, 0.16))
-	r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, Color("#ffd166"), 3.5)
-	var pickup_equip := str(pickup.get("equipment", pickup.get("gun_id", "")))
-	if r.gun_atlas != null and pickup_equip != "":
-		var vis: Dictionary = r.GunSig.visual_for_equipment(pickup_equip)
-		r.draw_texture_rect_region(r.gun_atlas, Rect2(pickup_pos - Vector2(26.0, 14.0) * pulse, Vector2(52.0, 28.0) * pulse), r._gun_src_rect(int(vis.get("frame", 0))))
-	elif r.gun_texture != null:
-		r.draw_texture_rect(r.gun_texture, Rect2(pickup_pos - Vector2(24.0, 14.0) * pulse, Vector2(48.0, 28.0) * pulse), false)
-	r.draw_string(GameFont.get_font(), pickup_pos + Vector2(-60.0, 44.0), gun_name, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 12, Color("#ffd166"))
+	var card := Rect2(pickup_pos - Vector2(40.0, 30.0) * pulse, Vector2(80.0, 56.0) * pulse)
+	r.draw_rect(card, Color(0.04, 0.05, 0.07, 0.94))
+	r.draw_rect(card, Color("#ffd166", 0.88), false, 2.0)
+	var vis := _gun_pickup_visual(pickup, gun_name)
+	var label := str(vis.get("gun", ""))
+	if label == "":
+		label = gun_name if gun_name != "" else "GUN"
+	if r.gun_atlas != null:
+		var dest := Rect2(pickup_pos - Vector2(34.0, 18.0) * pulse, Vector2(68.0, 34.0) * pulse)
+		r.draw_texture_rect_region(r.gun_atlas, dest, r._gun_src_rect(int(vis.get("frame", 0))))
+	r.draw_string(GameFont.get_font(), pickup_pos + Vector2(-52.0, 36.0), label, HORIZONTAL_ALIGNMENT_CENTER, 104.0, 12, Color("#ffd166"))
+
+func _gun_pickup_visual(pickup: Dictionary, gun_name: String) -> Dictionary:
+	var equip := str(pickup.get("gun_id", pickup.get("equipment", pickup.get("itemKind", ""))))
+	if equip == "" or equip == "gun":
+		equip = GunSignature.equipment_id_for_label(gun_name)
+	return GunSignature.visual_for_equipment(equip)
 
 func _draw_item_pickup(pickup: Dictionary, pickup_pos: Vector2, pulse: float) -> void:
 	var show_kind := _item_display_kind(pickup)
@@ -275,18 +283,20 @@ func _draw_item_pickup(pickup: Dictionary, pickup_pos: Vector2, pulse: float) ->
 	elif not has_icon:
 		r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
 		r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
-	if show_kind == "medkit" and r.medkit_texture != null:
-		# 그레이박스 시절 초록 워시를 걷어내고 약상자 원화가 주인공이 되게 크게 그린다.
-		r.draw_circle(pickup_pos, 22.0 * pulse, Color(1.0, 1.0, 1.0, 0.10))
-		r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(24.0, 24.0) * pulse, Vector2(48.0, 48.0) * pulse), false)
+	if has_icon:
+		_draw_medkit_icon(pickup_pos, pulse)
 	elif show_kind == "medkit":
 		r.draw_rect(Rect2(pickup_pos + Vector2(-5.0, -16.0), Vector2(10.0, 32.0)), Color("#d9ffe8"))
 		r.draw_rect(Rect2(pickup_pos + Vector2(-16.0, -5.0), Vector2(32.0, 10.0)), Color("#d9ffe8"))
 	else:
 		r.draw_circle(pickup_pos, 11.0 * pulse, Color(tint, 0.92))
 		r.draw_arc(pickup_pos, 16.0 * pulse, 0.0, TAU, 20, Color.WHITE, 2.0)
-	if show_kind != "medkit" or str(pickup.get("kind", "")) != "":
 		r.draw_string(GameFont.get_font(), pickup_pos + Vector2(-48.0, 42.0), _item_label(show_kind), HORIZONTAL_ALIGNMENT_CENTER, 96.0, 11, tint)
+
+func _draw_medkit_icon(pickup_pos: Vector2, pulse: float) -> void:
+	var size := 62.0 * pulse
+	r.draw_circle(pickup_pos + Vector2(0.0, 13.0), 15.0 * pulse, Color(0.02, 0.03, 0.05, 0.38))
+	r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(size, size) * 0.5, Vector2(size, size)), false)
 
 func _draw_magnet_trails(pickup_pos: Vector2, magnet_dir: Vector2, tint: Color) -> void:
 	for trail_index in range(3):

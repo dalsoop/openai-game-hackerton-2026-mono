@@ -29,10 +29,7 @@ func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
 	_input.stage(msg)
 	if _predict != null:
 		return
-	if _input.flush(_room):
-		return
-	if _room != null and _room.has_method("send_message"):
-		_room.send_message(WebContract.MSG_INPUT, msg)
+	_input.flush(_room)
 
 func _record_sent(msg: Dictionary) -> void:
 	_sent.append(msg)
@@ -88,32 +85,11 @@ func _can_join() -> bool:
 func _flag_off() -> bool:
 	return _js("try{sessionStorage.getItem('%s')||''}catch(e){''}" % _FLAG_KEY) == "off"
 
-func _begin_join(room_id: String) -> void:
-	if not _has_claim():
-		return
-	var endpoint := _ws_endpoint()
-	if endpoint == "":
-		return
-	_trying = true
-	_deadline_ms = Time.get_ticks_msec() + int(_JOIN_TIMEOUT_SEC * 1000.0)
-	_client = Colyseus.Client.new(endpoint)
-	_room = _client.join_by_id(room_id, _join_options())
-	if _room == null:
-		_trying = false
-		return
-	_bind_room(_room)
+func _begin_join(_room_id: String) -> void:
+	pass
 
-func _bind_room(room) -> void:
-	if room.has_method("set_state_type"):
-		room.set_state_type(LobbyColyseus.LobbyState)
-	if room.has_signal("joined"):
-		room.joined.connect(_on_joined)
-	if room.has_signal("error"):
-		room.error.connect(_on_room_error)
-	if room.has_signal("state_changed"):
-		room.state_changed.connect(_on_state_changed)
-	if room.has_signal("left"):
-		room.left.connect(func(_c, _r): _on_left_room())
+func _bind_room(_room_ref) -> void:
+	pass
 
 func _on_joined() -> void:
 	_trying = false

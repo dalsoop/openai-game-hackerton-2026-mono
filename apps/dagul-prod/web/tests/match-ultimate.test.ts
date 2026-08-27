@@ -229,7 +229,7 @@ describe("12지신 디스패치", () => {
       apply(w, roster(h), 0, { x: ARENA_CENTER.x + 400, y: ARENA_CENTER.y });
       expect(usedId(w)).toBe(ids[animal]);
       if (animal === ANIMAL_MONKEY) {
-        expect(h.ultClones).toHaveLength(7);
+        expect(h.clones).toHaveLength(7);
         expect(w.events[0].data.clones).toBe(7);
       }
     }
@@ -353,7 +353,7 @@ describe("뱀 허물", () => {
     expect(skin.hp).toBe(164);
     expect(s.maxHp).toBe(167);
     expect(s.hp).toBe(167);
-    expect(s.rlTimed[0]).toMatchObject({
+    expect(s.timedBuffs[0]).toMatchObject({
       id: SNAKE_SHED_GIANT.id, atk: 3, spd: 5, hp: 3, time: 12,
     });
     expect(hitSnakeSkin(w, 1, { x: s.x, y: s.y }, 4, 20)).toBe(true);
@@ -404,13 +404,13 @@ describe("원숭이 분신", () => {
     const heroes = roster(m);
     const w = seed();
     applyUltimate(w, heroes, 0, ARENA_CENTER);
-    expect(m.ultClones).toHaveLength(7);
-    expect(m.ultCloneTime).toBe(8);
-    expect(m.ultClones[0].ang).toBeCloseTo(Math.PI * 2 * 0.125, 10);
+    expect(m.clones).toHaveLength(7);
+    expect(m.cloneTime).toBe(8);
+    expect(m.clones[0].ang).toBeCloseTo(Math.PI * 2 * 0.125, 10);
     expect(hitUltClone(w, heroes, 1, { x: m.x, y: m.y }, 1)).toBe(true);
-    expect(m.ultClones).toHaveLength(6);
+    expect(m.clones).toHaveLength(6);
     tickUltimates(w, heroes, 8);
-    expect(m.ultClones).toHaveLength(0);
+    expect(m.clones).toHaveLength(0);
   });
 });
 

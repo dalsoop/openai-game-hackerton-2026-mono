@@ -34,6 +34,7 @@ export type LobbyHandle = {
   roomId?: string;
   slotOfSession?(sessionId: string): number;
   snapOptOut?: Set<string>;
+  dropSeat?(sessionId: string): void;
 };
 
 /** 호스트가 순간적으로 사라져도 곧바로 리셋하지 않고, 유예 뒤 여전히 없을 때만 리셋한다.

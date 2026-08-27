@@ -4,7 +4,7 @@
  * 체인 6층: 실서버 스모크가 느리게 잡던 룸 규칙을 인메모리로 빠르게 검증한다.
  * 커버: 기본 타이틀·호스트 지정·호스트 전용 시작·매치 시작 상태 전파.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Server } from "colyseus";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { LobbyRoom } from "@/lib/hub/LobbyRoom";
@@ -226,6 +226,8 @@ describe("LobbyRoom 규칙", () => {
     host.send(MSG.PACK_PCT, { pct: 100 });
     await new Promise((r) => setTimeout(r, 40));
     expect(room.state.players[0].packPct).toBe(40);
+    expect(room.state.players[0].matchReady).toBe(false);
+    expect(roomClock(room).held).toBe(true);
   });
 
   it("다른 좌석이 100 이 아니어도 호스트는 시작한다", async () => {
@@ -583,6 +585,34 @@ describe("LobbyRoom 좌석 이어받기", () => {
     expect(roomHero(room, 0)?.ack).toBe(0);
     expect(room.pushTestInput(newTab.sessionId, { mx: 1, my: 0, seq: 3 })).toBe(true);
   });
+
+  it("플레이 중 이어받기 — 새 창이 ready 할 때까지 장벽을 다시 닫는다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const oldTab = await colyseus.connectTo(room, {
+      name: "호스트", guestId: 123456, guestKey: KEY_A,
+    });
+    const guest = await colyseus.connectTo(room, { name: "게스트", guestId: 654321, guestKey: KEY_B });
+    oldTab.send(MSG.START, {});
+    await room.waitForNextPatch();
+    await waitMatchReady(room, oldTab, guest);
+    expect(roomClock(room).held).toBe(false);
+    const newTab = await colyseus.connectTo(room, {
+      name: "호스트", guestId: 123456, guestKey: KEY_A,
+    });
+    await room.waitForNextPatch();
+    expect(room.state.players.find((p) => p.sessionId === newTab.sessionId)?.matchReady).toBe(false);
+    expect(roomClock(room).held).toBe(true);
+    expect(room.state.loadHeld).toBe(true);
+    const left = roomClock(room).countdown;
+    room.stepSim(200);
+    expect(roomClock(room).held).toBe(true);
+    expect(roomClock(room).countdown).toBe(left);
+    newTab.send(MSG.READY, {});
+    guest.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(false);
+    expect(room.state.loadHeld).toBe(false);
+  });
 });
 
 describe("LobbyRoom 유예 만료 후 좌석 재배정", () => {
@@ -810,12 +840,10 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     host.send(MSG.READY, {});
     await room.waitForNextPatch();
     (room as unknown as { removeSeat: (id: string) => void }).removeSeat(guest.sessionId);
-    await room.waitForNextPatch();
-    room.stepSim(16);
     expect(roomClock(room).held).toBe(false);
   });
 
-  it("로비 단계 ready 는 버리고, 타임아웃이면 강제 해제한다", async () => {
+  it("로비 단계 ready 는 버린다", async () => {
     const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
     const host = await colyseus.connectTo(room, { name: "호스트" });
     await colyseus.connectTo(room, { name: "게스트" });
@@ -825,9 +853,78 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     host.send(MSG.START, {});
     await room.waitForNextPatch();
     expect(roomClock(room).held).toBe(true);
-    room.stepSim(HUB_CONFIG.loadReadyTimeoutMs);
+  });
+
+  it("20초가 지나도 미완료면 장벽을 열지 않고, 1분이면 미완료를 내보낸다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    const guest = await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    host.send(MSG.READY, {});
+    await room.waitForNextPatch();
+    expect(roomClock(room).held).toBe(true);
+    room.stepSim(20_000);
+    expect(roomClock(room).held).toBe(true);
+    expect(room.state.loadHeld).toBe(true);
+    expect(roomClock(room).countdown).toBe(3);
+    expect(room.state.players.length).toBe(2);
+    const kickedP = guest.waitForMessage(MSG.KICKED);
+    const leaveP = new Promise<boolean>((resolve) => {guest.onLeave(() => resolve(true));});
+    room.stepSim(40_000);
+    const kicked = (await kickedP) as { msg?: string; reason?: string };
+    expect(await leaveP).toBe(true);
+    expect(kicked.msg).toBe(KO.LOAD_WAIT_TIMEOUT);
+    expect(kicked.reason).toBe("load-wait");
+    expect(room.state.players.length).toBe(1);
+    expect(room.state.players[0].sessionId).toBe(host.sessionId);
     expect(roomClock(room).held).toBe(false);
     expect(room.state.loadHeld).toBe(false);
   });
 });
 
+// 회귀: 배포(SIGTERM)가 Colyseus 기본 onBeforeShutdown()을 타면 진행 중 매치도
+// 전원 즉시 disconnect 됐다 — "남의 방이 이미 잘 돌고 있는데 꺼버리면 안 된다".
+// 대기실은 바로 끊어도 되지만, 매치 중이면 안내만 보내고 HUB_CONFIG.shutdownDrainMs
+// 만큼 더 기다리게 고쳤다. 이 유예가 실제로 의미 있으려면 k8s StatefulSet 의
+// terminationGracePeriodSeconds 도 같은 값으로 맞춰야 한다(별도 헬름 차트 테스트).
+describe("LobbyRoom 배포 graceful shutdown", () => {
+  afterEach(() => {vi.restoreAllMocks();});
+
+
+  it("대기실(lobby) 이면 즉시 끊는다 — 안내 없이 disconnect", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    expect(String(room.state.phase)).toBe("lobby");
+
+    const disconnect = vi.spyOn(room, "disconnect");
+    const setTimeoutSpy = vi.spyOn(room.clock, "setTimeout");
+    room.onBeforeShutdown();
+
+    expect(disconnect).toHaveBeenCalled();
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
+  });
+
+  it("진행 중(playing) 이면 즉시 안 끊고 안내 후 shutdownDrainMs 뒤로 미룬다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    const host = await colyseus.connectTo(room, { name: "호스트" });
+    await colyseus.connectTo(room, { name: "게스트" });
+    host.send(MSG.START, {});
+    await room.waitForNextPatch();
+    expect(String(room.state.phase)).toBe("playing");
+
+    const shutdownP = host.waitForMessage(MSG.SERVER_SHUTDOWN);
+    const disconnect = vi.spyOn(room, "disconnect");
+    const setTimeoutSpy = vi.spyOn(room.clock, "setTimeout");
+    room.onBeforeShutdown();
+
+    expect(await shutdownP).toBe(KO.SERVER_SHUTDOWN_MSG);
+    expect(disconnect).not.toHaveBeenCalled();
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), HUB_CONFIG.shutdownDrainMs);
+
+    // 타이머가 실제로 울리면 그제서야 끊는다.
+    const handler = setTimeoutSpy.mock.calls[0]?.[0] as (() => void) | undefined;
+    handler?.();
+    expect(disconnect).toHaveBeenCalled();
+  });
+});

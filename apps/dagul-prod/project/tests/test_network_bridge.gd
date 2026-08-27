@@ -74,6 +74,7 @@ func _runtime_bridge(t) -> void:
 	var start_at := shell.find("module.start(")
 	var ready_at := shell.find("_notify_match_loaded()")
 	t.check("셸이 모듈 start 뒤에 ready 를 보낸다", start_at >= 0 and ready_at > start_at)
+	t.check("ready 는 히어로 스냅 뒤에만", shell.find("_try_send_match_ready") >= 0 and shell.find("_world_has_heroes") >= 0)
 	t.check("계약 MSG_READY 거울", WebContract.MSG_READY == "ready")
 	var retry: Node = load("res://core/autoload/network_manager.gd").new()
 	retry.match_running = true
@@ -119,3 +120,35 @@ func _runtime_bridge(t) -> void:
 	})
 	t.check("장벽이 닫힌 채 ready 가 빠지면 재시도를 다시 켠다", resume.get("_ready_repeat") == true)
 	resume.free()
+
+	# COW 안전성 — _sync_state 연속 호출 시 players 배열 교체가 크래시하지 않아야 한다
+	var cow: Node = load("res://core/autoload/network_manager.gd").new()
+	cow.match_running = true
+	cow._apply_start({"you": 0, "host": true, "seats": [{"slot": 0, "name": "A", "connected": true}]})
+	var state_a := {"phase": "playing", "hostSessionId": "h1", "sessionId": "h1", "players": [
+		{"slot": 0, "sessionId": "h1", "name": "A", "connected": true, "matchReady": true},
+		{"slot": 1, "sessionId": "h2", "name": "B", "connected": true, "matchReady": true},
+	]}
+	var state_b := {"phase": "playing", "hostSessionId": "h1", "sessionId": "h1", "players": [
+		{"slot": 0, "sessionId": "h1", "name": "A", "connected": false, "matchReady": true},
+		{"slot": 1, "sessionId": "h2", "name": "B", "connected": true, "matchReady": true},
+	]}
+	cow._sync_state(state_a)
+	cow._sync_state(state_b)
+	cow._sync_state(state_a)
+	t.check("연속 _sync_state 호출 후 players 정상", cow._players.size() == 2)
+
+	# 시그널로 받은 players 수정이 NetworkManager.players 에 영향 없음
+	var iso: Node = load("res://core/autoload/network_manager.gd").new()
+	iso.match_running = true
+	iso._apply_start({"you": 0, "host": true, "seats": [{"slot": 0, "name": "X", "connected": true}]})
+	var captured: Array = []
+	iso.joined_room.connect(func(_r, p, _y): captured.append(p))
+	iso._sync_state({"phase": "lobby", "hostSessionId": "", "sessionId": "s1", "players": []})
+	if not captured.is_empty():
+		captured[0].append({"slot": 99, "name": "침입"})
+		t.check("시그널 players 수정이 원본에 영향 없음", iso._players.size() == 0)
+	else:
+		t.check("시그널 players 수정이 원본에 영향 없음", true)
+	iso.free()
+	cow.free()

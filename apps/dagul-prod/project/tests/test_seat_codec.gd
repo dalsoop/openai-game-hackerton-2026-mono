@@ -54,3 +54,20 @@ func run(t) -> void:
 
 	# 빈 입력 방어
 	t.check("빈 배열 방어", Codec.from_start([]).is_empty() and Codec.from_state([]).is_empty())
+
+	# COW 안전성 — diff_dropped 호출 뒤 원본이 변형되지 않아야 한다
+	var cow_before := Codec.from_state([
+		{"slot": 0, "name": "A", "connected": true, "sessionId": "a"},
+	])
+	var cow_after := Codec.from_state([
+		{"slot": 0, "name": "A", "connected": false, "sessionId": "a"},
+	])
+	var cow_snap := cow_before.duplicate(true)
+	Codec.diff_dropped(cow_before, cow_after)
+	t.check("diff_dropped 후 before 원본 보존", cow_before.size() == cow_snap.size() and str(cow_before[0]) == str(cow_snap[0]))
+
+	# duplicate(true) 독립성 — 복사본 수정이 원본에 영향 없음
+	var orig := Codec.from_state([{"slot": 0, "name": "X", "connected": true, "sessionId": "s"}])
+	var copy := orig.duplicate(true)
+	copy[0]["name"] = "Y"
+	t.check("deep copy 독립성", str(orig[0]["name"]) == "X")
