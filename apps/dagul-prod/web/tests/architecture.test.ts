@@ -57,6 +57,17 @@ describe("계약: 인트로 모바일 배너", () => {
   });
 });
 
+describe("계약: HTML 공유 썸네일", () => {
+  it("layout 이 og:image 로 public/og.jpg 를 가리킨다", () => {
+    const layout = sourceOf(join(ROOT, "app/[locale]/layout.tsx"));
+    expect(existsSync(join(ROOT, "public/og.webp"))).toBe(true);
+    expect(layout).toContain('"/og.webp"');
+    expect(layout).toContain("openGraph");
+    expect(layout).toContain("metadataBase");
+    expect(layout).toContain("summary_large_image");
+  });
+});
+
 describe("계약: 문구 SSOT", () => {
   const HANGUL = /["'`][^"'`]*[가-힣][^"'`]*["'`]/;
 
