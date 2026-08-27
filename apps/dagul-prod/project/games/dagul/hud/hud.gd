@@ -173,14 +173,15 @@ func _draw_minimap() -> void:
     var map := Rect2(MINIMAP_CENTER - half, half * 2.0)
     draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, PANEL_BG)
     draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#17456f"))
-    draw_rect(map, Color("#cbb37a"))
-    draw_rect(map, Color(0.16, 0.24, 0.34, 0.55), false, 1.5)
+    # 인게임과 같은 문법: 지형은 잔디색, 존 밖은 보라(위험), 존 안이 안전.
+    draw_rect(map, Color("#7f5fae", 0.85))
     _draw_minimap_zone(scale, map)
+    draw_rect(map, Color(0.10, 0.16, 0.10, 0.65), false, 1.5)
     _draw_minimap_dots(scale, half)
     draw_arc(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, 0.0, TAU, 56, Color("#8aa0b8", 0.62), 2.0)
 
 # 존 원은 맵보다 클 수 있다 — 지형 사각에서 잘라 그린다 (원 채움은 클램프 폴리곤,
-# 링은 사각 안에 온전히 든 호 구간만).
+# 링은 사각 안에 온전히 든 호 구간만). 존 안을 잔디색으로 덮어 "밖=보라" 를 만든다.
 func _draw_minimap_zone(scale: float, map: Rect2) -> void:
     var zone_center: Vector2 = MINIMAP_CENTER + (Vector2(world.safe_zone_center) - Vector2(world.ARENA_CENTER)) * scale
     var zone_radius: float = maxf(2.0, float(world.safe_zone_radius) * scale)
@@ -188,7 +189,7 @@ func _draw_minimap_zone(scale: float, map: Rect2) -> void:
     for i in range(48):
         var p := zone_center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * zone_radius
         fill.append(p.clamp(map.position, map.end))
-    draw_colored_polygon(fill, Color(0.45, 0.12, 0.75, 0.16))
+    draw_colored_polygon(fill, Color("#6b8452"))
     var zone_ring := Color("#e05cff") if bool(world.safe_zone_shrinking) else ZONE_PURPLE
     _draw_clipped_ring(zone_center, zone_radius, map, zone_ring, 2.5)
     if bool(world.safe_zone_shrinking) or absf(float(world.safe_zone_target_radius) - float(world.safe_zone_radius)) > 4.0:
