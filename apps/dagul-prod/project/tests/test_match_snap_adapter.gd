@@ -124,6 +124,14 @@ func _v2_effects_callout(t) -> void:
 	hero["hopT"] = 0.1
 	hero["mvSpd"] = 419.0
 	hero["elim"] = true
+	hero["hud"] = {
+		"reloadFlash": 0.55,
+		"respawnLeft": 2.4,
+		"sprayIndex": 3.2,
+		"rouDesc": "이번 목숨 동안 공격력이 올라갑니다",
+		"hitstunT": 0.18,
+		"comboCaptureT": 0.4,
+	}
 	hero["rouSpin"] = "tiger"
 	hero["rlTimed"] = "[{\"id\":\"turtle\",\"time\":1}]"
 	hero["ultClones"] = "[{\"x\":3,\"y\":4}]"
@@ -142,6 +150,12 @@ func _v2_effects_callout(t) -> void:
 	t.check("mobCd", is_equal_approx(float(p0.get(SnapContract.P_MOB_CD, 0)), 4.2))
 	t.check("elim", bool(p0.get(SnapContract.P_ELIM, false)) == true)
 	t.check("mvSpd", is_equal_approx(float(p0.get(SnapContract.P_MV_SPD, 0)), 419.0))
+	t.check("reloadFlash", is_equal_approx(float(p0.get(SnapContract.P_RELOAD_FLASH, 0)), 0.55))
+	t.check("respawnLeft", is_equal_approx(float(p0.get(SnapContract.P_RESPAWN_LEFT, 0)), 2.4))
+	t.check("sprayIndex", is_equal_approx(float(p0.get(SnapContract.P_SPRAY_INDEX, 0)), 3.2))
+	t.check("rouDesc", str(p0.get(SnapContract.P_ROU_DESC, "")) == "이번 목숨 동안 공격력이 올라갑니다")
+	t.check("hitstunT", is_equal_approx(float(p0.get(SnapContract.P_HITSTUN_T, 0)), 0.18))
+	t.check("comboCaptureT", is_equal_approx(float(p0.get(SnapContract.P_COMBO_CAPTURE_T, 0)), 0.4))
 	t.check("rouSpin 문자열", str(p0.get(SnapContract.P_ROU_SPIN, "")) == "tiger")
 	var timed: Variant = p0.get(SnapContract.P_RL_TIMED, [])
 	t.check("rlTimed 배열", timed is Array and (timed as Array).size() == 1)

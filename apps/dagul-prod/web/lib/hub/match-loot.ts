@@ -316,9 +316,11 @@ export function packLootSnap(pickups: readonly LootPickup[]): Array<Record<strin
   return out;
 }
 
-/** P_ITEM 스냅 필드 — snap_contract.gd:110 ("medkit" if medkits > 0 else ""). */
+/** P_ITEM 스냅 필드 — '' | 'medkit' | 'medkit:N'. 1개는 접미사 없음(하위호환). */
 export function packItemField(medkits: number): string {
-  return medkits > 0 ? "medkit" : "";
+  if (medkits <= 0) {return "";}
+  if (medkits === 1) {return "medkit";}
+  return `medkit:${medkits}`;
 }
 export const seed = buildHealthPickups;
 export const tick = updateHealthPickups;

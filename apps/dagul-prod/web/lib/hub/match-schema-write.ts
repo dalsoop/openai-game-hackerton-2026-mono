@@ -80,6 +80,16 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.rlTimed = JSON.stringify(h.rlTimed);
   row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
   row.parked = h.parked;
+  fillHeroHudV2(row, h);
+}
+
+function fillHeroHudV2(row: MatchHeroSchema, h: SimHero): void {
+  row.hud.reloadFlash = h.reloadFlash;
+  row.hud.respawnLeft = h.respawnLeft;
+  row.hud.sprayIndex = h.sprayIndex;
+  row.hud.rouDesc = h.rouletteDesc;
+  row.hud.hitstunT = h.hitstunTime;
+  row.hud.comboCaptureT = h.comboCaptureTime;
 }
 
 function writeHeroes(
@@ -203,6 +213,10 @@ export function clearMatchState(match: MatchStateSchema): void {
   match.winner = -1;
   match.zoneR = 0;
   match.shrinking = false;
+  match.zoneCX = 0;
+  match.zoneCY = 0;
+  match.zonePhase = 0;
+  match.startCountdown = 0;
   match.callout = "";
   match.calloutTicks = 0;
   match.streakCallout = "";
@@ -222,7 +236,37 @@ export function clearMatchState(match: MatchStateSchema): void {
   match.zones.clear();
   match.knockouts.clear();
   match.cores.clear();
-  match.finishCine.on = false;
+  clearFinishCine(match);
+  clearMidTower(match);
   match.events.clear();
   match.eventSeq = 0;
+}
+
+/** 로비 복귀 후에도 엔진 세션이 스키마를 읽는다 — 직전 매치 시네 좌표가 남으면 안 된다. */
+function clearFinishCine(match: MatchStateSchema): void {
+  const cine = match.finishCine;
+  cine.on = false;
+  cine.atk = -1;
+  cine.vic = -1;
+  cine.t = 0;
+  cine.hit = false;
+  cine.hitAge = 0;
+  cine.fly = 0;
+  cine.vicX = 0;
+  cine.vicY = 0;
+  cine.vicSpin = 0;
+  cine.atkX = 0;
+  cine.rush = false;
+  cine.midX = 0;
+  cine.midY = 0;
+}
+
+function clearMidTower(match: MatchStateSchema): void {
+  const tower = match.midTower;
+  tower.alive = false;
+  tower.x = 0;
+  tower.y = 0;
+  tower.hp = 0;
+  tower.maxHp = 0;
+  tower.boing = 0;
 }

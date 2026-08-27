@@ -4,6 +4,8 @@ extends RefCounted
 const SnapContract := preload("res://games/dagul/net/snap_contract.gd")
 const Parser := preload("res://games/dagul/net/net_snap_parser.gd")
 
+const NetPred := preload("res://games/dagul/net/net_pred.gd")
+
 func run(t) -> void:
 	_pack_emits_every_player_key(t)
 	_player_roundtrip(t)
@@ -12,6 +14,8 @@ func run(t) -> void:
 	_v2_omit_default(t)
 	_v2_legacy_defaults(t)
 	_parse_v2_wire(t)
+	_v2_wire_sim_sizes(t)
+	_hitstun_move_mult(t)
 
 func _pack_emits_every_player_key(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), false, 7)
@@ -75,6 +79,12 @@ func _v2_roundtrip(t) -> void:
 	t.check("hopT 왕복", is_equal_approx(float(hero["hop_time"]), 0.12))
 	t.check("elim 왕복", bool(hero["eliminated"]) == true)
 	t.check("mvSpd 왕복", is_equal_approx(float(hero["equipment"].get("move_speed", 0.0)), 420.0))
+	t.check("reloadFlash 왕복", is_equal_approx(float(hero["reload_flash"]), 0.55))
+	t.check("respawnLeft 왕복", is_equal_approx(float(hero["respawn_left"]), 2.4))
+	t.check("sprayIndex 왕복", is_equal_approx(float(hero["spray_index"]), 3.2))
+	t.check("rouDesc 왕복", str(hero["roulette_desc"]) == "이번 목숨 동안 공격력이 올라갑니다")
+	t.check("hitstunT 왕복", is_equal_approx(float(hero["hitstun_time"]), 0.18))
+	t.check("comboCaptureT 왕복", is_equal_approx(float(hero["combo_capture_time"]), 0.4))
 
 func _v2_omit_default(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), false, 7)
@@ -99,6 +109,12 @@ func _v2_legacy_defaults(t) -> void:
 	t.check("구 스냅 elim 은 not alive", bool(hero.get("eliminated", true)) == false)
 	t.check("구 스냅 hop 기본", is_equal_approx(float(hero.get("hop_time", -1.0)), 0.0))
 	t.check("구 스냅 mobCd 기본", is_equal_approx(float(hero.get("mobility_cd", -1.0)), 0.0))
+	t.check("구 스냅 reload_flash 기본", is_equal_approx(float(hero.get("reload_flash", -1.0)), 0.0))
+	t.check("구 스냅 respawn_left 기본", is_equal_approx(float(hero.get("respawn_left", -1.0)), 0.0))
+	t.check("구 스냅 spray_index 기본", is_equal_approx(float(hero.get("spray_index", -1.0)), 0.0))
+	t.check("구 스냅 roulette_desc 기본", str(hero.get("roulette_desc", "x")) == "")
+	t.check("구 스냅 hitstun_time 기본", is_equal_approx(float(hero.get("hitstun_time", -1.0)), 0.0))
+	t.check("구 스냅 combo_capture_time 기본", is_equal_approx(float(hero.get("combo_capture_time", -1.0)), 0.0))
 
 func _parse_v2_wire(t) -> void:
 	var bullets: Array = Parser.parse_bullets([{
@@ -138,6 +154,18 @@ func _parse_v2_wire(t) -> void:
 	t.check("loot disguise", str(loot[1].get("disguise", "")) == "spring")
 	t.check("loot itemKind", str(loot[1].get("kind", "")) == "decoy")
 
+func _v2_wire_sim_sizes(t) -> void:
+	t.check("V2_FLOAT 길이", SnapContract.V2_FLOAT_WIRE.size() == SnapContract.V2_FLOAT_SIM.size())
+	t.check("V2_STR 길이", SnapContract.V2_STR_WIRE.size() == SnapContract.V2_STR_SIM.size())
+	t.check("V2_INT 길이", SnapContract.V2_INT_WIRE.size() == SnapContract.V2_INT_SIM.size())
+
+func _hitstun_move_mult(t) -> void:
+	t.check("평시 배율 1", is_equal_approx(NetPred._move_mult({"alive": true}), 1.0))
+	t.check("히트스턴 0.72", is_equal_approx(NetPred._move_mult({"hitstun_time": 0.2}), 0.72))
+	t.check("캡처 0.72", is_equal_approx(NetPred._move_mult({"combo_capture_time": 0.2}), 0.72))
+	t.check("cc+히트스턴 곱", is_equal_approx(NetPred._move_mult({"cc_time": 0.2, "hitstun_time": 0.1}), 0.42 * 0.72))
+	t.check("root는 0", is_equal_approx(NetPred._move_mult({"root_time": 0.2, "hitstun_time": 0.1}), 0.0))
+
 func _v2_hero() -> Dictionary:
 	var h := _sample_hero()
 	h["action"] = &"SKILL"
@@ -174,6 +202,12 @@ func _v2_hero() -> Dictionary:
 	h["roulette_label"] = "BER"
 	h["rl_timed"] = [{"id": "berserk", "time": 2.5, "name": "BER"}]
 	h["ult_clones"] = [{"pos": Vector2(10.0, 20.0)}]
+	h["reload_flash"] = 0.55
+	h["respawn_left"] = 2.4
+	h["spray_index"] = 3.2
+	h["roulette_desc"] = "이번 목숨 동안 공격력이 올라갑니다"
+	h["hitstun_time"] = 0.18
+	h["combo_capture_time"] = 0.4
 	return h
 
 func _header_keys(t) -> void:

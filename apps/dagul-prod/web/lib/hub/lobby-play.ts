@@ -8,6 +8,7 @@ import {
   acceptPlayInput,
   packAuthoritySnap,
   seed as seedAuthority,
+  setHeroAckReset,
   setHeroParked,
   tick as tickAuthoritySim,
   writeMatchSchema,
@@ -110,6 +111,10 @@ export function scheduleLobbyReset(room: LobbyHandle, bag: LobbyBag): void {
 
 export function parkSeat(bag: LobbyBag, slot: number, parked: boolean): void {
   setHeroParked(bag.authority, slot, parked);
+}
+
+export function resetSeatAck(bag: LobbyBag, slot: number): void {
+  setHeroAckReset(bag.authority, slot);
 }
 
 export const seed = bootAuthority;

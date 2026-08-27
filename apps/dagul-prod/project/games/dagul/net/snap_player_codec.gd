@@ -160,8 +160,10 @@ static func _player_view_defaults() -> Dictionary:
 		"dmg_orb_time": 0.0, "down_taken": 0.0,
 		"wool_time": 0.0, "wool_hp": 0, "wool_max": 0,
 		"roulette_time": 0.0, "roulette_rank": "", "roulette_phase": "",
-		"roulette_spin_id": "", "roulette_label": "",
+		"roulette_spin_id": "", "roulette_label": "", "roulette_desc": "",
 		"rl_timed": [], "ult_clones": [],
+		"reload_flash": 0.0, "respawn_left": 0.0, "spray_index": 0.0,
+		"hitstun_time": 0.0, "combo_capture_time": 0.0,
 	}
 
 static func _apply_elim_and_speed(hero: Dictionary, p: Dictionary) -> void:

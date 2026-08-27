@@ -47,6 +47,7 @@ const PLAYER_COPY := [
 	"woolT", "woolHp", "woolMax", "rouT", "rouRank", "rouPhase", "rouSpin", "rouLabel",
 	"rlTimed", "ultClones",
 	"mobCd", "hopT", "hopMax", "hopHeight", "mvSpd", "elim",
+	"reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT",
 ]
 const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src", "ttl", "maxTtl", "lx", "ly", "splash"]
 const EFFECT_COPY := ["k", "x", "y", "r", "t", "maxT", "color", "label", "dx", "dy", "follow", "sx", "sy", "dep"]
@@ -182,11 +183,33 @@ func _refill(dst: Array, rows: Array) -> void:
 		dst.append(row)
 
 func _hero_rows(raw: Variant) -> Array:
-	var rows: Array = _rows_from_map(raw, PLAYER_COPY, "slot")
+	var rows: Array = _hero_map_rows(raw)
 	for row in rows:
 		_decode_json_array(row, "rlTimed")
 		_decode_json_array(row, "ultClones")
 	return rows
+
+func _hero_map_rows(raw: Variant) -> Array:
+	var items: Array = []
+	if raw is Dictionary:
+		items = (raw as Dictionary).values()
+	elif raw is Array:
+		items = raw
+	var rows: Array = []
+	for item in items:
+		var src := _as_dict(item)
+		_merge_hud(src)
+		rows.append(_copy_keys(src, PLAYER_COPY))
+	rows.sort_custom(func(a, b): return int(a.get("slot", 0)) < int(b.get("slot", 0)))
+	return rows
+
+func _merge_hud(src: Dictionary) -> void:
+	var hud := _as_dict(src.get("hud", {}))
+	if hud.is_empty():
+		return
+	for key in ["reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT"]:
+		if hud.has(key):
+			src[key] = hud[key]
 
 func _decode_json_array(row: Dictionary, key: String) -> void:
 	if not row.has(key):

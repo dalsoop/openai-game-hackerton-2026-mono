@@ -9,6 +9,8 @@ const FALLBACK_DIST := 138.0
 const FALLBACK_CD := 5.0
 const FALLBACK_MOVE := 340.0
 const CC_SLOW_MOVE_MULT := 0.42
+## match-cc.ts HITSTUN_MOVE_MULT — 히트스턴·콤보캡처 중 28% 감속.
+const HITSTUN_MOVE_MULT := 0.72
 ## match-sim.ts MOVE_SPEED · match-life.ts DOWN_MOVE_MULT — 다운 포복은 장비 속도를 안 탄다.
 const BASE_MOVE_SPEED := 419.0
 const DOWN_MOVE_MULT := 0.16
@@ -141,11 +143,14 @@ static func _move_locked(me: Dictionary) -> bool:
 static func _move_mult(me: Dictionary) -> float:
 	if me.is_empty():
 		return 1.0
+	var mult := 1.0
 	if float(me.get("root_time", 0.0)) > 0.0:
-		return 0.0
-	if float(me.get("cc_time", 0.0)) > 0.0:
-		return CC_SLOW_MOVE_MULT
-	return 1.0
+		mult = 0.0
+	elif float(me.get("cc_time", 0.0)) > 0.0:
+		mult = CC_SLOW_MOVE_MULT
+	if float(me.get("hitstun_time", 0.0)) > 0.0 or float(me.get("combo_capture_time", 0.0)) > 0.0:
+		mult *= HITSTUN_MOVE_MULT
+	return mult
 
 static func _is_turtle(me: Dictionary) -> bool:
 	if bool(me.get("turtle", false)):

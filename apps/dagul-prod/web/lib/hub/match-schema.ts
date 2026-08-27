@@ -1,5 +1,15 @@
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
 
+/** MatchHeroSchema 가 Colyseus 64필드 한도에 닿아 HUD 필드를 중첩한다. */
+export class MatchHeroHudSchema extends Schema {
+  @type("float32") reloadFlash = 0;
+  @type("float32") respawnLeft = 0;
+  @type("float32") sprayIndex = 0;
+  @type("string") rouDesc = "";
+  @type("float32") hitstunT = 0;
+  @type("float32") comboCaptureT = 0;
+}
+
 /** packAuthoritySnap SnapPlayer 와 같은 필드. */
 export class MatchHeroSchema extends Schema {
   @type("int8") slot = -1;
@@ -67,6 +77,7 @@ export class MatchHeroSchema extends Schema {
   @type("float32") mobCd = 0;
   @type("float32") mvSpd = 0;
   @type("boolean") elim = false;
+  @type(MatchHeroHudSchema) hud = new MatchHeroHudSchema();
 }
 
 export class MatchBulletSchema extends Schema {

@@ -38,6 +38,7 @@ func run(t) -> void:
 	_mob_cd_missing_falls_back(t)
 	_downed_pred_crawls_at_server_rate(t)
 	_finish_cine_anchors_local_pred(t)
+	_reconnect_ack_adopts_seq_baseline(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -510,7 +511,9 @@ func _launch_trail_accumulates_and_fades(t) -> void:
 	var trail: Array = nw.heroes[0].get("launch_trail", [])
 	t.check("launch_trail 이 누적되고 cap 14 를 지킨다", trail.size() == 14)
 	t.check("launch 중 fade 가 0.34 다", is_equal_approx(float(nw.heroes[0].get("launch_trail_fade", 0.0)), 0.34))
-	nw.heroes[0]["launch_time"] = 0.0
+	# 종료는 서버 스냅이 전달한다 — 보간 시계가 최신 스냅을 따라잡아 적용하므로
+	# 히어로 로컬 변조는 스냅 재적용에 덮인다.
+	nw.push_snap(_launch_snap(60, x0 + 15.0 * 12.0, y0, 0.0))
 	nw.present(0.17)
 	t.check("launch 종료 후 궤적이 감쇠한다", not (nw.heroes[0].get("launch_trail", []) as Array).is_empty() and absf(float(nw.heroes[0].get("launch_trail_fade", 0.0)) - 0.17) < 0.01)
 	nw.present(0.18)
@@ -611,6 +614,33 @@ func _finish_cine_anchors_local_pred(t) -> void:
 	var pos := Vector2(nw.heroes[0]["pos"])
 	t.check("시네 중 로컬 예측은 서버 위치에 정박한다", absf(pos.x - 3920.0) < 2.0)
 	t.check("시네 중 발사 예측도 막힌다", not bool(nw.predict_local_fire(Vector2(4100.0, 2380.0))))
+
+func _reconnect_ack_adopts_seq_baseline(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var first := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	first[SnapContract.PLAYERS][0][SnapContract.P_ACK] = 3600
+	nw.push_snap(first)
+	nw.present(1.0 / 60.0)
+	var second := first.duplicate(true)
+	second[SnapContract.TICK] = 13
+	second[SnapContract.PLAYERS][0][SnapContract.P_ACK] = 3600
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	t.check("재접속 첫 ack 가 seq 기준선이 된다", int(nw.get("_input_seq")) == 3600)
+	t.check("재접속 첫 ack 가 _acked 가 된다", int(nw.get("_acked")) == 3600)
+	var before := Vector2(nw.heroes[0]["pos"])
+	var seq := nw.predict_local(Vector2.RIGHT, false, Vector2(4100.0, 2380.0), 1.0 / 60.0)
+	t.check("기준선 이후 입력이 ack 보다 크다", seq == 3601)
+	var third := second.duplicate(true)
+	third[SnapContract.TICK] = 14
+	third[SnapContract.PLAYERS][0][SnapContract.P_ACK] = 3600
+	third[SnapContract.PLAYERS][0][SnapContract.P_X] = before.x
+	third[SnapContract.PLAYERS][0][SnapContract.P_Y] = before.y
+	nw.push_snap(third)
+	nw.present(1.0 / 60.0)
+	t.check("높은 ack 스냅이 새 예측을 폐기하지 않는다", Vector2(nw.heroes[0]["pos"]).x > before.x + 2.0)
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

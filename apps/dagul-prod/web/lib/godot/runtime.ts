@@ -67,6 +67,7 @@ export class GodotRuntime {
   private unbindCanvasFocus: (() => void) | null = null;
   private unbindAudioUnlock: (() => void) | null = null;
   private scriptPromise: Promise<void> | null = null;
+  private engineScriptEl: HTMLScriptElement | null = null;
   private bootPromise: Promise<void> | null = null;
   private exitPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -233,18 +234,18 @@ export class GodotRuntime {
     engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
     this.update({ progress: 0.86 });
     if (!this.boots.isLive(gen)) {
-      disposeGodotEngine(engine, canvas);
+      disposeGodotEngine(engine, canvas, this.exitPromise);
       restoreDevicePixelRatio();
       return;
     }
     try {
       await engine.start(config);
     } catch (err: unknown) {
-      disposeGodotEngine(engine, canvas);
+      disposeGodotEngine(engine, canvas, this.exitPromise);
       throw err;
     }
     if (!this.boots.isLive(gen)) {
-      disposeGodotEngine(engine, canvas);
+      disposeGodotEngine(engine, canvas, this.exitPromise);
       restoreDevicePixelRatio();
       return;
     }
@@ -284,13 +285,17 @@ export class GodotRuntime {
   private loadEngineScript(): Promise<void> {
     if (this.scriptPromise) {return this.scriptPromise;}
     this.scriptPromise = new Promise((resolve, reject) => {
+      this.engineScriptEl?.remove();
       const el = document.createElement("script");
       el.src = this.store.assetUrl(this.plan.files.engineJs);
       el.onload = (): void => resolve();
       el.onerror = (): void => {
+        el.remove();
+        this.engineScriptEl = null;
         this.scriptPromise = null;
         reject(new Error("engine-load-failed"));
       };
+      this.engineScriptEl = el;
       document.head.appendChild(el);
     });
     return this.scriptPromise;
@@ -319,7 +324,7 @@ export class GodotRuntime {
     this.unbindCanvasFocus = null;
     this.unbindAudioUnlock?.();
     this.unbindAudioUnlock = null;
-    disposeGodotEngine(this.engine, this.boundCanvas);
+    disposeGodotEngine(this.engine, this.boundCanvas, this.exitPromise);
     this.engine = null;
     this.boundCanvas = null;
     restoreDevicePixelRatio();

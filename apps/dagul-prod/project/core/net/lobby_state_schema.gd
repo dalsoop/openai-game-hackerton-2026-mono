@@ -46,6 +46,17 @@ class LobbyBullet extends Colyseus.Schema:
 			LobbyColyseus.f("kind", Colyseus.Schema.STRING),
 		]
 
+class MatchHeroHud extends Colyseus.Schema:
+	static func definition() -> Array:
+		return [
+			LobbyColyseus.f("reloadFlash", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("respawnLeft", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("sprayIndex", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("rouDesc", Colyseus.Schema.STRING),
+			LobbyColyseus.f("hitstunT", Colyseus.Schema.FLOAT32),
+			LobbyColyseus.f("comboCaptureT", Colyseus.Schema.FLOAT32),
+		]
+
 class MatchHero extends Colyseus.Schema:
 	static func definition() -> Array:
 		return [
@@ -114,6 +125,7 @@ class MatchHero extends Colyseus.Schema:
 			LobbyColyseus.f("mobCd", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("mvSpd", Colyseus.Schema.FLOAT32),
 			LobbyColyseus.f("elim", Colyseus.Schema.BOOLEAN),
+			LobbyColyseus.f("hud", Colyseus.Schema.REF, LobbyColyseus.MatchHeroHud),
 		]
 
 class MatchBullet extends Colyseus.Schema:

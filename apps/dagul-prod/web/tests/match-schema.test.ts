@@ -32,6 +32,12 @@ function paintV2Hero(sim: MatchSim): void {
   hero.hopHeight = 19;
   hero.mobilityCd = 1.25;
   hero.eliminated = true;
+  hero.reloadFlash = 0.55;
+  hero.respawnLeft = 2.4;
+  hero.sprayIndex = 3.2;
+  hero.rouletteDesc = "이번 목숨 동안 공격력이 올라갑니다";
+  hero.hitstunTime = 0.18;
+  hero.comboCaptureTime = 0.4;
   sim.streakState.streakCallout = "TRIPLE";
   sim.streakState.streakSubtitle = "3";
   sim.streakState.streakCalloutTicks = 12;
@@ -63,6 +69,7 @@ function assertV2SchemaRow(match: MatchStateSchema, weaponId: string): void {
   expect(JSON.parse(row.rlTimed)).toEqual([]);
   expect(JSON.parse(row.ultClones)).toEqual([]);
   assertV2MotionRow(row);
+  assertV2HudRow(row.hud);
 }
 
 function assertV2MotionRow(row: {
@@ -78,6 +85,18 @@ function assertV2MotionRow(row: {
   expect(row.elim).toBe(true);
 }
 
+function assertV2HudRow(row: {
+  reloadFlash: number; respawnLeft: number; sprayIndex: number; rouDesc: string;
+  hitstunT: number; comboCaptureT: number;
+}): void {
+  expect(row.reloadFlash).toBeCloseTo(0.55);
+  expect(row.respawnLeft).toBeCloseTo(2.4);
+  expect(row.sprayIndex).toBeCloseTo(3.2);
+  expect(row.rouDesc).toBe("이번 목숨 동안 공격력이 올라갑니다");
+  expect(row.hitstunT).toBeCloseTo(0.18);
+  expect(row.comboCaptureT).toBeCloseTo(0.4);
+}
+
 function assertV2SnapPlayer(
   snap: { players: Array<Record<string, unknown>> },
   weaponId: string,
@@ -91,6 +110,10 @@ function assertV2SnapPlayer(
   assertV2MotionRow(packed as unknown as {
     pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
     mobCd: number; elim: boolean;
+  });
+  assertV2HudRow(packed as unknown as {
+    reloadFlash: number; respawnLeft: number; sprayIndex: number; rouDesc: string;
+    hitstunT: number; comboCaptureT: number;
   });
 }
 
@@ -119,6 +142,12 @@ function assertOmittedV2Keys(row: Record<string, unknown>, mvSpd: number): void 
   expect(row.elim).toBeUndefined();
   expect(row.pullT).toBeUndefined();
   expect(row.pocketT).toBeUndefined();
+  expect(row.reloadFlash).toBeUndefined();
+  expect(row.respawnLeft).toBeUndefined();
+  expect(row.sprayIndex).toBeUndefined();
+  expect(row.rouDesc).toBeUndefined();
+  expect(row.hitstunT).toBeUndefined();
+  expect(row.comboCaptureT).toBeUndefined();
   expect(row.mvSpd).toBe(mvSpd);
 }
 
@@ -277,6 +306,12 @@ describe("writeMatchState", () => {
     expect(schema.mobCd).toBe(0);
     expect(schema.hopT).toBe(0);
     expect(schema.elim).toBe(false);
+    expect(schema.hud.reloadFlash).toBe(0);
+    expect(schema.hud.respawnLeft).toBe(0);
+    expect(schema.hud.sprayIndex).toBe(0);
+    expect(schema.hud.rouDesc).toBe("");
+    expect(schema.hud.hitstunT).toBe(0);
+    expect(schema.hud.comboCaptureT).toBe(0);
     expect(schema.mvSpd).toBe(hero.equipment.moveSpeed);
   });
 

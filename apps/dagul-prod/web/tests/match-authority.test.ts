@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FIXED_DT } from "@/lib/hub/match-sim";
 import { LobbyState } from "@/lib/hub/lobby-state";
-import { SNAP_DT, seed, setHeroParked, tick, writeMatchSchema } from "@/lib/hub/match-authority";
+import { SNAP_DT, seed, setHeroAckReset, setHeroParked, tick, writeMatchSchema } from "@/lib/hub/match-authority";
 
 describe("MatchAuthority 스냅 주기", () => {
   it("스냅은 20Hz (FIXED_DT × 3)", () => {
@@ -49,5 +49,29 @@ describe("MatchAuthority parked", () => {
     expect(auth.sim.heroes.get(1)?.parked).toBe(false);
     setHeroParked(auth, 2, true);
     expect(auth.sim.heroes.get(2)?.parked).toBe(false);
+  });
+});
+
+describe("MatchAuthority ack reset", () => {
+  it("인간 좌석 ack 만 0 으로 돌리고 CPU 는 건드리지 않는다", () => {
+    const auth = seed(
+      [
+        { slot: 0, name: "호스트" },
+        { slot: 1, name: "게스트" },
+        { slot: 2, name: "CPU3", cpu: true },
+      ],
+      "full",
+    );
+    const guest = auth.sim.heroes.get(1);
+    const cpu = auth.sim.heroes.get(2);
+    expect(guest).toBeDefined();
+    expect(cpu).toBeDefined();
+    if (!guest || !cpu) {return;}
+    guest.ack = 3600;
+    cpu.ack = 12;
+    setHeroAckReset(auth, 1);
+    setHeroAckReset(auth, 2);
+    expect(auth.sim.heroes.get(1)?.ack).toBe(0);
+    expect(auth.sim.heroes.get(2)?.ack).toBe(12);
   });
 });

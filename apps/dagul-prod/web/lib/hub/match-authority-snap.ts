@@ -92,6 +92,12 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "rouLabel", h.rouletteLabel);
   putOmit(out, "rlTimed", h.rlTimed);
   putOmit(out, "ultClones", h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
+  putOmit(out, "reloadFlash", h.reloadFlash);
+  putOmit(out, "respawnLeft", h.respawnLeft);
+  putOmit(out, "sprayIndex", h.sprayIndex);
+  putOmit(out, "rouDesc", h.rouletteDesc);
+  putOmit(out, "hitstunT", h.hitstunTime);
+  putOmit(out, "comboCaptureT", h.comboCaptureTime);
   return out;
 }
 

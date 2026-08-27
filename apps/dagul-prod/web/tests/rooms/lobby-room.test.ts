@@ -413,9 +413,11 @@ function roomClock(room: LobbyRoom): { held: boolean; countdown: number } {
 function roomHero(
   room: LobbyRoom,
   slot: number,
-): { parked: boolean; cpu: boolean } | undefined {
+): { parked: boolean; cpu: boolean; ack: number } | undefined {
   const bag = (room as unknown as {
-    bag: { authority: { sim: { heroes: Map<number, { parked: boolean; cpu: boolean }> } } | null };
+    bag: {
+      authority: { sim: { heroes: Map<number, { parked: boolean; cpu: boolean; ack: number }> } } | null
+    };
   }).bag;
   return bag.authority?.sim.heroes.get(slot);
 }
@@ -564,11 +566,16 @@ describe("LobbyRoom 좌석 이어받기", () => {
     const boot = oldTab.waitForMessage(MSG.SNAP);
     oldTab.send(MSG.START, {});
     await boot;
+    const hostHero = roomHero(room, 0);
+    expect(hostHero).toBeDefined();
+    if (hostHero) {hostHero.ack = 91;}
+    expect(roomHero(room, 0)?.ack).toBe(91);
     const newTab = await colyseus.connectTo(room, { name: "호스트", guestId: 123456, guestKey: KEY_A });
     const startRaw = await newTab.waitForMessage(MSG.START);
     const payload = parseStartPayload(startRaw);
     expect(payload?.you).toBe(0);
     expect(String(room.state.phase)).toBe("playing");
+    expect(roomHero(room, 0)?.ack).toBe(0);
     expect(room.pushTestInput(newTab.sessionId, { mx: 1, my: 0, seq: 3 })).toBe(true);
   });
 });
@@ -711,6 +718,10 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     expect(roomHero(room, slot)?.parked).toBe(false);
     expect(roomHero(room, 2)?.cpu).toBe(true);
     expect(roomHero(room, 2)?.parked).toBe(false);
+    const guestHero = roomHero(room, slot);
+    expect(guestHero).toBeDefined();
+    if (guestHero) {guestHero.ack = 77;}
+    expect(roomHero(room, slot)?.ack).toBe(77);
     const seated = room.clients.find((c) => c.sessionId === guest.sessionId);
     expect(seated).toBeDefined();
     if (!seated) {return;}
@@ -719,6 +730,7 @@ describe("LobbyRoom 인게임 로딩 장벽", () => {
     expect(roomHero(room, 2)?.parked).toBe(false);
     room.onReconnect(seated);
     expect(roomHero(room, slot)?.parked).toBe(false);
+    expect(roomHero(room, slot)?.ack).toBe(0);
   });
 
   it("ready 안 된 좌석이 빠지면 남은 접속자만으로 푼다", async () => {

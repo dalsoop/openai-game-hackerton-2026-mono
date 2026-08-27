@@ -6,6 +6,7 @@ import { lobbyFieldsOf } from "@/lib/hub/waiting-room-roster";
 import type { RosterSnapshot } from "@/lib/domain/roster";
 import { packPctFromLoader } from "@/lib/hub/loader-pack-pct";
 import { START_COUNTDOWN, MatchSim } from "@/lib/hub/match-sim";
+import { makeEquipment } from "@/lib/hub/match-equipment";
 import { HUB_CONFIG } from "@/lib/hub/config";
 
 function seat(matchReady: boolean): { connected: boolean; matchReady: boolean; name: string } {
@@ -153,5 +154,32 @@ describe("MatchSim 카운트다운 장벽", () => {
     sim.countdownHeld = false;
     sim.step(1 / 60);
     expect(sim.countdown).toBeLessThan(START_COUNTDOWN);
+  });
+
+  it("장벽 동안 쌓인 dash·firePressed 는 개전에 재생되지 않는다", () => {
+    const sim = new MatchSim([{ slot: 0, name: "호스트" }]);
+    sim.countdownHeld = true;
+    const hero = sim.heroes.get(0);
+    if (!hero) {return;}
+    hero.equipment = makeEquipment("brawler");
+    hero.mag = hero.equipment.magSize;
+    const x0 = hero.x;
+    for (let i = 0; i < 40; i += 1) {
+      sim.pushInput(0, {
+        mx: 1, my: 0, dash: true, fire: true, firePressed: true,
+        aimX: hero.x + 200, aimY: hero.y, seq: i + 1,
+      });
+      sim.step(1 / 60);
+    }
+    expect(sim.countdown).toBe(START_COUNTDOWN);
+    expect(hero.mobilityCd).toBe(0);
+    expect(sim.bullets.size).toBe(0);
+    sim.countdownHeld = false;
+    const ticks = Math.ceil(START_COUNTDOWN * 60) + 2;
+    for (let i = 0; i < ticks; i += 1) {sim.step(1 / 60);}
+    expect(sim.countdown).toBe(0);
+    expect(hero.mobilityCd).toBe(0);
+    expect(sim.bullets.size).toBe(0);
+    expect(hero.x).toBeGreaterThan(x0);
   });
 });

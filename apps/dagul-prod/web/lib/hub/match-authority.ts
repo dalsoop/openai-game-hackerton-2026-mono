@@ -99,6 +99,13 @@ export class MatchAuthority {
     hero.parked = parked;
   }
 
+  /** 인간 좌석만. 재접속 클라 seq 가 0부터라 누적 ack 가 pending 을 전부 폐기한다. */
+  resetAck(slot: number): void {
+    const hero = this.sim.heroes.get(slot);
+    if (!hero || hero.cpu) {return;}
+    hero.ack = 0;
+  }
+
   advance(
     dtSec: number,
     _state: LobbyState,
@@ -187,4 +194,11 @@ export function setHeroParked(
   parked: boolean,
 ): void {
   authority?.setParked(slot, parked);
+}
+
+export function setHeroAckReset(
+  authority: MatchAuthority | null,
+  slot: number,
+): void {
+  authority?.resetAck(slot);
 }

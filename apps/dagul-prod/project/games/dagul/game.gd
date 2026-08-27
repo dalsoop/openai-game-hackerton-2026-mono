@@ -7,6 +7,7 @@ const NetWorldScript = preload("res://games/dagul/net/net_world.gd")
 const SfxCatalogScript = preload("res://games/dagul/audio/sfx_catalog.gd")
 const KillFanfareScript = preload("res://games/dagul/render/kill_fanfare.gd")
 const PerfOverlayScript = preload("res://games/dagul/render/perf_overlay.gd")
+const CrosshairOverlayScript = preload("res://games/dagul/hud/crosshair_overlay.gd")
 const MODE := "full"
 const TICK := 1.0 / 60.0
 
@@ -16,6 +17,7 @@ var _sfx: SfxManager = null
 var _tutorial: TutorialOverlay = null
 var _fanfare = null
 var _perf = null
+var _crosshair = null
 var _last_local_kills: int = -1
 var _is_host := false
 var _input: PlayerInput
@@ -55,6 +57,8 @@ func start(payload: Dictionary, ctx: Dictionary) -> void:
 	var world_view: Node2D = ctx["world_view"]
 	world_view.world = world
 	hud.world = world
+	if _crosshair != null:
+		_crosshair.world = world
 	hud.mode_id = mode
 	spectate_slot = you
 	hud.spectate_slot = spectate_slot
@@ -115,6 +119,8 @@ func _bind_view(ctx: Dictionary) -> void:
 	ctx["world_view"].world = world
 	if ctx.has("hud"):
 		ctx["hud"].world = world
+	if _crosshair != null:
+		_crosshair.world = world
 
 func _start_as_guest(you: int, mode: String) -> void:
 	var net_world = NetWorldScript.new()
@@ -142,6 +148,12 @@ func _ensure_overlays(ctx: Dictionary) -> void:
 		_perf.name = "PerfOverlay"
 		hud_layer.add_child(_perf)
 		_perf.z_index = 100
+	if _crosshair == null:
+		_crosshair = CrosshairOverlayScript.new()
+		_crosshair.name = "CrosshairOverlay"
+		# HUD 본체는 상태 해시 스로틀로 5Hz 까지 떨어진다 — 조준점은 HUD 자식으로
+		# 붙여 가시성은 따라가되 매 프레임 스스로 다시 그린다.
+		ctx["hud"].add_child(_crosshair)
 
 # --- 게임 루프 ---
 

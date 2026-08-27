@@ -277,13 +277,23 @@ describe("계약: 허브 소켓 주인은 React", () => {
 
   it("Godot 스키마 거울은 서버 MatchHero 필드 순서와 정확히 일치한다", () => {
     const server = sourceOf(join(ROOT, "lib/hub/match-schema.ts"));
-    const heroBlock = server.split(/class\s+\w+/)[1];
-    const serverFields = [...heroBlock.matchAll(/@type\([^)]+\)\s+(\w+)/g)].map((m) => m[1]);
     const mirror = sourceOf(join(ROOT, "..", "project", "core/net/lobby_state_schema.gd"));
-    const heroMirror = mirror.split("class MatchHero")[1].split(/\nclass /)[0];
-    const mirrorFields = [...heroMirror.matchAll(/f\("(\w+)"/g)].map((m) => m[1]);
+    const tsFields = (className: string): string[] => {
+      const block = server.split(new RegExp(`class\\s+${className}`))[1]?.split(/class\s+\w+/)[0] ?? "";
+      return [...block.matchAll(/@type\([^)]+\)\s+(\w+)/g)].map((m) => m[1]);
+    };
+    const gdFields = (className: string): string[] => {
+      const block = mirror.split(`class ${className} extends`)[1]?.split(/\nclass /)[0] ?? "";
+      return [...block.matchAll(/f\("(\w+)"/g)].map((m) => m[1]);
+    };
+    const serverFields = tsFields("MatchHeroSchema");
     expect(serverFields.length).toBeGreaterThan(50);
-    expect(mirrorFields).toEqual(serverFields);
+    expect(gdFields("MatchHero")).toEqual(serverFields);
+    const hudFields = tsFields("MatchHeroHudSchema");
+    expect(hudFields).toEqual([
+      "reloadFlash", "respawnLeft", "sprayIndex", "rouDesc", "hitstunT", "comboCaptureT",
+    ]);
+    expect(gdFields("MatchHeroHud")).toEqual(hudFields);
   });
 
   it("카운트다운은 하드코딩 없이 첫 SNAP 의 startCountdown 을 따른다", () => {

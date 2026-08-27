@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client } from "colyseus";
 import { HUB_CONFIG, MSG } from "@/lib/hub/config";
-import { commitTickSnap, parkSeat, scheduleLobbyReset } from "@/lib/hub/lobby-play";
+import { commitTickSnap, parkSeat, resetSeatAck, scheduleLobbyReset } from "@/lib/hub/lobby-play";
 import { seed as seedAuthority } from "@/lib/hub/match-authority";
 import { LobbyState } from "@/lib/hub/lobby-state";
 import type { LobbyBag, LobbyHandle } from "@/lib/hub/lobby-waiting";
@@ -81,6 +81,31 @@ describe("parkSeat", () => {
     expect(bag.authority.sim.heroes.get(1)?.parked).toBe(false);
     parkSeat(bag, 2, true);
     expect(bag.authority.sim.heroes.get(2)?.parked).toBe(false);
+  });
+});
+
+describe("resetSeatAck", () => {
+  it("인간 좌석 ack 만 0 으로 돌리고 CPU 는 무시한다", () => {
+    const bag = emptyBag();
+    bag.authority = seedAuthority(
+      [
+        { slot: 0, name: "호스트" },
+        { slot: 1, name: "게스트" },
+        { slot: 2, name: "CPU3", cpu: true },
+      ],
+      "full",
+    );
+    const guest = bag.authority.sim.heroes.get(1);
+    const cpu = bag.authority.sim.heroes.get(2);
+    expect(guest).toBeDefined();
+    expect(cpu).toBeDefined();
+    if (!guest || !cpu) {return;}
+    guest.ack = 2400;
+    cpu.ack = 9;
+    resetSeatAck(bag, 1);
+    resetSeatAck(bag, 2);
+    expect(bag.authority.sim.heroes.get(1)?.ack).toBe(0);
+    expect(bag.authority.sim.heroes.get(2)?.ack).toBe(9);
   });
 });
 

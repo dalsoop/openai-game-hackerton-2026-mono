@@ -56,6 +56,7 @@ import {
   applyGunInput, gunSeedFields, tickGun, weaponPassiveDamageMul,
   HOP_AIR, HOP_LIFT_DEFAULT, type GunHero, type GunApplyResult, type GunProjectile,
 } from "./match-gun.js";
+import { SlotInputBuffer, type MatchInput } from "./match-input-queue.js";
 import { CHARGE_MOVE_MUL, cancelSkillCharge } from "./match-skill.js";
 import { skillsEnabled } from "./config.js";
 import {
@@ -89,6 +90,8 @@ export * from "./match-covers.js";
 export * from "./match-cpu.js";
 export * from "./match-cpu-think.js";
 export * from "./match-emote.js";
+export { ONE_SHOT_INPUT_KEYS, INPUT_QUEUE_CAP, idleHoldInput, SlotInputBuffer } from "./match-input-queue.js";
+export type { MatchInput } from "./match-input-queue.js";
 export * from "./match-life.js";
 export * from "./match-loot.js";
 export * from "./match-score.js";
@@ -123,33 +126,6 @@ export const MATCH_DMG_TIME_SPAN = 35;
 export const MATCH_DMG_TIME_CAP = 1.25;
 /** damage_system.gd:253 — 방어 룰렛 하한. */
 export const ROULETTE_DEF_FLOOR = 0.05;
-
-export type MatchInput = {
-  mx?: unknown;
-  my?: unknown;
-  aimX?: unknown;
-  aimY?: unknown;
-  fire?: unknown;
-  firePressed?: unknown;
-  equipment?: unknown;
-  equipmentPressed?: unknown;
-  equipmentReleased?: unknown;
-  dash?: unknown;
-  mobility?: unknown;
-  use?: unknown;
-  reload?: unknown;
-  ultimate?: unknown;
-  hop?: unknown;
-  finish?: unknown;
-  emote?: unknown;
-  seq?: unknown;
-};
-
-/** 한 틱만 true 로 오는 에지 입력. 시뮬이 소비할 때까지 패킷 덮어쓰기에 지지 않아야 한다. */
-export const ONE_SHOT_INPUT_KEYS = [
-  "firePressed", "equipmentPressed", "equipmentReleased",
-  "dash", "mobility", "use", "reload", "ultimate", "hop", "finish",
-] as const satisfies readonly (keyof MatchInput)[];
 
 export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldItem" | "pullTime" | "pocketTime"> & ScoreFields & EmoteFields
   & CcHeroState & LaunchState & CrateHero & WantedHero & RouletteHero & GunHero & UltHero & ChargeHero & {
@@ -288,7 +264,9 @@ export class MatchSim {
   /** 서버 권위 시각 이펙트 — projectile_hit.gd add_effect 대응. 스냅 "effects" 로 나간다. */
   readonly effects: EffectStore = createEffectStore();
   private nextBulletId = 1;
-  private inputs = new Map<number, MatchInput>();
+  private readonly inputBufs = new Map<number, SlotInputBuffer>();
+  /** 이번 틱에 next() 한 명령. finish cine 가 같은 프레임의 finish 를 읽는다. */
+  private readonly appliedInputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
   private readonly rng: MatchRng;
   /** 권위 매치에서만 true — 전원 matchReady 또는 타임아웃 전까지 카운트다운을 깎지 않는다. */
@@ -388,16 +366,12 @@ export class MatchSim {
 
   pushInput(slot: number, data: MatchInput): void {
     if (!this.heroes.has(slot)) {return;}
-    // 클라는 60Hz 로 보내고 서버 틱 사이에 패킷이 겹칠 수 있다. 마지막 패킷만 남기면
-    // 에지 플래그(dash 등 한 틱만 true)가 소비 전에 false 에 덮여 유실된다 — 소비될 때까지 OR 로 붙든다.
-    const prev = this.inputs.get(slot);
-    if (prev) {
-      for (const key of ONE_SHOT_INPUT_KEYS) {
-        if (truthy(prev[key])) {data[key] = true;}
-      }
-      if (Number(prev.emote ?? -1) >= 0 && Number(data.emote ?? -1) < 0) {data.emote = prev.emote;}
+    let buf = this.inputBufs.get(slot);
+    if (!buf) {
+      buf = new SlotInputBuffer();
+      this.inputBufs.set(slot, buf);
     }
-    this.inputs.set(slot, data);
+    buf.enqueue(data);
   }
 
   step(dt = FIXED_DT): void {
@@ -405,6 +379,7 @@ export class MatchSim {
     this.tick += 1;
     this.ultWorld.tick = this.tick;
     this.fx = [];
+    if (this.countdown > 0 || this.countdownHeld) {this.flushHeldInputs();}
     if (this.stepCountdown(dt)) {return;}
     this.matchTime = Math.min(MATCH_TIME_LIMIT, this.matchTime + dt);
     this.stepFightAndClock();
@@ -563,12 +538,37 @@ export class MatchSim {
 
   private applyHumans(dt: number): void {
     for (const [slot, hero] of this.heroes) {
-      if (!hero.alive || hero.cpu || hero.parked) {continue;}
-      const cmd = this.inputs.get(slot);
+      if (hero.cpu) {continue;}
+      const buf = this.inputBufs.get(slot);
+      if (!buf) {continue;}
+      const cmd = buf.next();
       if (!cmd) {continue;}
+      this.appliedInputs.set(slot, cmd);
+      if (!hero.alive || hero.parked) {
+        this.syncHoldFlags(hero, cmd);
+        continue;
+      }
       this.applyHero(hero, cmd, dt);
-      for (const key of ONE_SHOT_INPUT_KEYS) {cmd[key] = false;}
-      cmd.emote = -1;
+    }
+  }
+
+  /** 카운트다운·로딩 장벽 동안 쌓인 프레임을 홀드로 접고, fireHeld 를 맞춰 개전 합성 사격을 막는다. */
+  private flushHeldInputs(): void {
+    for (const [slot, hero] of this.heroes) {
+      if (hero.cpu) {continue;}
+      const buf = this.inputBufs.get(slot);
+      if (!buf) {continue;}
+      const held = buf.flushToIdle();
+      if (!held) {continue;}
+      this.appliedInputs.set(slot, held);
+      this.syncHoldFlags(hero, held);
+    }
+  }
+
+  private syncHoldFlags(hero: SimHero, cmd: MatchInput): void {
+    hero.fireHeld = truthy(cmd.fire);
+    if (skillsEnabled()) {
+      hero.equipmentHeld = truthy(cmd.equipment) || truthy(cmd.equipmentPressed);
     }
   }
 
@@ -607,7 +607,7 @@ export class MatchSim {
   }
 
   private stepFinishCine(dt: number): void {
-    const atkCmd = this.inputs.get(this.finishCine.atk);
+    const atkCmd = this.appliedInputs.get(this.finishCine.atk);
     tickFinishCine(this.finishCine, this.heroes, { finish: truthy(atkCmd?.finish) }, dt, (atk, vic) => {
       const victim = this.heroes.get(vic);
       if (!victim) {return;}

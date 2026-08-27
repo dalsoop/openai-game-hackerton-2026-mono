@@ -102,7 +102,6 @@ func _draw() -> void:
         _pjh.draw_ammo_conveyor(me)
     _draw_critical(me)
     _draw_ultimate_cinematic()
-    _draw_crosshair(me)
     _update_kill_feed()
     _draw_kill_feed()
 
@@ -490,26 +489,6 @@ func _draw_roulette_overlay(me: Dictionary) -> void:
         draw_circle(Vector2(cx, top + 48.0), 40.0, Color(accent, 0.55 * fade))
     _text(Vector2(400.0, top + 132.0), won, 40, Color(1.0, 0.96, 0.82, fade * pulse), 800.0, HORIZONTAL_ALIGNMENT_CENTER)
     _text(Vector2(360.0, top + 168.0), desc, 18, Color(accent, fade * 0.95), 880.0, HORIZONTAL_ALIGNMENT_CENTER)
-func _draw_crosshair(me: Dictionary) -> void:
-    if me.is_empty():
-        return
-    var spray_i := float(me.get("spray_index", 0.0))
-    var c: Vector2 = get_local_mouse_position()
-    var climb := spray_i * 3.2
-    var gap := 8.0 + climb * 0.10
-    var arm := 11.0
-    var ink := Color(0.12, 0.07, 0.04, 0.92)
-    var fill := Color(1.0, 0.96, 0.86, 0.96)
-    var accent := Color(1.0, 0.55, 0.22, 0.95)
-    for thick in [3.4, 1.6]:
-        var col := ink if thick > 2.0 else fill
-        draw_circle(c, 2.6 if thick > 2.0 else 1.7, col if thick > 2.0 else accent)
-        draw_line(c + Vector2(0, -gap - arm), c + Vector2(0, -gap), col, thick)
-        draw_line(c + Vector2(0, gap), c + Vector2(0, gap + arm), col, thick)
-        draw_line(c + Vector2(-gap - arm, 0), c + Vector2(-gap, 0), col, thick)
-        draw_line(c + Vector2(gap, 0), c + Vector2(gap + arm, 0), col, thick)
-    draw_arc(c, 5.0 + climb * 0.04, 0.0, TAU, 28, Color(accent, 0.45), 1.4)
-
 func _update_kill_feed() -> void:
     if world == null or world.event_log == null:
         return

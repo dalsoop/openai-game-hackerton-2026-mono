@@ -15,7 +15,9 @@ import {
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
   type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
-import { applyPlayInput, bootAuthority, parkSeat, tickAuthority, tryReleaseLoadBarrier } from "./lobby-play.js";
+import {
+  applyPlayInput, bootAuthority, parkSeat, resetSeatAck, tickAuthority, tryReleaseLoadBarrier,
+} from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -122,6 +124,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     player.sessionId = client.sessionId;
     player.connected = true;
     parkSeat(this.bag, player.slot, false);
+    resetSeatAck(this.bag, player.slot);
     player.matchReady = false; // 새 창은 WASM 을 다시 띄우므로 ready 를 다시 받는다.
     this.claims.delete(oldId);
     this.claims.set(client.sessionId, claim);
@@ -157,6 +160,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
     }
     player.connected = true;
     parkSeat(this.bag, player.slot, false);
+    resetSeatAck(this.bag, player.slot);
     this.syncHost();
   }
 

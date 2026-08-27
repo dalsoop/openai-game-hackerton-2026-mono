@@ -6,6 +6,7 @@ const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 const SfxDerive = preload("res://games/dagul/net/net_sfx_derive.gd")
 const NetPred = preload("res://games/dagul/net/net_pred.gd")
+const NetLaunchTrails = preload("res://games/dagul/net/net_launch_trails.gd")
 const NetStandings = preload("res://games/dagul/net/net_standings.gd")
 const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
 const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
@@ -26,9 +27,6 @@ const ULTIMATE_MAX := 100.0
 const SAFE_ZONE_MIN_RADIUS := 90.0
 const SAFE_ZONE_INITIAL_RADIUS := 3304.0
 const SAFE_ZONE_PHASES: Array = []
-# 원본 sim: tick%2 샘플, cap 14, fade 0.34 (hero_movement / match_lifecycle).
-const LAUNCH_TRAIL_CAP := 14
-const LAUNCH_TRAIL_FADE := 0.34
 
 var is_net := true
 var local_slot: int = 0
@@ -104,6 +102,8 @@ var _lerp_from_slot: Dictionary = {}
 var _lerp_to_slot: Dictionary = {}
 var _lerp_old_bullets: Dictionary = {}
 var _lerp_new_bullets: Dictionary = {}
+var _latest_snap_tick: int = -1
+var _since_latest: float = 0.0
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -165,6 +165,8 @@ func _reset_net_session() -> void:
     _lerp_to_slot.clear()
     _lerp_old_bullets.clear()
     _lerp_new_bullets.clear()
+    _latest_snap_tick = -1
+    _since_latest = 0.0
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
     var v: Variant = source.get(key)
@@ -261,17 +263,25 @@ func present(_dt: float) -> void:
     local_fire_shake = maxi(0, local_fire_shake - 1)
     local_hit_shake = maxi(0, local_hit_shake - 1)
     if not _snaps.is_empty():
-        _present_from_snaps()
-    _synth_launch_trails(step)
+        _present_from_snaps(step)
+    NetLaunchTrails.synth(self, step)
 
-func _present_from_snaps() -> void:
+func _present_from_snaps(dt: float) -> void:
     if _snaps.size() == 1:
         _apply_if_new(_snaps[0])
         _seed_prediction(_snaps[0])
         _overlay_prediction()
         return
     var latest: Dictionary = _snaps.back()
-    var render_tick := float(int(latest.get(SnapContract.TICK, 0))) - INTERP_SEC * TICK_RATE
+    # 보간 시계는 마지막 스냅 도착 후에도 로컬 dt 로 계속 흐른다. 최신 스냅 틱에만
+    # 묶으면 20Hz 스냅 사이 50ms 동안 원격 이동이 얼었다가 도착 순간 점프한다("툭툭").
+    var latest_tick := int(latest.get(SnapContract.TICK, 0))
+    if latest_tick != _latest_snap_tick:
+        _latest_snap_tick = latest_tick
+        _since_latest = 0.0
+    else:
+        _since_latest = minf(_since_latest + dt, 0.25)
+    var render_tick := float(latest_tick) - INTERP_SEC * TICK_RATE + _since_latest * TICK_RATE
     var older: Dictionary = _snaps[0]
     var newer: Dictionary = latest
     for i in range(_snaps.size() - 1):
@@ -295,42 +305,6 @@ func _present_from_snaps() -> void:
     _overlay_prediction()
     while _snaps.size() > 2 and float(int(_snaps[1].get(SnapContract.TICK, 0))) < render_tick:
         _snaps.pop_front()
-
-func _synth_launch_trails(dt: float) -> void:
-    var live := {}
-    for hero in heroes:
-        var slot := int(hero["slot"])
-        var st: Dictionary = _launch_trails.get(slot, {"pts": [], "fade": 0.0, "tick": -1})
-        _advance_launch_trail(hero, st, dt)
-        hero["launch_trail"] = st["pts"]
-        hero["launch_trail_fade"] = st["fade"]
-        live[slot] = st
-    _launch_trails = live
-
-func _advance_launch_trail(hero: Dictionary, st: Dictionary, dt: float) -> void:
-    if float(hero.get("launch_time", 0.0)) > 0.0:
-        st["fade"] = LAUNCH_TRAIL_FADE
-        _sample_launch_trail(hero, st)
-        return
-    st["fade"] = maxf(0.0, float(st["fade"]) - dt)
-    if float(st["fade"]) <= 0.0:
-        st["pts"] = []
-        st["tick"] = -1
-
-func _sample_launch_trail(hero: Dictionary, st: Dictionary) -> void:
-    var pts: Array = st["pts"]
-    var pos := Vector2(hero["pos"])
-    if pts.is_empty():
-        st["pts"] = [pos]
-        st["tick"] = tick
-        return
-    if tick % 2 != 0 or tick == int(st["tick"]):
-        return
-    pts.append(pos)
-    if pts.size() > LAUNCH_TRAIL_CAP:
-        pts.pop_front()
-    st["pts"] = pts
-    st["tick"] = tick
 
 func _apply_if_new(snap: Dictionary) -> void:
     var next_tick := int(snap.get(SnapContract.TICK, -1))
@@ -427,6 +401,9 @@ func _reconcile(snap: Dictionary) -> void:
     var ack := int(me.get(SnapContract.P_ACK, 0))
     if ack < _acked:
         return
+    # 재접속 직후 seq=0 인데 서버 ack 가 경과 틱이면 pending 이 전부 폐기된다. 기준선을 ack 로 맞춘다.
+    if _acked == 0 and _input_seq == 0 and ack > 0:
+        _input_seq = ack
     _acked = ack
     var keep: Array[Dictionary] = []
     for item in _pending:
