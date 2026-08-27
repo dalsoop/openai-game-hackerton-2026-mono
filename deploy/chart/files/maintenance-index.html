@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="20">
-<title>다굴 업데이트 중</title>
+<title id="pageTitle">다굴 업데이트 중</title>
 <style>
   @font-face {
     font-family: "Galmuri11";
@@ -87,7 +87,7 @@
     <span class="shadow" aria-hidden="true"></span>
     <span class="hero" id="hero" role="img" aria-label="다굴 캐릭터"></span>
   </div>
-  <h1>업데이트 <span class="accent">중</span></h1>
+  <h1 id="title">업데이트 <span class="accent">중</span></h1>
   <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
 </main>
 <script>
@@ -111,6 +111,17 @@
       .catch(function () {});
 
   }, 3000);
+  // i18n — navigator.language 로 ko/en 분기
+  var I18N = {
+    ko: { title: '업데이트 <span class="accent">중</span>', pageTitle: '다굴 업데이트 중' },
+    en: { title: 'Updating<span class="accent">...</span>', pageTitle: 'Dagul — Updating' },
+    ja: { title: 'アップデート<span class="accent">中</span>', pageTitle: 'ダグル — アップデート中' },
+    zh: { title: '更新<span class="accent">中</span>', pageTitle: '打群 — 更新中' }
+  };
+  var lang = (navigator.language || "ko").slice(0, 2).toLowerCase();
+  var t = I18N[lang] || I18N.en;
+  document.getElementById("title").innerHTML = t.title;
+  document.getElementById("pageTitle").textContent = t.pageTitle;
   // 파비콘 — 아틀라스에서 올해 띠 셀을 canvas로 잘라 동적 교체
   var ATLAS_FRAME_FAV = [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11];
   var zodiacAnimal = ((new Date().getFullYear() - 4) % 12 + 12) % 12;
