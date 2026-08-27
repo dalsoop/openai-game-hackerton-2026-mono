@@ -341,15 +341,25 @@ func _followed_hero_pos(follow_slot: int, fallback: Vector2) -> Vector2:
 		return Vector2(hero.get("pos", fallback))
 	return fallback
 
+func effect_family(effect_kind: StringName) -> StringName:
+	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"local_tracer", &"explosion", &"drain", &"shockwave", &"cast"]:
+		return &"beam"
+	if effect_kind in [&"wall_impact", &"hit_spark", &"impact", &"speed_streak", &"slashwave", &"slash_dash", &"fist_burst", &"hammer_slam", &"spear_line", &"chain_arc", &"chain_bind", &"blast_hop"]:
+		return &"impact"
+	if effect_kind in [&"fuse", &"shield_bash", &"combo_finisher", &"charge_release", &"victory", &"combo_break", &"afterimage", &"death_burst", &"guard", &"charge_break", &"stun_burst", &"snake_pop", &"sheep_pop", &"monkey_pop", &"rooster_burst"]:
+		return &"burst"
+	return &"pickup"
+
 func _draw_effect_kind(effect: Dictionary, effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
-	if effect_kind in [&"line", &"beam_hit", &"beam_step", &"local_tracer", &"explosion", &"drain", &"shockwave"]:
-		_draw_beam_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
-	elif effect_kind in [&"wall_impact", &"hit_spark", &"impact", &"speed_streak", &"slashwave", &"slash_dash", &"fist_burst", &"hammer_slam", &"spear_line", &"chain_arc", &"chain_bind"]:
-		_draw_impact_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
-	elif effect_kind in [&"fuse", &"shield_bash", &"combo_finisher", &"charge_release", &"victory", &"combo_break", &"afterimage", &"death_burst", &"guard", &"charge_break", &"stun_burst", &"snake_pop", &"sheep_pop", &"monkey_pop", &"rooster_burst"]:
-		_draw_burst_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
-	else:
-		_draw_pickup_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
+	match effect_family(effect_kind):
+		&"beam":
+			_draw_beam_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
+		&"impact":
+			_draw_impact_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
+		&"burst":
+			_draw_burst_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
+		_:
+			_draw_pickup_family(effect_color, ratio, progress, effect_pos, effect_radius, effect_kind, direction)
 
 func _draw_beam_family(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
 	match effect_kind:
@@ -358,6 +368,8 @@ func _draw_beam_family(effect_color: Color, ratio: float, progress: float, effec
 			var line_end := effect_pos + direction * effect_radius * (0.65 if effect_kind == &"beam_hit" else 0.05)
 			r.draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
 			r.draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
+		&"cast":
+			_draw_cast_beam(effect_color, ratio, effect_pos, effect_radius, direction)
 		&"explosion":
 			_draw_explosion_family(effect_color, ratio, progress, effect_pos, effect_radius)
 		&"drain":
@@ -418,11 +430,28 @@ func _draw_impact_family(effect_color: Color, ratio: float, progress: float, eff
 			_draw_chain_arc(effect_color, ratio, progress, effect_pos, effect_radius, direction)
 		&"chain_bind":
 			_draw_chain_bind(effect_color, ratio, progress, effect_pos, effect_radius)
+		&"blast_hop":
+			_draw_blast_hop(effect_color, ratio, progress, effect_pos, effect_radius, direction)
 
 func _draw_speed_streak(effect_color: Color, ratio: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
 	for streak in range(5):
 		var side := direction.orthogonal() * (float(streak) - 2.0) * 9.0
 		r.draw_line(effect_pos + side, effect_pos + side + direction * effect_radius, Color(effect_color, ratio * 0.8), 4.0)
+
+func _draw_cast_beam(effect_color: Color, ratio: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	var line_start := effect_pos - direction * effect_radius * 0.12
+	var line_end := effect_pos + direction * effect_radius
+	r.draw_line(line_start, line_end, Color(effect_color, ratio * 0.34), 26.0 * ratio + 5.0)
+	r.draw_line(line_start, line_end, Color.WHITE, 4.0 * ratio + 1.5)
+	for fan in range(3):
+		var fan_dir := direction.rotated((float(fan) - 1.0) * 0.18)
+		r.draw_line(effect_pos, effect_pos + fan_dir * effect_radius * 0.72, Color(effect_color, ratio * 0.7), 4.0)
+
+func _draw_blast_hop(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, direction: Vector2) -> void:
+	_draw_speed_streak(effect_color, ratio, effect_pos, effect_radius, direction)
+	var hop_radius := effect_radius * lerpf(0.22, 0.72, progress)
+	r.draw_arc(effect_pos, hop_radius, 0.0, TAU, 24, Color(effect_color, ratio), 5.0)
+	r.draw_line(effect_pos, effect_pos + direction * effect_radius * 0.85, Color(Color.WHITE, ratio * 0.8), 3.0)
 
 func _draw_hit_spark(effect_color: Color, ratio: float, progress: float, effect_pos: Vector2, effect_radius: float, effect_kind: StringName, direction: Vector2) -> void:
 	if effect_kind in [&"hit_spark", &"impact"] and r.hit_spark_fx_atlas != null:

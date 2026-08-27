@@ -18,9 +18,11 @@ const DOWN_MOVE_MULT := 0.16
 static func step(world, mx: float, my: float, dash: bool, aim: Vector2, dt: float) -> void:
 	world._pred_dash_cd = maxf(0.0, world._pred_dash_cd - dt)
 	var me: Dictionary = world.hero_at_slot(world.local_slot)
+	_stamp_pending_weapon(world, me)
+	_strip_stale_pending_dashes(world, me)
 	var move := Vector2(mx, my)
 	apply_move(world, me, move, dt)
-	if dash:
+	if dash and _pending_allows_dash(world, me):
 		apply_dash(world, me, move)
 	world._pred_pos = world.clamp_arena(world._pred_pos)
 	if aim.distance_squared_to(world._pred_pos) > 1.0:
@@ -173,6 +175,56 @@ static func _equipment(me: Dictionary) -> Dictionary:
 	if eq is Dictionary:
 		return eq
 	return {}
+
+static func _weapon_id(me: Dictionary) -> String:
+	return str(_equipment(me).get("id", ""))
+
+static func _pending_list(world) -> Array:
+	var raw: Variant = world.get("_pending")
+	if raw is Array:
+		return raw
+	return []
+
+## 입력이 처음 예측될 때의 장비 id. 리플레이는 이미 찍혀 있어 덮지 않는다.
+static func _stamp_pending_weapon(world, me: Dictionary) -> void:
+	var pending := _pending_list(world)
+	if pending.is_empty():
+		return
+	var last: Variant = pending.back()
+	if typeof(last) != TYPE_DICTIONARY:
+		return
+	var item: Dictionary = last
+	if item.has("weapon_id"):
+		return
+	item["weapon_id"] = _weapon_id(me)
+
+## ack 스냅 장비가 바뀌었으면 옛 장비로 넣은 pending dash 를 버린다.
+static func _strip_stale_pending_dashes(world, me: Dictionary) -> void:
+	var cur := _weapon_id(me)
+	for raw in _pending_list(world):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var item: Dictionary = raw
+		if not bool(item.get("dash", false)):
+			continue
+		if str(item.get("weapon_id", cur)) == cur:
+			continue
+		item["dash"] = false
+
+static func _pending_allows_dash(world, me: Dictionary) -> bool:
+	var pending := _pending_list(world)
+	if pending.is_empty():
+		return true
+	var cur := _weapon_id(me)
+	for raw in pending:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var item: Dictionary = raw
+		if not bool(item.get("dash", false)):
+			continue
+		if str(item.get("weapon_id", cur)) == cur:
+			return true
+	return false
 
 static func _cover_rect(cover: Dictionary) -> Rect2:
 	if cover.has("rect"):
