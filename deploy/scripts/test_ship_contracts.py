@@ -2,6 +2,7 @@
 """공식 Custom HTML shell 계약 — 슬롯 실파일 + 문서 최소 템플릿."""
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -605,9 +606,24 @@ class ShipPipeline(unittest.TestCase):
     def test_build_hub_push_then_import(self) -> None:
         src = Path(__file__).with_name("apply-apps.py").read_text()
         fn = src.split("def build_hub", 1)[1].split("def hub_refs", 1)[0]
+        self.assertLess(fn.find("pin_harbor_dns()"), fn.find("docker_push(ref)"))
         self.assertLess(fn.find("docker_push(ref)"), fn.find("require_registry_or_single_node(ref)"))
         self.assertLess(fn.find("require_registry_or_single_node(ref)"), fn.find("k3s ctr images import"))
         self.assertIn('raise SystemExit(f"{folder} 이미지 올리기 실패")', fn)
+
+    def test_pin_harbor_dns_appends_hosts_when_unresolved(self) -> None:
+        from unittest import mock
+
+        apply = self._apply("apply_pin_harbor")
+        with tempfile.TemporaryDirectory() as tmp:
+            hosts = Path(tmp) / "hosts"
+            hosts.write_text("127.0.0.1 localhost\n")
+            with mock.patch.object(apply, "harbor_resolves", side_effect=[False, True]), mock.patch.object(
+                apply, "Path"
+            ) as path_cls:
+                path_cls.return_value = hosts
+                apply.pin_harbor_dns()
+            self.assertIn("10.0.50.50 harbor.50.internal.xz", hosts.read_text())
 
     def test_lint_web_argv_and_skip(self) -> None:
         import sys
