@@ -366,6 +366,7 @@ describe("LobbyRoom 규칙", () => {
     await room.waitForNextPatch();
     expect(room.state.hostSessionId).toBe(guest.sessionId);
     expect(String(room.state.phase)).toBe("lobby");
+    expect([...room.state.players].map((p) => p.slot)).toEqual([0]);
   });
 
   it("이어받은 방장이 시작·게임변경·강퇴를 쓴다", async () => {

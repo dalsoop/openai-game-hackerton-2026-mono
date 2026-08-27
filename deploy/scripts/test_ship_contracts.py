@@ -653,6 +653,17 @@ class ShipPipeline(unittest.TestCase):
         self.assertEqual(tsc[0], ["npx", "tsc", "--noEmit"])
         self.assertEqual(cmds[-1], ["npm", "run", "lint"])
 
+    def test_lint_web_runs_vitest_when_npm_test_exists(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        lint = self._lint()
+        with TemporaryDirectory() as tmp:
+            web = Path(tmp)
+            (web / "package.json").write_text('{"scripts":{"test":"vitest run"}}')
+            cmds = lint.typecheck_cmds(web)
+        self.assertEqual(cmds[-1], ["npm", "test"])
+        self.assertIn(["npm", "run", "lint"], cmds)
+
     def test_lint_web_skips_slot_without_package(self) -> None:
         import sys
         from tempfile import TemporaryDirectory
@@ -735,6 +746,11 @@ class PlatformGodotPipeline(unittest.TestCase):
         lint = (root / "deploy" / "scripts" / "lint-web.py").read_text()
         self.assertIn('["npx", "tsc", "--noEmit"]', lint)
         self.assertIn("tsconfig.server.json", lint)
+        self.assertIn('["npm", "test"]', lint)
+        web_lint = (root / ".github" / "workflows" / "web-lint.yml").read_text()
+        self.assertIn("apps/dagul-prod/web", web_lint)
+        self.assertIn("npx vitest run", web_lint)
+        self.assertNotIn("server-yjh-dev1", web_lint)
         self.assertIn("needs: plan", apps_yml.split("lint-web:", 1)[1])
         self.assertIn("needs: [plan, lint-web]", apps_yml)
         self.assertNotIn("if: ${{ needs.plan.outputs.folders != '' }}", apps_yml.split("lint-web:", 1)[1].split("apply:", 1)[0])
