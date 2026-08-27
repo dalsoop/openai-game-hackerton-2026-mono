@@ -35,8 +35,7 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
   }
-  .logo { font-size: 15px; font-weight: 700; color: var(--cyan); letter-spacing: 4px; }
-  .stage { position: relative; height: 168px; margin-top: 10px; }
+  .stage { position: relative; height: 168px; }
   .shadow {
     position: absolute; left: 50%; bottom: 8px; width: 84px; height: 20px;
     transform: translateX(-50%);
@@ -64,17 +63,11 @@
     0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
     32% { transform: translateX(-50%) scale(0.55); opacity: 0.4; }
   }
-  .name {
-    display: inline-block; margin-top: 2px; padding: 3px 10px 2px;
-    font-size: 13px; color: var(--gold);
-    border: 1px solid rgba(255, 209, 102, 0.35); border-radius: 3px;
-    background: rgba(255, 209, 102, 0.08);
-  }
-  h1 { font-size: 30px; font-weight: 700; margin: 20px 0 12px; letter-spacing: 1px; }
+  h1 { font-size: 30px; font-weight: 700; margin: 16px 0 0; letter-spacing: 1px; }
   h1 .accent { color: var(--gold); }
   p { color: var(--sub); line-height: 1.75; font-size: 14px; }
   .bar {
-    margin: 24px auto 0; width: 84%; height: 12px;
+    margin: 26px auto 4px; width: 84%; height: 12px;
     border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
     background: rgba(57, 255, 106, 0.06);
   }
@@ -85,7 +78,6 @@
     animation: stripes 0.9s linear infinite; opacity: 0.85;
   }
   @keyframes stripes { to { transform: translateX(28.28px); } }
-  .hint { margin-top: 24px; font-size: 12px; color: var(--dim); }
   @media (prefers-reduced-motion: reduce) {
     .hero, .shadow, .bar i { animation: none; }
   }
@@ -93,29 +85,22 @@
 </head>
 <body>
 <main class="card">
-  <div class="logo">DAGUL</div>
   <div class="stage">
     <span class="shadow" aria-hidden="true"></span>
     <span class="hero" id="hero" role="img" aria-label="다굴 캐릭터"></span>
   </div>
-  <span class="name" id="name">쥐</span>
   <h1>업데이트 <span class="accent">중</span></h1>
-  <p>다굴이 더 재밌어지는 중입니다.<br>준비가 끝나면 자동으로 다시 연결돼요.</p>
   <div class="bar" aria-hidden="true"><i></i></div>
-  <p class="hint">화면을 닫지 않아도 됩니다 · 몇 초마다 자동 재시도</p>
 </main>
 <script>
   // 인게임 렌더러와 같은 아틀라스 매핑 (debug_renderer ANIMAL_ATLAS_FRAME).
   var FRAME = [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11];
-  var NAMES = ["쥐","소","호랑이","토끼","용","뱀","말","양","원숭이","닭","개","돼지"];
   var CELL = 128;
   var hero = document.getElementById("hero");
-  var name = document.getElementById("name");
   var animal = Math.floor(Math.random() * 12);
   function show(i) {
     var f = FRAME[i % 12];
     hero.style.backgroundPosition = (-(f % 4) * CELL) + "px " + (-Math.floor(f / 4) * CELL) + "px";
-    name.textContent = NAMES[i % 12];
   }
   show(animal);
   hero.addEventListener("animationiteration", function () {
@@ -124,8 +109,7 @@
   });
   setInterval(function () {
     fetch("/healthz", { cache: "no-store" })
-      .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
-      .then(function (t) { if (t.trim() === "ok") location.reload(); })
+      .then(function (r) { if (r.ok) location.reload(); })
       .catch(function () {});
   }, 3000);
 </script>
