@@ -11,12 +11,14 @@ import { MaterialIcon } from "@/components/MaterialIcon";
 import { ConnectingPhase } from "./ConnectingPhase";
 import type { HubRoom, HubStatus } from "@/types";
 import type { MyRoomIdentity } from "@/lib/room-membership";
+import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface LobbyPhaseProps {
   rooms: HubRoom[];
   status: HubStatus;
   myRoom: MyRoomIdentity | null;
   onJoinRoom: (id: string) => void;
+  onForgetMyRoom: () => void;
   onRefresh: () => void;
   refreshing?: boolean;
   onBackToIntro: () => void;
@@ -24,6 +26,7 @@ interface LobbyPhaseProps {
   connText: string;
   rttMs: number;
   rttText: string | null;
+  ccu?: CcuSnapshot | null;
 }
 
 export function LobbyPhase({
@@ -31,6 +34,7 @@ export function LobbyPhase({
   status,
   myRoom,
   onJoinRoom,
+  onForgetMyRoom,
   onRefresh,
   refreshing = false,
   onBackToIntro,
@@ -38,6 +42,7 @@ export function LobbyPhase({
   connText,
   rttMs,
   rttText,
+  ccu = null,
 }: LobbyPhaseProps): JSX.Element {
   const t = useTranslations();
 
@@ -63,8 +68,10 @@ export function LobbyPhase({
           rooms={rooms}
           myRoom={myRoom}
           onJoin={onJoinRoom}
+          onForgetMyRoom={onForgetMyRoom}
           onRefresh={onRefresh}
           refreshing={refreshing}
+          ccu={ccu}
         />
       )}
     </div>

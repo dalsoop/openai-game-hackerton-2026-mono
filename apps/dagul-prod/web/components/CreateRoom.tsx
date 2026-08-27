@@ -6,6 +6,8 @@ import { DEFAULT_GAME_ID } from "@/lib/games/catalog";
 import { sizeParts, type GameListing } from "@/lib/games/listing";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { CongestionBanner } from "@/components/CongestionBanner";
+import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
   listings: ReadonlyArray<GameListing>;
@@ -13,11 +15,14 @@ interface Props {
   onBack: () => void;
   connClass: string;
   connText: string;
+  ccu?: CcuSnapshot | null;
 }
 
-export default function CreateRoom({ listings, onSubmit, onBack, connClass, connText }: Props): JSX.Element {
+export default function CreateRoom({ listings, onSubmit, onBack, connClass, connText, ccu = null }: Props): JSX.Element {
   const t = useTranslations("create");
+  const congestion = useTranslations("congestion");
   const games = useTranslations();
+  const blocked = ccu !== null && !ccu.admit;
 
   return (
     <div className="fade-in">
@@ -33,11 +38,14 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
 
       <h1 className="create-heading">{t("title")}</h1>
       <p className="create-blurb">{t("blurb")}</p>
+      <CongestionBanner snap={ccu} />
+      {blocked && <p className="ccu-hint">{congestion("fullHint")}</p>}
 
       <form
         className="create-form"
         onSubmit={(e) => {
           e.preventDefault();
+          if (blocked) {return;}
           const data = new FormData(e.currentTarget);
           onSubmit(String(data.get("game") ?? DEFAULT_GAME_ID), String(data.get("title") ?? ""));
         }}
@@ -87,8 +95,8 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
           />
         </label>
 
-        <button className="cta block" type="submit">
-          {t("submit")}
+        <button className="cta block" type="submit" disabled={blocked}>
+          {blocked ? congestion("full") : t("submit")}
         </button>
       </form>
     </div>

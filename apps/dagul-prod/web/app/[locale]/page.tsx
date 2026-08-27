@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "@/i18n/routing";
 import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
+import { ShutdownNoticeBanner } from "@/components/ShutdownNoticeBanner";
 import { homeSurface } from "@/lib/game-flow-state";
 import { matchWaitNames } from "@/lib/domain/match-load-ready";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/components/phases";
 import { asGameId } from "@/lib/games/catalog";
 import { CONNECTION_CLASS, type HubStatus } from "@/types";
+import { useCcuStatus } from "@/hooks/useCcuStatus";
 
 type Translate = (key: string) => string;
 
@@ -75,6 +77,7 @@ export default function Home(): JSX.Element {
     resuming: hub.resuming,
     dropReason: hub.dropReason,
   });
+  const ccu = useCcuStatus(surface === "intro" || surface === "lobby");
 
   // 튕김·강퇴는 회색 캔버스 대신 재접속 모달만 보여 준다.
   if (surface === "reconnect") {
@@ -92,13 +95,20 @@ export default function Home(): JSX.Element {
 
   if (surface === "playing") {
     return (
-      <PlayingPhase
-        game={asGameId(matchInfo.gameId ?? hub.gameId)}
-        matchInfo={matchInfo}
-        pendingNames={matchWaitNames(hub.players, hub.you, hub.loadHeld)}
-        onMatchEnd={matchEnd}
-        onError={leaveToLobby}
-      />
+      <>
+        <ShutdownNoticeBanner
+          message={hub.shutdownNotice}
+          onDismiss={hub.dismissShutdownNotice}
+          overCanvas
+        />
+        <PlayingPhase
+          game={asGameId(matchInfo.gameId ?? hub.gameId)}
+          matchInfo={matchInfo}
+          pendingNames={matchWaitNames(hub.players, hub.you, hub.loadHeld)}
+          onMatchEnd={matchEnd}
+          onError={leaveToLobby}
+        />
+      </>
     );
   }
 
@@ -111,6 +121,7 @@ export default function Home(): JSX.Element {
       )}
 
       <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
+      <ShutdownNoticeBanner message={hub.shutdownNotice} onDismiss={hub.dismissShutdownNotice} />
 
       {surface === "intro" && (
         <OfflinePhase
@@ -119,6 +130,7 @@ export default function Home(): JSX.Element {
           onNameChange={setName}
           onConnect={findRoom}
           onResetName={resetName}
+          ccu={ccu}
         />
       )}
 
@@ -148,6 +160,7 @@ export default function Home(): JSX.Element {
             status={hub.status}
             myRoom={hub.myRoom}
             onJoinRoom={hub.joinRoom}
+            onForgetMyRoom={hub.forgetMyRoom}
             onRefresh={hub.refreshRooms}
             refreshing={hub.refreshingRooms}
             onBackToIntro={backToIntro}
@@ -155,6 +168,7 @@ export default function Home(): JSX.Element {
             connText={connLabel(hub.status, t)}
             rttMs={hub.rttMs}
             rttText={hub.rttMs > 0 ? t("connection.ping", { ms: hub.rttMs }) : null}
+            ccu={ccu}
           />
         </div>
       )}

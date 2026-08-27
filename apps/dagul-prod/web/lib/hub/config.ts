@@ -34,6 +34,8 @@ export const HUB_CONFIG = {
   hostBootTimeoutMs: 180_000,
   idleStartMs: 5 * 60 * 1000,
   maxPlayers: 8,
+  /** 전역 입장 한도. DAGUL_CCU_CAP 으로 덮는다. */
+  admissionCcu: 100,
   seedMax: 999_999,
   gameServerTimeoutMs: 5_000,
   matchWatchdogMs: 30_000,
@@ -83,6 +85,7 @@ export const KO = {
   WEAPON_PISTOL: "권총",
   ROOM_NOT_FOUND: "방을 찾을 수 없습니다",
   ROOM_FULL: `방이 가득 찼습니다 (${HUB_CONFIG.maxPlayers})`,
+  SERVER_FULL: "서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.",
   HOST_ONLY_START: "호스트만 시작할 수 있습니다",
   HOST_ONLY_GAME: "호스트만 게임을 바꿀 수 있습니다",
   IDLE_START: "방장이 제한 시간 안에 시작하지 않아 방이 닫혔습니다.",

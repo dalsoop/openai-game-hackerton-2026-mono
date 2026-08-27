@@ -7,6 +7,16 @@ describe("healthBody", () => {
       ok: true,
       slot: "server-yjh-dev1",
     });
+    expect(JSON.parse(healthBody("dagul-prod", {
+      ccu: 12, cap: 100, level: "quiet", admit: true,
+    }))).toEqual({
+      ok: true,
+      slot: "dagul-prod",
+      ccu: 12,
+      cap: 100,
+      level: "quiet",
+      admit: true,
+    });
   });
 
   it("is not plain ok text", () => {

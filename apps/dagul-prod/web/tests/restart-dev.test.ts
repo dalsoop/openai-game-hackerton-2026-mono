@@ -73,6 +73,19 @@ describe("계약: restart-dev 파이프라인", () => {
     expect(src).toContain("healthBody");
   });
 
+  it("server.ts 에 /ccu 라우트가 있다", () => {
+    const src = readFileSync(join(ROOT, "server.ts"), "utf8");
+    expect(src).toContain('pathname === "/ccu"');
+    expect(src).toContain("/api/ccu");
+    expect(src).toContain("ccuHttpBody");
+    expect(src).toContain("getGlobalCCU");
+  });
+
+  it("로케일 미들웨어는 /ccu 를 페이지로 안 보낸다", () => {
+    const src = readFileSync(join(ROOT, "middleware.ts"), "utf8");
+    expect(src).toContain("ccu");
+  });
+
   // 회귀: lsof -ti 만으로는 CLOSED 소켓 잔재(예: VS Code 헬퍼가 예전에 이 포트에
   // 붙었던 흔적)까지 잡혀, 죽여야 할 노드 서버 대신 남의 프로세스를 골라버린다.
   it("포트 조회는 전부 LISTEN 상태로만 필터링한다", () => {

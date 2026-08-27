@@ -21,6 +21,9 @@ export type LobbyBag = {
   idleTimer: TimerHandle | null;
   authority: MatchAuthority | null;
   hostLossTimer: TimerHandle | null;
+  /** onBeforeShutdown 이 건 진행 중 매치 드레인 예약. 매치가 먼저 끝나면(resetToLobby)
+   * 취소해야, 같은 방에서 시작된 무관한 다음 매치를 엉뚱하게 끊지 않는다. */
+  shutdownTimer: TimerHandle | null;
   loadWaitMs: number;
 };
 
@@ -31,6 +34,7 @@ export type LobbyHandle = {
   setMetadata: (value: object) => void | Promise<void>;
   clock: { setTimeout: (cb: () => void, ms: number) => TimerHandle };
   broadcast: (type: string, payload: unknown) => void;
+  disconnect?: () => void | Promise<void>;
   roomId?: string;
   slotOfSession?(sessionId: string): number;
   snapOptOut?: Set<string>;
@@ -51,6 +55,28 @@ export function scheduleHostLossReset(room: LobbyHandle, bag: LobbyBag): void {
 
 export function cancelHostLossReset(bag: LobbyBag): void {
   if (bag.hostLossTimer) {bag.hostLossTimer.clear(); bag.hostLossTimer = null;}
+}
+
+/** 배포(SIGTERM) 때 호출 — 대기실은 바로 끊어도 되지만, 진행 중 매치는 안내만
+ * 보내고 HUB_CONFIG.shutdownDrainMs 만큼 더 살려서 자연 종료를 기다린다.
+ * k8s 의 terminationGracePeriodSeconds 를 이 값과 맞춰야 실제로 의미가 있다
+ * (deploy/chart/values.yaml hub.terminationGracePeriodSeconds 참고). */
+export function armShutdownDrain(room: LobbyHandle, bag: LobbyBag): void {
+  if (room.state.phase !== "playing") {
+    void room.disconnect?.();
+    return;
+  }
+  room.broadcast(MSG.SERVER_SHUTDOWN, KO.SERVER_SHUTDOWN_MSG);
+  bag.shutdownTimer = room.clock.setTimeout(() => {
+    bag.shutdownTimer = null;
+    void room.disconnect?.();
+  }, HUB_CONFIG.shutdownDrainMs);
+}
+
+/** 매치가 드레인 타이머보다 먼저 자연 종료됐을 때 — 예약을 취소해서, 같은 방에서
+ * 이어서 시작된 무관한 다음 매치가 옛 타이머에 끊기지 않게 한다. */
+export function clearShutdownDrain(bag: LobbyBag): void {
+  if (bag.shutdownTimer) {bag.shutdownTimer.clear(); bag.shutdownTimer = null;}
 }
 
 export function handleRoomToggle(room: LobbyHandle, client: Client): void {
@@ -126,6 +152,7 @@ export function armIdleTimer(room: LobbyHandle, bag: LobbyBag): void {
 export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   if (bag.gameTimer) {bag.gameTimer.clear(); bag.gameTimer = null;}
   cancelHostLossReset(bag);
+  clearShutdownDrain(bag);
   bag.lastSnap = null;
   bag.prevSnap = null;
   bag.authority = null;

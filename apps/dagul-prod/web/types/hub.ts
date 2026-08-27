@@ -75,6 +75,7 @@ export interface UseHubResult {
   createRoom: (raw?: { game?: string; title?: string }) => void;
   joinRoom: (id: string) => void;
   leaveRoom: () => void;
+  forgetMyRoom: () => void;
   /** 리스트 룸까지 내리고 인트로로 돌아갈 때. */
   disconnect: () => void;
   returnToLobby: (name: string) => void;
@@ -96,6 +97,9 @@ export interface UseHubResult {
 
   /** 강퇴·강제 퇴장 — 회색 화면 대신 재접속 모달. */
   dropReason: DropReason | null;
+  /** 배포 드레인 중(LobbyRoom.onBeforeShutdown) 안내 — 끊지는 않고 배너로만. */
+  shutdownNotice: string | null;
+  dismissShutdownNotice: () => void;
   lastRoomId: string;
   reconnectAfterDrop: () => void;
 

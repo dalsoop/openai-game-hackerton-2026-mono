@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clearMyRoom,
   membershipOf,
+  needsLeaveConfirm,
   readMyRoom,
   saveMyRoom,
   sortRoomsByMembership,
@@ -51,5 +52,24 @@ describe("sortRoomsByMembership — 상단 고정", () => {
     expect(sortRoomsByMembership(rooms, { roomId: "b", host: true }).map((r) => r.id)).toEqual(["b", "a", "c"]);
     expect(sortRoomsByMembership(rooms, { roomId: "c", host: false }).map((r) => r.id)).toEqual(["c", "a", "b"]);
     expect(sortRoomsByMembership(rooms, null).map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("needsLeaveConfirm", () => {
+  it("내 방이 없으면 언제나 확인이 필요 없다", () => {
+    expect(needsLeaveConfirm(null)).toBe(false);
+    expect(needsLeaveConfirm(null, "r1")).toBe(false);
+  });
+
+  it("방 만들기(targetRoomId 없음)는 내 방이 있으면 무조건 확인이 필요하다", () => {
+    expect(needsLeaveConfirm({ roomId: "mine", host: true })).toBe(true);
+  });
+
+  it("내 방과 같은 방으로 가는 건 확인이 필요 없다", () => {
+    expect(needsLeaveConfirm({ roomId: "mine", host: true }, "mine")).toBe(false);
+  });
+
+  it("내 방과 다른 방으로 가는 건 확인이 필요하다", () => {
+    expect(needsLeaveConfirm({ roomId: "mine", host: true }, "other")).toBe(true);
   });
 });
