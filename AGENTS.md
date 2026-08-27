@@ -3,6 +3,7 @@
 에이전트·사람 공통. OpenAI 게임 해커톤 파티 엔트리 (형제: `ax-hackerton-2026-mono`).
 
 더 자세한 배포는 `.claude/skills/hackertone-games-deploy/SKILL.md` 와 `apps/README.md`.
+ship 잡 순서·Harbor·캐시·계약 테스트는 `deploy/README.md`.
 
 ## 제품 불변
 
