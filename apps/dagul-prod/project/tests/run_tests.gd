@@ -28,6 +28,8 @@ const SUITES := [
 	"res://tests/test_network_bridge.gd",
 	"res://tests/test_match_snap_adapter.gd",
 	"res://tests/test_engine_socket_fallback.gd",
+	"res://tests/test_engine_input_channel.gd",
+	"res://tests/test_engine_predict.gd",
 	"res://tests/test_rb1_client.gd",
 	"res://tests/test_settings_store.gd",
 	"res://tests/test_play_chrome.gd",

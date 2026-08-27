@@ -4,9 +4,12 @@ extends Node
 const _FLAG_KEY := "dagul.engineSocket"
 const _JOIN_TIMEOUT_SEC := 3.0
 const _AdapterScript := preload("res://core/net/match_snap_adapter.gd")
+const _InputChannelScript := preload("res://core/net/engine_input_channel.gd")
+const _PredictScript := preload("res://core/net/engine_predict.gd")
 
 var active := false  # lint-gd: public-api
 var _adapter = _AdapterScript.new()
+var _input = _InputChannelScript.new()
 var _client = null
 var _room = null
 var _trying := false
@@ -14,6 +17,7 @@ var _deadline_ms: int = 0
 var _sent: Array = []
 var _notices: Array = []
 var _claim_ready := false
+var _predict = null
 
 func is_active() -> bool:  # lint-gd: public-api
 	return active
@@ -21,11 +25,19 @@ func is_active() -> bool:  # lint-gd: public-api
 func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
 	if not active:
 		return
+	_record_sent(msg)
+	_input.stage(msg)
+	if _predict != null:
+		return
+	if _input.flush(_room):
+		return
+	if _room != null and _room.has_method("send_message"):
+		_room.send_message(WebContract.MSG_INPUT, msg)
+
+func _record_sent(msg: Dictionary) -> void:
 	_sent.append(msg)
 	if _sent.size() > 8:
 		_sent.pop_front()
-	if _room != null and _room.has_method("send_message"):
-		_room.send_message(WebContract.MSG_INPUT, msg)
 
 func _ready() -> void:
 	var hub := get_node_or_null("/root/NetworkManager")
@@ -39,6 +51,10 @@ func _ready() -> void:
 		_try_connect()
 
 func _process(_delta: float) -> void:
+	if active and _predict != null:
+		var steps: int = int(_predict.tick())
+		for _i in steps:
+			_input.flush(_room)
 	if not _trying or active:
 		return
 	if Time.get_ticks_msec() < _deadline_ms:
@@ -104,6 +120,7 @@ func _on_joined() -> void:
 	if not _claim_ok():
 		_set_live(false)
 		return
+	_predict = _PredictScript.bind(_room)
 	_set_live(true)
 	_on_state_changed()
 
@@ -143,6 +160,7 @@ func _drop_room() -> void:
 	var room = _room
 	_room = null
 	_client = null
+	_predict = null
 	if room != null and room.has_method("leave"):
 		room.leave()
 
