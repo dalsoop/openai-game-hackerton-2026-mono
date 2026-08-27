@@ -10,7 +10,7 @@ import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
   listings: ReadonlyArray<GameListing>;
-  onSubmit: (game: string, title: string) => void;
+  onSubmit: (game: string, title: string, lock: boolean) => void;
   onBack: () => void;
   connClass: string;
   connText: string;
@@ -45,9 +45,38 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
           e.preventDefault();
           if (blocked) {return;}
           const data = new FormData(e.currentTarget);
-          onSubmit(String(data.get("game") ?? DEFAULT_GAME_ID), String(data.get("title") ?? ""));
+          onSubmit(
+            String(data.get("game") ?? DEFAULT_GAME_ID),
+            String(data.get("title") ?? ""),
+            data.get("lock") === "on",
+          );
         }}
       >
+        <input
+          className="name-input"
+          type="text"
+          name="title"
+          maxLength={HUB_CONFIG.maxTitleLength}
+          placeholder={t("roomTitlePlaceholder")}
+          autoComplete="off"
+          aria-label={t("roomTitle")}
+        />
+
+        <div className="create-options">
+          <label className="option-card">
+            <input type="radio" name="lock" value="off" defaultChecked />
+            <MaterialIcon name="lock_open" />
+            <b>{t("lockOpen")}</b>
+            <span>{t("lockOpenHint")}</span>
+          </label>
+          <label className="option-card">
+            <input type="radio" name="lock" value="on" />
+            <MaterialIcon name="lock" />
+            <b>{t("lock")}</b>
+            <span>{t("lockHint")}</span>
+          </label>
+        </div>
+
         <fieldset className="create-fieldset">
           <legend className="sec-title">{t("gameSelect")}</legend>
           <div className="game-list">
@@ -80,18 +109,6 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
             ))}
           </div>
         </fieldset>
-
-        <label className="create-field">
-          <span className="sec-title">{t("roomTitle")}</span>
-          <input
-            className="name-input"
-            type="text"
-            name="title"
-            maxLength={HUB_CONFIG.maxTitleLength}
-            placeholder={t("roomTitlePlaceholder")}
-            autoComplete="off"
-          />
-        </label>
 
         <button className="cta block" type="submit" disabled={blocked}>
           {blocked ? congestion("full") : t("submit")}

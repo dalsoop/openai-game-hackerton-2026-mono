@@ -3,19 +3,37 @@
 // 값은 렌더마다 동기 읽기(localStorage, 불변 읽기라 무해) — 방 목록 변화 때마다 재판정된다.
 // 판정·정렬은 lib/room-membership(순수)이 담당.
 import { useEffect } from "react";
-import { readMyRoom, saveMyRoom, type MyRoomIdentity } from "@/lib/room-membership";
+import { clearMyRoom, listedMyRoom, readMyRoom, saveMyRoom, type MyRoomIdentity } from "@/lib/room-membership";
 
 interface DerivedRoom {
   roomId: string;
   isHost: boolean;
 }
 
-export function useMyRoom(derived: DerivedRoom | null): MyRoomIdentity | null {
+export function useMyRoom(
+  derived: DerivedRoom | null,
+  rooms: readonly { id: string }[] = [],
+  listReady = false,
+): MyRoomIdentity | null {
   useEffect(() => {
     if (derived) {
       saveMyRoom((k, v) => localStorage.setItem(k, v), { roomId: derived.roomId, host: derived.isHost });
     }
   }, [derived]);
 
-  return readMyRoom((k) => localStorage.getItem(k));
+  const stored = readMyRoom((k) => localStorage.getItem(k));
+  const storedId = stored?.roomId ?? "";
+
+  useEffect(() => {
+    if (derived) {return;}
+    if (!listReady) {return;}
+    if (storedId !== "" && !rooms.some((room) => room.id === storedId)) {
+      clearMyRoom((k) => localStorage.removeItem(k));
+    }
+  }, [derived, listReady, storedId, rooms]);
+
+  if (derived) {
+    return { roomId: derived.roomId, host: derived.isHost };
+  }
+  return listedMyRoom(stored, rooms);
 }

@@ -24,7 +24,8 @@ export const HUB_CONFIG = {
   maxSnapBytes: 24 * 1024,
   defaultName: "손님",
   gameServerUrl: process.env.GAME_SERVER_URL ?? "http://127.0.0.1:9122",
-  maxNameLength: 12,
+  // Mapo Hammer#999999 = 18.
+  maxNameLength: 24,
   maxTitleLength: 24,
   rateBudget: 60,
   rateRefillPerMs: 0.04,
@@ -75,11 +76,6 @@ export function slotRoomName(base: string, slot = slotId()): string {
 
 export const ROOM_NAME = slotRoomName("lobby");
 
-/** 게스트 기본 닉 — 십이지신. {이름}#{쿠키ID} 에 쓴다. */
-export const ZODIAC_NAMES = [
-  "쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지",
-] as const;
-
 export const KO = {
   DEFAULT_NAME: "손님",
   WEAPON_PISTOL: "권총",
@@ -92,9 +88,11 @@ export const KO = {
   LOAD_WAIT_TIMEOUT: "로딩이 끝나지 않아 경기에서 나갔습니다.",
   CANNOT_KICK: "지금은 내보낼 수 없습니다",
   HOST_ONLY_KICK: "호스트만 내보낼 수 있습니다",
+  HOST_ONLY_PASSWORD: "호스트만 비밀번호를 바꿀 수 있습니다",
   KICKED_MSG: "호스트가 방에서 내보냈습니다.",
   TAKEOVER_MSG: "다른 창에서 접속하여 이 화면은 비활성화되었습니다.",
   ROOM_CLOSED: "방이 닫혔습니다.",
+  WRONG_PASSWORD: "방 비밀번호가 올바르지 않습니다.",
   HOST_ONLY_TOGGLE: "호스트만 방을 열고 닫을 수 있습니다.",
   HOST_BOOT_FAIL: "호스트가 게임을 시작하지 못했습니다.",
   GAME_END_LOBBY: "게임이 끝났습니다. 대기실로 돌아왔습니다.",

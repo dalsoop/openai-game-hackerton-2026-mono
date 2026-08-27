@@ -1,7 +1,12 @@
 // KO 사용자 문구 정합 — 안내문 계약의 회귀 방지.
+import { readdirSync } from "fs";
+import { join } from "path";
 import { describe, expect, it } from "vitest";
 import { KO, HUB_CONFIG } from "@/lib/hub/config";
 import { listCharacters } from "@/lib/characters";
+import { ZODIAC_SIGNS } from "@/lib/favicon/signs";
+import { MESSAGE_PACKS } from "@/lib/i18n/message-packs";
+import { LOCALES } from "@/i18n/locales";
 import ko from "../messages/ko.json";
 import en from "../messages/en.json";
 
@@ -34,6 +39,35 @@ function messageKeys(obj: unknown, prefix = ""): string[] {
   );
 }
 
+describe("메시지 팩 ↔ routing", () => {
+  it("MESSAGE_PACKS 키와 messages/*.json 과 routing.locales 가 같다", () => {
+    const files = readdirSync(join(process.cwd(), "messages"))
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => name.replace(/\.json$/, ""))
+      .sort();
+    expect(Object.keys(MESSAGE_PACKS).sort()).toEqual([...LOCALES].sort());
+    expect(files).toEqual([...LOCALES].sort());
+  });
+
+  it("각 팩의 favicon.zodiac 키가 ZODIAC_SIGNS 와 같다", () => {
+    const ids = ZODIAC_SIGNS.map((sign) => sign.id).sort();
+    for (const [locale, pack] of Object.entries(MESSAGE_PACKS)) {
+      expect(Object.keys(pack.favicon.zodiac).sort(), locale).toEqual(ids);
+    }
+  });
+
+  it("게스트 닉은 로케일마다 같은 개수이고 비어 있지 않다", () => {
+    const counts = Object.values(MESSAGE_PACKS).map((pack) => pack.guest.nicks.length);
+    expect(new Set(counts).size).toBe(1);
+    expect(counts[0]).toBeGreaterThan(0);
+    for (const [locale, pack] of Object.entries(MESSAGE_PACKS)) {
+      for (const nick of pack.guest.nicks) {
+        expect(nick.length, `${locale} ${nick}`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe("ko/en 키 트리 대칭", () => {
   it("메시지 키가 양쪽 로케일에 같고 비어 있지 않다", () => {
     const koKeys = messageKeys(ko).sort();
@@ -47,6 +81,13 @@ describe("ko/en 키 트리 대칭", () => {
       expect(String(read(ko, key)).length, `ko ${key}`).toBeGreaterThan(0);
       expect(String(read(en, key)).length, `en ${key}`).toBeGreaterThan(0);
     }
+  });
+
+  it("대기실 시작 카운트다운 키가 있고 초 자리를 남긴다", () => {
+    expect(ko.room.startCountdown).toContain("{sec}");
+    expect(en.room.startCountdown).toContain("{sec}");
+    expect(ko.room.leaveLocked.length).toBeGreaterThan(0);
+    expect(en.room.leaveLocked).not.toBe(ko.room.leaveLocked);
   });
 
   it("로딩 타임아웃·로비 복귀 키가 영어에도 있다", () => {

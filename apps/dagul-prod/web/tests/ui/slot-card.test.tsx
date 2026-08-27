@@ -63,4 +63,16 @@ describe("SlotCard 캐릭터 순환", () => {
     const img = screen.getByRole("img", { name: ko.characters.unknown });
     expect(img.getAttribute("src")).toBe(first.portrait.src);
   });
+
+  it("토끼 슬롯은 시트를 절대 위치로 한 칸만 보여 준다", () => {
+    renderMine("a3");
+    const img = screen.getByRole("img", { name: ko.characters.a3 });
+    expect(img.getAttribute("src")).toBe("/characters/animals.png");
+    expect(img.style.left).toBe("-132px");
+    expect(img.style.top).toBe("0px");
+    expect(img.style.maxWidth).toBe("none");
+    expect(img.style.marginLeft).toBe("");
+    expect(img.parentElement?.style.overflow).toBe("hidden");
+  });
 });
+

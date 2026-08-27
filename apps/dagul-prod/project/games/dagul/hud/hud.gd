@@ -2,6 +2,7 @@ extends Control
 
 const GunSig = preload("res://games/dagul/sim/gun_signature.gd")
 const HudPjhScript = preload("res://games/dagul/hud/hud_pjh.gd")
+const HudAbilitiesScript = preload("res://games/dagul/hud/hud_abilities.gd")
 const TextCacheScript = preload("res://games/dagul/render/text_cache.gd")
 
 var world
@@ -35,6 +36,7 @@ var _ammo_casing_serial: int = 0
 var _ammo_last_tick: int = -1
 var _ammo_world_instance_id: int = 0
 var _pjh
+var _abilities
 var _result_hold_at_ms: int = -1
 
 func _ready() -> void:
@@ -61,6 +63,7 @@ func _ready() -> void:
     if ResourceLoader.exists("res://games/dagul/assets/lhj/Tex_Animal_4x3.png"):
         animal_texture = load("res://games/dagul/assets/lhj/Tex_Animal_4x3.png")
     _pjh = HudPjhScript.new(self)
+    _abilities = HudAbilitiesScript.new(self)
 
 
 func reset_match_visuals() -> void:
@@ -105,7 +108,7 @@ func _draw() -> void:
         _draw_roulette_overlay(me)
     else:
         draw_rect(Rect2(16.0, 16.0, 112.0, 34.0), Color(0.02, 0.03, 0.05, 0.72))
-        _text(Vector2(28.0, 39.0), "F1  HUD", 14, Color("#c8d5e4"))
+        _text(Vector2(28.0, 39.0), HudStrings.t("hud_f1"), 14, Color("#c8d5e4"))
     if hud_mode != 2 and world.result == &"playing" and bool(me["alive"]):
         _pjh.draw_ammo_conveyor(me)
     _draw_critical(me)
@@ -128,8 +131,8 @@ func _draw_status_panel(summary: Dictionary, me: Dictionary) -> void:
     var rows_n := float(world.heroes.size())
     var panel := Rect2(14.0, 12.0, 268.0, 92.0 + rows_n * 26.0)
     _draw_led_panel(panel, Color("#39ff6a"))
-    _text(Vector2(28.0, 42.0), "KILLS  %d" % int(me["kills"]), 28, Color("#7dff8a"))
-    _text(Vector2(28.0, 70.0), "ALIVE  %d / %d" % [int(summary["alive"]), world.heroes.size()], 22, Color("#d4ff6a"))
+    _text(Vector2(28.0, 42.0), HudStrings.t("hud_kills") % int(me["kills"]), 28, Color("#7dff8a"))
+    _text(Vector2(28.0, 70.0), HudStrings.t("hud_alive") % [int(summary["alive"]), world.heroes.size()], 22, Color("#d4ff6a"))
     _text(Vector2(170.0, 42.0), "%d" % roundi(float(me["score"])), 22, Color("#fff36a"))
     if net_rtt_ms > 0:
         _text(Vector2(170.0, 70.0), "%dms" % net_rtt_ms, 14, Color("#70e7ff"))
@@ -276,16 +279,19 @@ func _draw_hotbar(me: Dictionary) -> void:
         hp_color = Color("#ff5d73")
     elif hp_ratio <= 0.60:
         hp_color = Color("#ffb347")
-    _text(bar.position + Vector2(10.0, 15.0), "HP  %d / %d" % [roundi(hp_now), roundi(hp_max)], 13, hp_color, 304.0)
+    _text(bar.position + Vector2(10.0, 15.0), HudStrings.t("hud_hp") % [roundi(hp_now), roundi(hp_max)], 13, hp_color, 304.0)
     _pjh.draw_status_blocks(Rect2(bar.position + Vector2(8.0, 19.0), Vector2(310.0, 16.0)), hp_ratio, 10, hp_color, hp_now > 0.0, false, 1.2)
     var ult_max := 100.0
     var power_ratio := clampf(float(me.get("ultimate_charge", 0.0)) / maxf(1.0, ult_max), 0.0, 1.0)
     var ult_ready := power_ratio >= 0.999
     var ult_color := Color("#a970ff") if ult_ready else Color("#4f8cff")
-    _text(bar.position + Vector2(328.0, 15.0), "ULT READY" if ult_ready else "ULT  %d%%" % roundi(power_ratio * 100.0), 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
+    var ult_label := HudStrings.t("hud_ult_ready") if ult_ready else HudStrings.t("hud_ult_pct") % roundi(power_ratio * 100.0)
+    _text(bar.position + Vector2(328.0, 15.0), ult_label, 12, ult_color, 164.0, HORIZONTAL_ALIGNMENT_RIGHT)
     _pjh.draw_status_blocks(Rect2(bar.position + Vector2(326.0, 19.0), Vector2(168.0, 16.0)), power_ratio, 8, ult_color, false, ult_ready, 0.7)
     _draw_perk_chips_at(me, bar.position + Vector2(8.0, 38.0), bar.size.x - 16.0)
     _draw_medkit_slot(Rect2(bar.position.x - 100.0, bar.position.y + 8.0, 92.0, 70.0), me)
+    if _abilities != null:
+        _abilities.draw_tray(me)
 
 func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void:
     var mag_now: int = int(me.get("mag", 0))
@@ -311,11 +317,11 @@ func _draw_ammo_slot(rect: Rect2, me: Dictionary, equipment: Dictionary) -> void
     draw_rect(rect, rim, false, 2.0)
     draw_rect(Rect2(rect.position + Vector2(10.0, 44.0), Vector2(rect.size.x - 20.0, 8.0)), Color("#1b2430"))
     draw_rect(Rect2(rect.position + Vector2(10.0, 44.0), Vector2((rect.size.x - 20.0) * fill, 8.0)), rim)
-    var label: String = "AMMO  %d / %d" % [mag_now, mag_max]
+    var label: String = HudStrings.t("hud_ammo") % [mag_now, mag_max]
     if reloading:
-        label = "RELOAD  %d / %d" % [mag_now, mag_max]
+        label = HudStrings.t("hud_reload") % [mag_now, mag_max]
     elif mag_now <= 0:
-        label = "EMPTY  0 / %d" % mag_max
+        label = HudStrings.t("hud_empty") % mag_max
     _text(rect.position + Vector2(12.0, 28.0), label, 22, Color.WHITE, rect.size.x - 24.0)
 
 func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
@@ -325,7 +331,7 @@ func _draw_gun_slot(rect: Rect2, equipment: Dictionary) -> void:
         draw_texture_rect(gun_texture, Rect2(rect.position + Vector2(10.0, 17.0), Vector2(52.0, 30.0)), false)
     else:
         draw_line(rect.position + Vector2(12.0, 30.0), rect.position + Vector2(52.0, 30.0), Color("#ffd166"), 8.0)
-    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_fire") if touch_hints else "LMB", 11, Color("#ffd166"))
+    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_fire") if touch_hints else HudStrings.t("hud_key_lmb"), 11, Color("#ffd166"))
     _text(rect.position + Vector2(70.0, 28.0), str(equipment["name"]), 14, Color.WHITE, rect.size.x - 78.0)
     _text(rect.position + Vector2(70.0, 48.0), str(equipment["character_name"]), 11, Color("#aebaca"), rect.size.x - 78.0)
 
@@ -333,7 +339,7 @@ func _draw_medkit_slot(rect: Rect2, me: Dictionary) -> void:
     if str(world.mode) == "item":
         var kind := str(me.get("held_item", ""))
         var label := HudBuffs.held_item_label(kind)
-        var usable := label != "EMPTY"
+        var usable := kind != ""
         var accent: Color = HudBuffs.held_item_color(kind)
         _draw_medkit_frame(rect, accent, usable)
         var icon_tex: Texture2D = null
@@ -387,7 +393,7 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> voi
         var cy := rect.position.y + 30.0
         draw_line(Vector2(cx - 6.0, cy - 10.0), Vector2(cx + 6.0, cy), chevron, 4.0)
         draw_line(Vector2(cx + 6.0, cy), Vector2(cx - 6.0, cy + 10.0), chevron, 4.0)
-    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_dash") if touch_hints else "SHIFT", 10, chevron)
+    _text(rect.position + Vector2(10.0, 15.0), HudStrings.t("touch_dash"), 10, chevron)
     if ready:
         _text(rect.position + Vector2(48.0, 40.0), HudStrings.t("touch_dash"), 15, Color.WHITE)
     else:
@@ -396,25 +402,25 @@ func _draw_dash_slot(rect: Rect2, me: Dictionary, _equipment: Dictionary) -> voi
 func _draw_scoreboard() -> void:
     var rows: Array[Dictionary] = world.leaderboard()
     draw_rect(Rect2(940.0, 300.0, 644.0, 66.0 + float(rows.size()) * 31.0), Color(0.02, 0.03, 0.05, 0.91))
-    _text(Vector2(960.0, 328.0), "LIVE RANK  CHARACTER / GUN            SCORE  D/D  ZONE  STATE", 13, Color("#ffd166"))
+    _text(Vector2(960.0, 328.0), HudStrings.t("hud_scoreboard"), 13, Color("#ffd166"))
     for rank in range(rows.size()):
         var row: Dictionary = rows[rank]
         var slot := int(row["slot"])
         var hero: Dictionary = world.heroes[slot]
         var equipment: Dictionary = hero["equipment"]
-        var state := "LIVE"
+        var state := HudStrings.t("state_live")
         if bool(hero["eliminated"]):
-            state = "OUT"
+            state = HudStrings.t("state_out")
         elif not bool(hero["alive"]):
-            state = "WAIT"
+            state = HudStrings.t("state_wait")
         elif float(hero.get("stun_time", 0.0)) > 0.0:
-            state = "STUN"
+            state = HudStrings.t("state_stun")
         elif float(hero.get("root_time", 0.0)) > 0.0:
-            state = "ROOT"
+            state = HudStrings.t("state_root")
         elif float(hero["cc_time"]) > 0.0:
-            state = "CC"
+            state = HudStrings.t("state_cc")
         elif int(hero.get("kill_streak", 0)) >= 2:
-            state = "LIVE x%d" % int(hero["kill_streak"])
+            state = HudStrings.t("state_live_streak") % int(hero["kill_streak"])
         var y := 360.0 + rank * 31.0
         var row_color: Color = Color("#283242") if slot == world.local_slot else Color(0.08, 0.10, 0.14, 0.72)
         draw_rect(Rect2(952.0, y - 19.0, 620.0, 26.0), row_color)
@@ -423,7 +429,7 @@ func _draw_scoreboard() -> void:
         _text(Vector2(1280.0, y), "%4d" % roundi(float(row["score"])), 13, Color("#ffd166"))
         _text(Vector2(1340.0, y), "%d/%d" % [int(row["kills"]), int(row["deaths"])], 13, Color("#dbe5f0"))
         _text(Vector2(1395.0, y), "%3d" % roundi(float(world.safe_zone_radius)), 13, Color("#6ef3a5"))
-        _text(Vector2(1442.0, y), state, 11, Color("#ff9ca4") if state != "LIVE" else Color("#8be3ff"))
+        _text(Vector2(1442.0, y), state, 11, Color("#ff9ca4") if state != HudStrings.t("state_live") else Color("#8be3ff"))
 
 func _draw_match_result() -> void:
     _pjh.draw_match_result()
@@ -441,15 +447,15 @@ func _draw_ultimate_cinematic() -> void:
     draw_rect(banner, Color(0.025, 0.030, 0.045, fade * 0.92))
     draw_rect(Rect2(banner.position, Vector2(6.0, banner.size.y)), player_colors[world.ultimate_focus_slot])
     _text(banner.position + Vector2(24.0, 24.0), "P%d  %s" % [world.ultimate_focus_slot + 1, equipment["character_name"]], 13, Color(Color("#c8d5e4"), fade), 160.0)
-    _text(banner.position + Vector2(24.0, 47.0), str(equipment["ultimate_name"]), 22, Color(Color("#ff8dac"), fade), 430.0)
+    _text(banner.position + Vector2(24.0, 47.0), HudStrings.animal_ult(int(actor.get("animal", 0))), 22, Color(Color("#ff8dac"), fade), 430.0)
 
 func _draw_critical(me: Dictionary) -> void:
     if bool(me["alive"]) and float(me.get("stun_time", 0.0)) > 0.0:
         draw_rect(Rect2(550.0, 660.0, 500.0, 48.0), Color(0.10, 0.06, 0.0, 0.90))
-        _text(Vector2(570.0, 692.0), "STUNNED  |  INPUT LOCKED", 20, Color("#ffe27a"), 460.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(570.0, 692.0), HudStrings.t("hud_stunned"), 20, Color("#ffe27a"), 460.0, HORIZONTAL_ALIGNMENT_CENTER)
     elif bool(me["alive"]) and float(me.get("root_time", 0.0)) > 0.0:
         draw_rect(Rect2(510.0, 660.0, 580.0, 48.0), Color(0.07, 0.025, 0.12, 0.90))
-        _text(Vector2(530.0, 691.0), "ROOTED  |  MOVE/SHIFT/SPACE LOCKED - FIRE AVAILABLE", 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
+        _text(Vector2(530.0, 691.0), HudStrings.t("hud_rooted"), 17, Color("#d8b4ff"), 540.0, HORIZONTAL_ALIGNMENT_CENTER)
     if world.last_down_ticks > 0 and world.last_down_slot >= 0:
         var down_alpha := clampf(float(world.last_down_ticks) / 18.0, 0.0, 1.0)
         var down_hero: Dictionary = world.heroes[world.last_down_slot]
@@ -493,20 +499,20 @@ func _draw_wanted_banner() -> void:
     var banner := Rect2(560.0, 14.0, 480.0, 34.0)
     draw_rect(banner, Color(0.28, 0.04, 0.06, 0.36))
     draw_rect(banner, Color("#ff3349", 0.85), false, 2.0)
-    _text(banner.position + Vector2(12.0, 23.0), "WANTED P%d  %s" % [slot + 1, name], 16, Color("#ffd166"), banner.size.x - 20.0)
+    _text(banner.position + Vector2(12.0, 23.0), HudStrings.t("hud_wanted") % [slot + 1, name], 16, Color("#ffd166"), banner.size.x - 20.0)
 
 func _draw_life_status(me: Dictionary) -> void:
     # revives_used 는 스냅에 안 실린다. deaths 가 죽음마다 같은 지점에서 함께
     # 증가하므로(match-life.ts resolveDeath) 잔여 부활은 deaths 로 계산한다.
     var left := maxi(0, 3 - int(me.get("deaths", 0)))
     if bool(me.get("eliminated", false)):
-        _text(Vector2(560.0, 782.0), "OUT", 18, Color("#ff5d73"))
+        _text(Vector2(560.0, 782.0), HudStrings.t("hud_out"), 18, Color("#ff5d73"))
         return
-    _text(Vector2(560.0, 782.0), "%d LEFT" % left, 16, Color("#ffd166"))
+    _text(Vector2(560.0, 782.0), HudStrings.t("hud_lives") % left, 16, Color("#ffd166"))
     if bool(me.get("downed", false)):
-        _text(Vector2(680.0, 782.0), "DOWN %.1f   FINISH %d/48" % [float(me.get("down_left", 0.0)), int(round(float(me.get("down_taken", 0.0))))], 16, Color("#ff8d93"))
+        _text(Vector2(680.0, 782.0), HudStrings.t("hud_down_finish") % [float(me.get("down_left", 0.0)), int(round(float(me.get("down_taken", 0.0))))], 16, Color("#ff8d93"))
     elif not bool(me["alive"]) and float(me.get("respawn_left", 0.0)) > 0.0:
-        _text(Vector2(680.0, 782.0), "RESPAWN %.1f" % float(me["respawn_left"]), 16, Color("#70e7ff"))
+        _text(Vector2(680.0, 782.0), HudStrings.t("hud_respawn") % float(me["respawn_left"]), 16, Color("#70e7ff"))
 func _draw_perk_chips_at(me: Dictionary, origin: Vector2, width: float) -> void:
     if not bool(me.get("alive", false)):
         return

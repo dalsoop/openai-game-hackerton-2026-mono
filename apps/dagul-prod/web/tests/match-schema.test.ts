@@ -406,6 +406,7 @@ describe("writeMatchState", () => {
     expect(schema.hud.moveSpeed).toBe(hero.equipment.moveSpeed);
     expect(schema.hud.medkits).toBe(hero.medkits);
     expect(schema.hud.mobilityDist).toBe(hero.equipment.mobilityDistance);
+    expect(schema.hud.equipmentCd).toBe(0);
   });
 
   it("탄 schema 가 radius·arc·heavy·src 를 싣는다", () => {

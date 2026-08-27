@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ZODIAC_NAMES } from "@/lib/hub/config";
 import {
   cookieWritePair,
-  guestNameOf,
   mintGuestId,
   parseGuestId,
   readCookie,
@@ -17,19 +15,6 @@ describe("parseGuestId", () => {
     expect(parseGuestId("12.5")).toBeNull();
     expect(parseGuestId("")).toBeNull();
     expect(parseGuestId(undefined)).toBeNull();
-  });
-});
-
-describe("guestNameOf", () => {
-  it("십이지신을 쿠키 ID 로 고른다", () => {
-    expect(guestNameOf(0)).toBe("쥐#0");
-    expect(guestNameOf(2)).toBe("호랑이#2");
-    expect(guestNameOf(12)).toBe("쥐#12");
-    expect(guestNameOf(8)).toBe("원숭이#8");
-  });
-
-  it("목록 길이는 12", () => {
-    expect(ZODIAC_NAMES).toHaveLength(12);
   });
 });
 

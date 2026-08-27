@@ -157,6 +157,17 @@ describe("정본 카탈로그 공개 API", () => {
     }
   });
 
+  it("토끼 a3 는 4×3 시트 index 3 이다", () => {
+    const sheet = canon.sheets?.[0];
+    expect(sheet).toEqual(expect.objectContaining({
+      src: "/characters/animals.png", cols: 4, rows: 3, idPrefix: "a",
+    }));
+    expect(findCharacter("a3")?.portrait).toEqual({
+      src: "/characters/animals.png", cols: 4, rows: 3, index: 3,
+    });
+    expect(findCharacter("a3")?.titleKey).toBe("characters.a3");
+  });
+
   it("정본 길이는 entries + 시트 칸이다", () => {
     const cells = (canon.sheets ?? []).reduce((n, s) => n + s.cols * s.rows, 0);
     expect(listCharacters()).toHaveLength((canon.entries ?? []).length + cells);

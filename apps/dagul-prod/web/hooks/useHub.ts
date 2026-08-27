@@ -75,7 +75,8 @@ export function useHub(): UseHubResult {
   } = useDropSession();
 
   // 게임 방에 들어가 있는 동안엔 리스트 연결을 내려 자원을 아낀다.
-  const { rooms, lobbyErr, lobbyConnecting, refresh, refreshing } = useRoomList(connected && !joinRequest);
+  const listActive = connected && !joinRequest;
+  const { rooms, lobbyErr, lobbyConnecting, refresh, refreshing } = useRoomList(listActive);
   const handleResumeFailed = useCallback((message: string) => {
     setError(message);
     setJoinRequest(null);
@@ -130,7 +131,8 @@ export function useHub(): UseHubResult {
   const status: HubStatus = deriveStatus(derived, connected, lobbyErr, lobbyConnecting, matchInfo);
 
   // 내 방 멤버십 — 방에 있으면 식별자를 남긴다(강제 단절 후 로비 목록에서 상단 고정·재입장용).
-  const myRoom = useMyRoom(derived);
+  // 목록에 없는 id 는 유령이다. 확인창을 띄우지 않고 저장소에서 지운다.
+  const myRoom = useMyRoom(derived, rooms, listActive && !lobbyConnecting);
   const commands = useHubCommands(
     nameRef, room, setJoinRequest, setMatchInfo,
     setError, setConnected, setResumeFailed, clearDrop, takeReconnectId,
@@ -141,6 +143,9 @@ export function useHub(): UseHubResult {
     setGame: (game: string): void => {room?.send(MSG.SET_GAME, { game });},
     setCharacter: (characterId: string): void => {room?.send(MSG.SET_CHARACTER, { characterId });},
     toggleRoom: (): void => {room?.send(MSG.ROOM_TOGGLE, {});},
+    kickSeat: (slot: number): void => {room?.send(MSG.KICK, { slot });},
+    setPassword: (password: string): void => {room?.send(MSG.SET_PASSWORD, { password });},
+    setLock: (on: boolean): void => {room?.send(MSG.SET_PASSWORD, { enabled: on });},
   }), [room]);
   const sendPackPct = useSendPackPct(room, `${derived?.roomId ?? ""}:${derived?.gameId ?? ""}`);
   const idleLeftSec = useRoomIdle(derived?.idleUntilSec ?? 0, status === "in-room");
@@ -156,6 +161,8 @@ export function useHub(): UseHubResult {
     roomId: derived?.roomId ?? "",
     isHost: derived?.isHost ?? false,
     roomOpen: derived?.open ?? true,
+    roomPassword: derived?.password ?? "",
+    roomPhase: derived?.phase ?? "",
     resumeToken: derived?.resumeToken ?? "",
     rttMs,
     error,
@@ -164,6 +171,9 @@ export function useHub(): UseHubResult {
     connect: commands.connect,
     createRoom: commands.createRoom,
     joinRoom: commands.joinRoom,
+    kickSeat: sends.kickSeat,
+    setPassword: sends.setPassword,
+    setLock: sends.setLock,
     leaveRoom: commands.leaveRoom,
     forgetMyRoom: commands.forgetMyRoom,
     disconnect: commands.disconnect,
@@ -173,6 +183,7 @@ export function useHub(): UseHubResult {
     setGame: sends.setGame,
     setCharacter: sends.setCharacter,
     idleLeftSec,
+    startInSec: derived?.startInSec ?? 0,
     toggleRoom: sends.toggleRoom,
     refreshRooms: refresh,
     refreshingRooms: refreshing,

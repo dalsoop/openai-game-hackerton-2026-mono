@@ -3,11 +3,12 @@
  * 닉네임 입력과 인트로 화면 — 세션 재개는 useGameFlow 마운트 시 자동 시도한다
  */
 import type { JSX } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { CongestionBanner } from "@/components/CongestionBanner";
 import { playOkButton } from "@/lib/ui-sfx";
 import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
+import { HUB_CONFIG } from "@/lib/hub/config";
 
 interface OfflinePhaseProps {
   nickname: string;
@@ -27,7 +28,6 @@ export function OfflinePhase({
   ccu = null,
 }: OfflinePhaseProps): JSX.Element {
   const t = useTranslations();
-  const locale = useLocale();
   const blocked = ccu !== null && !ccu.admit;
 
   return (
@@ -36,8 +36,8 @@ export function OfflinePhase({
         {/* eslint-disable @next/next/no-img-element -- 인트로 정적 배너·로고, 반응형 폭 유지 */}
         <img className="banner-art" src="/assets/title-animals.png" alt="" />
         <img
-          className={locale === "ko" ? "intro-logo intro-logo-ko" : "intro-logo"}
-          src={locale === "ko" ? "/assets/logo-animal-dagulz-ko.png" : "/assets/logo-animal-dagulz-en.png?v=2"}
+          className={t("logo.className")}
+          src={t("logo.src")}
           alt=""
         />
         {/* eslint-enable @next/next/no-img-element */}
@@ -54,7 +54,7 @@ export function OfflinePhase({
             value={nickname}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder={t("intro.namePlaceholder")}
-            maxLength={12}
+            maxLength={HUB_CONFIG.maxNameLength}
             onKeyDown={(e) => {
               if (e.key !== "Enter" || blocked) {return;}
               playOkButton();

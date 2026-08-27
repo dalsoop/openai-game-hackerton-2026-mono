@@ -11,6 +11,7 @@ interface SlotCardProps {
   player: Seat | null;
   you: number;
   onSetCharacter?: (characterId: string) => void;
+  onKick?: (slot: number) => void;
   pingMs?: number;
 }
 
@@ -114,10 +115,11 @@ function SlotFilledBody({
   );
 }
 
-export default function SlotCard({ index, player, you, onSetCharacter, pingMs = 0 }: SlotCardProps): JSX.Element {
+export default function SlotCard({ index, player, you, onSetCharacter, onKick, pingMs = 0 }: SlotCardProps): JSX.Element {
   const t = useTranslations("room");
   const conn = useTranslations("connection");
   const isMe = index === you;
+  const canKick = Boolean(onKick && player && !isMe);
   const classes = ["slot-card", player && "filled", isMe && "me"].filter(Boolean).join(" ");
   return (
     <div className={classes}>
@@ -127,6 +129,11 @@ export default function SlotCard({ index, player, you, onSetCharacter, pingMs = 
       ) : (
         <div className="slot-cpu">{t("cpuAtStart")}</div>
       )}
+      {canKick ? (
+        <button type="button" className="slot-kick" onClick={() => {onKick?.(index);}}>
+          {t("kick")}
+        </button>
+      ) : null}
     </div>
   );
 }

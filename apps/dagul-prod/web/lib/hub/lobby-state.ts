@@ -46,6 +46,8 @@ export class LobbyState extends Schema {
   @type("string") phase: "lobby" | "playing" = "lobby";
   @type("string") hostSessionId = "";
   @type("string") title = "";
+  /** 방 안 클라만 본다. 로비 목록 메타에는 안 올린다. */
+  @type("string") password = "";
   @type("string") mode = defaultModeOf(asGameId(undefined));
   @type("number") seed = 0;
   @type("number") createdAtMs = 0;
@@ -59,4 +61,6 @@ export class LobbyState extends Schema {
   @type(MatchStateSchema) match = new MatchStateSchema();
   /** 인게임 로딩 장벽. 전원 matchReady 이면 false. packPct·경과 시간으로는 풀지 않는다. */
   @type("boolean") loadHeld = false;
+  /** 대기실 시작 카운트다운 남은 초. 0 이면 세지 않는 중. */
+  @type("uint8") startInSec = 0;
 }

@@ -128,6 +128,7 @@ function fillHeroHudV2(row: MatchHeroSchema, h: SimHero): void {
   row.hud.eliminated = h.eliminated;
   row.hud.medkits = h.medkits;
   row.hud.mobilityDist = h.equipment.mobilityDistance;
+  row.hud.equipmentCd = h.equipmentCd;
   const until = h.untilBuffs;
   row.hud.untilBuffs.atk = until.atk;
   row.hud.untilBuffs.spd = until.spd;

@@ -54,11 +54,25 @@ export function membershipOf(room: Pick<HubRoom, "id">, mine: MyRoomIdentity | n
   return { membership: mine.host ? "host" : "member", pinned: true };
 }
 
-/** 아직 살아있는 내 방을 두고 다른 방(targetRoomId 생략 시 "방 만들기" 같은 새 방)으로
+/** 로비 목록에 실제로 있는 내 방만 산 것으로 본다. 저장소에만 남은 유령 id 는 버린다. */
+export function listedMyRoom(
+  mine: MyRoomIdentity | null,
+  rooms: readonly Pick<HubRoom, "id">[],
+): MyRoomIdentity | null {
+  if (!mine) {return null;}
+  return rooms.some((room) => room.id === mine.roomId) ? mine : null;
+}
+
+/** 목록에 보이는 내 방을 두고 다른 방(targetRoomId 생략 시 "방 만들기")으로
  * 가려는지 — true 면 호출자가 나가기 확인을 받아야 한다. */
-export function needsLeaveConfirm(mine: MyRoomIdentity | null, targetRoomId?: string): boolean {
-  if (!mine) {return false;}
-  return targetRoomId === undefined || targetRoomId !== mine.roomId;
+export function needsLeaveConfirm(
+  mine: MyRoomIdentity | null,
+  targetRoomId?: string,
+  rooms?: readonly Pick<HubRoom, "id">[],
+): boolean {
+  const live = rooms ? listedMyRoom(mine, rooms) : mine;
+  if (!live) {return false;}
+  return targetRoomId === undefined || targetRoomId !== live.roomId;
 }
 
 /** 멤버십 우선 정렬 — 방장 > 참여 > 나머지(원래 순서 유지, 안정 정렬). */

@@ -14,6 +14,7 @@ export function toHubRoom(r: RoomAvailable): HubRoom {
     mode: String(meta.mode ?? ""),
     playing: meta.phase === "playing",
     open: meta.open !== false,
+    hasPassword: meta.hasPassword === true,
   };
 }
 

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { JSX } from "react";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getTranslations } from "next-intl/server";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { GameFlowProvider } from "@/hooks/GameFlowProvider";
@@ -67,11 +67,13 @@ export default async function LocaleLayout({
     notFound();
   }
 
+  setRequestLocale(locale);
+
   // 메시지 로드
   const messages = await getMessages();
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
       <html lang={locale} suppressHydrationWarning>
         <head>
           {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router 에는 _document 가 없다 */}

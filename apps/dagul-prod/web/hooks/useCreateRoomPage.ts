@@ -12,7 +12,7 @@ export function useCreateRoomPage(): {
   ready: boolean;
   creating: boolean;
   listings: GameListing[];
-  onSubmit: (game: string, title: string) => void;
+  onSubmit: (game: string, title: string, lock: boolean) => void;
   onBack: () => void;
 } {
   const flow = useGameFlowContext();
@@ -31,8 +31,8 @@ export function useCreateRoomPage(): {
     if (surface === "redirect") {router.replace("/");}
   }, [surface, router]);
 
-  const onSubmit = useCallback((game: string, title: string): void => {
-    flow.hub.createRoom({ game, title });
+  const onSubmit = useCallback((game: string, title: string, lock: boolean): void => {
+    flow.hub.createRoom({ game, title, lock });
   }, [flow.hub]);
 
   const onBack = useCallback((): void => {

@@ -3,11 +3,13 @@
 import type { JSX } from "react";
 import type { Seat } from "@/lib/domain/roster";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { findGame, modeI18nKey, visibleCatalog } from "@/lib/games/catalog";
+import { modeI18nKey } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
+import RoomTools from "@/components/RoomTools";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { useTranslations } from "next-intl";
 import { playOkButton } from "@/lib/ui-sfx";
+import { lobbyLeaveLocked } from "@/lib/domain/waiting-room-start";
 
 interface Props {
   players: Seat[];
@@ -22,21 +24,28 @@ interface Props {
   onSetGame: (game: string) => void;
   onToggleRoom: () => void;
   onSetCharacter: (characterId: string) => void;
+  onKick: (slot: number) => void;
+  onSetPassword: (password: string) => void;
+  onSetLock: (on: boolean) => void;
+  roomId: string;
+  password: string;
+  matchWait: boolean;
   canStart: boolean;
   connClass: string;
   connText: string;
   rttMs: number;
   rttText: string | null;
+  startInSec: number;
 }
 
 export default function Room({
   players, you, isHost, gameId, mode, idleLeftSec,
-  onStart, onLeave, onSetGame, onSetCharacter, canStart,
-  rttMs,
+  onStart, onLeave, onSetGame, onSetCharacter, onKick, onSetPassword, onSetLock, canStart,
+  roomId, password, matchWait, rttMs, startInSec,
 }: Props): JSX.Element {
   const t = useTranslations("room");
-  const games = useTranslations();
-  const current = findGame(gameId);
+  const leaveLocked = lobbyLeaveLocked(startInSec);
+  const counting = startInSec > 0;
   const slots = Array.from(
     { length: HUB_CONFIG.maxPlayers },
     (_, i) => players.find((p) => p.slot === i) ?? null,
@@ -45,7 +54,13 @@ export default function Room({
   return (
     <div className="fade-in wait-panel">
       <div className="back-row">
-        <button type="button" className="ghost btn-icon" onClick={onLeave} aria-label={t("leaveButton")}>
+        <button
+          type="button"
+          className="ghost btn-icon"
+          onClick={onLeave}
+          disabled={leaveLocked}
+          aria-label={leaveLocked ? t("leaveLocked") : t("leaveButton")}
+        >
           <MaterialIcon name="undo" />
         </button>
         <div className="wait-line">
@@ -54,32 +69,35 @@ export default function Room({
         </div>
       </div>
 
-      {isHost ? (
-        <fieldset className="wait-games">
-          <legend className="sec-title">{t("changeGame")}</legend>
-          <div className="wait-game-list">
-            {visibleCatalog().map((g) => (
-              <label key={g.id} className={`wait-game${g.id === gameId ? " on" : ""}`}>
-                <input
-                  type="radio"
-                  name="room-game"
-                  value={g.id}
-                  checked={g.id === gameId}
-                  onChange={() => {onSetGame(g.id);}}
-                />
-                <span>{games(g.titleKey)}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : (
-        <p className="wait-game-fixed">{current ? games(current.titleKey) : ""}</p>
+      {matchWait && <p className="wait-match">{t("matchWait")}</p>}
+      {counting && (
+        <p className="wait-start-count" data-lock={leaveLocked || undefined}>
+          {t("startCountdown", { sec: startInSec })}
+        </p>
       )}
+
+      <RoomTools
+        isHost={isHost}
+        gameId={gameId}
+        roomId={roomId}
+        password={password}
+        onSetGame={onSetGame}
+        onSetPassword={onSetPassword}
+        onSetLock={onSetLock}
+      />
 
       <div className="slots">
         {slots.map((player, i) => (
-          // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
-          <SlotCard key={i} index={i} player={player} you={you} onSetCharacter={onSetCharacter} pingMs={i === you ? rttMs : 0} />
+          <SlotCard
+            // eslint-disable-next-line react/no-array-index-key -- 슬롯 인덱스가 곧 신원이다 (고정 좌석)
+            key={i}
+            index={i}
+            player={player}
+            you={you}
+            onSetCharacter={onSetCharacter}
+            onKick={isHost ? onKick : undefined}
+            pingMs={i === you ? rttMs : 0}
+          />
         ))}
       </div>
 
@@ -97,9 +115,9 @@ export default function Room({
               playOkButton();
               onStart();
             }}
-            disabled={!canStart}
+            disabled={!canStart || counting}
           >
-            {t("startButton")}
+            {counting ? t("startCountdown", { sec: startInSec }) : t("startButton")}
           </button>
         ) : (
           <div className="host-wait">{t("waitingForHost")}</div>
@@ -110,6 +128,7 @@ export default function Room({
           {isHost ? t("idleHost", { sec: idleLeftSec }) : t("idleGuest", { sec: idleLeftSec })}.
         </p>
       )}
+
     </div>
   );
 }

@@ -8,12 +8,12 @@ const avail = (id: string, clients = 1, phase = "lobby"): RoomAvailable =>
 describe("toHubRoom — 뷰 모델 매핑", () => {
   it("메타데이터 → HubRoom", () => {
     expect(toHubRoom(avail("r1", 3, "playing"))).toEqual({
-      id: "r1", gameId: "", title: "방r1", players: 3, mode: "solo", playing: true, open: true,
+      id: "r1", gameId: "", title: "방r1", players: 3, mode: "solo", playing: true, open: true, hasPassword: false,
     });
   });
   it("메타 없으면 기본값", () => {
     const bare = { roomId: "r2", clients: 0 } as RoomAvailable;
-    expect(toHubRoom(bare)).toEqual({ id: "r2", gameId: "", title: "r2", players: 0, mode: "", playing: false, open: true });
+    expect(toHubRoom(bare)).toEqual({ id: "r2", gameId: "", title: "r2", players: 0, mode: "", playing: false, open: true, hasPassword: false });
   });
   it("닫힌 방·게임 id 를 메타에서 읽는다", () => {
     const closed = {
@@ -21,12 +21,20 @@ describe("toHubRoom — 뷰 모델 매핑", () => {
       metadata: { title: "저녁", gameId: "sparring", mode: "full", phase: "lobby", open: false },
     } as unknown as RoomAvailable;
     expect(toHubRoom(closed)).toEqual({
-      id: "r3", gameId: "sparring", title: "저녁", players: 2, mode: "full", playing: false, open: false,
+      id: "r3", gameId: "sparring", title: "저녁", players: 2, mode: "full", playing: false, open: false, hasPassword: false,
     });
   });
 });
 
 describe("listableRoom", () => {
+  it("비밀번호 방을 메타에서 읽는다", () => {
+    const locked = {
+      roomId: "r4", clients: 1,
+      metadata: { title: "비밀", hasPassword: true },
+    } as unknown as RoomAvailable;
+    expect(toHubRoom(locked).hasPassword).toBe(true);
+  });
+
   it("플레이 중·닫힘·만석·잠금은 뺀다", () => {
     expect(listableRoom(avail("a", 1, "lobby"))).toBe(true);
     expect(listableRoom(avail("b", 1, "playing"))).toBe(false);

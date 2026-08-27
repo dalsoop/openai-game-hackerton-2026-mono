@@ -9,6 +9,7 @@ func run(t) -> void:
 	_en_locale_works(t)
 	_unknown_locale_falls_back(t)
 	_zodiac_count(t)
+	_named_lookups(t)
 
 func _locales_exist(t) -> void:
 	t.check("ko locale 존재", HudStrings.STRINGS.has("ko"))
@@ -63,3 +64,14 @@ func _zodiac_count(t) -> void:
 			if str(key).begins_with("zodiac_"):
 				count += 1
 		t.check("%s zodiac 12개" % locale, count == 12)
+
+func _named_lookups(t) -> void:
+	HudStrings.set_locale("ko")
+	t.check("ko 돼지 궁", HudStrings.animal_ult(11) == "진흙") # lint-gd: i18n-ok
+	t.check("ko AWM 스킬", HudStrings.skill("rail") == "고정 파괴") # lint-gd: i18n-ok
+	t.check("ko 대시 기본", HudStrings.mobility("net") == HudStrings.t("mobility_default"))
+	t.check("ko 아이템 빈값", HudStrings.item("") == HudStrings.t("item_default"))
+	HudStrings.set_locale("en")
+	t.check("en 돼지 궁", HudStrings.animal_ult(11) == "Mud")
+	t.check("en AWM 스킬", HudStrings.skill("rail") == "Anchor Break")
+	HudStrings.set_locale("ko")

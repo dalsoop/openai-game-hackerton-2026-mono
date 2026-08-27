@@ -19,6 +19,17 @@
       "pig": "돼지"
     }
   },
+  "guest": {
+    "nicks": [
+      "다굴맨",
+      "실망한 중대장",
+      "너굴맨",
+      "댕댕이",
+      "마포구 오함마",
+      "화성갈꺼니까",
+      "옥황상제"
+    ]
+  },
   "connection": {
     "connected": "접속됨",
     "connecting": "연결 중...",
@@ -79,7 +90,9 @@
   },
   "logo": {
     "word": "다굴즈",
-    "full": "애니멀 다굴즈"
+    "full": "애니멀 다굴즈",
+    "src": "/assets/logo-animal-dagulz-ko.png",
+    "className": "intro-logo intro-logo-ko"
   },
   "update": {
     "available": "새 버전이 올라왔습니다. 새로고침하면 적용됩니다.",
@@ -90,6 +103,11 @@
     "refresh": "새로고침",
     "emptyRooms": "아직 열린 방이 없습니다.",
     "room": "방",
+    "search": "방 검색",
+    "searchPlaceholder": "방 이름 또는 번호",
+    "locked": "비밀번호 방",
+    "passwordPrompt": "{title} 비밀번호",
+    "passwordCancel": "취소",
     "createButton": "방 만들기",
     "joining": "방에 들어가는 중입니다...",
     "join": "입장",
@@ -117,9 +135,13 @@
   },
   "create": {
     "title": "방 만들기",
-    "blurb": "플레이할 게임을 고르고 방 이름을 정하세요.",
+    "blurb": "이름과 게임을 고르세요.",
     "roomTitle": "방 이름",
-    "roomTitlePlaceholder": "비워 두면 기본 이름이 들어갑니다",
+    "roomTitlePlaceholder": "방 이름 (비워도 됩니다)",
+    "lock": "비밀번호",
+    "lockHint": "숫자 4자리",
+    "lockOpen": "공개",
+    "lockOpenHint": "누구나 입장",
     "gameSelect": "게임",
     "meta": "ver {version} · {size}",
     "versionUnknown": "버전 없음",
@@ -147,6 +169,8 @@
     "cpuAtStart": "컴퓨터 봇",
     "playerCount": "{count}/{max}명 · 빈 자리는 컴퓨터 봇이 채웁니다",
     "startButton": "게임 시작",
+    "startCountdown": "{sec}초 후 시작합니다",
+    "leaveLocked": "지금은 나갈 수 없습니다",
     "waitingForHost": "호스트가 시작할 때까지 기다리세요",
     "open": "방 열기",
     "close": "방 닫기",
@@ -158,6 +182,19 @@
     "changeGame": "게임 선택",
     "idleHost": "시작하지 않으면 {sec}초 뒤 방이 닫힙니다",
     "idleGuest": "방장이 {sec}초 안에 시작하지 않으면 방이 닫힙니다",
+    "matchWait": "경기가 끝날 때까지 대기실에서 기다립니다.",
+    "share": "방 공유",
+    "shareHint": "QR이나 링크를 열면 이 방으로 들어옵니다. 비밀번호가 켜져 있으면 링크에 번호가 같이 실립니다.",
+    "copyLink": "링크 복사",
+    "copied": "복사됨",
+    "kick": "강퇴",
+    "pin": "비밀번호",
+    "pinEdit": "비밀번호 변경",
+    "pinShuffleConfirm": "비밀번호를 바꾸면 예전에 보낸 링크는 더 이상 통하지 않습니다. 바꿀까요?",
+    "lock": "비밀번호 사용",
+    "lockOffHint": "끄면 누구나 들어올 수 있습니다.",
+    "lockOffGuest": "이 방은 비밀번호가 없습니다.",
+    "closePanel": "닫기",
     "pickCharacter": "캐릭터",
     "prevCharacter": "이전 캐릭터",
     "nextCharacter": "다음 캐릭터"

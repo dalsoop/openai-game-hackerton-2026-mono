@@ -7,7 +7,7 @@ export function allSeatsMatchReady(
   return players.every((p) => p.matchReady);
 }
 
-/** true 면 3초 카운트다운을 깎지 않는다. packPct·대기 상한으로는 풀지 않는다.
+/** true 면 개전 카운트다운을 깎지 않는다. packPct·대기 상한으로는 풀지 않는다.
  * 상한이 지나면 미완료 좌석을 내보낸 뒤, 남은 좌석이 전부 ready 일 때 연다. */
 export function shouldHoldCountdown(
   players: readonly { matchReady: boolean; connected?: boolean; name?: string }[],

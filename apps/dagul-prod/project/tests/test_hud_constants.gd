@@ -6,6 +6,7 @@ const HUD_SCRIPTS := [
 	"res://games/dagul/hud/hud.gd",
 	"res://games/dagul/hud/hud_pjh.gd",
 	"res://games/dagul/hud/hud_buffs.gd",
+	"res://games/dagul/hud/hud_abilities.gd",
 ]
 
 func run(t) -> void:

@@ -186,6 +186,7 @@ static func _player_view_defaults() -> Dictionary:
 		"damage_dealt": 0.0, "core_damage": 0.0,
 		"ultimates": 0, "equipment_hits": 0,
 		"mobility_cd": 0.0,
+		"equipment_cd": 0.0,
 		"hop_time": 0.0, "hop_max": 0.0, "hop_height": 0.0,
 		"cc_time": 0.0, "stun_time": 0.0, "root_time": 0.0,
 		"guard_time": 0.0, "super_armor_time": 0.0,

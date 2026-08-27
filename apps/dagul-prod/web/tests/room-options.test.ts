@@ -32,6 +32,12 @@ describe("parseRoomSettings — 일괄 정규화", () => {
     expect(s.game).toBe("dagul");
     expect(s.title).toBe("우리방");
     expect(s.name).toBe("한스");
+    expect(s.password).toBe("");
+  });
+
+  it("비밀번호는 4자리 숫자만 남긴다", () => {
+    const s = parseRoomSettings({ game: "dagul", title: "우리방", name: "한스", password: "12-34" }, limits);
+    expect(s.password).toBe("1234");
   });
 
   it("미등재 게임·불량 값은 기본으로 수렴", () => {

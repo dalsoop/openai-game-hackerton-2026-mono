@@ -122,6 +122,7 @@ func _v2_effects_callout(t) -> void:
 	hero["pullTime"] = 0.2
 	hero["pocketTime"] = 0.3
 	hero["mobilityCd"] = 4.2
+	hero["equipmentCd"] = 3.1
 	hero["hopTime"] = 0.1
 	hero["moveSpeed"] = 419.0
 	hero["eliminated"] = true
@@ -149,6 +150,7 @@ func _v2_effects_callout(t) -> void:
 	t.check("action", str(p0.get(SnapContract.P_ACTION, "")) == "STUNNED")
 	t.check("pullTime", is_equal_approx(float(p0.get(SnapContract.P_PULL_T, 0)), 0.2))
 	t.check("mobilityCd", is_equal_approx(float(p0.get(SnapContract.P_MOB_CD, 0)), 4.2))
+	t.check("equipmentCd", is_equal_approx(float(p0.get(SnapContract.P_EQUIP_CD, 0)), 3.1))
 	t.check("eliminated", bool(p0.get(SnapContract.P_ELIM, false)) == true)
 	t.check("moveSpeed", is_equal_approx(float(p0.get(SnapContract.P_MV_SPD, 0)), 419.0))
 	t.check("reloadFlash", is_equal_approx(float(p0.get(SnapContract.P_RELOAD_FLASH, 0)), 0.55))

@@ -21,10 +21,17 @@ interface InRoomPhaseProps {
   onSetGame: (game: string) => void;
   onSetCharacter: (characterId: string) => void;
   onToggleRoom: () => void;
+  onKick: (slot: number) => void;
+  onSetPassword: (password: string) => void;
+  onSetLock: (on: boolean) => void;
+  roomId: string;
+  password: string;
+  matchWait: boolean;
   connClass: string;
   connText: string;
   rttMs: number;
   rttText: string | null;
+  startInSec: number;
 }
 
 export function InRoomPhase({
@@ -42,10 +49,17 @@ export function InRoomPhase({
   onSetGame,
   onSetCharacter,
   onToggleRoom,
+  onKick,
+  onSetPassword,
+  onSetLock,
+  roomId,
+  password,
+  matchWait,
   connClass,
   connText,
   rttMs,
   rttText,
+  startInSec,
 }: InRoomPhaseProps): JSX.Element {
   const seats = overlayOwnPackPct(players, you, ownPackPct);
 
@@ -63,11 +77,18 @@ export function InRoomPhase({
       onSetGame={onSetGame}
       onSetCharacter={onSetCharacter}
       onToggleRoom={onToggleRoom}
+      onKick={onKick}
+      onSetPassword={onSetPassword}
+      onSetLock={onSetLock}
+      roomId={roomId}
+      password={password}
+      matchWait={matchWait}
       canStart={canStart}
       connClass={connClass}
       connText={connText}
       rttMs={rttMs}
       rttText={rttText}
+      startInSec={startInSec}
     />
   );
 }

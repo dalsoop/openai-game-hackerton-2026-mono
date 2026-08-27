@@ -20,6 +20,7 @@ export const WEB_STORE = {
   GUEST_ID: "gangup_uid",
   /** 좌석 이어받기 증명용 비공개 키 — 닉네임에 노출되는 GUEST_ID 와 달리 비밀이다. */
   GUEST_KEY: "gangup_ukey",
+  PENDING_JOIN: "gangup_pending_join",
 } as const;
 
 export const DOM_EVT = {
@@ -42,6 +43,8 @@ export const MSG = {
   SET_CHARACTER: "set_character",
   PACK_PCT: "pack_pct",
   READY: "ready",
+  KICK: "kick",
+  SET_PASSWORD: "set_password",
   KICKED: "kicked",
   STATE: "state",
   LEAVE: "leave",
