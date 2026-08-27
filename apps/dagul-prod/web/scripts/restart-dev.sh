@@ -89,6 +89,23 @@ verify() {
   started=$(ps -o lstart= -p "$pid" 2>/dev/null || echo "?")
   echo "version: $ver"
   echo "PID=$pid started=$started"
+  local metrics
+  metrics=$(curl -sS "http://127.0.0.1:$PORT/metrics" || true)
+  case "$metrics" in
+    *dagul_ccu*) ;;
+    *)
+      echo "FAIL: /metrics 가 Prometheus 텍스트가 아님 — 구버전 허브 또는 locale=metrics"
+      echo "$metrics" | head -c 240
+      echo
+      exit 1
+      ;;
+  esac
+  case "$metrics" in
+    *"<html"*|*__next*)
+      echo "FAIL: /metrics 가 HTML 이다 — next-intl 이 경로를 locale 로 먹었다"
+      exit 1
+      ;;
+  esac
 }
 
 # --- main ---

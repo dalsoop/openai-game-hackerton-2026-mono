@@ -16,6 +16,7 @@ import { godotWorkletAssetPath } from "./lib/godot/asset-store.js";
 import { godotCacheHeaders, shouldServeEncoding } from "./lib/godot/serve-encoding.js";
 import { healthBody } from "./lib/hub/health.js";
 import { ccuHttpBody } from "./lib/hub/ccu-http.js";
+import { ccuMetricsText } from "./lib/hub/ccu-metrics.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -157,6 +158,14 @@ function jsonOk(res: ServerResponse, body: string): void {
   res.end(body);
 }
 
+function metricsOk(res: ServerResponse, body: string): void {
+  res.writeHead(200, {
+    "content-type": "text/plain; version=0.0.4; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(body);
+}
+
 function localCcu(): ReturnType<typeof ccuHttpBody> {
   return ccuHttpBody(Number(matchMaker.stats.local.ccu));
 }
@@ -178,6 +187,10 @@ function setIsolationHeaders(res: ServerResponse): void {
 function serveMeta(pathname: string, res: ServerResponse): boolean {
   if (pathname === "/health" || pathname === "/healthz") {
     jsonOk(res, healthBody(undefined, localCcu()));
+    return true;
+  }
+  if (pathname === "/metrics") {
+    metricsOk(res, ccuMetricsText(localCcu()));
     return true;
   }
   if (pathname === "/ccu" || pathname === "/api/ccu") {

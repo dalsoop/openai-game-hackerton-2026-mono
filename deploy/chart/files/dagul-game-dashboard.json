@@ -1,0 +1,111 @@
+{
+  "uid": "dagul-game",
+  "title": "다굴즈 서버 정원",
+  "tags": ["dagul", "ccu", "hackertone"],
+  "timezone": "Asia/Seoul",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0,
+        "label": "데이터소스"
+      },
+      {
+        "name": "slot",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(dagul_ccu, slot)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": { "text": "dagul-prod", "value": "dagul-prod" },
+        "label": "슬롯"
+      }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "서버 정원",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "dagul_ccu{slot=\"$slot\"}" },
+        { "refId": "B", "expr": "dagul_ccu_cap{slot=\"$slot\"}" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0 },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "입장",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "dagul_ccu_admit{slot=\"$slot\"}" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "가능", "color": "green" }, "0": { "text": "꽉참", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "정원 사용률",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "dagul_ccu{slot=\"$slot\"} / dagul_ccu_cap{slot=\"$slot\"}" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "orange", "value": 0.75 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "동접과 서버 정원",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 4 },
+      "targets": [
+        { "refId": "A", "expr": "dagul_ccu{slot=\"$slot\"}", "legendFormat": "동접" },
+        { "refId": "B", "expr": "dagul_ccu_cap{slot=\"$slot\"}", "legendFormat": "서버 정원" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } },
+        "overrides": []
+      }
+    }
+  ]
+}

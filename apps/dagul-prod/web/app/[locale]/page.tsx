@@ -8,6 +8,7 @@ import { useLocalePersist } from "@/hooks/useLocalePersist";
 import { ConnectionLostModal } from "@/components/ConnectionLostModal";
 import { DeployReloadBanner } from "@/components/DeployReloadBanner";
 import { ShutdownNoticeBanner } from "@/components/ShutdownNoticeBanner";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { homeSurface } from "@/lib/game-flow-state";
 import { matchWaitNames } from "@/lib/domain/match-load-ready";
 import {
@@ -104,6 +105,7 @@ export default function Home(): JSX.Element {
           onDismiss={hub.dismissShutdownNotice}
           overCanvas
         />
+        <ErrorBanner message={hub.error} onDismiss={hub.clearError} overCanvas />
         <PlayingPhase
           game={asGameId(matchInfo.gameId ?? hub.gameId)}
           matchInfo={matchInfo}
@@ -125,6 +127,7 @@ export default function Home(): JSX.Element {
 
       <DeployReloadBanner visible={deployStale} onReload={reloadDeploy} />
       <ShutdownNoticeBanner message={hub.shutdownNotice} onDismiss={hub.dismissShutdownNotice} />
+      <ErrorBanner message={hub.error} onDismiss={hub.clearError} />
 
       {surface === "intro" && (
         <OfflinePhase

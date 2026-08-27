@@ -73,6 +73,26 @@ describe("계약: restart-dev 파이프라인", () => {
     expect(src).toContain("healthBody");
   });
 
+  it("server.ts 에 /metrics 라우트가 있다", () => {
+    const src = readFileSync(join(ROOT, "server.ts"), "utf8");
+    expect(src).toContain('pathname === "/metrics"');
+    expect(src).toContain("ccuMetricsText");
+  });
+
+  it("로케일 미들웨어는 /metrics 를 페이지로 안 보낸다", () => {
+    const src = readFileSync(join(ROOT, "middleware.ts"), "utf8");
+    expect(src).toContain("metrics");
+  });
+
+  it("restart-dev verify 는 /metrics 가 HTML 이면 구버전으로 실패한다", () => {
+    const script = readFileSync(join(ROOT, "scripts/restart-dev.sh"), "utf8");
+    const verify = script.split("verify()", 2)[1] ?? "";
+    expect(verify).toContain("/metrics");
+    expect(verify).toContain("dagul_ccu");
+    expect(verify).toContain("locale=metrics");
+    expect(verify).toContain("__next");
+  });
+
   it("server.ts 에 /ccu 라우트가 있다", () => {
     const src = readFileSync(join(ROOT, "server.ts"), "utf8");
     expect(src).toContain('pathname === "/ccu"');

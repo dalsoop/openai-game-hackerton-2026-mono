@@ -159,6 +159,7 @@ export function useHub(): UseHubResult {
     resumeToken: derived?.resumeToken ?? "",
     rttMs,
     error,
+    clearError: (): void => {setError(null);},
     matchInfo,
     connect: commands.connect,
     createRoom: commands.createRoom,

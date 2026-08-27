@@ -97,6 +97,9 @@ metadata:
     {{- include "hackertone-games.labels" $ | nindent 4 }}
     app.kubernetes.io/component: hub
     hackertone-games/slot: {{ .folder }}
+    {{- if eq .folder "dagul-prod" }}
+    hackertone-games/scrape: hub
+    {{- end }}
 spec:
   selector:
     {{- include "hackertone-games.selectorLabels" $ | nindent 4 }}
@@ -106,6 +109,31 @@ spec:
     - name: http
       port: 80
       targetPort: 8080
+{{- if eq .folder "dagul-prod" }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .folder }}-hub
+  labels:
+    {{- include "hackertone-games.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: hub
+    hackertone-games/slot: {{ .folder }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "hackertone-games.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: hub
+      hackertone-games/slot: {{ .folder }}
+      hackertone-games/scrape: hub
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+{{- end }}
 {{- if $.Values.hub.publicPrefix }}
 ---
 # Pod별 안정 DNS — publicAddress(/hubp/<pod-name>) 직접연결 라우팅용.

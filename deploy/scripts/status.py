@@ -43,7 +43,23 @@ def hub_health_ok(folder: str, body: str) -> bool:
         return False
     if not isinstance(data, dict):
         return False
-    return str(data.get("slot") or "") == folder
+    if str(data.get("slot") or "") != folder:
+        return False
+    if folder.startswith("dagul-"):
+        return "ccu" in data and "cap" in data and "admit" in data
+    return True
+
+
+def hub_metrics_ok(folder: str, status: int, body: str) -> bool:
+    """구버전 Next 가 /metrics 를 locale 페이지로 주면 HTML 404 가 나온다. 그걸 통과시키지 않는다."""
+    if not (200 <= status < 400):
+        return False
+    lower = body.lower()
+    if "<html" in lower or "__next" in lower:
+        return False
+    if "dagul_ccu" not in body:
+        return False
+    return f'slot="{folder}"' in body or f"slot={folder}" in body
 
 
 def probe(url: str) -> tuple[int, str]:
