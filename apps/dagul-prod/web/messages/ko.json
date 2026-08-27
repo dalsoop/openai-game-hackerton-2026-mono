@@ -66,6 +66,12 @@
     "joining": "방에 들어가는 중입니다...",
     "join": "입장",
     "modeFull": "합본",
+    "gameModeLine": "{game} · {mode}",
+    "modes": {
+      "classic": "클래식",
+      "full": "합본",
+      "default": "기본"
+    },
     "mineHost": "내 방 · 방장",
     "mine": "내 방",
     "inProgress": "진행 중",
@@ -97,7 +103,12 @@
     "cancel": "로비로"
   },
   "room": {
-    "mode": "합본",
+    "mode": "클래식",
+    "modes": {
+      "classic": "클래식",
+      "full": "합본",
+      "default": "기본"
+    },
     "title": "대기실",
     "leaveButton": "나가기",
     "me": "나",

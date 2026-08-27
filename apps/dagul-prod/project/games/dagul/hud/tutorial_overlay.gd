@@ -17,6 +17,7 @@ var _hint_time: float = 0.0
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_IGNORE
+	set_process(false)
 
 func show_hint(hint_id: String) -> void:
 	if _hints_shown.has(hint_id):
@@ -34,10 +35,15 @@ func show_hint(hint_id: String) -> void:
 	else:
 		_hint_text = HINTS[hint_id]
 	_hint_time = 4.0
+	set_process(true)
+	queue_redraw()
 
 func _process(delta: float) -> void:
-	if _hint_time > 0.0:
-		_hint_time -= delta
+	if _hint_time <= 0.0:
+		set_process(false)
+		queue_redraw()
+		return
+	_hint_time -= delta
 	queue_redraw()
 
 func _draw() -> void:

@@ -1,6 +1,6 @@
 // Roster 도메인 값객체 단위 테스트 — 좌석 배정의 핵심 파생 규칙을 검증한다.
 import { describe, expect, it } from "vitest";
-import { Roster, seatListOf, type RosterSnapshot } from "@/lib/domain/roster";
+import { Roster, plainSeatOf, seatListOf, type RosterSnapshot } from "@/lib/domain/roster";
 
 function snap(partial: Partial<RosterSnapshot>): RosterSnapshot {
   return {
@@ -24,6 +24,15 @@ describe("seatListOf", () => {
   it("null·undefined 는 빈 목록이다", () => {
     expect(seatListOf(null)).toEqual([]);
     expect(seatListOf(undefined)).toEqual([]);
+  });
+});
+
+describe("plainSeatOf", () => {
+  it("스키마 객체를 평문 값으로 복사한다", () => {
+    const row = { slot: 1, sessionId: "a", name: "하나", connected: true, matchReady: true };
+    const copy = plainSeatOf(row);
+    expect(copy).not.toBe(row);
+    expect(copy).toMatchObject({ slot: 1, sessionId: "a", name: "하나", connected: true, matchReady: true });
   });
 });
 

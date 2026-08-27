@@ -5,7 +5,7 @@ import type { Room } from "@colyseus/sdk";
 import { useRoomMessage } from "@colyseus/react";
 import { MSG, ROOM_LEAVE } from "@/lib/contract";
 import type { RosterSnapshot } from "@/lib/domain/roster";
-import { attachPageBridge, encodeHubState, postToEngine } from "@/lib/hub/page-bridge";
+import { attachPageBridge, encodeHubState, postToEngine, rememberInboundSnap } from "@/lib/hub/page-bridge";
 import type { MatchInfo } from "@/types";
 
 export function usePageBridge(
@@ -16,14 +16,22 @@ export function usePageBridge(
 ): void {
   useEffect(() => {
     if (!room || !matchInfo) {return;}
-    return attachPageBridge({
+    const off = attachPageBridge({
       send: (type, payload): void => {room.send(type, payload ?? {});},
     }, {
       onLeave: (): void => {void room.leave(ROOM_LEAVE.CONSENTED);},
     });
+    return (): void => {
+      // 엔진이 SNAP_OFF 만 보내고 죽으면 죽은 세션이 opt-out 에 남아 2회차 SNAP 이 끊긴다.
+      room.send(MSG.SNAP_ON, {});
+      off();
+    };
   }, [room, matchInfo]);
 
-  useRoomMessage(room, MSG.SNAP, (raw: unknown) => {postToEngine(MSG.SNAP, raw);});
+  useRoomMessage(room, MSG.SNAP, (raw: unknown) => {
+    rememberInboundSnap(raw);
+    postToEngine(MSG.SNAP, raw);
+  });
   useRoomMessage(room, MSG.GUN_FIRE, (raw: unknown) => {postToEngine(MSG.GUN_FIRE, raw);});
   useRoomMessage(room, MSG.ERROR, (raw: unknown) => {postToEngine(MSG.ERROR, raw);});
 

@@ -31,3 +31,11 @@ func run(t) -> void:
 
 	small.clear()
 	t.check("clear resets", small.events.is_empty() and small.next_id == 1)
+
+	var cursor = EventLogScript.new()
+	cursor.emit(1, &"a")
+	cursor.emit(2, &"b")
+	cursor.emit(3, &"c")
+	t.check("first_index_after 1", cursor.first_index_after(1) == 1)
+	cursor.discard_up_to(1)
+	t.check("discard_up_to 앞부분 절단", cursor.events.size() == 2 and int(cursor.events[0]["tick"]) == 2)

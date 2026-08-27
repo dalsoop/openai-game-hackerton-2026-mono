@@ -23,6 +23,7 @@ var touch: CanvasLayer = null
 var settings: CanvasLayer = null
 var _ctx: Dictionary = {}
 var _play_probe_acc := 0.0
+var _play_probe_on := false
 var _js_visibility_cb = null
 
 func _ready() -> void:
@@ -53,6 +54,7 @@ func _ready() -> void:
 			hub.start_handoff()
 		if hub.has_method("consume_pending_match"):
 			hub.consume_pending_match()
+	_play_probe_on = OS.is_debug_build() and OS.has_feature("web")
 	if OS.has_feature("web"):
 		_bind_web_visibility()
 		JavaScriptBridge.eval("window.glog && window.glog('godot','shell_ready')")
@@ -132,7 +134,7 @@ func _physics_process(delta: float) -> void:
 	_emit_play_probe(delta)
 
 func _emit_play_probe(delta: float) -> void:
-	if not OS.has_feature("web"):
+	if not _play_probe_on:
 		return
 	_play_probe_acc += delta
 	if _play_probe_acc < 0.2:

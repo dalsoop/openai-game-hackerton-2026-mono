@@ -33,4 +33,4 @@ const EVT_TO_ENGINE := "gangup-to-engine"
 const EVT_FROM_ENGINE := "gangup-from-engine"
 
 const DEFAULT_GAME := "dagul"
-const DEFAULT_MODE := "full"
+const DEFAULT_MODE := "classic"

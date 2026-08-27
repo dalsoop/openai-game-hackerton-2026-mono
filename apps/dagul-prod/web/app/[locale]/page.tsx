@@ -165,6 +165,7 @@ export default function Home(): JSX.Element {
           roomOpen={hub.roomOpen}
           onToggleRoom={hub.toggleRoom}
           gameId={hub.gameId}
+          mode={hub.mode}
           idleLeftSec={hub.idleLeftSec}
           onSetGame={hub.setGame}
           onSetCharacter={hub.setCharacter}

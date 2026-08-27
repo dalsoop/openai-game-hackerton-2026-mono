@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANIMAL_SIGNATURE_EQUIPMENT, EQUIPMENT_DEFS, EQUIP_VISUAL, FALLBACK_COMBAT, FALLBACK_IDENTITY,
-  FALLBACK_MOBILITY, GUN_FEEL, GUN_FX, GUN_LOOT_CHAIN, GUN_TSCN_SCALE, MODE_START_EQUIPMENT,
+  FALLBACK_MOBILITY, GUN_FEEL, GUN_FX, GUN_LOOT_CHAIN, GUN_LOOT_MODES, GUN_TSCN_SCALE, MODE_START_EQUIPMENT,
   combatStatsFor, equipmentForAnimal, equipmentReach, familyOf, feelForEquipment, fxForEquipment,
   gunMountPos, gunWorldScale, identityFor, isSignature, makeEquipment, mobilityFor, muzzleWorldPos,
   nextGunLootId, sprayKick, sprayRecoverRate, sprayStep, startEquipmentId, visualForEquipment,
@@ -19,6 +19,8 @@ describe("equipment_registry 12무기", () => {
       "leech", "blade", "spear", "chain", "shield", "brawler",
     ]);
     expect(MODE_START_EQUIPMENT).toEqual({ "gun-semi": "rail", "gun-auto": "burst", item: "scatter" });
+    expect(GUN_LOOT_MODES).toEqual(["gun-semi", "gun-auto", "full", "classic"]);
+    expect(MODE_START_EQUIPMENT).not.toHaveProperty("classic");
   });
 
   it("핵심 수치: scatter 펠릿5, rail pierce3, mortar splash120, bomb burst2/펠릿6", () => {
@@ -91,6 +93,11 @@ describe("equipment_registry 12무기", () => {
     expect(startEquipmentId("gun-auto", 8)).toBe("burst");
     expect(startEquipmentId("item", 0)).toBe("scatter");
     expect(startEquipmentId("full", 2)).toBe("spear");
+    // classic 은 GUN_LOOT_MODES 에 있어도 MODE_START_EQUIPMENT 가 없어 동물 시그니처를 유지한다.
+    expect(startEquipmentId("classic", 0)).toBe("burst");
+    expect(startEquipmentId("classic", 2)).toBe("spear");
+    expect(startEquipmentId("classic", 8)).toBe("blade");
+    expect(startEquipmentId("classic", 11)).toBe("bomb");
   });
 
   it("loot chain: 미등재→rail, 마지막 brawler는 빈 문자열", () => {

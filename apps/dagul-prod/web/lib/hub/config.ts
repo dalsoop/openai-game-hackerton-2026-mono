@@ -6,6 +6,17 @@ export function parsePatchHz(raw: string | undefined): number {
   return n === 0 || Number.isNaN(n) ? 60 : n;
 }
 
+/** 우클릭 장비 스킬. 기본 off. DAGUL_SKILLS=on|1|true 만 켠다. 코드는 유지한다. */
+export function parseSkillsEnabled(raw: string | undefined): boolean {
+  const v = (raw ?? "off").trim().toLowerCase();
+  return v === "on" || v === "1" || v === "true";
+}
+
+/** 런타임 조회 — 테스트가 env 를 바꿔도 반영되게 매 호출마다 읽는다. */
+export function skillsEnabled(raw = process.env.DAGUL_SKILLS): boolean {
+  return parseSkillsEnabled(raw);
+}
+
 export const HUB_CONFIG = {
   graceLobbyMs: 60_000,
   gracePlayMs: 180_000,
@@ -36,6 +47,8 @@ export const HUB_CONFIG = {
   targetCcu: 1_000,
   // 스키마 델타 + 엔진 직결이라 60Hz 가 가볍다. HUB_PATCH_HZ=20 이면 Colyseus 기본(50ms)으로 원복.
   patchHz: parsePatchHz(process.env.HUB_PATCH_HZ),
+  /** 우클릭 차지/장비 스킬. 기본 off. DAGUL_SKILLS=on 으로 복원. */
+  skillsEnabled: parseSkillsEnabled(process.env.DAGUL_SKILLS),
 } as const;
 
 export const LIST_MSG = { ADD: "+", REMOVE: "-", ROOMS: "rooms" } as const;

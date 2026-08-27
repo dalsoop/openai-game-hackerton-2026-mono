@@ -4,10 +4,13 @@ import {
   attachPageBridge,
   encodeBridgePacket,
   encodeHubState,
+  freezeMatchEndDetail,
   isEngineInbound,
   isEngineOutbound,
   parseBridgePacket,
   postToEngine,
+  rememberInboundSnap,
+  resetInboundSnapForTests,
   type BridgeEvent,
   type DomBus,
 } from "@/lib/hub/page-bridge";
@@ -80,6 +83,19 @@ describe("수송 방향", () => {
       expect(isEngineOutbound(type)).toBe(false);
       expect(isEngineInbound(type)).toBe(false);
     }
+  });
+});
+
+describe("freezeMatchEndDetail", () => {
+  it("마지막 SNAP 의 winner 를 평문으로 고정한다", () => {
+    resetInboundSnapForTests();
+    rememberInboundSnap({ tick: 9, result: "won", winner: 2 });
+    expect(freezeMatchEndDetail({})).toEqual({
+      winner: 2,
+      result: "won",
+      snap: { tick: 9, result: "won", winner: 2 },
+    });
+    resetInboundSnapForTests();
   });
 });
 

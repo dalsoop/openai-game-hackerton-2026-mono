@@ -66,6 +66,12 @@
     "joining": "Joining the room...",
     "join": "Join",
     "modeFull": "Full",
+    "gameModeLine": "{game} · {mode}",
+    "modes": {
+      "classic": "Classic",
+      "full": "Full",
+      "default": "Default"
+    },
     "mineHost": "My room · Host",
     "mine": "My room",
     "inProgress": "In progress",
@@ -97,7 +103,12 @@
     "cancel": "Back to lobby"
   },
   "room": {
-    "mode": "Full",
+    "mode": "Classic",
+    "modes": {
+      "classic": "Classic",
+      "full": "Full",
+      "default": "Default"
+    },
     "title": "Waiting Room",
     "leaveButton": "Leave",
     "me": "Me",

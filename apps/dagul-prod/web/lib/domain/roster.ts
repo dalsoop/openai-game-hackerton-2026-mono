@@ -18,6 +18,7 @@ export interface SeatSnapshot {
 
 export interface RosterSnapshot {
   readonly gameId?: string;
+  readonly mode?: string;
   readonly open?: boolean;
   readonly createdAtMs?: number;
   readonly idleUntilSec?: number;
@@ -27,6 +28,19 @@ export interface RosterSnapshot {
   readonly phase: string;
   readonly hostSessionId: string;
   readonly players: readonly SeatSnapshot[];
+}
+
+/** 스키마 인스턴스를 평문 복사한다. 죽은 ~refId 를 React 가 다시 읽지 않게. */
+export function plainSeatOf(p: SeatSnapshot): SeatSnapshot {
+  return {
+    slot: Number(p.slot),
+    sessionId: String(p.sessionId),
+    name: String(p.name),
+    connected: Boolean(p.connected),
+    packPct: p.packPct,
+    characterId: p.characterId,
+    matchReady: Boolean(p.matchReady),
+  };
 }
 
 /** ArraySchema 는 Array 가 아니다. 이터러블이면 펼친다. */

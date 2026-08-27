@@ -2,7 +2,7 @@
 // GD 거울(web_contract.gd)과의 정합은 check-contract.mjs 가 담당한다.
 import { describe, expect, it } from "vitest";
 import { CloseCode } from "@colyseus/sdk";
-import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE, DEFAULT_SLOT, slotId, slotRoomName, ROOM_NAME, parsePatchHz } from "@/lib/hub/config";
+import { MSG, HANDOFF, DOM_EVT, HUB_CONFIG, KO, CLOSE_CODE, ROOM_LEAVE, DEFAULT_SLOT, slotId, slotRoomName, ROOM_NAME, parsePatchHz, parseSkillsEnabled, skillsEnabled } from "@/lib/hub/config";
 
 describe("MSG 메시지 계약", () => {
   it("메시지 타입은 중복 없고 비어 있지 않다", () => {
@@ -93,5 +93,16 @@ describe("HUB_CONFIG", () => {
     expect(parsePatchHz(undefined)).toBe(60);
     expect(parsePatchHz("20")).toBe(20);
     expect(HUB_CONFIG.patchHz).toBe(parsePatchHz(process.env.HUB_PATCH_HZ));
+  });
+
+  it("DAGUL_SKILLS 기본 off, on/1/true 만 켠다", () => {
+    expect(parseSkillsEnabled(undefined)).toBe(false);
+    expect(parseSkillsEnabled("off")).toBe(false);
+    expect(parseSkillsEnabled("")).toBe(false);
+    expect(parseSkillsEnabled("on")).toBe(true);
+    expect(parseSkillsEnabled("1")).toBe(true);
+    expect(parseSkillsEnabled("true")).toBe(true);
+    expect(skillsEnabled("off")).toBe(false);
+    expect(HUB_CONFIG.skillsEnabled).toBe(parseSkillsEnabled(process.env.DAGUL_SKILLS));
   });
 });

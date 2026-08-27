@@ -118,6 +118,12 @@ func _v2_effects_callout(t) -> void:
 	hero["weaponId"] = "burst"
 	hero["stunT"] = 0.4
 	hero["action"] = "STUNNED"
+	hero["pullT"] = 0.2
+	hero["pocketT"] = 0.3
+	hero["mobCd"] = 4.2
+	hero["hopT"] = 0.1
+	hero["mvSpd"] = 419.0
+	hero["elim"] = true
 	hero["rouSpin"] = "tiger"
 	hero["rlTimed"] = "[{\"id\":\"turtle\",\"time\":1}]"
 	hero["ultClones"] = "[{\"x\":3,\"y\":4}]"
@@ -132,6 +138,10 @@ func _v2_effects_callout(t) -> void:
 	t.check("weaponId", str(p0.get(SnapContract.P_WEAPON_ID, "")) == "burst")
 	t.check("stunT", is_equal_approx(float(p0.get(SnapContract.P_STUN_T, 0)), 0.4))
 	t.check("action", str(p0.get(SnapContract.P_ACTION, "")) == "STUNNED")
+	t.check("pullT", is_equal_approx(float(p0.get(SnapContract.P_PULL_T, 0)), 0.2))
+	t.check("mobCd", is_equal_approx(float(p0.get(SnapContract.P_MOB_CD, 0)), 4.2))
+	t.check("elim", bool(p0.get(SnapContract.P_ELIM, false)) == true)
+	t.check("mvSpd", is_equal_approx(float(p0.get(SnapContract.P_MV_SPD, 0)), 419.0))
 	t.check("rouSpin 문자열", str(p0.get(SnapContract.P_ROU_SPIN, "")) == "tiger")
 	var timed: Variant = p0.get(SnapContract.P_RL_TIMED, [])
 	t.check("rlTimed 배열", timed is Array and (timed as Array).size() == 1)

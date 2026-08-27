@@ -41,6 +41,7 @@ var _page_window = null
 var _ready_repeat := false
 var _ready_sent := false
 var _ready_acc := 0.0
+var _last_input_fp := ""
 const READY_RETRY_SEC := 0.5  # lint-gd: public-api
 
 func _ready() -> void:
@@ -135,6 +136,7 @@ func _apply_start(msg: Dictionary) -> void:
     if msg.has("seed"):
         room["seed"] = int(msg["seed"])
     resume_token = _read_ls(WebContract.KEY_RESUME)
+    _last_input_fp = ""
     _set_status(STATUS_LOBBY)
     match_started.emit(you, room)
 
@@ -205,7 +207,20 @@ func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
     if _engine_socket_active():
         _engine_socket().call("send_input", msg)
         return
+    var fp := _input_fingerprint(msg)
+    if fp == _last_input_fp:
+        return
+    _last_input_fp = fp
     _send(WebContract.MSG_INPUT, msg)
+
+func _input_fingerprint(msg: Dictionary) -> String:
+    var bits: PackedStringArray = []
+    for key in msg.keys():
+        if str(key) == "seq":
+            continue
+        bits.append("%s=%s" % [str(key), str(msg[key])])
+    bits.sort()
+    return ",".join(bits)
 
 ## 인게임 모듈 로드가 끝난 뒤에만 보낸다. 엔진 소켓이 살아도 좌석은 React 세션이라 브릿지로 간다.
 func send_ready() -> void:  # lint-gd: public-api

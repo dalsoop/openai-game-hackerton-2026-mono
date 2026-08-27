@@ -4,6 +4,7 @@ import { HANDOFF, ROOM_LEAVE } from "@/lib/contract";
 import { clearMyRoom } from "@/lib/room-membership";
 import { forgetHubPin } from "@/lib/hub/public-address";
 import { reactOwnsResume } from "@/lib/game-flow-state";
+import { clearEngineHandoff } from "@/lib/godot/handoff";
 import type { JoinRequest, MatchInfo } from "@/types";
 
 export function useHubCommands(
@@ -45,9 +46,7 @@ export function useHubCommands(
 
   const leaveRoom = useCallback(() => {
     clearDrop();
-    sessionStorage.removeItem(HANDOFF.RESUME);
-    sessionStorage.removeItem(HANDOFF.FROM_HUB);
-    sessionStorage.removeItem(HANDOFF.MATCH);
+    clearEngineHandoff(true);
     forgetHubPin();
     clearMyRoom((k) => localStorage.removeItem(k));
     setMatchInfo(null);
@@ -62,8 +61,7 @@ export function useHubCommands(
 
   const returnToLobby = useCallback((_name: string) => {
     const roomId = matchInfo?.roomId;
-    sessionStorage.removeItem(HANDOFF.FROM_HUB);
-    sessionStorage.removeItem(HANDOFF.MATCH);
+    clearEngineHandoff();
     setMatchInfo(null);
     if (room) {return;}
     setJoinRequest(roomId ? { kind: "join", id: roomId } : null);

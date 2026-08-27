@@ -57,6 +57,7 @@ import {
   HOP_AIR, HOP_LIFT_DEFAULT, type GunHero, type GunApplyResult, type GunProjectile,
 } from "./match-gun.js";
 import { CHARGE_MOVE_MUL, cancelSkillCharge } from "./match-skill.js";
+import { skillsEnabled } from "./config.js";
 import {
   applyFinish, packFinishCine, seedFinishCine, tickFinishCine, type FinishCine,
 } from "./match-finish.js";
@@ -231,6 +232,23 @@ function num(v: unknown, fallback = 0): number {
 
 function truthy(v: unknown): boolean {
   return Boolean(v);
+}
+
+/** DAGUL_SKILLS=off 이면 우클릭 차지/스킬 입력을 버리고 차지 상태를 끈다. */
+function skillFlags(
+  hero: SimHero,
+  cmd: MatchInput,
+): { held: boolean; pressed: boolean; released: boolean } {
+  if (!skillsEnabled()) {
+    if (hero.chargingSkill) {cancelSkillCharge(hero);}
+    hero.equipmentHeld = false;
+    return { held: false, pressed: false, released: false };
+  }
+  const held = truthy(cmd.equipment) || truthy(cmd.equipmentPressed);
+  const pressed = truthy(cmd.equipmentPressed) || (held && !hero.equipmentHeld);
+  const released = truthy(cmd.equipmentReleased) || (!held && hero.equipmentHeld);
+  hero.equipmentHeld = held;
+  return { held, pressed, released };
 }
 
 export class MatchSim {
@@ -704,10 +722,7 @@ export class MatchSim {
     const savedAimX = hero.aimX;
     const savedAimY = hero.aimY;
     const others = [...this.heroes.values()].filter((h) => h.slot !== hero.slot);
-    const eqHeld = truthy(cmd.equipment) || truthy(cmd.equipmentPressed);
-    const eqPressed = truthy(cmd.equipmentPressed) || (eqHeld && !hero.equipmentHeld);
-    const eqReleased = truthy(cmd.equipmentReleased) || (!eqHeld && hero.equipmentHeld);
-    hero.equipmentHeld = eqHeld;
+    const skill = skillFlags(hero, cmd);
     const preDashX = hero.x;
     const preDashY = hero.y;
     // 원본 active_item.gd:52-61 — 대시가 콤보 캡처 탈출이면 ESCAPE, 콤보 중이면 COMBO BREAK.
@@ -723,9 +738,9 @@ export class MatchSim {
       mobility: truthy(cmd.dash) || truthy(cmd.mobility),
       moveX: mx,
       moveY: my,
-      equipment: eqHeld,
-      equipmentPressed: eqPressed,
-      equipmentReleased: eqReleased,
+      equipment: skill.held,
+      equipmentPressed: skill.pressed,
+      equipmentReleased: skill.released,
       dt,
       effects: this.effects,
     }, this.covers, others);
@@ -782,9 +797,17 @@ export class MatchSim {
   }
 
   private consumeGunResult(hero: SimHero, gun: GunApplyResult): void {
-    if ((gun.kind === "fire" || gun.kind === "skill") && gun.used) {
+    const dropSkill = !skillsEnabled() && gun.kind === "skill";
+    if (!dropSkill && (gun.kind === "fire" || gun.kind === "skill") && gun.used) {
       this.ingestProjectiles(gun.projectiles);
       this.fx.push({ slot: hero.slot, x: hero.x, y: hero.y, aimX: hero.aimX, aimY: hero.aimY });
+    }
+    if (dropSkill) {
+      for (const hit of gun.hits) {
+        const vic = this.heroes.get(hit.targetSlot);
+        if (vic) {this.hurtHero(hero.slot, vic, hit.damage, hit.source);}
+      }
+      return;
     }
     for (const z of gun.zones) {
       this.zones.push({

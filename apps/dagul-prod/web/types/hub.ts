@@ -53,6 +53,8 @@ export interface UseHubResult {
   status: HubStatus;
   /** 접속 중인 방의 게임(유즈맵) — 방 밖이면 빈 문자열 */
   gameId: string;
+  /** 접속 중인 방의 모드. 서버 state.mode 원문. 방 밖이면 빈 문자열 */
+  mode: string;
   rooms: HubRoom[];
   players: Seat[];
   you: number;

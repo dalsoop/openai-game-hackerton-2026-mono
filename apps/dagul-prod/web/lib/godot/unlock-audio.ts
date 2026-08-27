@@ -8,6 +8,15 @@ export function resetAudioUnlockForTests(): void {
   captured.length = 0;
 }
 
+/** 엔진 종료 때 컨텍스트를 닫아 WASD·제스처마다 쌓이던 resume 대상을 비운다. */
+export function closeCapturedAudioContexts(): void {
+  for (const ctx of captured) {
+    if (ctx.state === "closed") {continue;}
+    try { void ctx.close(); } catch { /* 이미 닫힘 */ }
+  }
+  captured.length = 0;
+}
+
 type AudioWindow = Window & {
   AudioContext: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;

@@ -48,8 +48,8 @@ describe("로비 목록", () => {
       <NextIntlClientProvider locale="ko" messages={messages}>
         <Lobby
           rooms={[
-            { id: "c1", gameId: "dagul", title: "닫힌방", players: 1, mode: "full", playing: false, open: false },
-            { id: "p1", gameId: "dagul", title: "진행방", players: 2, mode: "full", playing: true, open: true },
+            { id: "c1", gameId: "dagul", title: "닫힌방", players: 1, mode: "classic", playing: false, open: false },
+            { id: "p1", gameId: "dagul", title: "진행방", players: 2, mode: "classic", playing: true, open: true },
           ]}
           myRoom={null}
           onJoin={onJoin}
@@ -62,5 +62,6 @@ describe("로비 목록", () => {
     expect(onJoin).not.toHaveBeenCalled();
     expect(screen.getByText(ko.lobby.closed)).toBeTruthy();
     expect(screen.getByText(ko.lobby.inProgress)).toBeTruthy();
+    expect(screen.getAllByText(/클래식/).length).toBeGreaterThan(0);
   });
 });

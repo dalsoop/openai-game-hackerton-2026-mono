@@ -235,6 +235,21 @@ describe("스냅 계약", () => {
     expect(tryCollectGunLoot(h, "item")).toBe(false);
   });
 
+  it("classic 모드도 총 드랍을 습득하고 시작 무기는 동물 시그니처를 유지한다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }], 7, "classic");
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    expect(h.equipment.id).not.toBe("rail");
+    const startId = h.equipment.id;
+    const drop = spawnGunLootPickup(sim.loot, h.x, h.y);
+    updateHealthPickups(sim.loot, sim.heroes, DT, "classic");
+    expect(drop.active).toBe(false);
+    expect(h.equipment.id).not.toBe(startId);
+    expect(h.equipmentId).toBe(h.equipment.id);
+  });
+
   it("총 드랍 스냅 n 은 장비 이름, 아이템은 itemKind·disguise 를 싣는다", () => {
     const guns = spawnGunLootPickup([], 10, 20, "bomb");
     const packed = packLootSnap([guns]);

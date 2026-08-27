@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "@colyseus/sdk";
 import { useRoomMessage, useRoomState } from "@colyseus/react";
-import { HANDOFF, MSG } from "@/lib/contract";
+import { MSG } from "@/lib/contract";
+import { clearEngineHandoff } from "@/lib/godot/handoff";
 import { type RosterSnapshot } from "@/lib/domain/roster";
 import { lobbyFieldsOf, waitingRoomRosterOf } from "@/lib/hub/waiting-room-roster";
 import { useMyRoom } from "@/hooks/useMyRoom";
@@ -104,11 +105,7 @@ export function useHub(): UseHubResult {
   // 좌석이 다른 창으로 넘어간 경우, 이 탭의 재개 토큰을 폐기해 refresh 후 자동 재개를 막는다.
   const handleKicked = useCallback((raw?: unknown) => {
     if (dropReasonFromKick(raw) === "takeover") {
-      try {
-        sessionStorage.removeItem(HANDOFF.RESUME);
-        sessionStorage.removeItem(HANDOFF.FROM_HUB);
-        sessionStorage.removeItem(HANDOFF.MATCH);
-      } catch { /* sessionStorage 불가 환경 — 재개 시도는 서버가 거부한다 */ }
+      try {clearEngineHandoff(true);} catch { /* sessionStorage 불가 환경 — 재개 시도는 서버가 거부한다 */ }
       forgetHubPin();
     }
     onKicked(raw);
@@ -146,6 +143,7 @@ export function useHub(): UseHubResult {
     status,
     rooms,
     gameId: derived?.gameId ?? "",
+    mode: derived?.mode ?? "",
     players: derived?.players ?? [],
     you: derived?.you ?? -1,
     loadHeld: derived?.loadHeld ?? false,

@@ -198,7 +198,7 @@ describe("우클릭 스킬 테이블·모빌리티·루트", () => {
     expect(r.hits[0].knockback).toBe(BLAST_HOP_KB);
   });
 
-  it("gun loot: gun-semi 체인 진행, full 허용, item 모드 거부, brawler 정지", () => {
+  it("gun loot: gun-semi 체인 진행, full·classic 허용, item 모드 거부, brawler 정지", () => {
     const h = hero("rail");
     expect(applyGunLoot(h, "item")).toBe(false);
     expect(applyGunLoot(h, "gun-semi")).toBe(true);
@@ -207,6 +207,9 @@ describe("우클릭 스킬 테이블·모빌리티·루트", () => {
     expect(h.burstLeft).toBe(BURST_LEFT_DEFAULT);
     const last = hero("brawler");
     expect(applyGunLoot(last, "full")).toBe(false);
+    const classic = hero("rail");
+    expect(applyGunLoot(classic, "classic")).toBe(true);
+    expect(classic.equipment.id).toBe("burst");
     const unknown = hero("burst");
     unknown.equipment = { ...unknown.equipment, id: "mystery" };
     expect(applyGunLoot(unknown, "full")).toBe(true);

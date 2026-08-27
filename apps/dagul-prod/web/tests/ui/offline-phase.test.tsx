@@ -56,6 +56,13 @@ describe("인트로 저장된 이름 상태", () => {
     expect(props.onResetName).toHaveBeenCalledTimes(1);
   });
 
+  it("배너 아트는 잘리지 않게 banner-art 로 둔다", () => {
+    setup({ hasSavedName: false });
+    const art = document.querySelector("img.banner-art");
+    expect(art).toBeTruthy();
+    expect(art?.getAttribute("src")).toBe("/assets/title-animals.png");
+  });
+
   it("시작하기 클릭 → onConnect 호출 (저장된 이름이 있어도 진입 가능)", () => {
     const props = setup();
     fireEvent.click(screen.getByText(ko.intro.startButton));

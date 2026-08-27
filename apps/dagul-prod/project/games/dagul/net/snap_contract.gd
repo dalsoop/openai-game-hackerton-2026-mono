@@ -111,6 +111,12 @@ const P_ROU_SPIN := "rouSpin"
 const P_ROU_LABEL := "rouLabel"
 const P_RL_TIMED := "rlTimed"
 const P_ULT_CLONES := "ultClones"
+const P_MOB_CD := "mobCd"
+const P_HOP_T := "hopT"
+const P_HOP_MAX := "hopMax"
+const P_HOP_HEIGHT := "hopHeight"
+const P_MV_SPD := "mvSpd"
+const P_ELIM := "elim"
 
 const PLAYER_KEYS: Array[String] = [
 	P_SLOT, P_NAME, P_CPU, P_PARKED, P_X, P_Y, P_AIM_X, P_AIM_Y,
@@ -126,16 +132,19 @@ const PLAYER_KEYS_V2: Array[String] = [
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_WOOL_HP, P_WOOL_MAX,
 	P_ROU_T, P_ROU_RANK, P_ROU_PHASE, P_ROU_SPIN, P_ROU_LABEL,
 	P_RL_TIMED, P_ULT_CLONES,
+	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT, P_MV_SPD, P_ELIM,
 ]
 const V2_FLOAT_WIRE: Array[String] = [
 	P_STUN_T, P_ROOT_T, P_CC_T, P_GUARD_T, P_ARMOR_T, P_SPAWN_T,
 	P_LAUNCH_T, P_CHARGE_T, P_SPRING_T, P_SLIDE_T, P_PULL_T, P_POCKET_T,
 	P_DMG_ORB_T, P_DOWN_TAKEN, P_WOOL_T, P_ROU_T,
+	P_MOB_CD, P_HOP_T, P_HOP_MAX, P_HOP_HEIGHT,
 ]
 const V2_FLOAT_SIM: Array[String] = [
 	"stun_time", "root_time", "cc_time", "guard_time", "super_armor_time", "spawn_protect_time",
 	"launch_time", "charge_time", "spring_time", "slide_time", "pull_time", "pocket_time",
 	"dmg_orb_time", "down_taken", "wool_time", "roulette_time",
+	"mobility_cd", "hop_time", "hop_max", "hop_height",
 ]
 const V2_INT_WIRE: Array[String] = [P_WOOL_HP, P_WOOL_MAX, P_ROU_SPIN]
 const V2_INT_SIM: Array[String] = ["wool_hp", "wool_max", "roulette_spin_id"]
@@ -224,7 +233,7 @@ static func apply_world(dst, snap: Dictionary) -> void:
 	dst.zones = NetSnapParser.parse_zones(snap)
 	dst.deployables = NetSnapParser.parse_deployables(snap)
 	dst.cores = NetSnapParser.parse_cores(snap)
-	dst.covers = NetSnapParser.parse_covers(snap)
+	_apply_covers(dst, snap)
 	dst.knockouts = NetSnapParser.parse_knockouts(snap)
 	dst.crates = NetSnapParser.parse_crates(snap)
 	dst.crate_orbs = NetSnapParser.parse_crate_orbs(snap)
@@ -233,6 +242,24 @@ static func apply_world(dst, snap: Dictionary) -> void:
 static func apply(dst, snap: Dictionary) -> void:
 	apply_header(dst, snap)
 	apply_world(dst, snap)
+
+static func _apply_covers(dst, snap: Dictionary) -> void:
+	var next := NetSnapParser.parse_covers(snap)
+	if _covers_match(dst.covers, next):
+		return
+	dst.covers = next
+
+static func _covers_match(a: Array, b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in range(a.size()):
+		if typeof(a[i]) != TYPE_DICTIONARY or typeof(b[i]) != TYPE_DICTIONARY:
+			return false
+		var ar: Rect2 = a[i].get("rect", Rect2())
+		var br: Rect2 = b[i].get("rect", Rect2())
+		if ar != br:
+			return false
+	return true
 
 static func _apply_mid_tower(dst, snap: Dictionary) -> void:
 	if not snap.has(MID_TOWER):

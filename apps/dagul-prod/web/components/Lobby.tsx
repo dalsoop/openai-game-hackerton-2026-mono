@@ -5,7 +5,7 @@ import type { JSX } from "react";
 import { useRefreshSpin } from "@/hooks/useRefreshSpin";
 import type { HubRoom } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { findGame } from "@/lib/games/catalog";
+import { findGame, modeI18nKey } from "@/lib/games/catalog";
 import { roomJoinable } from "@/lib/hub/room-mapper";
 import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
@@ -65,7 +65,12 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = f
                 <div className="room-info">
                   <b>{room.title || `${t("room")} ${room.id}`}</b>
                   <span className="room-game-line">
-                    {game ? games(game.titleKey) : t("room")}
+                    {room.mode
+                      ? t("gameModeLine", {
+                        game: game ? games(game.titleKey) : t("room"),
+                        mode: lobbyModeText(t, room.mode),
+                      })
+                      : (game ? games(game.titleKey) : t("room"))}
                   </span>
                   <div className="room-pips" aria-hidden="true">
                     {Array.from({ length: HUB_CONFIG.maxPlayers }, (_, i) => (
@@ -98,4 +103,15 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = f
       </div>
     </div>
   );
+}
+
+function lobbyModeText(
+  t: (key: "modes.classic" | "modes.full" | "modes.default") => string,
+  mode: string,
+): string {
+  const key = modeI18nKey(mode);
+  if (key === "classic") {return t("modes.classic");}
+  if (key === "full") {return t("modes.full");}
+  if (key === "default") {return t("modes.default");}
+  return mode;
 }

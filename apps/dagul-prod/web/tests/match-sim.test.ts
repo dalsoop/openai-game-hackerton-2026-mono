@@ -20,7 +20,8 @@ import {
   spawnPoint,
 } from "@/lib/hub/match-sim";
 import { hopLift, muzzleWorldPos, RADIUS_FIRE_MUL } from "@/lib/hub/match-gun";
-import { makeEquipment } from "@/lib/hub/match-equipment";
+import { equipmentForAnimal, makeEquipment } from "@/lib/hub/match-equipment";
+import { CRATE_MAX_HP, CRATE_RADIUS } from "@/lib/hub/match-crate";
 import { SHOVE_BASE, SHOVE_KB_MUL, SHOVE_MAX } from "@/lib/hub/match-launch";
 import { idForBind, matchBindKey } from "@/lib/characters";
 import type { SimBullet } from "@/lib/hub/match-sim";
@@ -484,4 +485,45 @@ describe("W14 전투 파이프라인", () => {
     expect(dist).toBeGreaterThan(4);
   });
 
+});
+
+describe("classic 상자 총 드랍", () => {
+  function smashCrate(sim: MatchSim): NonNullable<MatchSim["crates"][number]> {
+    const crate = sim.crates.find((c) => c.alive);
+    if (!crate) {throw new Error("crate");}
+    injectBullet(sim, {
+      x: crate.x, y: crate.y, owner: 0, damage: CRATE_MAX_HP, radius: CRATE_RADIUS,
+    });
+    sim.step(1 / 60);
+    return crate;
+  }
+
+  it("기본 모드는 classic 이고 시작 무기는 동물 시그니처다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    expect(sim.mode).toBe("classic");
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    expect(h.equipment.id).toBe(equipmentForAnimal(h.animal));
+    expect(h.equipment.id).not.toBe("rail");
+  });
+
+  it("classic 에서 상자를 부수면 총 픽업이 스폰된다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const before = sim.loot.filter((p) => p.kind === "gun").length;
+    const crate = smashCrate(sim);
+    expect(crate.alive).toBe(false);
+    const guns = sim.loot.filter((p) => p.kind === "gun" && p.active);
+    expect(guns.length).toBe(before + 1);
+    expect(guns[guns.length - 1]?.x).toBe(crate.x);
+    expect(guns[guns.length - 1]?.y).toBe(crate.y);
+  });
+
+  it("item 모드에서는 상자 파괴가 총 픽업을 만들지 않는다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }], 1, "item");
+    sim.countdown = 0;
+    smashCrate(sim);
+    expect(sim.loot.filter((p) => p.kind === "gun")).toHaveLength(0);
+  });
 });

@@ -29,7 +29,7 @@ export function OfflinePhase({
     <div className="intro">
       <div className="banner-frame">
         {/* eslint-disable @next/next/no-img-element -- 인트로 정적 배너·로고, 반응형 폭 유지 */}
-        <img src="/assets/title-animals.png" alt="" />
+        <img className="banner-art" src="/assets/title-animals.png" alt="" />
         <img
           className={locale === "ko" ? "intro-logo intro-logo-ko" : "intro-logo"}
           src={locale === "ko" ? "/assets/logo-animal-dagulz-ko.png" : "/assets/logo-animal-dagulz-en.png?v=2"}

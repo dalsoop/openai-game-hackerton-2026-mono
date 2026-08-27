@@ -3,7 +3,7 @@ import { LobbyState } from "@/lib/hub/lobby-state";
 import {
   packAuthoritySnap, SNAP_DT, seed as seedAuthority, tick as tickAuthority,
 } from "@/lib/hub/match-authority";
-import { MatchStateSchema } from "@/lib/hub/match-schema";
+import { MatchStateSchema, type MatchHeroSchema } from "@/lib/hub/match-schema";
 import { EVENT_RING, writeMatchState } from "@/lib/hub/match-schema-write";
 import { FIXED_DT, MatchSim } from "@/lib/hub/match-sim";
 import type { SnapEvent } from "@/lib/hub/match-authority-snap";
@@ -25,36 +25,101 @@ function paintV2Hero(sim: MatchSim): void {
   hero.slideTime = 0.2;
   hero.rouletteSpinId = "tiger";
   hero.woolHp = 8;
+  hero.pullTime = 0.55;
+  hero.pocketTime = 5;
+  hero.hopTime = 0.18;
+  hero.hopMax = 0.3;
+  hero.hopHeight = 19;
+  hero.mobilityCd = 1.25;
+  hero.eliminated = true;
   sim.streakState.streakCallout = "TRIPLE";
   sim.streakState.streakSubtitle = "3";
   sim.streakState.streakCalloutTicks = 12;
   sim.streakState.streakCalloutShutdown = true;
 }
 
-function assertV2SchemaRow(match: MatchStateSchema, weaponId: string): void {
+function requireHero0(match: MatchStateSchema): MatchHeroSchema {
   const row = match.heroes.get("0");
-  expect(row?.emote).toBe(-1);
-  expect(row?.weaponId).toBe(weaponId);
-  expect(row?.stunT).toBeCloseTo(0.4);
-  expect(row?.action).toBe("STUNNED");
-  expect(row?.heldItem).toBe("spring");
-  expect(row?.springT).toBeCloseTo(0.45);
-  expect(row?.slideT).toBeCloseTo(0.2);
-  expect(row?.rouSpin).toBe("tiger");
-  expect(JSON.parse(row?.rlTimed ?? "[]")).toEqual([]);
-  expect(JSON.parse(row?.ultClones ?? "[]")).toEqual([]);
+  if (!row) {throw new Error("schema hero 0");}
+  return row;
+}
+
+function requirePacked0(snap: { players: Array<Record<string, unknown>> }): Record<string, unknown> {
+  const packed = snap.players.find((p) => p.slot === 0);
+  if (!packed) {throw new Error("snap player 0");}
+  return packed;
+}
+
+function assertV2SchemaRow(match: MatchStateSchema, weaponId: string): void {
+  const row = requireHero0(match);
+  expect(row.emote).toBe(-1);
+  expect(row.weaponId).toBe(weaponId);
+  expect(row.stunT).toBeCloseTo(0.4);
+  expect(row.action).toBe("STUNNED");
+  expect(row.heldItem).toBe("spring");
+  expect(row.springT).toBeCloseTo(0.45);
+  expect(row.slideT).toBeCloseTo(0.2);
+  expect(row.rouSpin).toBe("tiger");
+  expect(JSON.parse(row.rlTimed)).toEqual([]);
+  expect(JSON.parse(row.ultClones)).toEqual([]);
+  assertV2MotionRow(row);
+}
+
+function assertV2MotionRow(row: {
+  pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
+  mobCd: number; elim: boolean;
+}): void {
+  expect(row.pullT).toBeCloseTo(0.55);
+  expect(row.pocketT).toBeCloseTo(5);
+  expect(row.hopT).toBeCloseTo(0.18);
+  expect(row.hopMax).toBeCloseTo(0.3);
+  expect(row.hopHeight).toBeCloseTo(19);
+  expect(row.mobCd).toBeCloseTo(1.25);
+  expect(row.elim).toBe(true);
 }
 
 function assertV2SnapPlayer(
   snap: { players: Array<Record<string, unknown>> },
   weaponId: string,
 ): void {
-  const packed = snap.players.find((p) => p.slot === 0);
-  expect(packed?.weaponId).toBe(weaponId);
-  expect(packed?.heldItem).toBe("spring");
-  expect(packed?.springT).toBeCloseTo(0.45);
-  expect(packed?.rouSpin).toBe("tiger");
-  expect(typeof packed?.rouSpin).toBe("string");
+  const packed = requirePacked0(snap);
+  expect(packed.weaponId).toBe(weaponId);
+  expect(packed.heldItem).toBe("spring");
+  expect(packed.springT).toBeCloseTo(0.45);
+  expect(packed.rouSpin).toBe("tiger");
+  expect(typeof packed.rouSpin).toBe("string");
+  assertV2MotionRow(packed as unknown as {
+    pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
+    mobCd: number; elim: boolean;
+  });
+}
+
+function assertSchemaSnapParity(
+  row: { pullT: number; pocketT: number; hopT: number; hopMax: number; hopHeight: number;
+    mobCd: number; elim: boolean; mvSpd: number },
+  packed: Record<string, unknown>,
+  mvSpd: number,
+): void {
+  expect(row.mvSpd).toBe(mvSpd);
+  expect(packed.mvSpd).toBe(mvSpd);
+  expect(row.pullT).toBe(packed.pullT);
+  expect(row.pocketT).toBe(packed.pocketT);
+  expect(row.hopT).toBe(packed.hopT);
+  expect(row.hopMax).toBe(packed.hopMax);
+  expect(row.hopHeight).toBe(packed.hopHeight);
+  expect(row.mobCd).toBe(packed.mobCd);
+  expect(row.elim).toBe(packed.elim);
+}
+
+function assertOmittedV2Keys(row: Record<string, unknown>, mvSpd: number): void {
+  expect(row.mobCd).toBeUndefined();
+  expect(row.hopT).toBeUndefined();
+  expect(row.hopMax).toBeUndefined();
+  expect(row.hopHeight).toBeUndefined();
+  expect(row.elim).toBeUndefined();
+  expect(row.pullT).toBeUndefined();
+  expect(row.pocketT).toBeUndefined();
+  expect(row.mvSpd).toBe(mvSpd);
 }
 
 describe("writeMatchState", () => {
@@ -169,6 +234,31 @@ describe("writeMatchState", () => {
     expect(Array.isArray(snap.effects)).toBe(true);
     expect(match.effects.length).toBe(snap.effects.length);
     expect(typeof match.finishCine.fly).toBe("number");
+    const hero = sim.heroes.get(0);
+    if (!hero) {throw new Error("hero 0");}
+    assertSchemaSnapParity(requireHero0(match), requirePacked0(snap), hero.equipment.moveSpeed);
+  });
+
+  it("JSON V2 는 mobCd·hopT·elim 을 omit-default 하고 mvSpd 는 싣는다", () => {
+    const sim = new MatchSim(
+      [{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }],
+      7,
+      "full",
+    );
+    const names = new Map([[0, "호스트"], [1, "게스트"]]);
+    const hero = sim.heroes.get(0);
+    if (!hero) {throw new Error("hero 0");}
+    const empty = packAuthoritySnap(sim, names, "full") as {
+      players: Array<Record<string, unknown>>;
+    };
+    assertOmittedV2Keys(requirePacked0(empty), hero.equipment.moveSpeed);
+    const match = new MatchStateSchema();
+    writeMatchState(match, sim, names, "full");
+    const schema = requireHero0(match);
+    expect(schema.mobCd).toBe(0);
+    expect(schema.hopT).toBe(0);
+    expect(schema.elim).toBe(false);
+    expect(schema.mvSpd).toBe(hero.equipment.moveSpeed);
   });
 
   it("탄 schema 가 radius·arc·heavy·src 를 싣는다", () => {

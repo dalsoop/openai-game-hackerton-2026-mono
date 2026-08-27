@@ -17,11 +17,8 @@ const HERO_RADIUS := ArenaGeo.HERO_RADIUS
 const FIXED_DT := 1.0 / 60.0
 const TICK_RATE := 60.0  # 서버 고정 시뮬 틱레이트 (FIXED_DT 의 역수)
 const INTERP_SEC := 0.06
-const MOVE_SPEED := 419.0
-# match-equipment.ts FALLBACK_MOBILITY. applyMobility 는 한 틱에 이 거리를 더한다.
 const DASH_DISTANCE := 138.0
 const DASH_COOLDOWN := 5.0
-# 예측 gun_fire 후 서버 이벤트를 건너뛰는 창. 스냅 1~2장.
 const PRED_FIRE_SKIP := 0.18
 const MATCH_TIME_LIMIT := 210.0
 const ULTIMATE_MAX := 100.0
@@ -101,6 +98,11 @@ var _applied_tick: int = -1
 var _server_events_active: bool = false
 var _snap_had_gun_fire: bool = false
 var _launch_trails: Dictionary = {}
+var _pred_fire_tick: int = 0
+var _lerp_from_slot: Dictionary = {}
+var _lerp_to_slot: Dictionary = {}
+var _lerp_old_bullets: Dictionary = {}
+var _lerp_new_bullets: Dictionary = {}
 
 func _init() -> void:
     event_log = EventLogScript.new()
@@ -156,7 +158,12 @@ func _reset_net_session() -> void:
     _applied_tick = -1
     _server_events_active = false
     _snap_had_gun_fire = false
+    _pred_fire_tick = 0
     _launch_trails.clear()
+    _lerp_from_slot.clear()
+    _lerp_to_slot.clear()
+    _lerp_old_bullets.clear()
+    _lerp_new_bullets.clear()
 
 static func _f(source: Dictionary, key: String, fallback: float) -> float:
     var v: Variant = source.get(key)
@@ -182,7 +189,7 @@ func push_snap(snap: Dictionary) -> void:
 
 func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
     # 대기(카운트다운)·종료 중엔 서버가 입력을 무시한다 — 예측도 얼려서 유령 이동을 막는다.
-    if start_countdown > 0.0 or result != &"playing":
+    if heroes.is_empty() or start_countdown > 0.0 or result != &"playing":
         return _input_seq
     _input_seq += 1
     var mx := move.x
@@ -213,6 +220,7 @@ func predict_local_fire(aim_point: Vector2 = Vector2.ZERO) -> bool:
         return false
     _spawn_pred_fire_fx(me, aim_point)
     _pred_fire_skip_left = PRED_FIRE_SKIP
+    _pred_fire_tick = tick
     return true
 
 ## 클릭 프레임의 실제 조준점(aim_point, 월드 좌표)으로 방향을 잡는다 — 직전 스냅의
@@ -331,15 +339,14 @@ func _seed_prediction(snap: Dictionary) -> void:
         _pred_aim = _pred_aim.normalized()
     _has_pred = true
 
-func _bullet_wire_by_id(list: Array) -> Dictionary:
-    var by_id := {}
+func _fill_bullet_wire_by_id(list: Array, dest: Dictionary) -> void:
+    dest.clear()
     for i in range(list.size()):
         var raw: Variant = list[i]
         if typeof(raw) != TYPE_DICTIONARY:
             continue
         var b: Dictionary = raw
-        by_id[int(b.get(SnapContract.B_ID, i))] = b
-    return by_id
+        dest[int(b.get(SnapContract.B_ID, i))] = b
 
 func _player_in(snap: Dictionary, slot: int) -> Dictionary:
     for raw in snap.get(SnapContract.PLAYERS, []):
@@ -348,23 +355,24 @@ func _player_in(snap: Dictionary, slot: int) -> Dictionary:
             return p
     return {}
 
-func _player_wire_by_slot(snap: Dictionary) -> Dictionary:
-    var by_slot := {}
+func _fill_player_wire_by_slot(snap: Dictionary, dest: Dictionary) -> void:
+    dest.clear()
     for raw in snap.get(SnapContract.PLAYERS, []):
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
         var p: Dictionary = raw
-        by_slot[int(p.get(SnapContract.P_SLOT, -1))] = p
-    return by_slot
+        dest[int(p.get(SnapContract.P_SLOT, -1))] = p
 
 func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
     var vel_scale := snap_per_sec(float(int(older.get(SnapContract.TICK, 0))), float(int(newer.get(SnapContract.TICK, 0))))
-    var from_map := _player_wire_by_slot(older)
-    var to_map := _player_wire_by_slot(newer)
+    _fill_player_wire_by_slot(older, _lerp_from_slot)
+    _fill_player_wire_by_slot(newer, _lerp_to_slot)
     for hero in heroes:
         var slot := int(hero["slot"])
-        if not from_map.has(slot) or not to_map.has(slot):
+        if not _lerp_from_slot.has(slot) or not _lerp_to_slot.has(slot):
             continue
-        var a: Dictionary = from_map[slot]
-        var b: Dictionary = to_map[slot]
+        var a: Dictionary = _lerp_from_slot[slot]
+        var b: Dictionary = _lerp_to_slot[slot]
         var from_pos := Vector2(_f(a, SnapContract.P_X, 0.0), _f(a, SnapContract.P_Y, 0.0))
         var to_pos := Vector2(_f(b, SnapContract.P_X, 0.0), _f(b, SnapContract.P_Y, 0.0))
         hero["pos"] = from_pos.lerp(to_pos, alpha)
@@ -378,14 +386,14 @@ func _lerp_motion(older: Dictionary, newer: Dictionary, alpha: float) -> void:
     safe_zone_radius = lerpf(_f(older, SnapContract.ZONE_R, safe_zone_radius), _f(newer, SnapContract.ZONE_R, safe_zone_radius), alpha)
 
 func _lerp_shots(older: Dictionary, newer: Dictionary, alpha: float, vel_scale: float) -> void:
-    var old_bullets: Dictionary = _bullet_wire_by_id(older.get(SnapContract.BULLETS, []))
-    var new_bullets: Dictionary = _bullet_wire_by_id(newer.get(SnapContract.BULLETS, []))
+    _fill_bullet_wire_by_id(older.get(SnapContract.BULLETS, []), _lerp_old_bullets)
+    _fill_bullet_wire_by_id(newer.get(SnapContract.BULLETS, []), _lerp_new_bullets)
     for shot in projectiles:
         var bid := int(shot.get("id", -1))
-        if not old_bullets.has(bid) or not new_bullets.has(bid):
+        if not _lerp_old_bullets.has(bid) or not _lerp_new_bullets.has(bid):
             continue
-        var ob: Dictionary = old_bullets[bid]
-        var nb: Dictionary = new_bullets[bid]
+        var ob: Dictionary = _lerp_old_bullets[bid]
+        var nb: Dictionary = _lerp_new_bullets[bid]
         var from_b := Vector2(_f(ob, SnapContract.B_X, 0.0), _f(ob, SnapContract.B_Y, 0.0))
         var to_b := Vector2(_f(nb, SnapContract.B_X, 0.0), _f(nb, SnapContract.B_Y, 0.0))
         shot["pos"] = from_b.lerp(to_b, alpha)
@@ -414,19 +422,15 @@ func _reconcile(snap: Dictionary) -> void:
     _pending = keep
     _pred_pos = Vector2(_f(me, SnapContract.P_X, _pred_pos.x), _f(me, SnapContract.P_Y, _pred_pos.y))
     _has_pred = true
-    # 스냅에 mobilityCd 가 없어 미확정 입력만 다시 적용한다. 확정분 CD 는 서버가 막는다.
-    _pred_dash_cd = 0.0
+    if me.has(SnapContract.P_MOB_CD):
+        _pred_dash_cd = _f(me, SnapContract.P_MOB_CD, 0.0)
+    else:
+        _pred_dash_cd = 0.0
     for item in _pending:
         _step_pred(_f(item, "mx", 0.0), _f(item, "my", 0.0), bool(item.get("dash", false)), Vector2(item.get("aim", _pred_pos)), _f(item, "dt", 1.0 / 60.0))
 
 func _step_pred(mx: float, my: float, dash: bool, aim: Vector2, dt: float) -> void:
     NetPred.step(self, mx, my, dash, aim, dt)
-
-func _apply_pred_move(move: Vector2, dt: float) -> void:
-    NetPred.apply_move(self, hero_at_slot(local_slot), move, dt)
-
-func _apply_pred_dash(move: Vector2) -> void:
-    NetPred.apply_dash(self, hero_at_slot(local_slot), move)
 
 static func clamp_arena(pos: Vector2) -> Vector2:
     return Vector2(
@@ -448,6 +452,7 @@ func _overlay_prediction() -> void:
         return
     me["pos"] = _pred_pos
     me["aim"] = _pred_aim
+    me["mobility_cd"] = _pred_dash_cd
 
 func apply(snap: Dictionary) -> void:
     apply_snap(snap)
@@ -551,11 +556,13 @@ func _build_hero(p: Dictionary, old: Dictionary, slot: int, snap_per_sec: float)
 
 func _apply_bullets(list: Array, snap_per_sec: float) -> void:
     var next := NetSnapParser.parse_bullets(list, _prev_bullets, snap_per_sec)
+    var local_new := _has_new_local_bullet(next)
     if _bullets_ready and not _snap_had_gun_fire:
         _emit_inferred_gun_fire(next)
     _bullets_ready = true
     _prev_bullets = next.duplicate()
     projectiles = next
+    _resolve_pred_fire_skip(local_new)
 
 func _emit_inferred_gun_fire(next: Array) -> void:
     var seen := {}
@@ -589,6 +596,26 @@ func _ingest_one_event(ev: Dictionary) -> void:
 
 func _skip_local_pred_gun_fire(slot: int) -> bool:
     return slot == local_slot and _pred_fire_skip_left > 0.0
+
+func _has_new_local_bullet(next: Array) -> bool:
+    var seen := {}
+    for prev_b in _prev_bullets:
+        seen[int(prev_b.get("id", -1))] = true
+    for bullet in next:
+        if seen.has(int(bullet.get("id", -1))):
+            continue
+        if int(bullet.get("owner", -1)) == local_slot:
+            return true
+    return false
+
+func _resolve_pred_fire_skip(local_new_bullet: bool) -> void:
+    if _pred_fire_skip_left <= 0.0:
+        return
+    if _snap_had_gun_fire or local_new_bullet:
+        return
+    if tick < _pred_fire_tick + 3:
+        return
+    _pred_fire_skip_left = 0.0
 
 func _replace_server_effects(snap: Dictionary) -> void:
     if not snap.has(SnapContract.EFFECTS):

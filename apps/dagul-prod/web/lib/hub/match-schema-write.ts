@@ -6,6 +6,7 @@ import type { SnapEvent } from "./match-authority-snap.js";
 import { MatchBulletSchema, MatchEventSchema, MatchHeroSchema } from "./match-schema.js";
 import type { MatchStateSchema } from "./match-schema.js";
 import { writeMatchWorld } from "./match-schema-world.js";
+import { skillsEnabled } from "./config.js";
 
 /** 스키마 이벤트 링버퍼 상한. JSON 스냅 takeEvents 캡과 같다. */
 export const EVENT_RING = 32;
@@ -52,8 +53,8 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.launchT = h.launchTime;
   row.launchVX = h.launchVel.x;
   row.launchVY = h.launchVel.y;
-  row.charging = h.chargingSkill;
-  row.chargeT = h.chargeTime;
+  row.charging = skillsEnabled() && h.chargingSkill;
+  row.chargeT = skillsEnabled() ? h.chargeTime : 0;
   row.dmgOrbT = h.dmgOrbTime;
   row.downTaken = h.downTaken;
   row.woolT = h.woolTime;
@@ -64,10 +65,18 @@ function fillHeroV2(row: MatchHeroSchema, h: SimHero): void {
   row.rouPhase = h.roulettePhase;
   row.rouSpin = String(h.rouletteSpinId);
   row.rouLabel = h.rouletteLabel;
-  row.action = h.action;
+  row.action = skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "idle";
   row.heldItem = h.heldItem;
   row.springT = h.springTime;
   row.slideT = h.slideTime;
+  row.pullT = h.pullTime;
+  row.pocketT = h.pocketTime;
+  row.hopT = h.hopTime;
+  row.hopMax = h.hopMax;
+  row.hopHeight = h.hopHeight;
+  row.mobCd = h.mobilityCd;
+  row.mvSpd = h.equipment.moveSpeed;
+  row.elim = h.eliminated;
   row.rlTimed = JSON.stringify(h.rlTimed);
   row.ultClones = JSON.stringify(h.ultClones.map((c) => ({ x: c.pos.x, y: c.pos.y })));
   row.parked = h.parked;

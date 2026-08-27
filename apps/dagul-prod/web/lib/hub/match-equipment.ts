@@ -157,7 +157,7 @@ export const GUN_LOOT_CHAIN: readonly string[] = [
   "rail", "burst", "scatter", "mortar", "breaker", "bomb",
   "leech", "blade", "spear", "chain", "shield", "brawler",
 ];
-export const GUN_LOOT_MODES: readonly string[] = ["gun-semi", "gun-auto", "full"];
+export const GUN_LOOT_MODES: readonly string[] = ["gun-semi", "gun-auto", "full", "classic"];
 
 export function identityFor(equipmentId: string): EquipmentIdentity {
   return IDENTITY[equipmentId] ?? FALLBACK_IDENTITY;

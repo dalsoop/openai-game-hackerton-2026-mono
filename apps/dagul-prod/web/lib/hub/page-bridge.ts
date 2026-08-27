@@ -1,7 +1,7 @@
 // React ↔ Godot 인게임 수송 — 허브 소켓은 React 만 연다.
 // 정본 이벤트 이름: lib/contract DOM_EVT.TO_ENGINE / FROM_ENGINE
 import { DOM_EVT, MSG } from "../contract";
-import { seatListOf } from "../domain/roster";
+import { plainSeatOf, seatListOf } from "../domain/roster";
 
 export type BridgePacket = { readonly type: string; readonly payload: unknown };
 
@@ -22,6 +22,41 @@ export function parseBridgePacket(raw: unknown): BridgePacket | null {
 
 export function encodeBridgePacket(type: string, payload: unknown): string {
   return JSON.stringify({ type, payload });
+}
+
+let lastInboundSnap: unknown = null;
+
+function clonePlain(raw: unknown): unknown {
+  if (raw == null || typeof raw !== "object") {return raw;}
+  try {return JSON.parse(JSON.stringify(raw));} catch {return null;}
+}
+
+/** SNAP JSON 을 평문으로 고정한다. 스키마 dispose 뒤에 winner 를 읽지 않게. */
+export function rememberInboundSnap(raw: unknown): void {
+  lastInboundSnap = clonePlain(raw);
+}
+
+export function lastInboundSnapOf(): unknown {
+  return lastInboundSnap;
+}
+
+export function resetInboundSnapForTests(): void {
+  lastInboundSnap = null;
+}
+
+export function freezeMatchEndDetail(detail: unknown, snap: unknown = lastInboundSnap): Record<string, unknown> {
+  const base: Record<string, unknown> = {};
+  if (detail && typeof detail === "object") {
+    Object.assign(base, clonePlain(detail) as Record<string, unknown>);
+  }
+  if (!snap || typeof snap !== "object") {return base;}
+  const frozen = clonePlain(snap);
+  if (!frozen || typeof frozen !== "object") {return base;}
+  const rec = frozen as Record<string, unknown>;
+  if (!("winner" in base) && typeof rec.winner === "number") {base.winner = rec.winner;}
+  if (!("result" in base) && typeof rec.result === "string") {base.result = rec.result;}
+  base.snap = frozen;
+  return base;
 }
 
 export function isEngineOutbound(type: string): boolean {
@@ -83,13 +118,16 @@ export function encodeHubState(
   rttMs = 0,
 ): Record<string, unknown> | null {
   if (sessionId === "") {return null;}
-  const players = seatListOf(snap.players).map((p) => ({
-    slot: p.slot,
-    sessionId: p.sessionId,
-    name: p.name,
-    connected: p.connected,
-    matchReady: Boolean(p.matchReady),
-  }));
+  const players = seatListOf(snap.players).map((p) => {
+    const seat = plainSeatOf(p);
+    return {
+      slot: seat.slot,
+      sessionId: seat.sessionId,
+      name: seat.name,
+      connected: seat.connected,
+      matchReady: Boolean(seat.matchReady),
+    };
+  });
   return {
     phase: snap.phase ?? "",
     hostSessionId: snap.hostSessionId ?? "",

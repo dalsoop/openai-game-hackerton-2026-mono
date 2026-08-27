@@ -43,14 +43,15 @@ const PLAYER_COPY := [
 	"downed", "downLeft", "deaths", "score", "streak",
 	"action", "stunT", "rootT", "ccT", "guardT", "armorT", "spawnT",
 	"launchT", "launchVX", "launchVY", "charging", "chargeT",
-	"heldItem", "springT", "slideT", "dmgOrbT", "downTaken",
+	"heldItem", "springT", "slideT", "pullT", "pocketT", "dmgOrbT", "downTaken",
 	"woolT", "woolHp", "woolMax", "rouT", "rouRank", "rouPhase", "rouSpin", "rouLabel",
 	"rlTimed", "ultClones",
+	"mobCd", "hopT", "hopMax", "hopHeight", "mvSpd", "elim",
 ]
 const BULLET_COPY := ["id", "x", "y", "vx", "vy", "owner", "kind", "radius", "arc", "heavy", "src", "ttl", "maxTtl", "lx", "ly", "splash"]
 const EFFECT_COPY := ["k", "x", "y", "r", "t", "maxT", "color", "label", "dx", "dy", "follow", "sx", "sy", "dep"]
 const COVER_COPY := ["x", "y", "w", "h"]
-const LOOT_COPY := ["id", "kind", "x", "y", "n"]
+const LOOT_COPY := ["id", "kind", "itemKind", "disguise", "x", "y", "n"]
 const CRATE_ORB_COPY := ["x", "y", "red", "active"]
 
 var _snap: Dictionary = {}

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { HANDOFF } from "@/lib/hub/config";
-import { persistEngineHandoff } from "@/lib/godot/runtime";
+import { persistEngineHandoff, clearEngineHandoff } from "@/lib/godot/runtime";
 
 describe("persistEngineHandoff", () => {
   const store = new Map<string, string>();
@@ -28,5 +28,29 @@ describe("persistEngineHandoff", () => {
     expect(store.get(HANDOFF.MATCH)).toContain("\"seed\":7");
     expect(store.get(HANDOFF.GAME)).toBe("dagul");
     expect(store.get(HANDOFF.RESUME)).toBe("tok");
+  });
+
+  it("match 가 없으면 이전 MATCH 잔존을 지운다", () => {
+    store.set(HANDOFF.MATCH, "{\"seed\":1}");
+    persistEngineHandoff("dagul", {
+      roomId: "r1",
+      name: "호스트",
+      slot: 0,
+      resumeToken: "tok",
+    });
+    expect(store.has(HANDOFF.MATCH)).toBe(false);
+    expect(store.get(HANDOFF.FROM_HUB)).toBe("1");
+  });
+
+  it("clearEngineHandoff 는 FROM_HUB·MATCH 를 지우고 resume 은 선택이다", () => {
+    store.set(HANDOFF.FROM_HUB, "1");
+    store.set(HANDOFF.MATCH, "{}");
+    store.set(HANDOFF.RESUME, "tok");
+    clearEngineHandoff();
+    expect(store.has(HANDOFF.FROM_HUB)).toBe(false);
+    expect(store.has(HANDOFF.MATCH)).toBe(false);
+    expect(store.get(HANDOFF.RESUME)).toBe("tok");
+    clearEngineHandoff(true);
+    expect(store.has(HANDOFF.RESUME)).toBe(false);
   });
 });

@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  AUDIO_UNLOCK_EVENT, bindAudioUnlock, captureAudioContexts, unlockGodotAudio,
-  resetAudioUnlockForTests,
+  AUDIO_UNLOCK_EVENT, bindAudioUnlock, captureAudioContexts, closeCapturedAudioContexts,
+  unlockGodotAudio, resetAudioUnlockForTests,
 } from "@/lib/godot/unlock-audio";
 
 function stubAudioContext(): void {
   class FakeContext {
     state = "suspended";
     resume = vi.fn().mockResolvedValue(undefined);
+    close = vi.fn().mockResolvedValue(undefined);
   }
   Object.defineProperty(window, "AudioContext", { configurable: true, writable: true, value: FakeContext });
   Object.defineProperty(window, "__dagulAudioPatched", { configurable: true, writable: true, value: false });
@@ -71,6 +72,20 @@ describe("captureAudioContexts", () => {
     const Ctx = window.AudioContext as unknown as new () => AudioContext;
     const ctx = new Ctx();
     expect(ctx instanceof window.AudioContext).toBe(true);
+  });
+});
+
+describe("closeCapturedAudioContexts", () => {
+  it("캡처한 컨텍스트를 close 하고 목록을 비운다", () => {
+    stubAudioContext();
+    captureAudioContexts();
+    const Ctx = window.AudioContext as unknown as new () => AudioContext & { close: ReturnType<typeof vi.fn> };
+    const ctx = new Ctx();
+    ctx.close = vi.fn().mockResolvedValue(undefined);
+    closeCapturedAudioContexts();
+    expect(ctx.close).toHaveBeenCalled();
+    unlockGodotAudio();
+    expect(ctx.resume).not.toHaveBeenCalled();
   });
 });
 

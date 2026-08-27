@@ -13,6 +13,7 @@ var _trying := false
 var _deadline_ms: int = 0
 var _sent: Array = []
 var _notices: Array = []
+var _claim_ready := false
 
 func is_active() -> bool:  # lint-gd: public-api
 	return active
@@ -72,6 +73,8 @@ func _flag_off() -> bool:
 	return _js("try{sessionStorage.getItem('%s')||''}catch(e){''}" % _FLAG_KEY) == "off"
 
 func _begin_join(room_id: String) -> void:
+	if not _has_claim():
+		return
 	var endpoint := _ws_endpoint()
 	if endpoint == "":
 		return
@@ -98,6 +101,9 @@ func _bind_room(room) -> void:
 
 func _on_joined() -> void:
 	_trying = false
+	if not _claim_ok():
+		_set_live(false)
+		return
 	_set_live(true)
 	_on_state_changed()
 
@@ -116,6 +122,7 @@ func _set_live(on: bool) -> void:
 		_drop_room()
 		return
 	active = false
+	_adapter.reset()
 	_notify_page(WebContract.MSG_SNAP_ON)
 	_drop_room()
 
@@ -172,12 +179,18 @@ func _as_dict(v: Variant) -> Dictionary:
 
 func _join_options() -> Dictionary:
 	var opts := {"engine": true}
-	var guest_id := _cookie(WebContract.KEY_GUEST_ID)
-	var guest_key := _cookie(WebContract.KEY_GUEST_KEY)
-	if guest_id != "" and guest_key != "":
-		opts["guestId"] = int(guest_id)
-		opts["guestKey"] = guest_key
+	_claim_ready = _has_claim()
+	if not _claim_ready:
+		return opts
+	opts["guestId"] = int(_cookie(WebContract.KEY_GUEST_ID))
+	opts["guestKey"] = _cookie(WebContract.KEY_GUEST_KEY)
 	return opts
+
+func _has_claim() -> bool:
+	return _cookie(WebContract.KEY_GUEST_ID) != "" and _cookie(WebContract.KEY_GUEST_KEY) != ""
+
+func _claim_ok() -> bool:
+	return _claim_ready or _has_claim()
 
 func _room_id() -> String:
 	var parsed: Variant = JSON.parse_string(_read_ls(WebContract.KEY_MATCH))

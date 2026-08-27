@@ -9,6 +9,7 @@ func run(t) -> void:
 	_ignore_snap_when_active(t)
 	_send_input_branches(t)
 	_snap_opt_notices(t)
+	_no_claim_stays_bridge(t)
 	_restore(t)
 
 func _autoload_present(t) -> void:
@@ -71,6 +72,7 @@ func _snap_opt_notices(t) -> void:
 	if sock == null:
 		return
 	sock.active = false
+	sock.set("_claim_ready", true)
 	(sock.get("_notices") as Array).clear()
 	sock.call("_on_joined")
 	var first: Array = sock.get("_notices")
@@ -84,10 +86,23 @@ func _snap_opt_notices(t) -> void:
 	sock.call("_on_left_room")
 	t.check("재이탈은 SNAP_ON 재전송 없음", (sock.get("_notices") as Array).size() == 2)
 
+func _no_claim_stays_bridge(t) -> void:
+	var sock: Node = t.root.get_node_or_null("EngineSocket")
+	if sock == null:
+		t.check("claim 가드 소켓", false)
+		return
+	sock.active = false
+	sock.set("_claim_ready", false)
+	(sock.get("_notices") as Array).clear()
+	sock.call("_on_joined")
+	t.check("claim 없으면 SNAP_OFF 없음", (sock.get("_notices") as Array).is_empty())
+	t.check("claim 없으면 비활성", sock.is_active() == false)
+
 func _restore(t) -> void:
 	var sock: Node = t.root.get_node_or_null("EngineSocket")
 	if sock:
 		sock.active = false
+		sock.set("_claim_ready", false)
 		(sock.get("_sent") as Array).clear()
 		(sock.get("_notices") as Array).clear()
 	t.check("소켓 비활성 복구", sock == null or sock.is_active() == false)

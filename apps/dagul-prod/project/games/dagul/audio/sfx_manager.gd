@@ -40,10 +40,11 @@ func play(stream: AudioStreamWAV, volume_db: float = -5.0) -> void:
 func process_events(world, local_slot: int, last_event_id: int) -> Dictionary:
 	var new_last := last_event_id
 	var hit_pause := 0
-	for event in world.event_log.events:
+	var log = world.event_log
+	var start: int = log.first_index_after(last_event_id)
+	for i in range(start, log.events.size()):
+		var event: Dictionary = log.events[i]
 		var event_id := int(event["event_id"])
-		if event_id <= last_event_id:
-			continue
 		new_last = event_id
 		hit_pause = _events.handle(world, event, local_slot, hit_pause)
 	return {"last_event_id": new_last, "hit_pause": hit_pause}

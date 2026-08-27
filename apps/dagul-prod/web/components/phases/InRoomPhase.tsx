@@ -11,6 +11,7 @@ interface InRoomPhaseProps {
   you: number;
   isHost: boolean;
   gameId: string;
+  mode: string;
   roomOpen: boolean;
   idleLeftSec: number;
   ownPackPct: number;
@@ -31,6 +32,7 @@ export function InRoomPhase({
   you,
   isHost,
   gameId,
+  mode,
   roomOpen,
   idleLeftSec,
   ownPackPct,
@@ -53,6 +55,7 @@ export function InRoomPhase({
       you={you}
       isHost={isHost}
       gameId={gameId}
+      mode={mode}
       roomOpen={roomOpen}
       idleLeftSec={idleLeftSec}
       onStart={onStartGame}

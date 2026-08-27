@@ -2,7 +2,7 @@
 // Godot 웹 런타임의 수명주기 소유자 — 상태머신(idle→downloading→…→running)과
 // 엔진 부팅 시퀀스만 담당한다. URL 체계·다운로드 공유는 AssetStore 가,
 // 핸드오프 키 계약은 lib/contract 가 소유한다 (여기선 조립만).
-import { HANDOFF, DOM_EVT } from "../contract";
+import { DOM_EVT } from "../contract";
 import { HUB_CONFIG } from "../hub/config";
 import { DEFAULT_GAME_ID, packOf, type GameId } from "../games/catalog";
 import { AssetStore, assetPlanOf } from "./asset-store";
@@ -10,7 +10,13 @@ import { bindCanvasKeyboardFocus } from "./canvas-focus";
 import { bindAudioUnlock, captureAudioContexts } from "./unlock-audio";
 import { applyDevicePixelRatioCap, restoreDevicePixelRatio } from "./dpr-cap";
 import { isWebGL2Available, type GodotEngineApi } from "./webgl";
-import type { StartPayload } from "../hub/start-payload";
+import { BootTicket } from "./boot-ticket";
+import { persistEngineHandoff, type HandoffInfo } from "./handoff";
+import { disposeGodotEngine } from "./engine-dispose";
+import { godotEngineConfig, type EngineInstance } from "./engine-config";
+
+export type { HandoffInfo };
+export { persistEngineHandoff, clearEngineHandoff } from "./handoff";
 
 export type RuntimeState =
   | "idle" | "downloading" | "compiling" | "ready" | "running" | "error";
@@ -23,21 +29,13 @@ export interface RuntimeSnapshot {
   error: string | null;
 }
 
-export interface HandoffInfo {
-  roomId: string;
-  name: string;
-  slot: number;
-  resumeToken: string;
-  match?: StartPayload;
-  /** KEY_GAME — 팩 id 가 아니라 모듈 id */
-  game?: string;
-}
-
 interface Manifest {
   version: string;
   filesHash?: string;
   files: string[];
 }
+
+type EngineCtor = GodotEngineApi & (new (cfg: unknown) => EngineInstance);
 
 
 export class GodotRuntime {
@@ -51,22 +49,32 @@ export class GodotRuntime {
   }
   /** 호환 진입점 — 기본 게임의 팩 */
   static get instance(): GodotRuntime {return this.for(DEFAULT_GAME_ID);}
+  static resetForTests(): void {
+    for (const rt of this._instances.values()) {rt.quit();}
+    this._instances.clear();
+  }
 
   private readonly pack: string;
   private readonly plan;
+  private readonly boots = new BootTicket();
 
   private readonly store: AssetStore;
   private manifest: Manifest | null = null;
   private wasmModule: WebAssembly.Module | null = null;
   private preloadPromise: Promise<void> | null = null;
-  private engine: { requestQuit?: () => void } | null = null;
+  private engine: EngineInstance | null = null;
   private boundCanvas: HTMLCanvasElement | null = null;
   private unbindCanvasFocus: (() => void) | null = null;
   private unbindAudioUnlock: (() => void) | null = null;
   private scriptPromise: Promise<void> | null = null;
   private bootPromise: Promise<void> | null = null;
+  private exitPromise: Promise<void> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private matchSeen = false;
+  private readonly onMatchStart = (): void => {
+    this.matchSeen = true;
+    if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+  };
   private listeners = new Set<(s: RuntimeSnapshot) => void>();
   private snap: RuntimeSnapshot = {
     state: "idle", progress: 0, bytesLoaded: 0, bytesTotal: 0, error: null,
@@ -150,48 +158,52 @@ export class GodotRuntime {
   // startGame() 대신 수동 시퀀스(init→copyToFS→start)를 쓴다:
   // 프리로드한 버퍼를 FS 에 직접 넣어 엔진의 재다운로드를 원천 차단한다.
   boot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
-    // 같은 캔버스면 이미 떠 있음. 재입장으로 캔버스가 바뀌면 내린 뒤 다시 부팅한다.
+    this.writeHandoff(handoff);
     if (this.engine && this.boundCanvas === canvas) {return Promise.resolve();}
-    if (this.engine) {this.quit();}
-    if (this.bootPromise) {return this.bootPromise;}
-    // StrictMode 리마운트 등 동시 boot — 한쪽만 진행한다.
-    this.bootPromise = this.doBoot(canvas, handoff)
+    if (this.bootPromise && this.boundCanvas === canvas) {return this.bootPromise;}
+    const gen = this.boots.issue();
+    this.disposeEngine();
+    this.boundCanvas = canvas;
+    this.bootPromise = this.doBoot(canvas, handoff, gen)
       .catch((e: unknown): void => {
         this.update({ state: "error", error: e instanceof Error ? e.message : String(e) });
       })
-      .finally((): void => { this.bootPromise = null; });
+      .finally((): void => {
+        if (this.boots.isLive(gen)) {this.bootPromise = null;}
+      });
     return this.bootPromise;
   }
 
-  private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo): Promise<void> {
+  private async doBoot(canvas: HTMLCanvasElement, handoff: HandoffInfo, gen: number): Promise<void> {
+    if (!this.boots.isLive(gen)) {return;}
+    // 이전 WASM 힙이 내려가기 전에 새 인스턴스를 올리면 메모리가 겹친다.
+    await this.awaitPreviousExit();
+    if (!this.boots.isLive(gen)) {return;}
     this.update({ state: "downloading", progress: 0.02, error: null });
     this.applyManifest(await this.store.loadManifest(this.pack));
-    // 프리로드가 아직 진행 중이어도 AssetStore 공유로 중복 다운로드 없이 합류한다.
     const [pckBuffer, extBuffer] = await Promise.all([this.store.pck, this.store.extLib]);
-    this.update({ state: "compiling", progress: 0.42 });
-
+    if (!this.boots.isLive(gen)) {return;}
     this.writeHandoff(handoff);
     captureAudioContexts();
     await this.loadEngineScript();
-    this.update({ progress: 0.55 });
+    if (!this.boots.isLive(gen)) {return;}
+    await this.launchPrepared(canvas, pckBuffer, extBuffer, gen);
+  }
 
-    const EngineCtor = (window as unknown as {
-      Engine?: GodotEngineApi & (new (cfg: unknown) => {
-        init: (basePath: string) => Promise<unknown>;
-        copyToFS: (path: string, buffer: ArrayBuffer) => void;
-        start: (override: Record<string, unknown>) => Promise<void>;
-        requestQuit?: () => void;
-      });
-    }).Engine;
+  private async launchPrepared(
+    canvas: HTMLCanvasElement,
+    pckBuffer: ArrayBuffer,
+    extBuffer: ArrayBuffer,
+    gen: number,
+  ): Promise<void> {
+    const EngineCtor = (window as unknown as { Engine?: EngineCtor }).Engine;
     if (!EngineCtor) {throw new Error("engine-missing");}
-    // Godot 공식 사전 검사 — 게임 캔버스가 아니라 엔진/더미 캔버스만 본다.
-    if (!isWebGL2Available({
-      createCanvas: () => document.createElement("canvas"),
-    })) {throw new Error("webgl2-missing");}
-
+    if (!isWebGL2Available({ createCanvas: () => document.createElement("canvas") })) {
+      throw new Error("webgl2-missing");
+    }
     applyDevicePixelRatioCap();
     try {
-      await this.launchEngine(EngineCtor, canvas, pckBuffer, extBuffer);
+      await this.launchEngine(EngineCtor, canvas, pckBuffer, extBuffer, gen);
     } catch (e: unknown) {
       restoreDevicePixelRatio();
       throw e;
@@ -199,50 +211,61 @@ export class GodotRuntime {
   }
 
   private async launchEngine(
-    EngineCtor: new (cfg: unknown) => {
-      init: (basePath: string) => Promise<unknown>;
-      copyToFS: (path: string, buffer: ArrayBuffer) => void;
-      start: (override: Record<string, unknown>) => Promise<void>;
-      requestQuit?: () => void;
-    },
+    EngineCtor: new (cfg: unknown) => EngineInstance,
     canvas: HTMLCanvasElement,
     pckBuffer: ArrayBuffer,
     extBuffer: ArrayBuffer,
+    gen: number,
   ): Promise<void> {
-    const config: Record<string, unknown> = {
-      canvas,
-      canvasResizePolicy: 2,
-      focusCanvas: true,
-      executable: this.plan.engineBase,
-      args: ["--main-pack", "index.pck"],
-      // dlink GDExtension — locateFile 매핑용 파일명 목록.
-      gdextensionLibs: [this.plan.extLibFile],
-    };
-    // 사전컴파일한 wasm 주입 — 부팅 시 엔진의 index.wasm 재다운로드를 막는다.
-    if (this.wasmModule) {
-      const wasmMod = this.wasmModule;
-      config.instantiateWasm = (
-        imports: WebAssembly.Imports,
-        onDone: (inst: WebAssembly.Instance, mod: WebAssembly.Module) => void,
-      ): Record<string, unknown> => {
-        void WebAssembly.instantiate(wasmMod, imports).then((inst) => onDone(inst, wasmMod));
-        return {};
-      };
+    if (!this.boots.isLive(gen)) {
+      restoreDevicePixelRatio();
+      return;
     }
-
+    const config = godotEngineConfig(canvas, this.plan.engineBase, this.plan.extLibFile, this.wasmModule);
+    this.attachExitPromise(config);
     captureAudioContexts();
     const engine = new EngineCtor(config);
     this.catchMatchStart();
-    // side.wasm 도 캐시가 찬 뒤에 init — 엔진의 자체 fetch 가 304 로 떨어지게.
     await this.store.sideWasm;
     await engine.init(this.plan.engineBase);
     this.update({ progress: 0.74 });
     engine.copyToFS("index.pck", pckBuffer);
-    // Godot 웹 dlopen 은 파일명만 쓴다(os_web.cpp p_path.get_file()) —
-    // FS 루트에 파일명으로 심어 find_dylib 이 바로 찾게 한다.
     engine.copyToFS(`/${this.plan.extLibFile}`, extBuffer);
     this.update({ progress: 0.86 });
-    await engine.start(config);
+    if (!this.boots.isLive(gen)) {
+      disposeGodotEngine(engine, canvas);
+      restoreDevicePixelRatio();
+      return;
+    }
+    try {
+      await engine.start(config);
+    } catch (err: unknown) {
+      disposeGodotEngine(engine, canvas);
+      throw err;
+    }
+    if (!this.boots.isLive(gen)) {
+      disposeGodotEngine(engine, canvas);
+      restoreDevicePixelRatio();
+      return;
+    }
+    this.bindRunning(engine, canvas);
+  }
+
+  private attachExitPromise(config: Record<string, unknown>): void {
+    this.exitPromise = new Promise<void>((resolve): void => {
+      config.onExit = (): void => { resolve(); };
+    });
+  }
+
+  private awaitPreviousExit(): Promise<void> {
+    if (!this.exitPromise) {return Promise.resolve();}
+    return Promise.race([
+      this.exitPromise,
+      new Promise<void>((resolve) => { setTimeout(resolve, 1500); }),
+    ]);
+  }
+
+  private bindRunning(engine: EngineInstance, canvas: HTMLCanvasElement): void {
     this.engine = engine;
     this.boundCanvas = canvas;
     this.unbindCanvasFocus?.();
@@ -265,7 +288,7 @@ export class GodotRuntime {
       el.src = this.store.assetUrl(this.plan.files.engineJs);
       el.onload = (): void => resolve();
       el.onerror = (): void => {
-        this.scriptPromise = null; // 재시도 가능하게
+        this.scriptPromise = null;
         reject(new Error("engine-load-failed"));
       };
       document.head.appendChild(el);
@@ -273,16 +296,12 @@ export class GodotRuntime {
     return this.scriptPromise;
   }
 
-  // start() 도중 오는 신호도 받도록, 타임아웃보다 먼저 귀를 연다.
   private catchMatchStart(): void {
+    window.removeEventListener(DOM_EVT.MATCH_START, this.onMatchStart);
     if (this.matchSeen) {return;}
-    window.addEventListener(DOM_EVT.MATCH_START, () => {
-      this.matchSeen = true;
-      if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
-    }, { once: true });
+    window.addEventListener(DOM_EVT.MATCH_START, this.onMatchStart, { once: true });
   }
 
-  // 엔진이 뜬 뒤에만 초를 잰다 — init 이 길다고 매치 실패로 오인하지 않는다.
   private armWatchdog(): void {
     if (this.matchSeen) {return;}
     this.watchdog = setTimeout((): void => {
@@ -292,20 +311,27 @@ export class GodotRuntime {
     }, HUB_CONFIG.matchWatchdogMs);
   }
 
-  quit(): void {
+  private disposeEngine(): void {
     if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
     this.matchSeen = false;
-    if (this.engine?.requestQuit) {
-      try { this.engine.requestQuit(); } catch { /* 이미 종료됨 */ }
-    }
+    window.removeEventListener(DOM_EVT.MATCH_START, this.onMatchStart);
     this.unbindCanvasFocus?.();
     this.unbindCanvasFocus = null;
     this.unbindAudioUnlock?.();
     this.unbindAudioUnlock = null;
+    disposeGodotEngine(this.engine, this.boundCanvas);
     this.engine = null;
     this.boundCanvas = null;
     restoreDevicePixelRatio();
-    if (this.snap.state === "running") {this.update({ state: "ready" });}
+  }
+
+  quit(): void {
+    this.boots.invalidate();
+    const wasBusy = this.snap.state === "running"
+      || this.snap.state === "downloading"
+      || this.snap.state === "compiling";
+    this.disposeEngine();
+    if (wasBusy) {this.update({ state: "ready" });}
   }
 
   resetError(): void {
@@ -313,15 +339,3 @@ export class GodotRuntime {
   }
 }
 
-// 핸드오프는 반드시 sessionStorage(탭 스코프) — localStorage 에 쓰면 다른 탭이
-// 재접속 토큰을 주워 자동 reconnect 를 시도하고, 그 실패 처리가 원래 탭의 토큰을
-// 지워 진행 중 게임이 로비로 리셋된다 (2026-08-26 재시작 버그의 근본 원인).
-export function persistEngineHandoff(game: string, info: HandoffInfo): void {
-  sessionStorage.setItem(HANDOFF.FROM_HUB, "1");
-  sessionStorage.setItem(HANDOFF.GAME, game);
-  sessionStorage.setItem(HANDOFF.NAME, info.name);
-  sessionStorage.setItem(HANDOFF.ROOM_ID, info.roomId);
-  sessionStorage.setItem(HANDOFF.SLOT, String(info.slot));
-  if (info.resumeToken) {sessionStorage.setItem(HANDOFF.RESUME, info.resumeToken);}
-  if (info.match) {sessionStorage.setItem(HANDOFF.MATCH, JSON.stringify(info.match));}
-}

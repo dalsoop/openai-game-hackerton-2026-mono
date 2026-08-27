@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEffectStore } from "@/lib/hub/match-effects";
 import { makeEquipment } from "@/lib/hub/match-equipment";
 import { gunSeedFields, type GunHero } from "@/lib/hub/match-gun";
@@ -40,7 +40,24 @@ describe("차지 릴리즈 발동", () => {
     expect(shot.projectiles[0]?.damage).toBeCloseTo(7.0 * power, 8);
   });
 
-  it("MatchSim 우클릭 홀드→릴리즈가 장비 탄을 넣는다", () => {
+  it("DAGUL_SKILLS 기본 off 이면 applyHero 가 우클릭 스킬을 무시한다", () => {
+    vi.stubEnv("DAGUL_SKILLS", "off");
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const h = sim.heroes.get(0);
+    expect(h).toBeDefined();
+    if (!h) {return;}
+    h.equipment = makeEquipment("rail");
+    sim.pushInput(0, { equipment: true, equipmentPressed: true, aimX: h.x + 100, aimY: h.y, seq: 1 });
+    sim.step(DT);
+    expect(h.chargingSkill).toBe(false);
+    sim.pushInput(0, { equipment: false, equipmentReleased: true, aimX: h.x + 100, aimY: h.y, seq: 2 });
+    sim.step(DT);
+    expect([...sim.bullets.values()].filter((b) => b.source === "equipment")).toHaveLength(0);
+  });
+
+  it("DAGUL_SKILLS=on 이면 MatchSim 우클릭 홀드→릴리즈가 장비 탄을 넣는다", () => {
+    vi.stubEnv("DAGUL_SKILLS", "on");
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     sim.countdown = 0;
     const h = sim.heroes.get(0);
@@ -61,6 +78,10 @@ describe("차지 릴리즈 발동", () => {
     expect(shots[0]?.kind).toBe("beam");
     expect(shots[0]?.pierce).toBe(4);
   });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("쿨다운 소모", () => {

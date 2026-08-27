@@ -52,6 +52,10 @@ static func _pack_player_v2(h: Dictionary) -> Dictionary:
 	_pack_v2_ints(out, h)
 	_pack_v2_strs(out, h)
 	_put_true(out, K.P_CHARGING, bool(h.get("charging_skill", false)))
+	_put_true(out, K.P_ELIM, bool(h.get("eliminated", false)))
+	var eq: Variant = h.get("equipment", {})
+	if eq is Dictionary:
+		_put_nonzero_f(out, K.P_MV_SPD, float(eq.get("move_speed", 0.0)))
 	var launch := Vector2(h.get("launch_vel", Vector2.ZERO))
 	_put_nonzero_f(out, K.P_LAUNCH_VX, launch.x)
 	_put_nonzero_f(out, K.P_LAUNCH_VY, launch.y)
@@ -86,7 +90,6 @@ static func unpack_player(p: Dictionary, old: Dictionary, slot: int, snap_hz: fl
 	var hero := _player_view_defaults()
 	hero["slot"] = int(p.get(K.P_SLOT, slot))
 	hero["alive"] = bool(p.get(K.P_ALIVE, true))
-	hero["eliminated"] = not bool(hero["alive"])
 	hero["pos"] = pos
 	hero["vel"] = (pos - old_pos) * snap_hz
 	hero["aim"] = aim
@@ -135,6 +138,7 @@ static func _apply_player_v2(hero: Dictionary, p: Dictionary) -> void:
 	hero["launch_vel"] = Vector2(_f(p, K.P_LAUNCH_VX, 0.0), _f(p, K.P_LAUNCH_VY, 0.0))
 	hero["rl_timed"] = _as_array(p.get(K.P_RL_TIMED, [])).duplicate(true)
 	hero["ult_clones"] = _unpack_ult_clones(p.get(K.P_ULT_CLONES, []))
+	_apply_elim_and_speed(hero, p)
 
 static func _player_view_defaults() -> Dictionary:
 	return {
@@ -142,6 +146,7 @@ static func _player_view_defaults() -> Dictionary:
 		"damage_dealt": 0.0, "core_damage": 0.0,
 		"ultimates": 0, "equipment_hits": 0,
 		"mobility_cd": 0.0,
+		"hop_time": 0.0, "hop_max": 0.0, "hop_height": 0.0,
 		"cc_time": 0.0, "stun_time": 0.0, "root_time": 0.0,
 		"guard_time": 0.0, "super_armor_time": 0.0,
 		"charging_skill": false, "charge_time": 0.0,
@@ -158,6 +163,19 @@ static func _player_view_defaults() -> Dictionary:
 		"roulette_spin_id": "", "roulette_label": "",
 		"rl_timed": [], "ult_clones": [],
 	}
+
+static func _apply_elim_and_speed(hero: Dictionary, p: Dictionary) -> void:
+	if p.has(K.P_ELIM):
+		hero["eliminated"] = bool(p[K.P_ELIM])
+	else:
+		hero["eliminated"] = not bool(hero.get("alive", true))
+	if not p.has(K.P_MV_SPD):
+		return
+	var spd := _f(p, K.P_MV_SPD, 0.0)
+	hero["move_speed"] = spd
+	var eq: Variant = hero.get("equipment", {})
+	if eq is Dictionary:
+		eq["move_speed"] = spd
 
 static func _f(d: Dictionary, key: String, fallback: float) -> float:
 	return NetSnapParser._f(d, key, fallback)

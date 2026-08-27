@@ -44,6 +44,18 @@ describe("계약: 렌더 전용 계층", () => {
   });
 });
 
+describe("계약: 인트로 모바일 배너", () => {
+  it("로고는 배너 안에 겹치고, 픽셀 오프셋으로 잘라내지 않는다", () => {
+    const css = sourceOf(join(ROOT, "app/globals.css"));
+    expect(css).toContain(".banner-frame .intro-logo");
+    expect(css).toMatch(/\.banner-frame \.intro-logo[\s\S]{0,80}position:absolute/);
+    expect(css).not.toMatch(/intro-logo-ko[\s\S]{0,120}calc\(6%\s*-\s*30px\)/);
+    expect(css).not.toContain("position:static");
+    expect(css).toContain(".banner-frame .banner-art");
+    expect(sourceOf(join(ROOT, "app/[locale]/layout.tsx"))).toContain("viewportFit");
+  });
+});
+
 describe("계약: 문구 SSOT", () => {
   const HANGUL = /["'`][^"'`]*[가-힣][^"'`]*["'`]/;
 
@@ -160,7 +172,8 @@ describe("계약: 웹 캔버스 키 포커스", () => {
     expect(runtime).not.toContain("unlockGodotAudioAfterBoot");
     expect(sourceOf(join(ROOT, "lib/godot/unlock-audio.ts"))).not.toContain("setTimeout");
     expect(sourceOf(join(ROOT, "components/GodotCanvas.tsx"))).toContain('id="canvas"');
-    expect(runtime).toContain("focusCanvas: true");
+    expect(sourceOf(join(ROOT, "lib/godot/engine-config.ts"))).toContain("focusCanvas: true");
+    expect(sourceOf(join(ROOT, "lib/godot/engine-config.ts"))).toContain("canvasResizePolicy: 2");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("visibilitychange");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).toContain("pointerdown");
     expect(sourceOf(join(ROOT, "lib/godot/canvas-focus.ts"))).not.toContain("godot-page-");
@@ -183,7 +196,7 @@ describe("계약: Godot 웹 캔버스는 policy=2 와 CSS 가 싸우지 않는�
     expect(canvasRule).not.toMatch(/height:\s*100%/);
     const overlayRule = css.slice(css.indexOf(".gc-overlay"), css.indexOf(".gc-canvas"));
     expect(overlayRule).toContain("overflow:hidden");
-    expect(sourceOf(join(ROOT, "lib/godot/runtime.ts"))).toContain("canvasResizePolicy: 2");
+    expect(sourceOf(join(ROOT, "lib/godot/engine-config.ts"))).toContain("canvasResizePolicy: 2");
     expect(sourceOf(join(ROOT, "hooks/useGodotMatch.ts"))).toContain("lockPlayViewport");
   });
 });
@@ -262,9 +275,12 @@ describe("계약: 허브 소켓 주인은 React", () => {
     expect(src).toContain("send_ready");
   });
 
-  it("게임 모듈은 첫 SNAP 전까지 카운트다운을 3 으로 둔다", () => {
+  it("카운트다운은 하드코딩 없이 첫 SNAP 의 startCountdown 을 따른다", () => {
     const src = sourceOf(join(ROOT, "..", "project", "games/dagul/game.gd"));
-    expect(src).toMatch(/start_countdown\s*=\s*3\.0/);
+    expect(src).toMatch(/start_countdown\s*=\s*0\.0/);
+    expect(src).not.toMatch(/start_countdown\s*=\s*3\.0/);
+    const snap = sourceOf(join(ROOT, "lib/hub/match-authority-snap.ts"));
+    expect(snap).toContain("startCountdown");
   });
 
   it("READY 는 시뮬 틱을 기다리지 않고 장벽을 연다", () => {

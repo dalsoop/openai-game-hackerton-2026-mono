@@ -59,6 +59,14 @@ export class MatchHeroSchema extends Schema {
   @type("string") rlTimed = "[]";
   @type("string") ultClones = "[]";
   @type("boolean") parked = false;
+  @type("float32") pullT = 0;
+  @type("float32") pocketT = 0;
+  @type("float32") hopT = 0;
+  @type("float32") hopMax = 0;
+  @type("float32") hopHeight = 0;
+  @type("float32") mobCd = 0;
+  @type("float32") mvSpd = 0;
+  @type("boolean") elim = false;
 }
 
 export class MatchBulletSchema extends Schema {

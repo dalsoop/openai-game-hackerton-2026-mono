@@ -266,12 +266,11 @@ func _mobility_fx_texture(kind: StringName, label: String) -> Texture2D: return 
 func _consume_shot_events() -> void:
     if world == null or world.event_log == null:
         return
-    if int(world.event_log.next_id) <= last_shot_event_id:
-        last_shot_event_id = 0
-    for event in world.event_log.events:
+    var log = world.event_log
+    var start: int = log.first_index_after(last_shot_event_id)
+    for i in range(start, log.events.size()):
+        var event: Dictionary = log.events[i]
         var eid := int(event.get("event_id", 0))
-        if eid <= last_shot_event_id:
-            continue
         last_shot_event_id = maxi(last_shot_event_id, eid)
         var et := StringName(event.get("type", &""))
         if et == &"gun_fire" or et == &"normal_combo_step":
@@ -302,6 +301,7 @@ func _consume_shot_events() -> void:
                 _push_combat_text(Vector2(world.heroes[hslot]["pos"]), "+%d" % roundi(heal), Color("#6ef3a5"))
         elif et == &"hero_hit":
             _consume_hero_hit(event)
+    log.discard_up_to(last_shot_event_id)
 
 func _consume_crate_hit(event: Dictionary) -> void:
     var cdata: Dictionary = event.get("data", {})

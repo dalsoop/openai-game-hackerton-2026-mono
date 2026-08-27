@@ -3,7 +3,7 @@
 import type { JSX } from "react";
 import type { Seat } from "@/lib/domain/roster";
 import { HUB_CONFIG } from "@/lib/hub/config";
-import { findGame, visibleCatalog } from "@/lib/games/catalog";
+import { findGame, modeI18nKey, visibleCatalog } from "@/lib/games/catalog";
 import SlotCard from "@/components/SlotCard";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { useTranslations } from "next-intl";
@@ -14,6 +14,7 @@ interface Props {
   you: number;
   isHost: boolean;
   gameId: string;
+  mode: string;
   roomOpen: boolean;
   idleLeftSec: number;
   onStart: () => void;
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export default function Room({
-  players, you, isHost, gameId, idleLeftSec,
+  players, you, isHost, gameId, mode, idleLeftSec,
   onStart, onLeave, onSetGame, onSetCharacter, canStart,
   rttMs,
 }: Props): JSX.Element {
@@ -49,6 +50,7 @@ export default function Room({
         </button>
         <div className="wait-line">
           <span className="wait-title-inline">{t("title")}</span>
+          <span className="wait-mode">{modeText(t, mode)}</span>
         </div>
       </div>
 
@@ -110,4 +112,12 @@ export default function Room({
       )}
     </div>
   );
+}
+
+function modeText(t: (key: "modes.classic" | "modes.full" | "modes.default") => string, mode: string): string {
+  const key = modeI18nKey(mode);
+  if (key === "classic") {return t("modes.classic");}
+  if (key === "full") {return t("modes.full");}
+  if (key === "default") {return t("modes.default");}
+  return mode;
 }

@@ -23,6 +23,8 @@ var last_event_id: int = 0
 var hit_pause_frames: int = 0
 var spectate_slot: int = 0
 var hud_mode: int = 0
+var _hud_redraw_acc: float = 0.0
+var _hud_state_hash: int = 0
 
 func id() -> String:
 	return "dagul"
@@ -119,8 +121,8 @@ func _start_as_guest(you: int, mode: String) -> void:
 	net_world.local_slot = you
 	net_world.set_mode(mode)
 	net_world.reset()
-	# 첫 SNAP 전까지 로컬 예측이 풀리지 않게 서버 START_COUNTDOWN(3) 과 맞춘다.
-	net_world.start_countdown = 3.0
+	# 첫 스냅이 startCountdown 을 싣는다. playing 재입장은 0, 신규는 3.
+	net_world.start_countdown = 0.0
 	world = net_world
 
 func _ensure_overlays(ctx: Dictionary) -> void:
@@ -158,23 +160,16 @@ func tick(_delta: float, ctx: Dictionary) -> void:
 
 	_poll_debug_keys(hud)
 	_update_spectator()
-	if hit_pause_frames > 0:
+	var freeze_cam := hit_pause_frames > 0
+	if freeze_cam:
 		hit_pause_frames -= 1
-		world_view.queue_redraw()
-		hud.queue_redraw()
-		return
-
 	var command := _local_command(ctx, world_view)
 	_tick_world(command, hub, hud, world_view)
-
 	_tick_match_audio(ctx)
-	_check_tutorial_hints()
-	_check_my_kill_fanfare()
-	_update_spectator()
-	_drive_camera(camera)
-	hud.spectate_slot = spectate_slot
+	if not freeze_cam:
+		_tick_presentation(camera, hud)
 	world_view.queue_redraw()
-	hud.queue_redraw()
+	_maybe_redraw_hud(hud, TICK)
 
 
 func _poll_debug_keys(hud: Control) -> void:
@@ -189,6 +184,8 @@ func _poll_debug_keys(hud: Control) -> void:
 
 
 func _tick_match_audio(ctx: Dictionary) -> void:
+	if _sfx == null:
+		return
 	var sfx_result := _sfx.process_events(world, int(world.get("local_slot")), last_event_id)
 	last_event_id = sfx_result["last_event_id"]
 	hit_pause_frames = maxi(hit_pause_frames, sfx_result["hit_pause"])
@@ -207,16 +204,47 @@ func _ensure_input() -> void:
 		_input = PlayerInput.new()
 
 
+func _tick_presentation(camera: Camera2D, hud: Control) -> void:
+	_check_tutorial_hints()
+	_check_my_kill_fanfare()
+	_update_spectator()
+	_drive_camera(camera)
+	hud.spectate_slot = spectate_slot
+
+func _maybe_redraw_hud(hud: Control, dt: float) -> void:
+	_hud_redraw_acc += dt
+	var state := _hud_state_hash_now()
+	if state == _hud_state_hash and _hud_redraw_acc < 0.2:
+		return
+	_hud_state_hash = state
+	_hud_redraw_acc = 0.0
+	hud.queue_redraw()
+
+func _hud_state_hash_now() -> int:
+	if world == null or world.heroes.is_empty():
+		if world == null:
+			return 0
+		return int(float(world.start_countdown) * 10.0)
+	var me: Dictionary = world.heroes[clampi(int(world.local_slot), 0, world.heroes.size() - 1)]
+	var h := int(float(me.get("hp", 0.0)))
+	h = h * 31 + int(me.get("mag", 0))
+	h = h * 31 + int(float(me.get("mobility_cd", 0.0)) * 10.0)
+	h = h * 31 + int(float(world.start_countdown) * 10.0)
+	h = h * 31 + spectate_slot * 17 + hud_mode
+	h = h * 31 + int(me.get("kills", 0)) + (1 if bool(me.get("alive", true)) else 0)
+	return h
+
 func _tick_world(command: Dictionary, hub: Node, hud: Control, world_view: Node2D) -> void:
 	hud.net_rtt_ms = int(hub.rtt_ms)
 	hud.net_connected = bool(hub.is_open())
 	_try_local_fire_conceal(command)
 	world.present(TICK)
+	if world.heroes.is_empty():
+		return
 	var move: Vector2 = command.get("move", Vector2.ZERO)
 	var aim_world: Vector2 = command.get("aim", Vector2.ZERO)
 	var seq: int = int(world.predict_local(move, bool(command.get("mobility", false)), aim_world, TICK))
-	var packet := _peer_input_packet(command, seq)
-	hub.send_input(packet)
+	hub.send_input(_peer_input_packet(command, seq))
 	_apply_recoil_mouse(world_view)
 
 func _try_local_fire_conceal(command: Dictionary) -> void:

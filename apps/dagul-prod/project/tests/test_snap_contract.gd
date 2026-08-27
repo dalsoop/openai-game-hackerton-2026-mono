@@ -71,6 +71,10 @@ func _v2_roundtrip(t) -> void:
 	t.check("ultClones 왕복", (hero["ult_clones"] as Array).size() == 1)
 	var clone: Dictionary = hero["ult_clones"][0]
 	t.check("ultClones pos", is_equal_approx(Vector2(clone["pos"]).x, 10.0))
+	t.check("mobCd 왕복", is_equal_approx(float(hero["mobility_cd"]), 4.5))
+	t.check("hopT 왕복", is_equal_approx(float(hero["hop_time"]), 0.12))
+	t.check("elim 왕복", bool(hero["eliminated"]) == true)
+	t.check("mvSpd 왕복", is_equal_approx(float(hero["equipment"].get("move_speed", 0.0)), 420.0))
 
 func _v2_omit_default(t) -> void:
 	var packed := SnapContract.pack_player(_sample_hero(), false, 7)
@@ -92,6 +96,9 @@ func _v2_legacy_defaults(t) -> void:
 	t.check("구 스냅 charging 기본", bool(hero.get("charging_skill", true)) == false)
 	t.check("구 스냅 heldItem 기본", str(hero.get("held_item", "x")) == "")
 	t.check("구 스냅 ultClones 기본", (hero.get("ult_clones", [1]) as Array).is_empty())
+	t.check("구 스냅 elim 은 not alive", bool(hero.get("eliminated", true)) == false)
+	t.check("구 스냅 hop 기본", is_equal_approx(float(hero.get("hop_time", -1.0)), 0.0))
+	t.check("구 스냅 mobCd 기본", is_equal_approx(float(hero.get("mobility_cd", -1.0)), 0.0))
 
 func _parse_v2_wire(t) -> void:
 	var bullets: Array = Parser.parse_bullets([{
@@ -121,6 +128,15 @@ func _parse_v2_wire(t) -> void:
 	t.check("이벤트 tick", int(evs[0]["tick"]) == 9)
 	t.check("이벤트 kind", str(evs[0]["kind"]) == "gun_fire")
 	t.check("이벤트 data", str(evs[0]["data"].get("eq", "")) == "glock")
+	var loot: Array = Parser.parse_loot([
+		{"id": "g1", "kind": "gun", "itemKind": "gun", "n": "샷건", "x": 1.0, "y": 2.0},
+		{"id": "d1", "itemKind": "decoy", "disguise": "spring", "x": 3.0, "y": 4.0},
+		"bad",
+	])
+	t.check("loot 2건 Dictionary만", loot.size() == 2)
+	t.check("loot n 총이름", str(loot[0].get("gun_name", "")) == "샷건")
+	t.check("loot disguise", str(loot[1].get("disguise", "")) == "spring")
+	t.check("loot itemKind", str(loot[1].get("kind", "")) == "decoy")
 
 func _v2_hero() -> Dictionary:
 	var h := _sample_hero()
@@ -140,6 +156,12 @@ func _v2_hero() -> Dictionary:
 	h["slide_time"] = 0.1
 	h["pull_time"] = 0.2
 	h["pocket_time"] = 0.3
+	h["mobility_cd"] = 4.5
+	h["hop_time"] = 0.12
+	h["hop_max"] = 0.30
+	h["hop_height"] = 19.0
+	h["eliminated"] = true
+	h["equipment"]["move_speed"] = 420.0
 	h["dmg_orb_time"] = 0.7
 	h["down_taken"] = 12.0
 	h["wool_time"] = 2.0

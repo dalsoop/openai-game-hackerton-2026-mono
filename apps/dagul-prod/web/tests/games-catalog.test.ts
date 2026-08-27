@@ -1,6 +1,6 @@
 // 게임 카탈로그 도메인 — 유즈맵 모델의 정본 계약.
 import { describe, expect, it } from "vitest";
-import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame, defaultModeOf, packOf, catalogPacks } from "@/lib/games/catalog";
+import { GAME_CATALOG, DEFAULT_GAME_ID, asGameId, isKnownGame, findGame, defaultModeOf, modeI18nKey, packOf, catalogPacks } from "@/lib/games/catalog";
 import { readCatalogPacks } from "../scripts/catalog-packs.mjs";
 
 describe("GAME_CATALOG", () => {
@@ -63,7 +63,14 @@ describe("findGame", () => {
 
 describe("defaultModeOf", () => {
   it("등재 게임의 defaultMode 를 돌려준다", () => {
-    expect(defaultModeOf(asGameId("dagul"))).toBe("full");
+    expect(defaultModeOf(asGameId("dagul"))).toBe("classic");
     expect(defaultModeOf(asGameId("sparring"))).toBe("default");
+  });
+
+  it("대기실 표기 키는 서버 mode 원문과 대응한다", () => {
+    expect(modeI18nKey("classic")).toBe("classic");
+    expect(modeI18nKey("full")).toBe("full");
+    expect(modeI18nKey("default")).toBe("default");
+    expect(modeI18nKey("unknown-mode")).toBeNull();
   });
 });

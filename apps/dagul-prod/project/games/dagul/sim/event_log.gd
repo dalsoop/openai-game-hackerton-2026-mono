@@ -33,3 +33,15 @@ func recent(count: int = 8) -> Array[Dictionary]:
     for i in range(start, events.size()):
         out.append(events[i])
     return out
+
+func first_index_after(last_id: int) -> int:
+    var i := 0
+    while i < events.size() and int(events[i]["event_id"]) <= last_id:
+        i += 1
+    return i
+
+func discard_up_to(last_id: int) -> void:
+    var i := first_index_after(last_id)
+    if i <= 0:
+        return
+    events = events.slice(i)

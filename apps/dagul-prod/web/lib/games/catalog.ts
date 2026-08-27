@@ -27,7 +27,7 @@ export const GAME_CATALOG: ReadonlyArray<GameDescriptor> = [
     titleKey: "games.dagul.title",
     blurbKey: "games.dagul.blurb",
     thumbSrc: "/games/dagul.webp?v=2",
-    defaultMode: "full",
+    defaultMode: "classic",
     pack: "dagul",
   },
   {
@@ -65,6 +65,12 @@ export function isKnownGame(id: string): boolean {
 /** 방 state.mode 초기값 — 허브는 모드 사전을 갖지 않는다. */
 export function defaultModeOf(id: GameId): string {
   return findGame(id)?.defaultMode ?? findGame(DEFAULT_GAME_ID)?.defaultMode ?? "";
+}
+
+/** 대기실/로비 i18n 키. 모르는 값은 서버 mode 원문을 그대로 쓴다. */
+export function modeI18nKey(mode: string): "classic" | "full" | "default" | null {
+  if (mode === "classic" || mode === "full" || mode === "default") {return mode;}
+  return null;
 }
 
 /** GameId → 웹 산출물 폴더. URL·런타임 키는 여기만 거친다. */

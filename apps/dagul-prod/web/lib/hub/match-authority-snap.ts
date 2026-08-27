@@ -5,6 +5,7 @@ import {
   type MatchSim, type SimBullet, type SimHero,
 } from "./match-sim.js";
 import { packEffects } from "./match-effects.js";
+import { skillsEnabled } from "./config.js";
 
 export type SnapEvent = {
   t: number;
@@ -54,7 +55,7 @@ function putOmit(dst: Record<string, unknown>, key: string, value: unknown): voi
 
 function packPlayerV2(h: SimHero): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  putOmit(out, "action", h.action);
+  putOmit(out, "action", skillsEnabled() || h.action !== "CHARGING_SKILL" ? h.action : "");
   putOmit(out, "stunT", h.stunTime);
   putOmit(out, "rootT", h.rootTime);
   putOmit(out, "ccT", h.ccTime);
@@ -64,13 +65,21 @@ function packPlayerV2(h: SimHero): Record<string, unknown> {
   putOmit(out, "launchT", h.launchTime);
   putOmit(out, "launchVX", h.launchVel.x);
   putOmit(out, "launchVY", h.launchVel.y);
-  putOmit(out, "charging", h.chargingSkill);
-  putOmit(out, "chargeT", h.chargeTime);
+  if (skillsEnabled()) {
+    putOmit(out, "charging", h.chargingSkill);
+    putOmit(out, "chargeT", h.chargeTime);
+  }
   putOmit(out, "heldItem", h.heldItem);
   putOmit(out, "springT", h.springTime);
   putOmit(out, "slideT", h.slideTime);
   putOmit(out, "pullT", h.pullTime);
   putOmit(out, "pocketT", h.pocketTime);
+  putOmit(out, "hopT", h.hopTime);
+  putOmit(out, "hopMax", h.hopTime > 0 ? h.hopMax : 0);
+  putOmit(out, "hopHeight", h.hopTime > 0 ? h.hopHeight : 0);
+  putOmit(out, "mobCd", h.mobilityCd);
+  putOmit(out, "mvSpd", h.equipment.moveSpeed);
+  putOmit(out, "elim", h.eliminated);
   putOmit(out, "dmgOrbT", h.dmgOrbTime);
   putOmit(out, "downTaken", h.downTaken);
   putOmit(out, "woolT", h.woolTime);

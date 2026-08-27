@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Client, Room } from "@colyseus/sdk";
 import { useRoom } from "@colyseus/react";
 import { MSG, HANDOFF } from "@/lib/contract";
+import { clearEngineHandoff } from "@/lib/godot/handoff";
 import { ROOM_NAME } from "@/lib/hub/config";
 import { forgetHubPin, matchmakePin, rememberHubPin } from "@/lib/hub/public-address";
 import { hubLimits, parseRoomSettings } from "@/lib/hub/room-options";
@@ -111,9 +112,7 @@ export function useGameRoom(
     if (!roomError) {return;}
     if (joinRequest?.kind !== "resume") {return;}
     if (sessionStorage.getItem(HANDOFF.RESUME) !== resumeAttemptToken.current) {return;}
-    sessionStorage.removeItem(HANDOFF.RESUME);
-    sessionStorage.removeItem(HANDOFF.FROM_HUB);
-    sessionStorage.removeItem(HANDOFF.MATCH);
+    clearEngineHandoff(true);
     forgetHubPin();
     onResumeFailed(roomError.message);
   }, [roomError, joinRequest, onResumeFailed]);

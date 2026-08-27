@@ -51,6 +51,12 @@ describe("LobbyRoom 규칙", () => {
       name: "호스트", game: "없는맵",
     });
     expect(room.state.gameId).toBe("dagul");
+    expect(room.state.mode).toBe("classic");
+  });
+
+  it("다굴 방 기본 모드는 classic 이다", async () => {
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트", game: "dagul" });
+    expect(room.state.mode).toBe("classic");
   });
 
   it("두 클라이언트 입장 — 첫 입장자가 호스트", async () => {

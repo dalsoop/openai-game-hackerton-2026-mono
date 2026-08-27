@@ -33,6 +33,9 @@ func run(t) -> void:
 	_dash_pred_ignored_during_cc(t)
 	_pred_fire_skips_empty_mag(t)
 	_launch_trail_accumulates_and_fades(t)
+	_pred_fire_skip_clears_without_server(t)
+	_mob_cd_reconcile_blocks_second_dash(t)
+	_mob_cd_missing_falls_back(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -510,6 +513,70 @@ func _launch_trail_accumulates_and_fades(t) -> void:
 	t.check("launch 종료 후 궤적이 감쇠한다", not (nw.heroes[0].get("launch_trail", []) as Array).is_empty() and absf(float(nw.heroes[0].get("launch_trail_fade", 0.0)) - 0.17) < 0.01)
 	nw.present(0.18)
 	t.check("fade 가 끝나면 launch_trail 이 비다", (nw.heroes[0].get("launch_trail", []) as Array).is_empty())
+
+func _pred_fire_skip_clears_without_server(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var first := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	first[SnapContract.EVENTS] = []
+	nw.push_snap(first)
+	nw.present(1.0 / 60.0)
+	t.check("예측 발사 성공", nw.predict_local_fire())
+	t.check("스킵 창이 열린다", float(nw.get("_pred_fire_skip_left")) > 0.0)
+	t.check("스킵 중 재발사 거부", not nw.predict_local_fire())
+	var second := first.duplicate(true)
+	second[SnapContract.TICK] = 16
+	second[SnapContract.EVENTS] = []
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	t.check("서버 gun_fire 없으면 스킵 해제", is_equal_approx(float(nw.get("_pred_fire_skip_left")), 0.0))
+	t.check("해제 후 다시 예측 발사", nw.predict_local_fire())
+
+func _mob_cd_reconcile_blocks_second_dash(t) -> void:
+	var nw = _world_after_acked_dash(4.5)
+	if nw.heroes.is_empty():
+		t.check("mobCd 히어로", false)
+		return
+	var after_ack: Vector2 = nw.heroes[0]["pos"]
+	t.check("mobCd 리컨사일 CD", float(nw.get("_pred_dash_cd")) > 4.0)
+	nw.predict_local(Vector2.RIGHT, true, after_ack + Vector2(400.0, 0.0), 1.0 / 60.0)
+	t.check("mobCd 중 두 번째 대시 없음", Vector2(nw.heroes[0]["pos"]).x - after_ack.x < 20.0)
+
+func _mob_cd_missing_falls_back(t) -> void:
+	var nw = _world_after_acked_dash(-1.0)
+	if nw.heroes.is_empty():
+		t.check("폴백 히어로", false)
+		return
+	var after_ack: Vector2 = nw.heroes[0]["pos"]
+	t.check("mobCd 부재면 CD 폴백 0", is_equal_approx(float(nw.get("_pred_dash_cd")), 0.0))
+	nw.predict_local(Vector2.RIGHT, true, after_ack + Vector2(400.0, 0.0), 1.0 / 60.0)
+	t.check("폴백은 두 번째 대시 허용", Vector2(nw.heroes[0]["pos"]).x - after_ack.x > 80.0)
+
+func _world_after_acked_dash(mob_cd: float):
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.start_countdown = 0.0
+	var first := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	first[SnapContract.PLAYERS][0][SnapContract.P_ACK] = 0
+	nw.push_snap(first)
+	nw.present(1.0 / 60.0)
+	if nw.heroes.is_empty():
+		return nw
+	var aim: Vector2 = Vector2(nw.heroes[0]["pos"]) + Vector2(200.0, 0.0)
+	nw.predict_local(Vector2.RIGHT, true, aim, 1.0 / 60.0)
+	var landed: Vector2 = nw.heroes[0]["pos"]
+	var second := first.duplicate(true)
+	second[SnapContract.TICK] = 15
+	var p: Dictionary = second[SnapContract.PLAYERS][0]
+	p[SnapContract.P_ACK] = 1
+	p[SnapContract.P_X] = landed.x
+	p[SnapContract.P_Y] = landed.y
+	if mob_cd >= 0.0:
+		p[SnapContract.P_MOB_CD] = mob_cd
+	nw.push_snap(second)
+	nw.present(1.0 / 60.0)
+	return nw
 
 func _launch_snap(tick_i: int, x: float, y: float, launch_t: float) -> Dictionary:
 	var snap := _center_snap(x, y, 176.0, 7, 18)

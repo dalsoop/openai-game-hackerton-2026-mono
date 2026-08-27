@@ -102,8 +102,7 @@ describe("lobbyReadySig", () => {
     expect(snap.readySig).toContain("1:1");
   });
 
-  it("lobbyFieldsOf 는 players 스키마 참조를 그대로 통과시키고 readySig 만 나열해 계산한다", () => {
-    // 파생 배열로 바꾸면 useRoomState 의 ref 추적이 끊겨 좌석 갱신이 렌더되지 않는다(운영 회귀).
+  it("lobbyFieldsOf 는 좌석을 평문 복사하고 readySig 를 계산한다", () => {
     const row = { slot: 0, sessionId: "h", name: "호스트", connected: true, matchReady: true };
     const players = { *[Symbol.iterator](): Generator<typeof row> { yield row; } };
     const snap = lobbyFieldsOf({
@@ -112,7 +111,11 @@ describe("lobbyReadySig", () => {
       players: players as unknown as RosterSnapshot["players"],
     });
     expect(Array.isArray(players)).toBe(false);
-    expect(snap.players).toBe(players as unknown as RosterSnapshot["players"]);
+    expect(snap.players).not.toBe(players as unknown as RosterSnapshot["players"]);
+    expect(snap.players[0]).toEqual({
+      slot: 0, sessionId: "h", name: "호스트", connected: true, packPct: undefined,
+      characterId: undefined, matchReady: true,
+    });
     expect(snap.readySig).toContain("0:1");
   });
 });

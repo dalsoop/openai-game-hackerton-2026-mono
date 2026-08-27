@@ -80,6 +80,8 @@ static func dash_stats(world, me: Dictionary) -> Vector2:
 	return Vector2(float(mob.get("mobility_distance", FALLBACK_DIST)), float(mob.get("mobility_cooldown", FALLBACK_CD)))
 
 static func move_speed(world, me: Dictionary) -> float:
+	if me.has("move_speed") and float(me.get("move_speed", 0.0)) > 0.0:
+		return float(me["move_speed"])
 	var eq := _equipment(me)
 	if eq.has("move_speed"):
 		return float(eq["move_speed"])

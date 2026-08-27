@@ -238,17 +238,24 @@ static func _parse_event(e: Dictionary) -> Dictionary:
 static func parse_loot(list: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for raw in list:
-		var drop: Dictionary = raw
-		var entry := {
-			"active":true,
-			"pos":Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
-			"id":abs(hash(str(drop.get("id", "")))) % 1000,
-			"magnet_slot":-1
-		}
-		if str(drop.get("kind", "")) == "gun":
-			entry["gun_name"] = _resolve_loot_gun_name(drop)
-		result.append(entry)
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		result.append(_parse_loot_drop(raw))
 	return result
+
+static func _parse_loot_drop(drop: Dictionary) -> Dictionary:
+	var kind := str(drop.get("itemKind", drop.get("kind", "")))
+	var entry := {
+		"active": true,
+		"pos": Vector2(_f(drop, "x", 0.0), _f(drop, "y", 0.0)),
+		"id": abs(hash(str(drop.get("id", "")))) % 1000,
+		"magnet_slot": -1,
+		"kind": kind,
+		"disguise": str(drop.get("disguise", "")),
+	}
+	if kind == "gun":
+		entry["gun_name"] = _resolve_loot_gun_name(drop)
+	return entry
 
 static func _resolve_loot_gun_name(drop: Dictionary) -> String:
 	var compact_name := str(drop.get("n", ""))
