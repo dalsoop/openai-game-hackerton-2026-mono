@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 정본: lib/hub/match-schema/*.ts · lobby-state.ts
-// 산출: project/core/net/lobby_state_schema.gd
-// Colyseus schema-codegen --gdscript 를 돌린 뒤 class_name LobbyColyseus 로 감싼다.
+// GD 산출물(lobby_state_schema.gd)은 쓰지 않는다 — Colyseus GDExtension/side.wasm 크래시.
+// 기본 실행과 --check 는 같다: tmp 에서 TS codegen 만 확인하고, project 에 생성본이 있으면 실패.
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
@@ -35,15 +35,6 @@ const SCHEMA_ORDER = [
   "event.ts",
   "state.ts",
 ];
-const check = process.argv.includes("--check");
-
-const HEADER = `class_name LobbyColyseus
-extends RefCounted
-## 생성본. 고치지 말 것.
-## 정본: web/lib/hub/match-schema/*.ts · lobby-state.ts
-## npm run schema:codegen
-
-`;
 
 function fail(msg) {
   console.error(`generate-lobby-schema: ${msg}`);
@@ -94,23 +85,10 @@ try {
   if (!existsSync(generated)) {
     fail("schema-codegen 이 schema.gd 를 만들지 않았습니다");
   }
-  let body = readFileSync(generated, "utf8");
-  body = body.replace(/^class_name\s+\w+\s*\n/m, "");
-  body = body.replace(/^extends\s+\w+\s*\n/m, "");
-  const next = HEADER + body.trimStart();
-  if (check) {
-    if (!existsSync(outPath)) {
-      fail(`${outPath} 없음 — npm run schema:codegen 을 먼저 실행하세요`);
-    }
-    const prev = readFileSync(outPath, "utf8");
-    if (prev !== next) {
-      fail("lobby_state_schema.gd 가 정본과 어긋납니다 — npm run schema:codegen");
-    }
-    console.log("generate-lobby-schema: 생성본이 정본과 같다");
-    process.exit(0);
+  if (existsSync(outPath)) {
+    fail("lobby_state_schema.gd 가 있습니다. Colyseus GD 스키마는 금지입니다 (side.wasm 크래시). 파일을 지우세요.");
   }
-  writeFileSync(outPath, next);
-  console.log(`generate-lobby-schema: ${path.relative(webRoot, outPath)}`);
+  console.log("generate-lobby-schema: TS 스키마 codegen 통과, GD 생성본 없음");
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
