@@ -172,35 +172,41 @@ func _draw_minimap() -> void:
     var half := Vector2(world.ARENA_SIZE) * scale * 0.5
     var map := Rect2(MINIMAP_CENTER - half, half * 2.0)
     draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, PANEL_BG)
-    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#17456f"))
-    # 인게임과 같은 문법: 지형은 잔디색, 존 밖은 보라(위험), 존 안이 안전.
-    draw_rect(map, Color("#7f5fae", 0.85))
-    _draw_minimap_zone(scale, map)
-    draw_rect(map, Color(0.10, 0.16, 0.10, 0.65), false, 1.5)
+    # 원판 전체가 필드다: 바탕은 존 밖(보라), 존 안을 잔디로 덮는다. 맵 경계는 선 하나.
+    draw_circle(MINIMAP_CENTER, MINIMAP_HALF_MAX, Color("#6d55a0"))
+    _draw_minimap_zone(scale)
+    draw_rect(map, Color(0.05, 0.08, 0.05, 0.55), false, 1.5)
     _draw_minimap_dots(scale, half)
     draw_arc(MINIMAP_CENTER, MINIMAP_HALF_MAX + 7.0, 0.0, TAU, 56, Color("#8aa0b8", 0.62), 2.0)
 
-# 존 원은 맵보다 클 수 있다 — 지형 사각에서 잘라 그린다 (원 채움은 클램프 폴리곤,
-# 링은 사각 안에 온전히 든 호 구간만). 존 안을 잔디색으로 덮어 "밖=보라" 를 만든다.
-func _draw_minimap_zone(scale: float, map: Rect2) -> void:
+# 존 원은 원판보다 클 수 있다 — 원판에서 잘라 그린다 (채움은 원 클램프 폴리곤,
+# 링은 원판 안에 온전히 든 호 구간만). 존 안을 잔디색으로 덮어 "밖=보라" 를 만든다.
+func _draw_minimap_zone(scale: float) -> void:
     var zone_center: Vector2 = MINIMAP_CENTER + (Vector2(world.safe_zone_center) - Vector2(world.ARENA_CENTER)) * scale
     var zone_radius: float = maxf(2.0, float(world.safe_zone_radius) * scale)
     var fill := PackedVector2Array()
     for i in range(48):
         var p := zone_center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * zone_radius
-        fill.append(p.clamp(map.position, map.end))
+        fill.append(_clamp_to_disc(p))
     draw_colored_polygon(fill, Color("#6b8452"))
     var zone_ring := Color("#e05cff") if bool(world.safe_zone_shrinking) else ZONE_PURPLE
-    _draw_clipped_ring(zone_center, zone_radius, map, zone_ring, 2.5)
+    _draw_clipped_ring(zone_center, zone_radius, zone_ring, 2.5)
     if bool(world.safe_zone_shrinking) or absf(float(world.safe_zone_target_radius) - float(world.safe_zone_radius)) > 4.0:
-        _draw_clipped_ring(zone_center, maxf(2.0, float(world.safe_zone_target_radius) * scale), map, Color(1.0, 1.0, 1.0, 0.70), 1.5)
+        _draw_clipped_ring(zone_center, maxf(2.0, float(world.safe_zone_target_radius) * scale), Color(1.0, 1.0, 1.0, 0.70), 1.5)
 
-func _draw_clipped_ring(center: Vector2, radius: float, map: Rect2, color: Color, width: float) -> void:
-    var inner := map.grow(1.0)
+func _clamp_to_disc(p: Vector2) -> Vector2:
+    var offset := p - MINIMAP_CENTER
+    if offset.length() <= MINIMAP_HALF_MAX:
+        return p
+    return MINIMAP_CENTER + offset.normalized() * MINIMAP_HALF_MAX
+
+func _draw_clipped_ring(center: Vector2, radius: float, color: Color, width: float) -> void:
     var prev := center + Vector2.RIGHT * radius
     for i in range(1, 49):
         var next := center + Vector2.RIGHT.rotated(TAU * float(i) / 48.0) * radius
-        if inner.has_point(prev) and inner.has_point(next):
+        var inside := prev.distance_to(MINIMAP_CENTER) <= MINIMAP_HALF_MAX + 1.0 \
+            and next.distance_to(MINIMAP_CENTER) <= MINIMAP_HALF_MAX + 1.0
+        if inside:
             draw_line(prev, next, color, width, true)
         prev = next
 
