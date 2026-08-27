@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { packAuthoritySnap } from "@/lib/hub/match-authority-snap";
+import { ComboCap } from "@/lib/hub/match-combo-cap";
 import { COMBO_TIME_FINISHER } from "@/lib/hub/match-cc";
 import { HERO_RADIUS } from "@/lib/hub/match-covers";
 import { makeEquipment } from "@/lib/hub/match-equipment";
@@ -94,7 +95,8 @@ describe("착탄 폭발·비행 중 무충돌", () => {
     flying.ttl = DT * 0.5;
     sim.step(DT);
     expect(sim.bullets.size).toBe(0);
-    expect(b.hp).toBeCloseTo(hpLand - 80, 5);
+    const landHit = Math.min(80, ComboCap.limitOf(b.maxHp, b.equipment.comboCapRatio));
+    expect(b.hp).toBeCloseTo(hpLand - landHit, 5);
     expect(Math.hypot(b.x - 1800, b.y - 1200)).toBeLessThanOrEqual(120 + HERO_RADIUS);
   });
 });

@@ -207,6 +207,21 @@ describe("벽 튕김", () => {
     expect(h.x).toBe(130);
   });
 
+  it("벽 데미지는 같은 콤보 예산(launchWallDamage)을 넘지 못한다", () => {
+    const h = launchedHero({
+      x: 200, y: 2000, launchVel: { x: -6000, y: 0 },
+      maxHp: 100, comboCapRatio: 0.26, launchWallDamage: 20,
+    });
+    const ev = moveLaunchedHero(h, DT, 1, NO_COVERS);
+    expect(ev.wallDamage).toBeCloseTo(6, 9);
+    expect(h.launchWallDamage).toBeCloseTo(26, 9);
+    const spent = launchedHero({
+      x: 200, y: 2000, launchVel: { x: -6000, y: 0 },
+      maxHp: 100, comboCapRatio: 0.26, launchWallDamage: 26,
+    });
+    expect(moveLaunchedHero(spent, DT, 1, NO_COVERS).wallDamage).toBe(0);
+  });
+
   it("벽 데미지는 15 미만·36 초과로 벗어나지 않고 가드 시 0.55 배", () => {
     const slow = launchedHero({ x: 124.5, y: 2000, launchVel: { x: -100, y: 0 } });
     expect(moveLaunchedHero(slow, DT, 1, NO_COVERS).wallDamage).toBe(15);

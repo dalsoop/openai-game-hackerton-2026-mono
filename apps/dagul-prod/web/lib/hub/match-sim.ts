@@ -1326,7 +1326,9 @@ function scaleGunHit(
   amount = guarded.amount;
   ctx.knockback = guarded.knockback;
   if (superArmorActive(victim)) {victim.comboCaptureTime = 0;}
-  if (source !== "mobility" && !victim.downed) {accumulateComboDamage(victim, amount);}
+  if (source !== "mobility" && !victim.downed) {
+    amount = accumulateComboDamage(victim, amount);
+  }
   return { amount, comboHit };
 }
 

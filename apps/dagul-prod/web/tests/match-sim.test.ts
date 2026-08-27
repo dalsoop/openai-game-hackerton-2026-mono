@@ -21,6 +21,7 @@ import {
   spawnPoint,
 } from "@/lib/hub/match-sim";
 import { hopLift, muzzleWorldPos, RADIUS_FIRE_MUL } from "@/lib/hub/match-gun";
+import { ComboCap } from "@/lib/hub/match-combo-cap";
 import { equipmentForAnimal, makeEquipment } from "@/lib/hub/match-equipment";
 import { CRATE_MAX_HP, CRATE_RADIUS } from "@/lib/hub/match-crate";
 import { SHOVE_BASE, SHOVE_KB_MUL, SHOVE_MAX } from "@/lib/hub/match-launch";
@@ -354,7 +355,9 @@ describe("총알 정합 W9", () => {
     });
     sim.step(1 / 60);
     expect(sim.bullets.size).toBe(0);
-    expect(b.hp).toBeCloseTo(hp - 100 * PROJECTILE_SPLASH_MUL, 5);
+    const raw = 100 * PROJECTILE_SPLASH_MUL;
+    const applied = Math.min(raw, ComboCap.limitOf(b.maxHp, b.equipment.comboCapRatio));
+    expect(b.hp).toBeCloseTo(hp - applied, 5);
   });
 
   it("일반 총격은 knockback 셔브 clamp(5+|kb|*0.35, 5, 16) 후 아레나 클램프", () => {

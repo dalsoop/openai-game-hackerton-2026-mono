@@ -14,6 +14,7 @@ import {
   resolveCoverMotion,
   type CoverRect,
 } from "./match-covers";
+import { ComboCap, type ComboCapSource } from "./match-combo-cap.js";
 import { addEffect, type EffectStore } from "./match-effects.js";
 
 export type Vec2 = { x: number; y: number };
@@ -314,7 +315,7 @@ export function wallBounceAttackerCredit(wallDamage: number): {
 
 // ---------------------------------------------------------------- 런치 이동
 
-export type LaunchedHero = LaunchState & {
+export type LaunchedHero = LaunchState & ComboCapSource & {
   x: number;
   y: number;
   hp: number;
@@ -351,7 +352,7 @@ function applyWallBounce(
     WALL_DAMAGE_MAX,
   );
   if (h.guardTime > 0) {wallDamage *= GUARD_WALL_DAMAGE_MUL;}
-  h.launchWallDamage += wallDamage;
+  wallDamage = ComboCap.takeWall(h, wallDamage);
   h.hp -= wallDamage;
   return { vx, vy, wallDamage, died: h.hp <= 0 };
 }

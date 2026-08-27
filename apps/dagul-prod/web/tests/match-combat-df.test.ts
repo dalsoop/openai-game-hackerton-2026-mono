@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { packAuthoritySnap } from "@/lib/hub/match-authority-snap";
 import { CRATE_MAX_HP, CRATE_RADIUS } from "@/lib/hub/match-crate";
 import { CORE_RADIUS } from "@/lib/hub/match-core";
+import { ComboCap } from "@/lib/hub/match-combo-cap";
 import { HERO_RADIUS } from "@/lib/hub/match-covers";
 import { makeEquipment } from "@/lib/hub/match-equipment";
 import { applyGunLoot, MORTAR_RADIUS_MIN, MORTAR_SPLASH, RADIUS_FIRE_MUL, tryNormalAttack } from "@/lib/hub/match-gun";
@@ -69,7 +70,8 @@ describe("P0 전투 결함", () => {
     });
     sim.step(DT);
     expect(sim.bullets.size).toBe(0);
-    expect(b.hp).toBeCloseTo(hp - 88, 4);
+    const applied = Math.min(88, ComboCap.limitOf(b.maxHp, b.equipment.comboCapRatio));
+    expect(b.hp).toBeCloseTo(hp - applied, 4);
   });
 
   it("4 다운 중 use 는 메드킷을 쓰지 않는다", () => {
