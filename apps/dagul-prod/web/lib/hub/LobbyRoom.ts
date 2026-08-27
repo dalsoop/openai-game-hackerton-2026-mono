@@ -8,8 +8,11 @@ import { firstFreeSlot, graceSeconds, pickHostSessionId, seatsPayloadOf } from "
 import { startBodies } from "./lobby-relay.js";
 import { parseSeatClaim, sameSeatClaim, type SeatClaim } from "../guest-identity.js";
 import {
-  isEngineJoin, playerJoinAllowed, seatClaimTakeover, slotOfEngineClaim,
+  inputOwnerSession, isEngineJoin, playerJoinAllowed, seatClaimTakeover, slotOfEngineClaim,
 } from "./match-engine.js";
+import {
+  idleHoldFrame, MATCH_INPUT_SANITIZE, MatchInputSchema, matchInputFromFrame,
+} from "./match-input-schema.js";
 import {
   armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
   handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
@@ -55,7 +58,35 @@ export class LobbyRoom extends Room implements LobbyHandle {
     });
     armIdleTimer(this, this.bag);
     this.patchRate = 1000 / HUB_CONFIG.patchHz;
-    this.setSimulationInterval((dt) => {tickAuthority(this, this.bag, dt);}, 1000 / 60);
+    this.armFixedNetcode();
+  }
+
+  private armFixedNetcode(): void {
+    this.inputs = this.defineInput(MatchInputSchema, {
+      bufferMaxSize: 32,
+      sanitize: MATCH_INPUT_SANITIZE,
+      idle: ({ latest }) => idleHoldFrame(latest),
+    });
+    this.setFixedTimestep((ctx) => {
+      this.pullDefinedInputs();
+      tickAuthority(this, this.bag, ctx.dtMs);
+    }, 60);
+  }
+
+  /** 좌석 주인 세션의 defineInput 한 프레임을 이번 틱의 유일한 명령으로 둔다. */
+  private pullDefinedInputs(): void {
+    if (!this.inputs || this.state.phase !== "playing" || !this.bag.authority) {return;}
+    const players = [...this.state.players];
+    for (const p of players) {
+      if (p.slot < 0) {continue;}
+      const sid = inputOwnerSession(p.slot, players, this.claims, this.engineClaims);
+      if (!sid) {continue;}
+      const acc = this.inputs.get(sid);
+      const frame = acc.next();
+      if (!frame) {continue;}
+      if (acc.wasIdle && this.bag.authority.hasQueuedInput(p.slot)) {continue;}
+      this.bag.authority.setTickInput(p.slot, matchInputFromFrame(frame, acc.consumedCount));
+    }
   }
 
   messages = {
@@ -226,6 +257,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   }
 
   stepSim(dtMs = 50): void {
+    this.pullDefinedInputs();
     tickAuthority(this, this.bag, dtMs);
   }
 

@@ -265,6 +265,8 @@ export class MatchSim {
   readonly effects: EffectStore = createEffectStore();
   private nextBulletId = 1;
   private readonly inputBufs = new Map<number, SlotInputBuffer>();
+  /** defineInput 이 이번 고정 틱에 준 명령. 있으면 큐 next() 보다 앞선다. */
+  private readonly tickInputs = new Map<number, MatchInput>();
   /** 이번 틱에 next() 한 명령. finish cine 가 같은 프레임의 finish 를 읽는다. */
   private readonly appliedInputs = new Map<number, MatchInput>();
   private readonly cpuFleet: CpuFleet;
@@ -372,6 +374,17 @@ export class MatchSim {
       this.inputBufs.set(slot, buf);
     }
     buf.enqueue(data);
+  }
+
+  /** 공식 고정 틱에서 defineInput.next() 결과를 이 스텝의 유일한 명령으로 둔다. */
+  setTickInput(slot: number, data: MatchInput): void {
+    if (!this.heroes.has(slot)) {return;}
+    this.tickInputs.set(slot, data);
+  }
+
+  hasQueuedInput(slot: number): boolean {
+    const buf = this.inputBufs.get(slot);
+    return buf !== undefined && buf.q.length > 0;
   }
 
   step(dt = FIXED_DT): void {
@@ -539,9 +552,10 @@ export class MatchSim {
   private applyHumans(dt: number): void {
     for (const [slot, hero] of this.heroes) {
       if (hero.cpu) {continue;}
+      const forced = this.tickInputs.get(slot);
+      this.tickInputs.delete(slot);
       const buf = this.inputBufs.get(slot);
-      if (!buf) {continue;}
-      const cmd = buf.next();
+      const cmd = forced ?? buf?.next();
       if (!cmd) {continue;}
       this.appliedInputs.set(slot, cmd);
       if (!hero.alive || hero.parked) {
