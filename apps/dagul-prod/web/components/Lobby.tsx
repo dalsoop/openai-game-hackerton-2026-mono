@@ -7,29 +7,51 @@ import type { HubRoom } from "@/types";
 import { HUB_CONFIG } from "@/lib/hub/config";
 import { findGame, modeI18nKey } from "@/lib/games/catalog";
 import { roomJoinable } from "@/lib/hub/room-mapper";
-import { membershipOf, sortRoomsByMembership, type MyRoomIdentity } from "@/lib/room-membership";
+import {
+  membershipOf, needsLeaveConfirm, sortRoomsByMembership, type MyRoomIdentity,
+} from "@/lib/room-membership";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { CongestionBanner } from "@/components/CongestionBanner";
+import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface Props {
   rooms: HubRoom[];
   myRoom: MyRoomIdentity | null;
   onJoin: (id: string) => void;
+  onForgetMyRoom: () => void;
   onRefresh: () => void;
   refreshing?: boolean;
+  ccu?: CcuSnapshot | null;
 }
 
-export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = false }: Props): JSX.Element {
+export default function Lobby({
+  rooms, myRoom, onJoin, onForgetMyRoom, onRefresh, refreshing = false, ccu = null,
+}: Props): JSX.Element {
   const t = useTranslations("lobby");
+  const congestion = useTranslations("congestion");
   const games = useTranslations();
   const sorted = sortRoomsByMembership(rooms, myRoom);
   const spin = useRefreshSpin(refreshing);
+  const blocked = ccu !== null && !ccu.admit;
 
   return (
     <div className="fade-in lobby-board">
+      <CongestionBanner snap={ccu} />
+      {blocked && <p className="ccu-hint">{congestion("fullHint")}</p>}
       <div className="lobby-toolbar">
-        <Link href="/create" className="cta lobby-create-link">
+        <Link
+          href="/create"
+          className={`cta lobby-create-link${blocked ? " is-disabled" : ""}`}
+          aria-disabled={blocked || undefined}
+          onClick={(e) => {
+            if (blocked) {e.preventDefault(); return;}
+            if (!needsLeaveConfirm(myRoom)) {return;}
+            if (!window.confirm(t("leaveRoomConfirm"))) {e.preventDefault(); return;}
+            onForgetMyRoom();
+          }}
+        >
           {t("createButton")}
         </Link>
         <button type="button" className="ghost btn-icon" onClick={onRefresh} aria-label={t("refresh")} aria-busy={refreshing}>
@@ -49,17 +71,25 @@ export default function Lobby({ rooms, myRoom, onJoin, onRefresh, refreshing = f
         ) : (
           sorted.map((room) => {
             const { membership } = membershipOf(room, myRoom);
-            const joinable = roomJoinable(room);
+            const joinable = roomJoinable(room) && (membership !== "none" || !blocked);
             const game = findGame(room.gameId);
+            const tryJoin = (): void => {
+              if (!joinable) {return;}
+              if (needsLeaveConfirm(myRoom, room.id)) {
+                if (!window.confirm(t("leaveRoomConfirm"))) {return;}
+                onForgetMyRoom();
+              }
+              onJoin(room.id);
+            };
             return (
               <div
                 key={room.id}
                 role="button"
                 tabIndex={joinable ? 0 : -1}
                 className={`room-card${membership !== "none" ? " mine" : ""}${joinable ? "" : " locked"}`}
-                onClick={() => {if (joinable) {onJoin(room.id);}}}
+                onClick={tryJoin}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && joinable) {onJoin(room.id);}
+                  if (e.key === "Enter") {tryJoin();}
                 }}
               >
                 <div className="room-info">

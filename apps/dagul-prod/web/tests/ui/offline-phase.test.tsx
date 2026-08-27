@@ -11,7 +11,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { OfflinePhase } from "@/components/phases/OfflinePhase";
 import ko from "../../messages/ko.json";
 
-const messages = { intro: ko.intro } as typeof ko;
+const messages = { intro: ko.intro, congestion: ko.congestion } as typeof ko;
 
 type SetupProps = Parameters<typeof OfflinePhase>[0];
 function setup(overrides: Partial<SetupProps> = {}): SetupProps {
@@ -67,5 +67,24 @@ describe("인트로 저장된 이름 상태", () => {
     const props = setup();
     fireEvent.click(screen.getByText(ko.intro.startButton));
     expect(props.onConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("원활이면 시작하기를 막지 않는다", () => {
+    const props = setup({
+      ccu: { ccu: 12, cap: 100, level: "quiet", admit: true },
+    });
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.quiet);
+    fireEvent.click(screen.getByText(ko.intro.startButton));
+    expect(props.onConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("꽉참이면 시작 버튼을 막고 안내를 보여 준다", () => {
+    const props = setup({
+      ccu: { ccu: 100, cap: 100, level: "full", admit: false },
+    });
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
+    expect(screen.getByText(ko.congestion.fullHint)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: ko.congestion.full }));
+    expect(props.onConnect).not.toHaveBeenCalled();
   });
 });

@@ -51,6 +51,7 @@
     "loadWaitTitle": "로딩이 끝나지 않았습니다",
     "loadWaitBody": "제한 시간 안에 경기를 준비하지 못해 방에서 나갔습니다.",
     "back": "뒤로",
+    "dismiss": "닫기",
     "resuming": "이전 세션에 재접속 중입니다...",
     "startFresh": "새로 시작하기",
     "errors": {
@@ -66,6 +67,14 @@
     "defaultPlayer": "플레이어",
     "loggedInAs": "{name}으로 로그인됨",
     "logout": "로그아웃"
+  },
+  "congestion": {
+    "quiet": "원활",
+    "busy": "혼잡",
+    "very_busy": "매우혼잡",
+    "full": "꽉참",
+    "count": "{ccu} / {cap}",
+    "fullHint": "지금은 입장할 수 없습니다. 잠시 후 다시 시도해 주세요."
   },
   "logo": {
     "word": "다굴즈",
@@ -92,6 +101,7 @@
     },
     "mineHost": "내 방 · 방장",
     "mine": "내 방",
+    "leaveRoomConfirm": "지금 속한 방을 나가게 됩니다. 계속하시겠습니까?",
     "inProgress": "진행 중",
     "closed": "닫힘",
     "gameSelect": "게임 선택",

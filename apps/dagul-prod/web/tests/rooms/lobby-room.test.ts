@@ -928,3 +928,24 @@ describe("LobbyRoom 배포 graceful shutdown", () => {
     expect(disconnect).toHaveBeenCalled();
   });
 });
+
+describe("전역 CCU 입장", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("한도가 1이면 접속자 있는 뒤 두 번째 방을 만들지 못한다", async () => {
+    vi.stubEnv("DAGUL_CCU_CAP", "1");
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    await expect(colyseus.createRoom("lobby", { name: "둘째" })).rejects.toThrow(KO.SERVER_FULL);
+  });
+
+  it("한도가 1이면 같은 방에 새 손님도 못 들어온다", async () => {
+    vi.stubEnv("DAGUL_CCU_CAP", "1");
+    const room = await colyseus.createRoom<LobbyRoom>("lobby", { name: "호스트" });
+    await colyseus.connectTo(room, { name: "호스트" });
+    await expect(colyseus.connectTo(room, { name: "손님" })).rejects.toThrow();
+    expect(room.state.players.length).toBe(1);
+  });
+});

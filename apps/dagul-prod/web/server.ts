@@ -15,6 +15,7 @@ import { roomsHttpBody, withDeadline } from "./lib/hub/rooms-http.js";
 import { godotWorkletAssetPath } from "./lib/godot/asset-store.js";
 import { godotCacheHeaders, shouldServeEncoding } from "./lib/godot/serve-encoding.js";
 import { healthBody } from "./lib/hub/health.js";
+import { ccuHttpBody } from "./lib/hub/ccu-http.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -156,6 +157,17 @@ function jsonOk(res: ServerResponse, body: string): void {
   res.end(body);
 }
 
+function localCcu(): ReturnType<typeof ccuHttpBody> {
+  return ccuHttpBody(Number(matchMaker.stats.local.ccu));
+}
+
+function serveCcuJson(res: ServerResponse, write: (body: ReturnType<typeof ccuHttpBody>) => void): void {
+  const fallback = localCcu();
+  void withDeadline(matchMaker.stats.getGlobalCCU(), HUB_CONFIG.roomsFetchMs)
+    .then((ccu) => {write(ccuHttpBody(Number(ccu)));})
+    .catch(() => {write(fallback);});
+}
+
 function setIsolationHeaders(res: ServerResponse): void {
   // SharedArrayBuffer(스레드 지원 Godot 웹 빌드) 에 필요한 교차 출처 격리 헤더.
   res.setHeader("cross-origin-opener-policy", "same-origin");
@@ -165,7 +177,11 @@ function setIsolationHeaders(res: ServerResponse): void {
 
 function serveMeta(pathname: string, res: ServerResponse): boolean {
   if (pathname === "/health" || pathname === "/healthz") {
-    jsonOk(res, healthBody());
+    jsonOk(res, healthBody(undefined, localCcu()));
+    return true;
+  }
+  if (pathname === "/ccu" || pathname === "/api/ccu") {
+    serveCcuJson(res, (body) => jsonOk(res, JSON.stringify(body)));
     return true;
   }
   if (pathname === "/api/version") {

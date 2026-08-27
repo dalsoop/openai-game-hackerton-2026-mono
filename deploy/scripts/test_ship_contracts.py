@@ -312,7 +312,12 @@ class HelmContract(unittest.TestCase):
         self.assertIn("HACKERTONE_IMAGE_BUILD", prod_df)
         self.assertNotIn('"--no-cache"', apps_py)
         self.assertIn('["docker", "build"', apps_py)
+        self.assertIn("def docker_push", apps_py)
         self.assertIn('["docker", "push"', apps_py)
+        self.assertIn("{ref}: harbor push 실패", apps_py)
+        self.assertNotIn("ctr import 로 계속", apps_py)
+        self.assertIn(".export-hash 기록 실패", apps_py)
+        self.assertNotIn("warn {folder}: .export-hash", apps_py)
         self.assertIn("--no-rebuild", apps_py)
         self.assertIn('if "--rebuild" in args', apps_py)
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
@@ -345,7 +350,7 @@ class HelmContract(unittest.TestCase):
         self.assertIn("https://dagul-prod.external.kr/", hosts)
         src = path.read_text()
         self.assertIn('startswith(("server-", "dagul-"))', src)
-        self.assertIn("GITHUB_ACTIONS", src)
+        self.assertIn("HACKERTONE_REQUIRE_PURGE", src)
         self.assertIn("/etc/hackertone/cloudflare.env", src)
         self.assertIn("CF_API_TOKEN", src)
         self.assertIn("resolve_zone_id", src)
@@ -398,7 +403,7 @@ class PurgeCacheGate(unittest.TestCase):
         from unittest import mock
 
         with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "HACKERTONE_REQUIRE_PURGE": ""}, clear=False):
-            self.assertTrue(self.purge.require_purge())
+            self.assertFalse(self.purge.require_purge())
         with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "HACKERTONE_REQUIRE_PURGE": "1"}, clear=False):
             self.assertTrue(self.purge.require_purge())
         with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "HACKERTONE_REQUIRE_PURGE": ""}, clear=False):
@@ -492,6 +497,43 @@ class PurgeCacheGate(unittest.TestCase):
         helm_fn = apps_py.split("def helm_upgrade", 1)[1].split("def main", 1)[0]
         self.assertIn("purge_cloudflare()", helm_fn)
 
+    def test_docker_push_retries_then_exits(self) -> None:
+        import importlib.util
+        from unittest import mock
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location("apply_push_gate", path)
+        apply = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(apply)
+        calls = {"n": 0}
+
+        def fake_run(argv, check=False):
+            calls["n"] += 1
+            self.assertEqual(argv[:2], ["docker", "push"])
+            return mock.Mock(returncode=1)
+
+        with mock.patch.object(apply.subprocess, "run", fake_run):
+            with self.assertRaises(SystemExit) as ctx:
+                apply.docker_push("harbor.50.internal.xz/library/dagul-prod:dead", attempts=3)
+        self.assertEqual(calls["n"], 3)
+        self.assertIn("harbor push 실패", str(ctx.exception))
+
+    def test_docker_push_succeeds_on_retry(self) -> None:
+        import importlib.util
+        from unittest import mock
+
+        path = Path(__file__).with_name("apply-apps.py")
+        spec = importlib.util.spec_from_file_location("apply_push_ok", path)
+        apply = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(apply)
+        codes = [1, 0]
+
+        def fake_run(argv, check=False):
+            return mock.Mock(returncode=codes.pop(0))
+
+        with mock.patch.object(apply.subprocess, "run", fake_run):
+            apply.docker_push("harbor.50.internal.xz/library/dagul-prod:ok", attempts=3)
+
 
 class HelmContractTail(unittest.TestCase):
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
@@ -551,8 +593,12 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertIn("HACKERTONE_SHIP_FOLDERS", apps_yml)
         self.assertIn("lint-web.py", apps_yml)
         self.assertIn("lint-web:", apps_yml)
+        lint = (root / "deploy" / "scripts" / "lint-web.py").read_text()
+        self.assertIn('["npx", "tsc", "--noEmit"]', lint)
+        self.assertIn("tsconfig.server.json", lint)
         self.assertIn("needs: plan", apps_yml.split("lint-web:", 1)[1])
-        self.assertNotIn("needs: lint-web", apps_yml.split("apply:", 1)[1])
+        self.assertIn("needs: [plan, lint-web]", apps_yml)
+        self.assertNotIn("if: ${{ needs.plan.outputs.folders != '' }}", apps_yml.split("lint-web:", 1)[1].split("apply:", 1)[0])
         self.assertIn("workflow_dispatch", apps_yml)
         self.assertIn("runs-on: [self-hosted, hackertone]", apps_yml)
         self.assertIn("group: apps-ship", apps_yml)

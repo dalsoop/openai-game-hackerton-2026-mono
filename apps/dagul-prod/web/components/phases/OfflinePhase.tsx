@@ -5,7 +5,9 @@
 import type { JSX } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
+import { CongestionBanner } from "@/components/CongestionBanner";
 import { playOkButton } from "@/lib/ui-sfx";
+import type { CcuSnapshot } from "@/lib/hub/ccu-plan";
 
 interface OfflinePhaseProps {
   nickname: string;
@@ -13,6 +15,7 @@ interface OfflinePhaseProps {
   onNameChange: (name: string) => void;
   onConnect: () => void;
   onResetName: () => void;
+  ccu?: CcuSnapshot | null;
 }
 
 export function OfflinePhase({
@@ -21,9 +24,11 @@ export function OfflinePhase({
   onNameChange,
   onConnect,
   onResetName,
+  ccu = null,
 }: OfflinePhaseProps): JSX.Element {
   const t = useTranslations();
   const locale = useLocale();
+  const blocked = ccu !== null && !ccu.admit;
 
   return (
     <div className="intro">
@@ -39,6 +44,8 @@ export function OfflinePhase({
       </div>
 
       <div className="intro-form">
+        <CongestionBanner snap={ccu} />
+        {blocked && <p className="ccu-hint">{t("congestion.fullHint")}</p>}
         <div className="name-row">
           <input
             className="name-input"
@@ -49,7 +56,7 @@ export function OfflinePhase({
             placeholder={t("intro.namePlaceholder")}
             maxLength={12}
             onKeyDown={(e) => {
-              if (e.key !== "Enter") {return;}
+              if (e.key !== "Enter" || blocked) {return;}
               playOkButton();
               onConnect();
             }}
@@ -64,12 +71,14 @@ export function OfflinePhase({
         <Button
           className="cta block"
           data-sfx="ok"
+          disabled={blocked}
           onClick={() => {
+            if (blocked) {return;}
             playOkButton();
             onConnect();
           }}
         >
-          {t("intro.startButton")}
+          {blocked ? t("congestion.full") : t("intro.startButton")}
         </Button>
       </div>
     </div>

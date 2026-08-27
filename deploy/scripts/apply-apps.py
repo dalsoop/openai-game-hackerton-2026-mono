@@ -163,9 +163,21 @@ def push_web(folder: str) -> None:
         check=False,
     )
     if hashed.returncode:
-        print(f"warn {folder}: .export-hash 기록 실패")
+        raise SystemExit(f"{folder}: .export-hash 기록 실패")
     print(f"pushed {folder} ({digest})")
 
+
+
+def docker_push(ref: str, attempts: int = 3) -> None:
+    last = 1
+    for attempt in range(1, attempts + 1):
+        ran = subprocess.run(["docker", "push", ref], check=False)
+        last = ran.returncode
+        if last == 0:
+            print(f"pushed {ref}")
+            return
+        print(f"harbor push 실패 ({attempt}/{attempts}) {ref}", file=sys.stderr)
+    raise SystemExit(f"{ref}: harbor push 실패")
 
 
 def build_hub(folder: str) -> None:
@@ -186,11 +198,7 @@ def build_hub(folder: str) -> None:
         ["docker", "build", "-t", ref, "-f", str(docker), str(context)],
         check=True,
     )
-    pushed = subprocess.run(["docker", "push", ref], check=False)
-    if pushed.returncode:
-        print(f"warn {folder}: harbor push 실패 — ctr import 로 계속")
-    else:
-        print(f"pushed {ref}")
+    docker_push(ref)
     save = subprocess.Popen(["docker", "save", ref], stdout=subprocess.PIPE)
     load = subprocess.run(k3s_argv("k3s ctr images import -"), stdin=save.stdout, check=False)
     save.wait()

@@ -5,7 +5,7 @@
 존: CLOUDFLARE_ZONE_ID / CF_ZONE_ID, 없으면 존 이름(기본 external.kr)으로 조회.
 파일 폴백: /etc/hackertone/cloudflare.env
 대상: argv(올려진 슬롯) 또는 apps/*/hackertone.yaml 공개 URL.
-GitHub Actions 에서는 자격이 없으면 생략하지 않고 실패한다.
+HACKERTONE_REQUIRE_PURGE=1 이면 자격이 없을 때 실패한다. 기본 helm 은 origin no-store 로 계속한다.
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def purge_payloads(prefixes: list[str]) -> list[dict]:
 
 
 def require_purge() -> bool:
-    return os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("HACKERTONE_REQUIRE_PURGE") == "1"
+    return os.environ.get("HACKERTONE_REQUIRE_PURGE") == "1"
 
 
 def _env_first(keys: tuple[str, ...], file_map: dict[str, str]) -> str:

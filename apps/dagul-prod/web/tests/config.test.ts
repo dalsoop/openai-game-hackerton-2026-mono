@@ -76,6 +76,12 @@ describe("HUB_CONFIG", () => {
     expect(KO.ROOM_FULL).toContain(String(HUB_CONFIG.maxPlayers));
   });
 
+  it("전역 꽉참 안내가 방 가득과 다르다", () => {
+    expect(KO.SERVER_FULL.length).toBeGreaterThan(0);
+    expect(KO.SERVER_FULL).not.toBe(KO.ROOM_FULL);
+    expect(HUB_CONFIG.admissionCcu).toBe(100);
+  });
+
   it("워치독·종료 코드는 공식 SDK 값과 같다", () => {
     expect(HUB_CONFIG.matchWatchdogMs).toBeGreaterThan(0);
     expect(HUB_CONFIG.rttIntervalMs).toBeGreaterThan(0);

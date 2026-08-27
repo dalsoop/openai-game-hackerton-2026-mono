@@ -14,15 +14,16 @@ import {
   idleHoldFrame, MATCH_INPUT_SANITIZE, MatchInputSchema, matchInputFromFrame,
 } from "./match-input-schema.js";
 import {
-  armIdleTimer, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer, handlePackPct,
-  handleMatchReady, handleRoomToggle, handleSetCharacter, handleSetGame, handleStart, scheduleHostLossReset,
-  sendStartBodies, type LobbyBag, type LobbyHandle,
+  armIdleTimer, armShutdownDrain, burstIdle as fireIdleBurst, cancelHostLossReset, clearIdleTimer,
+  clearShutdownDrain, handlePackPct, handleMatchReady, handleRoomToggle, handleSetCharacter,
+  handleSetGame, handleStart, scheduleHostLossReset, sendStartBodies, type LobbyBag, type LobbyHandle,
 } from "./lobby-waiting.js";
 import {
   applyPlayInput, bootAuthority, holdLoadBarrier, parkSeat, resetSeatAck, tickAuthority,
   tryReleaseLoadBarrier,
 } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
+import { assertCanAdmitCcu } from "./ccu-admit.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
 
@@ -30,7 +31,7 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null, loadWaitMs: 0,
+    hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
@@ -40,7 +41,8 @@ export class LobbyRoom extends Room implements LobbyHandle {
   /** JSON SNAP 을 받지 않는 sessionId. 엔진 직결·SNAP_OFF. */
   snapOptOut = new Set<string>();
 
-  onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): void {
+  async onCreate(options: { game?: unknown; title?: unknown; name?: unknown }): Promise<void> {
+    await assertCanAdmitCcu();
     this.maxClients = HUB_CONFIG.maxPlayers * 2;
     const settings = parseRoomSettings(
       options,
@@ -120,11 +122,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
     },
   };
 
-  onAuth(_client: Client, options: Record<string, unknown>): boolean {
+  async onAuth(_client: Client, options: Record<string, unknown>): Promise<boolean> {
     if (isEngineJoin(options)) {return true;}
     if (!this.state.open) {throw new Error(KO.ROOM_CLOSED);}
     const claim = parseSeatClaim(options);
     const takeover = seatClaimTakeover([...this.state.players], this.claims, claim);
+    if (!takeover) {await assertCanAdmitCcu();}
     if (playerJoinAllowed(this.state.players.length, takeover)) {return true;}
     throw new Error(KO.ROOM_FULL);
   }
@@ -256,21 +259,14 @@ export class LobbyRoom extends Room implements LobbyHandle {
   onDispose(): void {
     clearIdleTimer(this, this.bag);
     cancelHostLossReset(this.bag);
+    clearShutdownDrain(this.bag);
     if (this.bag.gameTimer) {this.bag.gameTimer.clear(); this.bag.gameTimer = null;}
   }
 
-  /** 배포(SIGTERM) 때 호출 — Colyseus 기본은 전원 즉시 disconnect. 대기실은 그대로
-   * 바로 끊지만, 진행 중 매치는 안내만 보내고 HUB_CONFIG.shutdownDrainMs 만큼
-   * 더 살려서(room.clock 은 방이 disposed 되면 자동 정리된다) 자연 종료를 기다린다.
-   * k8s 쪽 terminationGracePeriodSeconds 를 이 값과 맞춰야 실제로 의미가 있다
-   * (deploy/chart 템플릿 참고). */
+  /** 배포(SIGTERM) 때 호출 — 타이머 수명(건 뒤 매치가 먼저 끝나면 취소)까지
+   * lobby-waiting.ts 의 armShutdownDrain/clearShutdownDrain 이 묶어서 책임진다. */
   onBeforeShutdown(): void {
-    if (this.state.phase !== "playing") {
-      super.onBeforeShutdown();
-      return;
-    }
-    this.broadcast(MSG.SERVER_SHUTDOWN, KO.SERVER_SHUTDOWN_MSG);
-    this.clock.setTimeout(() => {void this.disconnect();}, HUB_CONFIG.shutdownDrainMs);
+    armShutdownDrain(this, this.bag);
   }
 
   burstIdle(): void {

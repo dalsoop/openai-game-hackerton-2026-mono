@@ -7,11 +7,13 @@ import { useGameFlowContext } from "@/hooks/GameFlowProvider";
 import { useCreateRoomPage } from "@/hooks/useCreateRoomPage";
 import { ConnectingPhase } from "@/components/phases";
 import CreateRoom from "@/components/CreateRoom";
+import { useCcuStatus } from "@/hooks/useCcuStatus";
 
 export default function CreatePage(): JSX.Element {
   const t = useTranslations();
   const { hub } = useGameFlowContext();
   const { ready, creating, listings, onSubmit, onBack } = useCreateRoomPage();
+  const ccu = useCcuStatus(ready);
 
   return (
     <div className="page-shell">
@@ -22,6 +24,7 @@ export default function CreatePage(): JSX.Element {
           onBack={onBack}
           connClass={CONNECTION_CLASS[hub.status]}
           connText={hub.status === "connecting" ? t("connection.connecting") : t("connection.connected")}
+          ccu={ccu}
         />
       ) : (
         <ConnectingPhase message={creating ? t("create.pending") : t("connection.connecting")} />

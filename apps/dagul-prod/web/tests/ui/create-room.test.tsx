@@ -97,4 +97,24 @@ describe("방 만들기 폼", () => {
     fireEvent.click(screen.getByRole("button", { name: ko.create.cancel }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it("꽉참이면 제출을 막고 안내를 보여 준다", () => {
+    const onSubmit = vi.fn();
+    render(
+      <NextIntlClientProvider locale="ko" messages={ko}>
+        <CreateRoom
+          listings={listings}
+          onSubmit={onSubmit}
+          onBack={vi.fn()}
+          connClass="conn-ok"
+          connText=""
+          ccu={{ ccu: 100, cap: 100, level: "full", admit: false }}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
+    expect(screen.getByText(ko.congestion.fullHint)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: ko.congestion.full }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

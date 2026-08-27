@@ -51,6 +51,7 @@
     "loadWaitTitle": "Loading did not finish",
     "loadWaitBody": "You left the match because you were not ready in time.",
     "back": "Back",
+    "dismiss": "Dismiss",
     "resuming": "Reconnecting to your previous session...",
     "startFresh": "Start fresh",
     "errors": {
@@ -66,6 +67,14 @@
     "defaultPlayer": "Player",
     "loggedInAs": "Signed in as {name}",
     "logout": "Sign out"
+  },
+  "congestion": {
+    "quiet": "Open",
+    "busy": "Busy",
+    "very_busy": "Very busy",
+    "full": "Full",
+    "count": "{ccu} / {cap}",
+    "fullHint": "The server is full. Try again in a moment."
   },
   "logo": {
     "word": "Dagulz",
@@ -92,6 +101,7 @@
     },
     "mineHost": "My room · Host",
     "mine": "My room",
+    "leaveRoomConfirm": "You'll leave the room you're currently in. Continue?",
     "inProgress": "In progress",
     "closed": "Closed",
     "gameSelect": "Select game",

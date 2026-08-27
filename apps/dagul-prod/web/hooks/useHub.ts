@@ -111,6 +111,12 @@ export function useHub(): UseHubResult {
     onKicked(raw);
   }, [onKicked]);
   useRoomMessage(room, MSG.KICKED, handleKicked);
+  // 배포 드레인 안내 — 진행 중 매치는 안 끊고 배너만 띄운다(LobbyRoom.onBeforeShutdown).
+  const [shutdownNotice, setShutdownNotice] = useState<string | null>(null);
+  useRoomMessage(room, MSG.SERVER_SHUTDOWN, (msg?: unknown) => {
+    setShutdownNotice(typeof msg === "string" ? msg : null);
+  });
+  const dismissShutdownNotice = useCallback(() => {setShutdownNotice(null);}, []);
   useHubExternalErrors(roomError, lobbyErr, setError);
 
   // 파생 사실은 도메인(Roster)이 계산한다.
@@ -158,6 +164,7 @@ export function useHub(): UseHubResult {
     createRoom: commands.createRoom,
     joinRoom: commands.joinRoom,
     leaveRoom: commands.leaveRoom,
+    forgetMyRoom: commands.forgetMyRoom,
     disconnect: commands.disconnect,
     returnToLobby: commands.returnToLobby,
     startMatch: sends.startMatch,
@@ -176,6 +183,8 @@ export function useHub(): UseHubResult {
       ? null
       : (joinRequest?.kind ?? null),
     dropReason,
+    shutdownNotice,
+    dismissShutdownNotice,
     lastRoomId,
     reconnectAfterDrop: commands.reconnectAfterDrop,
     myRoom,

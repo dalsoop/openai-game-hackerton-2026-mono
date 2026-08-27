@@ -269,6 +269,18 @@ body.wait #wait { display: block; }
 }
 .intro-form, .intro-form input, .intro-form button, .login-chip { font-family: 'Galmuri11', sans-serif; }
 .intro-form { width:100%; max-width:420px; margin-top:28px; display:flex; flex-direction:column; gap:10px; }
+.ccu-banner {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 14px; border-radius:var(--radius); border:1.5px solid var(--line);
+  font-size:14px; font-weight:700; letter-spacing:-.02em;
+}
+.ccu-count { font-variant-numeric:tabular-nums; font-weight:600; opacity:.85; }
+.ccu-quiet { color:#7dff8a; border-color:rgba(125,255,138,.35); background:rgba(125,255,138,.08); }
+.ccu-busy { color:#ffd166; border-color:rgba(255,209,102,.4); background:rgba(255,209,102,.1); }
+.ccu-very_busy { color:#ff9a45; border-color:rgba(255,154,69,.45); background:rgba(255,154,69,.1); }
+.ccu-full { color:#ff5d73; border-color:rgba(255,93,115,.5); background:rgba(255,93,115,.12); }
+.ccu-hint { margin:0; font-size:13px; color:#ff5d73; }
+.cta.is-disabled, .cta:disabled { opacity:.45; pointer-events:none; }
 .name-row { display:flex; align-items:center; gap:8px; width:100%; }
 .name-row .name-input { flex:1; }
 .logout-btn { flex-shrink:0; white-space:nowrap; }
@@ -424,6 +436,7 @@ body.wait #wait { display: block; }
 .status-msg.success { background:rgba(93,217,124,.1); color:var(--green); border:1px solid var(--green); }
 .status-msg.info { background:rgba(62,230,210,.1); color:var(--cyan); border:1px solid var(--cyan); }
 .deploy-banner { display:flex; gap:12px; align-items:center; justify-content:center; margin:0 0 16px; }
+.shutdown-banner-fixed { position:fixed; top:0; left:0; width:100%; z-index:200; margin:0; border-radius:0; }
 
 .field-wrap.block { width:100%; }
 

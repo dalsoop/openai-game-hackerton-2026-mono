@@ -76,6 +76,20 @@ data:
             flush_interval -1
           }
         }
+        handle /ccu {
+          header Access-Control-Allow-Origin *
+          header Cache-Control "no-store"
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
+        handle /api/ccu {
+          header Access-Control-Allow-Origin *
+          header Cache-Control "no-store"
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
         {{- if and $.Values.hub.staticSplit $scaled }}
         handle /godot* {
           reverse_proxy {{ .folder }}-hub-static:80 {

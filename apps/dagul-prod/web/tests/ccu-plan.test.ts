@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { hubReplicaCount } from "@/lib/hub/ccu-plan";
+import {
+  admissionCcu, congestionOf, hubReplicaCount, parseAdmissionCcu, DEFAULT_ADMISSION_CCU,
+} from "@/lib/hub/ccu-plan";
 import {
   hubHttpEndpoint, hubPinFromWsUrl, hubPublicAddress, parseHubPinRecord, pinForMatchmake,
 } from "@/lib/hub/public-address";
@@ -14,6 +16,40 @@ describe("hubReplicaCount", () => {
   it("0 이하여도 최소 1 대", () => {
     expect(hubReplicaCount(0, 500)).toBe(1);
     expect(hubReplicaCount(100, 0)).toBe(100);
+  });
+});
+
+describe("admissionCcu", () => {
+  it("기본 한도는 100", () => {
+    expect(DEFAULT_ADMISSION_CCU).toBe(100);
+    expect(HUB_CONFIG.admissionCcu).toBe(100);
+    expect(parseAdmissionCcu(undefined)).toBe(100);
+    expect(admissionCcu(undefined)).toBe(100);
+  });
+
+  it("숫자만 받고 1 미만은 기본값", () => {
+    expect(parseAdmissionCcu("80")).toBe(80);
+    expect(parseAdmissionCcu("0")).toBe(100);
+    expect(parseAdmissionCcu("-3")).toBe(100);
+    expect(parseAdmissionCcu("nope")).toBe(100);
+  });
+});
+
+describe("congestionOf", () => {
+  it("한도 100 에서 원활·혼잡·매우혼잡·꽉참 경계를 지킨다", () => {
+    expect(congestionOf(0, 100)).toEqual({ ccu: 0, cap: 100, level: "quiet", admit: true });
+    expect(congestionOf(49, 100).level).toBe("quiet");
+    expect(congestionOf(50, 100)).toMatchObject({ level: "busy", admit: true });
+    expect(congestionOf(74, 100).level).toBe("busy");
+    expect(congestionOf(75, 100)).toMatchObject({ level: "very_busy", admit: true });
+    expect(congestionOf(99, 100)).toMatchObject({ level: "very_busy", admit: true });
+    expect(congestionOf(100, 100)).toEqual({ ccu: 100, cap: 100, level: "full", admit: false });
+    expect(congestionOf(140, 100).admit).toBe(false);
+  });
+
+  it("한도 바로 아래만 입장한다", () => {
+    expect(congestionOf(1, 1).admit).toBe(false);
+    expect(congestionOf(0, 1).admit).toBe(true);
   });
 });
 

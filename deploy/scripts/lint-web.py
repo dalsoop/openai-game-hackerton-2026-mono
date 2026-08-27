@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""이미지 빌드와 분리된 슬롯 web eslint. plan 잡에서 돌린다."""
+"""이미지 빌드와 분리된 슬롯 web tsc+eslint. apply 가 이 잡을 기다린다."""
 from __future__ import annotations
 
 import subprocess
@@ -22,6 +22,14 @@ def main() -> int:
             continue
         print(f"lint-web {folder}")
         subprocess.run(["npm", "ci"], cwd=web, check=True)
+        subprocess.run(["npx", "tsc", "--noEmit"], cwd=web, check=True)
+        server_ts = web / "tsconfig.server.json"
+        if server_ts.is_file():
+            subprocess.run(
+                ["npx", "tsc", "--project", "tsconfig.server.json", "--noEmit"],
+                cwd=web,
+                check=True,
+            )
         subprocess.run(["npm", "run", "lint"], cwd=web, check=True)
     return 0
 
