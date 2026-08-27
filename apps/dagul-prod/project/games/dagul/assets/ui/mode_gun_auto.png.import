@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://82laf2p5j6ve"
-path="res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.ctex"
+path.s3tc="res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.s3tc.ctex"
+path.etc2="res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/ui/mode_gun_auto.png"
-dest_files=["res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.ctex"]
+dest_files=["res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.s3tc.ctex", "res://.godot/imported/mode_gun_auto.png-a8b5d887193b4b177ba48f85c9209012.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

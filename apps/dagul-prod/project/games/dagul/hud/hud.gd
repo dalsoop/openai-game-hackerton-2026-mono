@@ -424,7 +424,9 @@ func _draw_wanted_banner() -> void:
     _text(banner.position + Vector2(12.0, 23.0), "WANTED P%d  %s" % [slot + 1, name], 16, Color("#ffd166"), banner.size.x - 20.0)
 
 func _draw_life_status(me: Dictionary) -> void:
-    var left := maxi(0, 3 - int(me.get("revives_used", 0)))
+    # revives_used 는 스냅에 안 실린다. deaths 가 죽음마다 같은 지점에서 함께
+    # 증가하므로(match-life.ts resolveDeath) 잔여 부활은 deaths 로 계산한다.
+    var left := maxi(0, 3 - int(me.get("deaths", 0)))
     if bool(me.get("eliminated", false)):
         _text(Vector2(560.0, 782.0), "OUT", 18, Color("#ff5d73"))
         return

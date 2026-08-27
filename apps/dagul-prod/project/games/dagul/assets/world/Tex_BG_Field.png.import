@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1r0yvoj7kabh"
-path="res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.ctex"
+path.s3tc="res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.s3tc.ctex"
+path.etc2="res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/world/Tex_BG_Field.png"
-dest_files=["res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.ctex"]
+dest_files=["res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.s3tc.ctex", "res://.godot/imported/Tex_BG_Field.png-8e48d6b98c117104271f3edb1c6fdfa9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

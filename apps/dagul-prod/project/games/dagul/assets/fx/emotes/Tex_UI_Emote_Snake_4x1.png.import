@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bix237ia6p2ep"
-path="res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.ctex"
+path.s3tc="res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.s3tc.ctex"
+path.etc2="res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/fx/emotes/Tex_UI_Emote_Snake_4x1.png"
-dest_files=["res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.ctex"]
+dest_files=["res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.s3tc.ctex", "res://.godot/imported/Tex_UI_Emote_Snake_4x1.png-a7e70d34e460ea2aa9bca895cc1d51b7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

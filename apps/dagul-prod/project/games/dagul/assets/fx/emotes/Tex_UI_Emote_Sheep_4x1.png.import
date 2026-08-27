@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1mtdggkff3u5"
-path="res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.ctex"
+path.s3tc="res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.s3tc.ctex"
+path.etc2="res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/fx/emotes/Tex_UI_Emote_Sheep_4x1.png"
-dest_files=["res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.ctex"]
+dest_files=["res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.s3tc.ctex", "res://.godot/imported/Tex_UI_Emote_Sheep_4x1.png-847438eda2df9f03bf9bd92a462ed97f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

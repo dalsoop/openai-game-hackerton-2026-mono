@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dph2p8mboksai"
-path="res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.ctex"
+path.s3tc="res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.s3tc.ctex"
+path.etc2="res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/wheel_kill.png"
-dest_files=["res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.ctex"]
+dest_files=["res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.s3tc.ctex", "res://.godot/imported/wheel_kill.png-98f69d7822dc65e92df1aaf41d33b593.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

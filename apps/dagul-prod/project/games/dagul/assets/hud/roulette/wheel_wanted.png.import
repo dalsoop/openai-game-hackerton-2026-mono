@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://f1h2yy375s8r"
-path="res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.ctex"
+path.s3tc="res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.s3tc.ctex"
+path.etc2="res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/hud/roulette/wheel_wanted.png"
-dest_files=["res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.ctex"]
+dest_files=["res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.s3tc.ctex", "res://.godot/imported/wheel_wanted.png-09569a63c37b01685c54d5d539b45ecb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

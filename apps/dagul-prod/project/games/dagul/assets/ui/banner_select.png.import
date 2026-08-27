@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://clc7uah07vpet"
-path="res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.ctex"
+path.s3tc="res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.s3tc.ctex"
+path.etc2="res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/ui/banner_select.png"
-dest_files=["res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.ctex"]
+dest_files=["res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.s3tc.ctex", "res://.godot/imported/banner_select.png-ebcab53a393aa238c0c9d6659951af91.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bl8ur62do7str"
-path="res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.ctex"
+path.s3tc="res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.s3tc.ctex"
+path.etc2="res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://games/dagul/assets/lhj/Tex_AnimalDown_4x3.png"
-dest_files=["res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.ctex"]
+dest_files=["res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.s3tc.ctex", "res://.godot/imported/Tex_AnimalDown_4x3.png-f94ec6ad6aec49bede110eaa98d3a09a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
