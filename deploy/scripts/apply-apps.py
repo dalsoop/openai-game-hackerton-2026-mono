@@ -569,7 +569,10 @@ def helm_upgrade() -> None:
 
 def purge_cloudflare() -> None:
     script = Path(__file__).with_name("purge-cache.py")
-    ran = subprocess.run([sys.executable, str(script)], check=False)
+    argv = [sys.executable, str(script)]
+    for folder in shipped_folders():
+        argv.append(f"https://{folder}.external.kr/")
+    ran = subprocess.run(argv, check=False)
     if ran.returncode:
         raise SystemExit("cloudflare 퍼지 실패")
 

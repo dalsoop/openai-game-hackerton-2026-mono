@@ -320,6 +320,7 @@ class HelmContract(unittest.TestCase):
         self.assertIn("run_plant()", helm_fn)
         self.assertIn("seed_unshipped_tags_from_live", helm_fn)
         self.assertIn("purge_cloudflare()", helm_fn)
+        self.assertIn('https://{folder}.external.kr/', apps_py)
         self.assertIn("dump_cluster()", helm_fn)
         self.assertIn("wait_hub_workloads", helm_fn)
         self.assertIn("restart_hub_workloads", helm_fn)
@@ -332,6 +333,38 @@ class HelmContract(unittest.TestCase):
         self.assertNotIn("skip hub {folder} ({ref})", apps_py)
         hub_fn = apps_py.split("def hub_refs", 1)[1].split("def assert_hub_images", 1)[0]
         self.assertIn("planted_hub_tags", hub_fn)
+
+    def test_purge_hosts_include_dagul_prod(self) -> None:
+        import importlib.util
+
+        path = Path(__file__).with_name("purge-cache.py")
+        spec = importlib.util.spec_from_file_location("purge_cache", path)
+        purge = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(purge)
+        hosts = purge.hosts_from_apps()
+        self.assertIn("https://dagul-prod.external.kr/", hosts)
+        src = path.read_text()
+        self.assertIn('startswith(("server-", "dagul-"))', src)
+        self.assertIn("GITHUB_ACTIONS", src)
+        self.assertIn("/etc/hackertone/cloudflare.env", src)
+        self.assertIn("CF_API_TOKEN", src)
+        self.assertIn("resolve_zone_id", src)
+        apps_yml = (APPS.parent / ".github" / "workflows" / "apps.yml").read_text()
+        self.assertNotIn("secrets.CLOUDFLARE_API_TOKEN", apps_yml)
+        self.assertIn("CF_API_TOKEN", apps_yml)
+        self.assertIn("require_purge", src)
+        from tempfile import TemporaryDirectory
+        from pathlib import Path as P
+
+        with TemporaryDirectory() as tmp:
+            envf = P(tmp) / "cloudflare.env"
+            envf.write_text('CF_API_TOKEN="t1"\nCF_ZONE_ID=z9\n')
+            got = purge.creds_from_file(envf)
+            self.assertEqual(got.get("CF_API_TOKEN"), "t1")
+            self.assertEqual(got.get("CF_ZONE_ID"), "z9")
+            headers = purge.auth_headers(got)
+            self.assertIsNotNone(headers)
+            self.assertTrue(str(headers.get("Authorization", "")).startswith("Bearer "))
 
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
         import os
