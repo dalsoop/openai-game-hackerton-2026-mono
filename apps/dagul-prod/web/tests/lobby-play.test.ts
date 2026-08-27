@@ -6,6 +6,7 @@ import {
 } from "@/lib/hub/lobby-play";
 import { seed as seedAuthority } from "@/lib/hub/match-authority";
 import { LobbyState, PlayerSchema } from "@/lib/hub/lobby-state";
+import { armShutdownDrain } from "@/lib/hub/lobby-waiting";
 import type { LobbyBag, LobbyHandle } from "@/lib/hub/lobby-waiting";
 
 function clientOf(
@@ -251,5 +252,38 @@ describe("commitTickSnap opt-out", () => {
     expect(state.phase).toBe("playing");
     vi.advanceTimersByTime(HUB_CONFIG.resetToLobbyDelayMs);
     expect(state.phase).toBe("lobby");
+  });
+});
+
+// 회귀: onBeforeShutdown 이 진행 중 매치를 shutdownDrainMs 만큼 봐주려고 예약한
+// disconnect 타이머가, 그 전에 매치가 자연 종료(resetToLobby)돼도 안 지워지면
+// 같은 방에서 이어서 시작된 무관한 다음 매치를 엉뚱하게 끊어버린다.
+describe("armShutdownDrain ↔ resetToLobby", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("드레인 타이머가 돌기 전에 매치가 끝나면, resetToLobby 가 타이머를 지운다", () => {
+    vi.useFakeTimers();
+    const disconnect = vi.fn();
+    const state = new LobbyState();
+    state.phase = "playing";
+    const room = roomOf(state, { disconnect });
+    const bag = emptyBag();
+
+    armShutdownDrain(room, bag);
+    expect(room.broadcast).toHaveBeenCalledWith(MSG.SERVER_SHUTDOWN, KO.SERVER_SHUTDOWN_MSG);
+    expect(bag.shutdownTimer).not.toBeNull();
+
+    // 매치가 드레인 타이머(shutdownDrainMs)보다 먼저 자연 종료된다.
+    bag.lastSnap = { result: "playing" };
+    commitTickSnap(room, bag, { result: "won" });
+    vi.advanceTimersByTime(HUB_CONFIG.resetToLobbyDelayMs);
+    expect(state.phase).toBe("lobby");
+    expect(bag.shutdownTimer).toBeNull();
+
+    // 옛 드레인 타이머가 실제로는 취소돼서, 새 매치 시작 후에도 안 울린다.
+    vi.advanceTimersByTime(HUB_CONFIG.shutdownDrainMs);
+    expect(disconnect).not.toHaveBeenCalled();
   });
 });

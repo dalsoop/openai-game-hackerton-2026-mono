@@ -72,7 +72,7 @@ func _build() -> void:
 
 func _build_gear() -> void:
 	_gear = Ui.flat_icon_btn(Ui.gear_texture(40), Vector2(40, 40))
-	_gear.tooltip_text = "설정"
+	_gear.tooltip_text = HudStrings.t("settings_title")
 	_gear.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	# 미니맵 중심 x=1486 위에 맞춤 (1600 뷰포트).
 	_gear.offset_left = -134
@@ -106,8 +106,8 @@ func _build_panel() -> void:
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
 	col.add_theme_constant_override("separation", 12)
 	_panel.add_child(col)
-	col.add_child(Ui.lbl("설정", 24, Ui.INK))
-	col.add_child(Ui.lbl("조작 방식", 15, Ui.INK))
+	col.add_child(Ui.lbl(HudStrings.t("settings_title"), 24, Ui.INK))
+	col.add_child(Ui.lbl(HudStrings.t("settings_controls"), 15, Ui.INK))
 	_fill_mode_row(col)
 	_desc = Ui.lbl("", 13, Ui.MUTED)
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -128,9 +128,9 @@ func _fill_mode_row(col: VBoxContainer) -> void:
 
 
 func _fill_sound_and_leave(col: VBoxContainer) -> void:
-	col.add_child(Ui.lbl("소리", 15, Ui.INK))
+	col.add_child(Ui.lbl(HudStrings.t("settings_sound"), 15, Ui.INK))
 	var sound_check := CheckButton.new()
-	sound_check.text = "효과음 켜기"
+	sound_check.text = HudStrings.t("settings_sound_on")
 	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
 		sound_check.add_theme_color_override(state, Ui.INK)
 	sound_check.button_pressed = Store.load_sound_on()
@@ -141,9 +141,9 @@ func _fill_sound_and_leave(col: VBoxContainer) -> void:
 	col.add_child(spacer)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
-	var back := Ui.btn("닫기", Ui.BTN_DARK, Vector2(160, 44))
+	var back := Ui.btn(HudStrings.t("settings_close"), Ui.BTN_DARK, Vector2(160, 44))
 	back.pressed.connect(func() -> void: set_open(false))
-	var leave := Ui.btn("로비로 나가기", Ui.BTN_MUTED, Vector2(160, 44))
+	var leave := Ui.btn(HudStrings.t("settings_leave"), Ui.BTN_MUTED, Vector2(160, 44))
 	leave.pressed.connect(func() -> void: leave_requested.emit())
 	actions.add_child(back)
 	actions.add_child(leave)

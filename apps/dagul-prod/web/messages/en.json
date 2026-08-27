@@ -73,6 +73,7 @@
     "busy": "Busy",
     "very_busy": "Very busy",
     "full": "Full",
+    "capLabel": "Server capacity",
     "count": "{ccu} / {cap}",
     "fullHint": "The server is full. Try again in a moment."
   },

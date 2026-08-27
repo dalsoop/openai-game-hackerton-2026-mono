@@ -112,7 +112,8 @@ describe("방 만들기 폼", () => {
         />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByRole("status").textContent).toContain(ko.congestion.full);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(ko.congestion.capLabel)).toBeNull();
     expect(screen.getByText(ko.congestion.fullHint)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: ko.congestion.full }));
     expect(onSubmit).not.toHaveBeenCalled();

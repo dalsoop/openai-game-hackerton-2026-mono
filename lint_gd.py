@@ -54,6 +54,7 @@ RE_CONTRACT_MSG = re.compile(
 )
 RE_CONTRACT_HANDOFF = re.compile(r'"gangup_[a-z0-9_]+"')
 RE_ARRAY_DECL = re.compile(r'^var ([a-z_]\w*)\s*:\s*Array')
+RE_HARDCODED_KO = re.compile(r'"[^"]*[가-힣][^"]*"')
 RE_ARRAY_REPLACE = re.compile(r'^[\t ]+([a-z_]\w*)\s*=\s*')
 
 
@@ -116,6 +117,9 @@ def lint_file(path: pathlib.Path):
 
         if RE_WS_NEW.search(line):
             findings.append((i, 'ws-client-dup', 'GD 자체 WebSocket 금지 — 네트워크는 페이지 브릿지(network_manager) 경유'))
+
+        if RE_HARDCODED_KO.search(stripped) and path.name != 'hud_strings.gd' and '# lint-gd: i18n-ok' not in line:
+            findings.append((i, 'hardcoded-korean', '한국어 리터럴 — HudStrings.tr() 사용'))
 
         if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name not in ('game_registry.gd', 'boot.gd'):
             findings.append((i, 'core-games', 'core/ 는 games/ 를 참조할 수 없다 — 계약(GameModule)으로 우회'))

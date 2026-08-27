@@ -18,10 +18,10 @@ signal host_changed(now_host: bool)  # lint-gd: public-api
 const SeatCodec := preload("res://core/contract/seat_codec.gd")  # lint-gd: public-api
 const HubStateSync := preload("res://core/contract/hub_state_sync.gd")  # lint-gd: public-api
 
-const STATUS_LOBBY := "로비"  # lint-gd: public-api
-const STATUS_IDLE := "대기"  # lint-gd: public-api
+const STATUS_LOBBY := "로비"  # lint-gd: public-api  # lint-gd: i18n-ok
+const STATUS_IDLE := "대기"  # lint-gd: public-api  # lint-gd: i18n-ok
 
-var player_name := "플레이어"  # lint-gd: public-api
+var player_name := HudStrings.t("default_name")  # lint-gd: public-api
 var mode := WebContract.DEFAULT_MODE  # lint-gd: public-api
 var status := STATUS_IDLE  # lint-gd: public-api
 var _players: Array = []
@@ -52,6 +52,9 @@ var _last_input_fp := ""
 const READY_RETRY_SEC := 0.5  # lint-gd: public-api
 
 func _ready() -> void:
+    var locale := _read_ls(WebContract.KEY_LOCALE)
+    if locale != "":
+        HudStrings.set_locale(locale)
     var hub_name := get_hub_name()
     if hub_name != "":
         player_name = hub_name

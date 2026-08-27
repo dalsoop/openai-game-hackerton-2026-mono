@@ -274,7 +274,8 @@ body.wait #wait { display: block; }
   padding:10px 14px; border-radius:var(--radius); border:1.5px solid var(--line);
   font-size:14px; font-weight:700; letter-spacing:-.02em;
 }
-.ccu-count { font-variant-numeric:tabular-nums; font-weight:600; opacity:.85; }
+.ccu-label { font-weight:700; }
+.ccu-count { margin-right:auto; font-variant-numeric:tabular-nums; font-weight:600; opacity:.85; }
 .ccu-quiet { color:#7dff8a; border-color:rgba(125,255,138,.35); background:rgba(125,255,138,.08); }
 .ccu-busy { color:#ffd166; border-color:rgba(255,209,102,.4); background:rgba(255,209,102,.1); }
 .ccu-very_busy { color:#ff9a45; border-color:rgba(255,154,69,.45); background:rgba(255,154,69,.1); }

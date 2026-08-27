@@ -306,7 +306,7 @@ func _present_from_snaps(dt: float) -> void:
         return
     var latest: Dictionary = _snaps.back()
     # 보간 시계는 마지막 스냅 도착 후에도 로컬 dt 로 계속 흐른다. 최신 스냅 틱에만
-    # 묶으면 20Hz 스냅 사이 50ms 동안 원격 이동이 얼었다가 도착 순간 점프한다("툭툭").
+    # 묶으면 20Hz 스냅 사이 50ms 동안 원격 이동이 얼었다가 도착 순간 점프한다.  # lint-gd: i18n-ok
     var latest_tick := int(latest.get(SnapContract.TICK, 0))
     if latest_tick != _latest_snap_tick:
         _latest_snap_tick = latest_tick

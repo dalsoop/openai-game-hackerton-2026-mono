@@ -14,6 +14,7 @@ const KEY_RESUME := "gangup_resume"
 const KEY_MATCH := "gangup_match"
 const KEY_GUEST_ID := "gangup_uid"
 const KEY_GUEST_KEY := "gangup_ukey"
+const KEY_LOCALE := "dagul_locale"
 
 const MSG_START := "start"
 const MSG_INPUT := "input"

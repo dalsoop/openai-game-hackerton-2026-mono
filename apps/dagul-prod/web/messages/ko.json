@@ -73,6 +73,7 @@
     "busy": "혼잡",
     "very_busy": "매우혼잡",
     "full": "꽉참",
+    "capLabel": "서버 정원",
     "count": "{ccu} / {cap}",
     "fullHint": "지금은 입장할 수 없습니다. 잠시 후 다시 시도해 주세요."
   },

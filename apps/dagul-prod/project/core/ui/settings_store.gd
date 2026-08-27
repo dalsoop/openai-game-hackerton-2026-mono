@@ -34,17 +34,17 @@ static func save(control_mode: String, sound_on: bool) -> void:
 static func mode_title(mode: String) -> String:
     match mode:
         MODE_KEYBOARD:
-            return "PC 키보드형"
+            return HudStrings.t("mode_keyboard")
         MODE_TOUCH:
-            return "모바일형"
+            return HudStrings.t("mode_touch")
         _:
-            return "자동"
+            return HudStrings.t("mode_auto")
 
 static func mode_desc(mode: String) -> String:
     match mode:
         MODE_KEYBOARD:
-            return "WASD 이동 · 마우스 조준 · 가상 스틱/버튼 숨김"
+            return HudStrings.t("mode_keyboard_desc")
         MODE_TOUCH:
-            return "화면 스틱/버튼 항상 표시 · 키보드도 함께 사용 가능"
+            return HudStrings.t("mode_touch_desc")
         _:
-            return "기기에 맞춰 결정 (모바일·거친 포인터면 모바일형)"
+            return HudStrings.t("mode_auto_desc")

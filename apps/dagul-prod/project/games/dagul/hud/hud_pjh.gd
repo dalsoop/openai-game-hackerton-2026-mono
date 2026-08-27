@@ -508,11 +508,11 @@ func _draw_result_footer() -> void:
 		if h._result_hold_at_ms < 0:
 			h._result_hold_at_ms = Time.get_ticks_msec()
 		var left := ceili((10_000.0 - float(Time.get_ticks_msec() - h._result_hold_at_ms)) / 1000.0)
-		var label := "대기실로 이동 중" if left <= 0 else "%d초 후 대기실" % left
+		var label := HudStrings.t("result_returning") if left <= 0 else HudStrings.t("result_countdown") % left
 		h._text(Vector2(0.0, 872.0), label, 13, Color(0.82, 0.86, 0.90, 0.72), 1600.0, HORIZONTAL_ALIGNMENT_CENTER)
 		return
 	if not h.touch_hints:
-		h._text(Vector2(650.0, 724.0), "R  재경기    ·    ESC  나가기", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+		h._text(Vector2(650.0, 724.0), HudStrings.t("result_rematch"), 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_standing_row(row: Dictionary, rank: int) -> void:
