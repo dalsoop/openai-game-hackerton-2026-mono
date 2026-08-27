@@ -36,6 +36,8 @@ func run(t) -> void:
 	_pred_fire_skip_clears_without_server(t)
 	_mob_cd_reconcile_blocks_second_dash(t)
 	_mob_cd_missing_falls_back(t)
+	_downed_pred_crawls_at_server_rate(t)
+	_finish_cine_anchors_local_pred(t)
 
 func _prediction_stays_on_full_map(t) -> void:
 	var nw = NetWorldScript.new()
@@ -585,6 +587,30 @@ func _launch_snap(tick_i: int, x: float, y: float, launch_t: float) -> Dictionar
 	player[SnapContract.P_LAUNCH_T] = launch_t
 	player[SnapContract.P_LAUNCH_VX] = 400.0
 	return snap
+
+func _downed_pred_crawls_at_server_rate(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	var snap := _center_snap(3920.0, 2380.0, 176.0, 7, 18)
+	snap[SnapContract.PLAYERS][0][SnapContract.P_DOWNED] = true
+	nw.push_snap(snap)
+	nw.present(1.0 / 60.0)
+	for i in range(30):
+		nw.predict_local(Vector2.RIGHT, false, Vector2(4100.0, 2380.0), 1.0 / 60.0)
+	var moved := Vector2(nw.heroes[0]["pos"]).x - 3920.0
+	t.check("다운 예측은 서버 포복 속도(419*0.16)를 따른다", moved > 20.0 and moved < 50.0)
+
+func _finish_cine_anchors_local_pred(t) -> void:
+	var nw = NetWorldScript.new()
+	nw.local_slot = 0
+	nw.push_snap(_center_snap(3920.0, 2380.0, 176.0, 7, 18))
+	nw.present(1.0 / 60.0)
+	nw.finish_cine = {"on": true, "atk": 0, "vic": 1}
+	for i in range(20):
+		nw.predict_local(Vector2.RIGHT, false, Vector2(4100.0, 2380.0), 1.0 / 60.0)
+	var pos := Vector2(nw.heroes[0]["pos"])
+	t.check("시네 중 로컬 예측은 서버 위치에 정박한다", absf(pos.x - 3920.0) < 2.0)
+	t.check("시네 중 발사 예측도 막힌다", not bool(nw.predict_local_fire(Vector2(4100.0, 2380.0))))
 
 func _center_snap(x: float, y: float, max_hp: float, mag: int, mag_max: int) -> Dictionary:
 	return {

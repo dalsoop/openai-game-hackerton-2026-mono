@@ -9,6 +9,9 @@ const FALLBACK_DIST := 138.0
 const FALLBACK_CD := 5.0
 const FALLBACK_MOVE := 340.0
 const CC_SLOW_MOVE_MULT := 0.42
+## match-sim.ts MOVE_SPEED · match-life.ts DOWN_MOVE_MULT — 다운 포복은 장비 속도를 안 탄다.
+const BASE_MOVE_SPEED := 419.0
+const DOWN_MOVE_MULT := 0.16
 
 static func step(world, mx: float, my: float, dash: bool, aim: Vector2, dt: float) -> void:
 	world._pred_dash_cd = maxf(0.0, world._pred_dash_cd - dt)
@@ -22,6 +25,11 @@ static func step(world, mx: float, my: float, dash: bool, aim: Vector2, dt: floa
 		world._pred_aim = world._pred_pos.direction_to(aim)
 
 static func apply_move(world, me: Dictionary, move: Vector2, dt: float) -> void:
+	if not bool(me.get("alive", true)) and not me.is_empty():
+		return
+	if bool(me.get("downed", false)):
+		_apply_crawl(world, move, dt)
+		return
 	if _move_locked(me):
 		return
 	var mlen := move.length()
@@ -35,6 +43,15 @@ static func apply_move(world, me: Dictionary, move: Vector2, dt: float) -> void:
 	var delta := Vector2(mx, my) * move_speed(world, me) * _move_mult(me) * dt
 	var slid := resolve_cover_motion(world._pred_pos.x, world._pred_pos.y, delta.x, delta.y, world.covers)
 	world._pred_pos = slid
+
+## match-life.ts crawlDowned — 다운 중엔 기본 속도 * 0.16 로만 긴다. CC·장비 배율 무시.
+static func _apply_crawl(world, move: Vector2, dt: float) -> void:
+	var mlen := move.length()
+	if mlen <= 0.05:
+		return
+	var dir := move / mlen if mlen > 1.0 else move
+	var delta := dir * BASE_MOVE_SPEED * DOWN_MOVE_MULT * dt
+	world._pred_pos = resolve_cover_motion(world._pred_pos.x, world._pred_pos.y, delta.x, delta.y, world.covers)
 
 static func apply_dash(world, me: Dictionary, move: Vector2) -> void:
 	if world._pred_dash_cd > 0.0:
@@ -51,6 +68,9 @@ static func dash_blocked(me: Dictionary) -> bool:
 	if me.is_empty():
 		return false
 	if not bool(me.get("alive", true)):
+		return true
+	# 서버는 downed 면 포복 분기에서 끝나 대시를 안 받는다 (match-sim applyHero).
+	if bool(me.get("downed", false)):
 		return true
 	if float(me.get("stun_time", 0.0)) > 0.0:
 		return true

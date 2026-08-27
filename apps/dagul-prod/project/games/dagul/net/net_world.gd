@@ -6,6 +6,7 @@ const NetSnapParser = preload("res://games/dagul/net/net_snap_parser.gd")
 const SnapContract = preload("res://games/dagul/net/snap_contract.gd")
 const SfxDerive = preload("res://games/dagul/net/net_sfx_derive.gd")
 const NetPred = preload("res://games/dagul/net/net_pred.gd")
+const NetStandings = preload("res://games/dagul/net/net_standings.gd")
 const EquipRegScript = preload("res://games/dagul/sim/equipment_registry.gd")
 const GunSigScript = preload("res://games/dagul/sim/gun_signature.gd")
 
@@ -192,6 +193,15 @@ func predict_local(move: Vector2, dash: bool, aim: Vector2, dt: float) -> int:
     if heroes.is_empty() or start_countdown > 0.0 or result != &"playing":
         return _input_seq
     _input_seq += 1
+    # 피니시 시네가 나를 잡으면 서버가 이동 입력을 통째로 무시한다 (match-sim applyHero
+    # 조기 반환). 예측을 멈추고 서버 위치에 정박해야 시네 중·후 위치가 널뛰지 않는다.
+    if _cine_locks_local():
+        _pending.clear()
+        var anchor := hero_at_slot(local_slot)
+        if not anchor.is_empty():
+            _pred_pos = Vector2(anchor.get("pos", _pred_pos))
+            _has_pred = true
+        return _input_seq
     var mx := move.x
     var my := move.y
     _pending.append({"seq":_input_seq, "mx":mx, "my":my, "dash":dash, "aim":aim, "dt":dt})
@@ -213,6 +223,9 @@ func predict_local_fire(aim_point: Vector2 = Vector2.ZERO) -> bool:
         return false
     var me := hero_at_slot(local_slot)
     if me.is_empty() or not bool(me.get("alive", true)):
+        return false
+    # 다운(포복)·피니시 시네 중엔 서버가 발사를 안 받는다 — 유령 트레이서 금지.
+    if bool(me.get("downed", false)) or _cine_locks_local():
         return false
     if int(me.get("mag", 0)) <= 0:
         return false
@@ -444,8 +457,15 @@ func hero_at_slot(slot: int) -> Dictionary:
             return hero
     return {}
 
+func _cine_locks_local() -> bool:
+    if not bool(finish_cine.get("on", false)):
+        return false
+    return int(finish_cine.get("atk", -1)) == local_slot or int(finish_cine.get("vic", -1)) == local_slot
+
 func _overlay_prediction() -> void:
     if not _has_pred or heroes.is_empty():
+        return
+    if _cine_locks_local():
         return
     var me := hero_at_slot(local_slot)
     if me.is_empty() or not bool(me.get("alive", true)):
@@ -670,29 +690,7 @@ func summary() -> Dictionary:
     return {"tick":tick, "time":match_time, "time_limit":MATCH_TIME_LIMIT, "alive":alive, "winner":winner_slot, "result":result, "result_reason":result_reason, "decision_hp_ratio":decision_hp_ratio, "decision_core_ratio":0.0, "projectiles":projectiles.size(), "start_countdown":start_countdown, "core_hps":[], "ultimate_uses":0, "equipment_hits":0, "safe_zone_radius":safe_zone_radius, "safe_zone_target":safe_zone_target_radius, "safe_zone_shrinking":safe_zone_shrinking, "mode":mode}
 
 func leaderboard() -> Array[Dictionary]:
-    var rows: Array[Dictionary] = []
-    for hero in heroes:
-        var slot := int(hero.get("slot", -1))
-        rows.append({"slot":slot, "score":float(hero["score"]), "kills":int(hero["kills"]), "deaths":int(hero["deaths"]), "streak":int(hero.get("kill_streak", 0)), "best_streak":int(hero.get("best_kill_streak", 0)), "eliminations":int(hero["eliminations"]), "damage":0.0, "core_damage":0.0})
-    rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) > float(b["score"]))
-    return rows
+    return NetStandings.leaderboard(heroes)
 
 func final_standings() -> Array[Dictionary]:
-    var rows: Array[Dictionary] = []
-    for hero in heroes:
-        rows.append({
-            "slot":int(hero.get("slot", -1)),
-            "hp_ratio":clampf(float(hero["hp"]) / 100.0, 0.0, 1.0),
-            "core_ratio":0.0,
-            "score":float(hero["score"]),
-            "core_alive":false,
-            "hero_alive":bool(hero["alive"]) and not bool(hero["eliminated"])
-        })
-    rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-        if int(a["slot"]) == winner_slot:
-            return true
-        if int(b["slot"]) == winner_slot:
-            return false
-        return float(a["score"]) > float(b["score"])
-    )
-    return rows
+    return NetStandings.final_standings(heroes, winner_slot)
