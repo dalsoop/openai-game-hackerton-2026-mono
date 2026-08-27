@@ -13,8 +13,11 @@ func draw_deployables() -> void:
 	for mine in world.deployables:
 		if r.lite_draw and deploy_drawn >= max_deploy:
 			break
-		deploy_drawn += 1
 		var mine_pos: Vector2 = mine["pos"]
+		var deploy_radius := maxf(float(mine.get("half_length", 0.0)), float(mine.get("blast_radius", mine.get("trigger_radius", 80.0))))
+		if not r.is_world_visible(mine_pos, deploy_radius + 100.0):
+			continue
+		deploy_drawn += 1
 		var mine_owner := int(mine["owner"])
 		var mine_color: Color = r._slot_color(mine_owner)
 		if StringName(mine.get("type", &"mine")) == &"wall":
@@ -84,12 +87,16 @@ func draw_impact_flashes() -> void:
 			continue
 		var col := clampi(int(float(flash.get("time", 0.0)) / 0.055), 0, n - 1)
 		var pos: Vector2 = flash["pos"]
+		if not r.is_world_visible(pos, 100.0):
+			continue
 		r.draw_texture_rect_region(r.impact_atlas, Rect2(pos - Vector2(42.0, 42.0), Vector2(84.0, 84.0)), r._impact_src_rect(row, col), Color.WHITE)
 
 func draw_combat_texts() -> void:
 	for item in r.combat_texts:
 		var fade := 1.0 - clampf(float(item["time"]) / 0.85, 0.0, 1.0)
 		var pos: Vector2 = item["pos"]
+		if not r.is_world_visible(pos, 100.0):
+			continue
 		var text := str(item.get("text", ""))
 		var col: Color = item.get("color", Color.WHITE)
 		r.draw_string(GameFont.get_font(), pos + Vector2(-31.0, 1.0), text, HORIZONTAL_ALIGNMENT_CENTER, 64.0, 18, Color(0.0, 0.0, 0.0, 0.75 * fade))

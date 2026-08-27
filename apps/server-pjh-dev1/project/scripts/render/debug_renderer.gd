@@ -76,6 +76,19 @@ var muzzle_life: Array = []
 var rooster_comb_lag: float = 0.0
 var world_casings: Array[Dictionary] = []
 var world_casing_serial: int = 0
+var _world_draw_rect := Rect2()
+
+func _update_world_draw_rect() -> void:
+    var camera := get_viewport().get_camera_2d()
+    if camera == null:
+        _world_draw_rect = Rect2(Vector2.ZERO, world.ARENA_SIZE)
+        return
+    var zoom := Vector2(maxf(camera.zoom.x, 0.01), maxf(camera.zoom.y, 0.01))
+    var half_view := get_viewport_rect().size * 0.5 / zoom
+    _world_draw_rect = Rect2(camera.get_screen_center_position() - half_view, half_view * 2.0)
+
+func is_world_visible(pos: Vector2, radius: float = 320.0) -> bool:
+    return _world_draw_rect.grow(maxf(0.0, radius)).has_point(pos)
 
 const ANIMAL_ATLAS_FRAME := [0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11]
 const ANIMAL_COLS := 4
@@ -423,6 +436,8 @@ func _draw_world_casings() -> void:
         var origin := Vector2(casing.get("pos", Vector2.ZERO))
         var velocity := aim * (110.0 + seed * 34.0) + Vector2(0.0, -90.0 - seed * 24.0)
         var pos := origin + velocity * age + Vector2(0.0, 180.0 * age * age)
+        if not is_world_visible(pos, 32.0):
+            continue
         var rotation := float(casing.get("clockwise", 1.0)) * TAU * float(casing.get("spin", 2.0)) * age + seed * TAU
         var alpha := 0.72 * (1.0 - clampf((age - 0.58) / 0.37, 0.0, 1.0))
         var casing_size := Vector2(casing.get("size", Vector2(14.0, 9.0)))
@@ -662,6 +677,9 @@ func _draw_projectiles() -> void:
         var source := StringName(projectile["source"])
         var projectile_color: Color = Color.WHITE if source == &"ultimate" else _projectile_color(projectile)
         var projectile_pos: Vector2 = projectile["pos"]
+        var projectile_margin := maxf(220.0, float(projectile.get("splash", 0.0)))
+        if not is_world_visible(projectile_pos, projectile_margin):
+            continue
         var direction := Vector2(projectile["vel"]).normalized()
         var kind := str(projectile.get("kind", "bolt"))
         if bool(projectile.get("arc", false)):
@@ -753,6 +771,10 @@ func _draw_zones() -> void:
     for zone in world.zones:
         if lite_draw and zone_drawn >= max_zones:
             break
+        var zone_pos: Vector2 = zone["pos"]
+        var zone_radius := float(zone["radius"])
+        if not is_world_visible(zone_pos, zone_radius + 48.0):
+            continue
         zone_drawn += 1
         var zone_color: Color = zone.get("color", _slot_color(int(zone["owner"])))
         var delay := float(zone.get("delay", 0.0))
@@ -760,8 +782,6 @@ func _draw_zones() -> void:
         var warning_ratio := clampf(delay / warning_duration, 0.0, 1.0)
         var impact_progress := 1.0 - warning_ratio
         var warning_alpha := 0.08 + impact_progress * 0.18 + 0.04 * sin(float(world.tick) * 0.32)
-        var zone_pos: Vector2 = zone["pos"]
-        var zone_radius := float(zone["radius"])
         var zone_kind := StringName(zone.get("effect_kind", &"explosion"))
         if delay <= 0.06:
             continue
@@ -808,17 +828,21 @@ func _draw_effects() -> void:
     for effect in world.effects:
         if lite_draw and drawn >= max_effects:
             break
-        drawn += 1
         var effect_color: Color = effect["color"]
         var ratio := clampf(float(effect["time"]) / float(effect["max_time"]), 0.0, 1.0)
         var effect_pos: Vector2 = effect["pos"]
         var effect_radius := float(effect["radius"])
+        var follow_slot := int(effect.get("follow_slot", -1))
+        if follow_slot >= 0 and follow_slot < world.heroes.size():
+            effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+        if not is_world_visible(effect_pos, effect_radius + 180.0):
+            continue
+        drawn += 1
         var effect_kind := StringName(effect["kind"])
         if effect_kind == &"zone_impact" and zone_impact_atlas != null:
             continue
         var direction := Vector2(effect["direction"]).normalized()
         var progress := 1.0 - ratio
-        var follow_slot := int(effect.get("follow_slot", -1))
         var effect_label := str(effect.get("label", ""))
         var ultimate_effect_animal := -1
         match effect_kind:
@@ -1044,6 +1068,8 @@ func _draw_zone_impacts_foreground() -> void:
         var follow_slot := int(effect.get("follow_slot", -1))
         if follow_slot >= 0 and follow_slot < world.heroes.size():
             effect_pos = Vector2(world.heroes[follow_slot].get("pos", effect_pos))
+        if not is_world_visible(effect_pos, 180.0):
+            continue
         var frame := clampi(int(progress * 8.0), 0, 7)
         var size := Vector2.ONE * 164.0
         var alpha := clampf(ratio * 1.35, 0.24, 1.0)
@@ -1070,6 +1096,7 @@ func _draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> 
 func _draw() -> void:
     if world == null:
         return
+    _update_world_draw_rect()
     _consume_shot_events()
     _tick_recoil(1.0 / 60.0)
     _tick_world_casings(1.0 / 60.0)

@@ -5,6 +5,8 @@ const CRATE_ORB_ATLAS: Texture2D = preload("res://assets/fx/pickups/Tex_FX_Crate
 const GRASS_PLAIN_TILES := [0, 1, 5, 6]
 const GRASS_FLOWER_TILES := [2, 3, 4, 7]
 const FLOWER_REGION_SIZE := 4
+const GRASS_TILE_SIZE := 256.0
+const GRASS_CULL_MARGIN_TILES := 1.0
 
 var r: Node2D
 var world
@@ -24,23 +26,35 @@ func draw_island() -> void:
 
 func _draw_grass_tiles(arena: Rect2) -> void:
 	var tex_size: Vector2 = r.grass_tile_textures[0].get_size()
-	var cell := tex_size.x * 6.0
-	var tile_y := 0
-	var y := 0.0
-	while y < arena.size.y - 0.5:
-		var tile_x := 0
-		var x := 0.0
-		while x < arena.size.x - 0.5:
-			var dw := minf(cell, arena.size.x - x)
-			var dh := minf(cell, arena.size.y - y)
-			var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * dw / cell, tex_size.y * dh / cell))
+	var tile_bounds := _visible_grass_tile_bounds(arena)
+	for tile_y in range(tile_bounds.position.y, tile_bounds.end.y):
+		var y := float(tile_y) * GRASS_TILE_SIZE
+		for tile_x in range(tile_bounds.position.x, tile_bounds.end.x):
+			var x := float(tile_x) * GRASS_TILE_SIZE
+			var dw := minf(GRASS_TILE_SIZE, arena.end.x - x)
+			var dh := minf(GRASS_TILE_SIZE, arena.end.y - y)
+			var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * dw / GRASS_TILE_SIZE, tex_size.y * dh / GRASS_TILE_SIZE))
 			var tile_index := _grass_tile_index(tile_x, tile_y, r.grass_tile_textures.size())
 			var texture: Texture2D = r.grass_tile_textures[tile_index]
 			r.draw_texture_rect_region(texture, Rect2(Vector2(x, y), Vector2(dw, dh)), src)
-			x += cell
-			tile_x += 1
-		y += cell
-		tile_y += 1
+
+func _visible_grass_tile_bounds(arena: Rect2) -> Rect2i:
+	var visible_world := arena
+	var camera := r.get_viewport().get_camera_2d()
+	if camera != null:
+		var zoom := Vector2(maxf(camera.zoom.x, 0.01), maxf(camera.zoom.y, 0.01))
+		var half_view := r.get_viewport_rect().size * 0.5 / zoom
+		var margin := GRASS_TILE_SIZE * GRASS_CULL_MARGIN_TILES
+		visible_world = Rect2(camera.get_screen_center_position() - half_view, half_view * 2.0).grow(margin).intersection(arena)
+	var first := Vector2i(
+		maxi(0, floori(visible_world.position.x / GRASS_TILE_SIZE)),
+		maxi(0, floori(visible_world.position.y / GRASS_TILE_SIZE))
+	)
+	var last := Vector2i(
+		mini(ceili(arena.end.x / GRASS_TILE_SIZE), ceili(visible_world.end.x / GRASS_TILE_SIZE)),
+		mini(ceili(arena.end.y / GRASS_TILE_SIZE), ceili(visible_world.end.y / GRASS_TILE_SIZE))
+	)
+	return Rect2i(first, last - first)
 
 func _grass_tile_index(tile_x: int, tile_y: int, tile_count: int) -> int:
 	if tile_count < 8:
@@ -88,6 +102,8 @@ func draw_trees() -> void:
 	var dh := 64.0 * 3.2
 	for spot in spots:
 		var feet := Vector2(spot.x, spot.y)
+		if not r.is_world_visible(feet, dh):
+			continue
 		r.draw_circle(feet + Vector2(0, 4), 22.0, Color(0.05, 0.04, 0.03, 0.28))
 		var src := Rect2(Vector2(spot.z * 48.0, 0.0), Vector2(48, 64))
 		r.draw_texture_rect_region(r.tree_atlas, Rect2(feet - Vector2(dw * 0.5, dh - 10.0), Vector2(dw, dh)), src)
@@ -166,6 +182,8 @@ func draw_covers() -> void:
 		var rect: Rect2 = cover["rect"]
 		var c := rect.get_center()
 		var base := minf(rect.size.x, rect.size.y) * 0.5
+		if not r.is_world_visible(c, rect.size.length() * 0.5 + 32.0):
+			continue
 		if r.rock_atlas != null:
 			var src: Rect2 = r.ROCK_SOURCE_RECTS[cover_index % r.ROCK_SOURCE_RECTS.size()]
 			var max_size := Vector2(base * 2.0, base * 2.0)
@@ -208,6 +226,8 @@ func draw_pickups() -> void:
 		if not bool(pickup["active"]):
 			continue
 		var pickup_pos: Vector2 = pickup["pos"]
+		if not r.is_world_visible(pickup_pos, 100.0):
+			continue
 		var pulse := 1.0 + sin(float(world.tick) * 0.10 + float(pickup["id"])) * 0.10
 		var gun_name := str(pickup.get("gun_name", ""))
 		if gun_name != "":
@@ -260,6 +280,8 @@ func draw_cores() -> void:
 	for core in world.cores:
 		var slot := int(core["slot"])
 		var pos: Vector2 = core["pos"]
+		if not r.is_world_visible(pos, 80.0):
+			continue
 		var color: Color = Color(r._slot_color(slot))
 		r.draw_circle(pos, 20.0, Color(color, 0.10))
 		r.draw_arc(pos, 20.0, 0.0, TAU, 24, Color(color, 0.26), 2.0)
@@ -272,6 +294,8 @@ func draw_crates() -> void:
 		if not bool(crate.get("alive", false)):
 			continue
 		var pos: Vector2 = crate["pos"]
+		if not r.is_world_visible(pos, 90.0):
+			continue
 		var body := Rect2(pos + Vector2(-22.0, -20.0), Vector2(44.0, 40.0))
 		var hp_now := float(crate.get("hp", 0.0))
 		var hp_max := float(crate.get("max_hp", 48.0))
@@ -301,6 +325,8 @@ func draw_crate_orbs() -> void:
 		if not bool(orb.get("active", true)):
 			continue
 		var pos: Vector2 = orb["pos"]
+		if not r.is_world_visible(pos, 80.0):
+			continue
 		var frame := posmod(int(world.tick / 5), 4)
 		var row := 0 if bool(orb.get("red", true)) else 1
 		var cell_size := Vector2(
@@ -321,6 +347,8 @@ func draw_mid_tower() -> void:
 	if world == null or not bool(world.mid_tower.get("alive", false)):
 		return
 	var pos: Vector2 = world.mid_tower["pos"]
+	if not r.is_world_visible(pos, 240.0):
+		return
 	var boing := float(world.mid_tower.get("boing", 0.0))
 	var squash := 1.0 + sin(boing * PI / 0.22) * 0.16 if boing > 0.0 else 1.0
 	var sz := Vector2(210.0, 278.0) * squash
