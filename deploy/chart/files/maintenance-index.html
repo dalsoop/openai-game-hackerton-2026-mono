@@ -30,11 +30,7 @@
     color: var(--text); text-align: center;
     font-family: "Galmuri11", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   }
-  .card {
-    padding: 40px 30px 34px; max-width: 460px; width: calc(100% - 32px);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
-  }
+  .card { padding: 40px 30px 34px; max-width: 460px; }
   .stage { position: relative; height: 168px; }
   .shadow {
     position: absolute; left: 50%; bottom: 8px; width: 84px; height: 20px;
@@ -66,18 +62,16 @@
   h1 { font-size: 30px; font-weight: 700; margin: 16px 0 0; letter-spacing: 1px; }
   h1 .accent { color: var(--gold); }
   p { color: var(--sub); line-height: 1.75; font-size: 14px; }
-  .bar {
-    margin: 26px auto 4px; width: 84%; height: 12px;
-    border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
-    background: rgba(57, 255, 106, 0.06);
+  .spinner {
+    margin: 28px auto 0; width: 44px; height: 44px; position: relative;
   }
-  .bar i {
-    display: block; height: 100%; width: calc(100% + 29px); margin-left: -29px;
-    background: repeating-linear-gradient(-45deg,
-      var(--green) 0 10px, rgba(57, 255, 106, 0.35) 10px 20px);
-    animation: stripes 0.9s linear infinite; opacity: 0.85;
+  .spinner i {
+    position: absolute; left: 50%; top: 50%; display: block;
+    width: 3px; height: 11px; border-radius: 2px;
+    background: rgba(46, 46, 51, 1.0);
+    transform-origin: 50% -7px;
   }
-  @keyframes stripes { to { transform: translateX(28.28px); } }
+  .spinner i.on { background: var(--green); }
   @media (prefers-reduced-motion: reduce) {
     .hero, .shadow, .bar i { animation: none; }
   }
@@ -90,7 +84,7 @@
     <span class="hero" id="hero" role="img" aria-label="다굴 캐릭터"></span>
   </div>
   <h1>업데이트 <span class="accent">중</span></h1>
-  <div class="bar" aria-hidden="true"><i></i></div>
+  <div class="spinner" aria-hidden="true" id="spinner"></div>
 </main>
 <script>
   // 인게임 렌더러와 같은 아틀라스 매핑 (debug_renderer ANIMAL_ATLAS_FRAME).
@@ -111,6 +105,19 @@
     fetch("/healthz", { cache: "no-store" })
       .then(function (r) { if (r.ok) location.reload(); })
       .catch(function () {});
+  // 인게임 reload_spinner 재현 — 8막대 원형, 하나씩 초록으로 켜지며 회전
+  var spinEl = document.getElementById("spinner");
+  for (var b = 0; b < 8; b++) {
+    var bar = document.createElement("i");
+    bar.style.transform = "rotate(" + (b * 45) + "deg) translateY(18px)";
+    spinEl.appendChild(bar);
+  }
+  var sp = 0;
+  setInterval(function () {
+    sp = (sp + 1) % 8;
+    var bars = spinEl.children;
+    for (var j = 0; j < 8; j++) { bars[j].className = j === sp ? "on" : ""; }
+  }, 120);
   }, 3000);
 </script>
 </body>
