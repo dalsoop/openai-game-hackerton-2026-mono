@@ -5,7 +5,7 @@
   "scripts": {
     "redis:up": "sh ../../../deploy/redis/ensure.sh",
     "redis:down": "docker compose -f ../../../deploy/redis/compose.yaml down 2>/dev/null || redis-cli -u redis://127.0.0.1:6379 shutdown nosave",
-    "dev": "node scripts/check-godot-stale.mjs && npm run redis:up && PORT=${PORT:-3100} REDIS_URL=${REDIS_URL:-redis://127.0.0.1:6379} tsx server.ts",
+    "dev": "node scripts/check-godot-stale.mjs && npm run redis:up && PORT=${PORT:-3100} REDIS_URL=${REDIS_URL:-redis://127.0.0.1:6379} DAGUL_SKILLS=${DAGUL_SKILLS:-on} tsx server.ts",
     "build": "node scripts/check-godot-stale.mjs && node scripts/check-contract.mjs && eslint . && next build && tsc --project tsconfig.server.json",
     "start": "node dist/server.js",
     "schema:codegen": "node scripts/generate-lobby-schema.mjs",

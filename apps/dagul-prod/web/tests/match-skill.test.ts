@@ -40,7 +40,7 @@ describe("차지 릴리즈 발동", () => {
     expect(shot.projectiles[0]?.damage).toBeCloseTo(7.0 * power, 8);
   });
 
-  it("DAGUL_SKILLS 기본 off 이면 applyHero 가 우클릭 스킬을 무시한다", () => {
+  it("DAGUL_SKILLS=off 이면 applyHero 가 우클릭 스킬을 무시한다", () => {
     vi.stubEnv("DAGUL_SKILLS", "off");
     const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
     sim.countdown = 0;

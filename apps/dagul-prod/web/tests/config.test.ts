@@ -95,13 +95,16 @@ describe("HUB_CONFIG", () => {
     expect(HUB_CONFIG.patchHz).toBe(parsePatchHz(process.env.HUB_PATCH_HZ));
   });
 
-  it("DAGUL_SKILLS 기본 off, on/1/true 만 켠다", () => {
-    expect(parseSkillsEnabled(undefined)).toBe(false);
-    expect(parseSkillsEnabled("off")).toBe(false);
-    expect(parseSkillsEnabled("")).toBe(false);
+  it("DAGUL_SKILLS 기본 on, off/0/false/no 만 끈다", () => {
+    expect(parseSkillsEnabled(undefined)).toBe(true);
+    expect(parseSkillsEnabled("")).toBe(true);
     expect(parseSkillsEnabled("on")).toBe(true);
     expect(parseSkillsEnabled("1")).toBe(true);
     expect(parseSkillsEnabled("true")).toBe(true);
+    expect(parseSkillsEnabled("off")).toBe(false);
+    expect(parseSkillsEnabled("0")).toBe(false);
+    expect(parseSkillsEnabled("false")).toBe(false);
+    expect(parseSkillsEnabled("no")).toBe(false);
     expect(skillsEnabled("off")).toBe(false);
     expect(HUB_CONFIG.skillsEnabled).toBe(parseSkillsEnabled(process.env.DAGUL_SKILLS));
   });
