@@ -10,8 +10,23 @@ ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
 
 
+def folders_from_argv(argv: list[str]) -> list[str]:
+    return [name for name in argv if name.startswith(("server-", "dagul-"))]
+
+
+def typecheck_cmds(web: Path) -> list[list[str]]:
+    cmds = [
+        ["npm", "ci"],
+        ["npx", "tsc", "--noEmit"],
+    ]
+    if (web / "tsconfig.server.json").is_file():
+        cmds.append(["npx", "tsc", "--project", "tsconfig.server.json", "--noEmit"])
+    cmds.append(["npm", "run", "lint"])
+    return cmds
+
+
 def main() -> int:
-    folders = [name for name in sys.argv[1:] if name.startswith(("server-", "dagul-"))]
+    folders = folders_from_argv(sys.argv[1:])
     if not folders:
         print("lint-web skip (folder 없음)")
         return 0
@@ -21,16 +36,8 @@ def main() -> int:
             print(f"lint-web skip {folder} (web/package.json 없음)")
             continue
         print(f"lint-web {folder}")
-        subprocess.run(["npm", "ci"], cwd=web, check=True)
-        subprocess.run(["npx", "tsc", "--noEmit"], cwd=web, check=True)
-        server_ts = web / "tsconfig.server.json"
-        if server_ts.is_file():
-            subprocess.run(
-                ["npx", "tsc", "--project", "tsconfig.server.json", "--noEmit"],
-                cwd=web,
-                check=True,
-            )
-        subprocess.run(["npm", "run", "lint"], cwd=web, check=True)
+        for cmd in typecheck_cmds(web):
+            subprocess.run(cmd, cwd=web, check=True)
     return 0
 
 
