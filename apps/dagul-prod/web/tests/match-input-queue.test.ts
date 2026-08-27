@@ -4,17 +4,18 @@ import {
 } from "@/lib/hub/match-input-queue";
 
 describe("SlotInputBuffer — Colyseus 고정 틱 next()", () => {
-  it("쌓인 프레임은 한 틱에 최신으로 접힌다 — 적체가 지연이 되지 않는다", () => {
+  it("next 는 가장 오래된 프레임 하나를 꺼낸다 (FIFO)", () => {
     const buf = new SlotInputBuffer();
     buf.enqueue({ mx: 1, firePressed: true, seq: 1 });
     buf.enqueue({ mx: 0.5, seq: 2 });
     const a = buf.next();
-    expect(a?.seq).toBe(2);
-    expect(a?.mx).toBe(0.5);
+    expect(a?.seq).toBe(1);
+    expect(a?.mx).toBe(1);
     expect(a?.firePressed).toBe(true);
+    expect(buf.q).toHaveLength(1);
+    const b = buf.next();
+    expect(b?.seq).toBe(2);
     expect(buf.q).toHaveLength(0);
-    const idle = buf.next();
-    expect(idle?.firePressed).toBe(false);
   });
 
   it("빈 틱은 last 의 mx·fire 를 홀드하고 firePressed 는 끈다", () => {
@@ -40,20 +41,21 @@ describe("SlotInputBuffer — Colyseus 고정 틱 next()", () => {
       buf.enqueue({ seq: i + 1 });
     }
     expect(buf.q).toHaveLength(INPUT_QUEUE_CAP);
-    expect(buf.next()?.seq).toBe(INPUT_QUEUE_CAP + 3);
+    const first = buf.next();
+    expect(first?.seq).toBe(4);
   });
 
-  it("캡에서 버린 프레임의 firePressed 는 다음 머리에 붙는다", () => {
+  it("캡 초과로 버려진 에지는 복구되지 않는다 — FIFO 큐는 접지 않는다", () => {
     const buf = new SlotInputBuffer();
     buf.enqueue({ seq: 1, firePressed: true, dash: true });
     for (let i = 0; i < INPUT_QUEUE_CAP; i += 1) {
       buf.enqueue({ seq: i + 2, mx: 1 });
     }
+    // seq=1 이 CAP 초과로 버려졌으므로 first 는 seq=2
     const first = buf.next();
-    expect(first?.seq).toBe(INPUT_QUEUE_CAP + 1);
-    expect(first?.firePressed).toBe(true);
-    expect(first?.dash).toBe(true);
-    expect(first?.mx).toBe(1);
+    expect(first?.seq).toBe(2);
+    expect(first?.firePressed).toBeUndefined();
+    expect(first?.dash).toBeUndefined();
   });
 
   it("flushToIdle 은 큐를 비우고 에지를 끈다", () => {

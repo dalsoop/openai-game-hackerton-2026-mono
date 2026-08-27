@@ -1,7 +1,8 @@
 /**
  * Colyseus Phaser 튜토리얼 고정 틱 입력:
  * enqueue 한 뒤 틱마다 next() 한 프레임. 빈 틱은 이동·조준·fire 홀드만 유지하고
- * 에지(firePressed 등)는 다시 켜지 않는다. 0.17 이라 defineInput 은 없다.
+ * 에지(firePressed 등)는 다시 켜지 않는다.
+ * MSG.INPUT 폴백(페이지 브리지)이 이 큐를 쓴다. 엔진 직결은 defineInput.
  */
 
 export type MatchInput = {
@@ -43,49 +44,24 @@ export function idleHoldInput(last: MatchInput): MatchInput {
   return held;
 }
 
-/** 캡에서 버린 프레임의 에지를 살아 남은 머리에 붙인다. */
-export function foldOneShots(from: MatchInput, onto: MatchInput): void {
-  for (const key of ONE_SHOT_INPUT_KEYS) {
-    if (from[key]) {onto[key] = true;}
-  }
-  if (Number(from.emote ?? -1) >= 0 && Number(onto.emote ?? -1) < 0) {
-    onto.emote = from.emote;
-  }
-}
-
-function foldOldestIntoHead(q: MatchInput[]): void {
-  const dropped = q.shift();
-  if (dropped === undefined) {return;}
-  foldOneShots(dropped, q[0]);
-}
-
 export class SlotInputBuffer {
   readonly q: MatchInput[] = [];
   last?: MatchInput;
 
   enqueue(data: MatchInput): void {
-    if (this.q.length >= INPUT_QUEUE_CAP) {foldOldestIntoHead(this.q);}
+    if (this.q.length >= INPUT_QUEUE_CAP) {this.q.shift();}
     this.q.push({ ...data });
   }
 
-  /** 이번 틱까지 도착한 프레임 전부를 최신 한 프레임으로 접는다. 비었으면 last 의
-   * 홀드 복제. 틱당 1프레임 소비는 금지 — 60Hz 유입=60Hz 소비라 큐가 한 번
-   * 쌓이면 깊이가 그대로 상시 입력 지연이 된다(캡 32 = 약 0.53초 실측).
-   * 에지는 foldOneShots 로 최신 프레임에 살아남으므로 dash 소실도 없다. */
+  /** Colyseus 공식 next(): 가장 오래된 프레임 하나. 비었으면 last 홀드. */
   next(): MatchInput | undefined {
-    let merged = this.q.shift();
-    if (merged === undefined) {
+    const frame = this.q.shift();
+    if (frame === undefined) {
       if (!this.last) {return undefined;}
       return idleHoldInput(this.last);
     }
-    while (this.q.length > 0) {
-      const newer = this.q.shift();
-      if (newer === undefined) {break;}
-      foldOneShots(merged, newer);
-      merged = newer;
-    }
-    this.last = merged;
-    return merged;
+    this.last = frame;
+    return frame;
   }
 
   /** 카운트다운처럼 시뮬이 입력을 안 먹을 때 잔여 에지를 버리고 홀드만 남긴다. */
