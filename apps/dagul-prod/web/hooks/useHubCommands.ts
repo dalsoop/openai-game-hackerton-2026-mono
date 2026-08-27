@@ -23,6 +23,7 @@ export function useHubCommands(
   createRoom: (raw?: { game?: string; title?: string }) => void;
   joinRoom: (id: string) => void;
   leaveRoom: () => void;
+  forgetMyRoom: () => void;
   disconnect: () => void;
   returnToLobby: (name: string) => void;
   reconnectAfterDrop: () => void;
@@ -55,6 +56,13 @@ export function useHubCommands(
     setJoinRequest(null);
   }, [clearDrop, room, setJoinRequest, setMatchInfo]);
 
+  /** 로비 목록에서 내 방(아직 살아있지만 지금은 연결 안 된)을 버리고 다른 방으로
+   * 갈 때 — leaveRoom 과 달리 소켓이 없으니 room.leave() 는 안 부른다. 버려진
+   * 방은 서버 쪽 유휴 타이머로 자연 정리된다. */
+  const forgetMyRoom = useCallback(() => {
+    clearMyRoom((k) => localStorage.removeItem(k));
+  }, []);
+
   const disconnect = useCallback(() => {
     leaveRoom();
     setConnected(false);
@@ -83,7 +91,7 @@ export function useHubCommands(
   }, [nameRef, setConnected, setJoinRequest, setResumeFailed]);
 
   return {
-    connect, createRoom, joinRoom, leaveRoom, disconnect,
+    connect, createRoom, joinRoom, leaveRoom, forgetMyRoom, disconnect,
     returnToLobby, reconnectAfterDrop, tryResume,
   };
 }
