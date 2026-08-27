@@ -3,7 +3,7 @@
  * 일반공격·재장전·모빌리티·루트 — damage_system.gd try_normal_attack
  * + active_item.gd try_mobility / try_equipment_attack / try_gun_loot.
  */
-import { clampArena, resolveCoverMotion, type CoverRect } from "./match-covers.js";
+import { clampArena, resolveCoverMotionSwept, type CoverRect } from "./match-covers.js";
 import {
   GUN_LOOT_MODES, equipmentReach, fxForEquipment, makeEquipment, muzzleWorldPos,
   nextGunLootId, sprayKick, sprayRecoverRate,
@@ -345,7 +345,7 @@ export function applyMobility(
   const dir = attackDirection(direction.x, direction.y);
   const oldX = h.x;
   const oldY = h.y;
-  const moved = resolveCoverMotion(oldX, oldY, dir.x * h.equipment.mobilityDistance, dir.y * h.equipment.mobilityDistance, covers);
+  const moved = resolveCoverMotionSwept(oldX, oldY, dir.x * h.equipment.mobilityDistance, dir.y * h.equipment.mobilityDistance, covers);
   const clamped = clampArena(moved.x, moved.y);
   h.x = clamped.x; h.y = clamped.y;
   h.mobilityCd = h.equipment.mobilityCooldown;

@@ -98,6 +98,37 @@ export function resolveCoverMotion(
   return { x: rx, y: ry };
 }
 
+/** 한 스텝의 최대 이동거리. 가장 얇은 커버(반지름 35 안팎)보다 확실히 작게 잡아
+ * 대시처럼 한 번에 300px 넘게 움직이는 이동이 벽을 관통해 지나가지 않게 한다. */
+const SWEPT_MAX_STEP = 24;
+
+/** 대시급 큰 이동을 SWEPT_MAX_STEP 이하 조각으로 나눠 resolveCoverMotion 을 반복
+ * 적용한다 — 한 번에 커버보다 큰 거리를 이동하면 시작점·도착점 둘 다 커버
+ * 밖이라 충돌 판정 자체가 비어, 벽을 뚫고 지나가 버린다(터널링). 한 조각이라도
+ * 막히면 그 지점에서 멈춘다 — 벽에 붙어 슬라이드하는 자연스러운 감속. */
+export function resolveCoverMotionSwept(
+  x: number,
+  y: number,
+  mx: number,
+  my: number,
+  covers: readonly CoverRect[],
+): { x: number; y: number } {
+  const dist = Math.hypot(mx, my);
+  if (dist <= SWEPT_MAX_STEP) {return resolveCoverMotion(x, y, mx, my, covers);}
+  const steps = Math.ceil(dist / SWEPT_MAX_STEP);
+  const stepX = mx / steps;
+  const stepY = my / steps;
+  let cx = x;
+  let cy = y;
+  for (let i = 0; i < steps; i += 1) {
+    const next = resolveCoverMotion(cx, cy, stepX, stepY, covers);
+    if (next.x === cx && next.y === cy) {break;} // 완전히 막힘 — 더 밀어붙이지 않는다
+    cx = next.x;
+    cy = next.y;
+  }
+  return { x: cx, y: cy };
+}
+
 export function clampArena(x: number, y: number): { x: number; y: number } {
   return {
     x: Math.min(ARENA_SIZE.x - ARENA_MARGIN - HERO_RADIUS, Math.max(ARENA_MARGIN + HERO_RADIUS, x)),
