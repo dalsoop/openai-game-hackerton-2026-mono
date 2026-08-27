@@ -48,15 +48,14 @@ jobs:
 
   lint-web:
     needs: plan
-    if: ${{ needs.plan.outputs.folders != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Lint shipped web
+      - name: Typecheck and lint shipped web
         run: python3 deploy/scripts/lint-web.py ${{ needs.plan.outputs.folders }}
 
   apply:
-    needs: plan
+    needs: [plan, lint-web]
     if: ${{ needs.plan.outputs.folders != '' || needs.plan.outputs.helm == 'true' }}
     runs-on: [self-hosted, hackertone]
     timeout-minutes: 45
