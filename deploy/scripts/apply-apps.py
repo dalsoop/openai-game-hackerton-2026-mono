@@ -37,6 +37,8 @@ from helm_contract import (  # noqa: E402
     helm_diff_cmd,
     helm_upgrade_cmd,
     hubp_health_url,
+    hubp_metrics_url,
+    metrics_url,
     image_drift,
     matchmake_create_ok,
     parse_deploy_env,
@@ -50,7 +52,7 @@ from helm_contract import (  # noqa: E402
     rooms_url,
 )
 from hub_images import folder_from_hub_ref, missing_hub_refs  # noqa: E402
-from status import hub_health_ok, probe  # noqa: E402
+from status import hub_health_ok, hub_metrics_ok, probe  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 APPS = ROOT / "apps"
@@ -430,6 +432,25 @@ def assert_smoke_hubs() -> None:
         else:
             failed.append(f"{folder} hubp-0 {pin_status} {pin_body[:120]}")
             continue
+        if folder.startswith("dagul-"):
+            met_status, met_body = 0, ""
+            for attempt in range(4):
+                met_status, met_body = probe(metrics_url(folder))
+                if hub_metrics_ok(folder, met_status, met_body):
+                    break
+                time.sleep(3 * (attempt + 1))
+            else:
+                failed.append(f"{folder} metrics {met_status} {met_body[:120]}")
+                continue
+            pin_met_status, pin_met_body = 0, ""
+            for attempt in range(4):
+                pin_met_status, pin_met_body = probe(hubp_metrics_url(folder))
+                if hub_metrics_ok(folder, pin_met_status, pin_met_body):
+                    break
+                time.sleep(3 * (attempt + 1))
+            else:
+                failed.append(f"{folder} hubp-0 metrics {pin_met_status} {pin_met_body[:120]}")
+                continue
         created = False
         last = ""
         seat = ""

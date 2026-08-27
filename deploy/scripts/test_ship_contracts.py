@@ -10,7 +10,9 @@ from helm_contract import (
     create_room_id,
     helm_upgrade_cmd,
     hubp_health_url,
+    hubp_metrics_url,
     image_drift,
+    metrics_url,
     matchmake_create_ok,
     planted_hub_ids,
     planted_hub_tags,
@@ -22,7 +24,7 @@ from helm_contract import (
     rooms_url,
 )
 from hub_images import folder_from_hub_ref, missing_hub_refs
-from status import hub_health_ok
+from status import hub_health_ok, hub_metrics_ok
 from export_html_contract import (
     REQUIRED_PLACEHOLDERS,
     assert_export_html,
@@ -258,6 +260,14 @@ class HelmContract(unittest.TestCase):
         self.assertEqual(
             hubp_health_url("server-prod"),
             "https://server-prod.external.kr/hubp/server-prod-hub-0/health",
+        )
+        self.assertEqual(
+            metrics_url("dagul-prod"),
+            "https://dagul-prod.external.kr/metrics",
+        )
+        self.assertEqual(
+            hubp_metrics_url("dagul-prod"),
+            "https://dagul-prod.external.kr/hubp/dagul-prod-hub-0/metrics",
         )
         self.assertTrue(
             create_public_address_ok(
@@ -720,6 +730,12 @@ class PlatformGodotPipeline(unittest.TestCase):
         self.assertIn("`folders` 예: `dagul-prod`", readme)
         self.assertIn("kind: ServiceMonitor", (root / "deploy" / "chart" / "templates" / "hub.yaml").read_text())
         self.assertIn("path: /metrics", (root / "deploy" / "chart" / "templates" / "hub.yaml").read_text())
+        caddy = (root / "deploy" / "chart" / "templates" / "web.yaml").read_text()
+        self.assertIn("handle /metrics", caddy)
+        apps_py = (root / "deploy" / "scripts" / "apply-apps.py").read_text()
+        self.assertIn("hub_metrics_ok", apps_py)
+        self.assertIn("metrics_url(folder)", apps_py)
+        self.assertIn("hubp_metrics_url", apps_py)
         self.assertIn("hackertone-games/scrape: hub", (root / "deploy" / "chart" / "templates" / "hub.yaml").read_text())
         dash_cm = (root / "deploy" / "chart" / "templates" / "grafana-dashboard.yaml").read_text()
         self.assertIn("grafana_dashboard: \"1\"", dash_cm)
@@ -817,6 +833,24 @@ class HubHealth(unittest.TestCase):
 
     def test_wrong_slot_fails(self) -> None:
         self.assertFalse(hub_health_ok("server-prod", '{"ok":true,"slot":"server-yjh-dev1"}'))
+
+    def test_dagul_health_without_ccu_is_old_image(self) -> None:
+        self.assertFalse(hub_health_ok("dagul-prod", '{"ok":true,"slot":"dagul-prod"}'))
+
+    def test_dagul_health_with_ccu_passes(self) -> None:
+        self.assertTrue(hub_health_ok(
+            "dagul-prod",
+            '{"ok":true,"slot":"dagul-prod","ccu":0,"cap":100,"level":"quiet","admit":true}',
+        ))
+
+    def test_metrics_html_is_old_next_locale_page(self) -> None:
+        html = '<!DOCTYPE html><html><body>__next locale metrics</body></html>'
+        self.assertFalse(hub_metrics_ok("dagul-prod", 200, html))
+        self.assertFalse(hub_metrics_ok("dagul-prod", 404, "not found"))
+
+    def test_metrics_prometheus_text_passes(self) -> None:
+        body = 'dagul_ccu{slot="dagul-prod"} 0\ndagul_ccu_cap{slot="dagul-prod"} 100\n'
+        self.assertTrue(hub_metrics_ok("dagul-prod", 200, body))
 
 
 class BodyToken(unittest.TestCase):

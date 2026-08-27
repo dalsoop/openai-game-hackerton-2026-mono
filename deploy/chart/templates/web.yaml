@@ -76,6 +76,13 @@ data:
             flush_interval -1
           }
         }
+        handle /metrics {
+          header Access-Control-Allow-Origin *
+          header Cache-Control "no-store"
+          reverse_proxy {{ .folder }}-hub:80 {
+            flush_interval -1
+          }
+        }
         handle /ccu {
           header Access-Control-Allow-Origin *
           header Cache-Control "no-store"

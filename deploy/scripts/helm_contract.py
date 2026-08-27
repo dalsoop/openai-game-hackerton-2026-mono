@@ -174,12 +174,20 @@ def health_url(folder: str) -> str:
     return f"https://{folder}.external.kr/health"
 
 
+def metrics_url(folder: str) -> str:
+    return f"https://{folder}.external.kr/metrics"
+
+
 def hub_ordinal_name(folder: str, ordinal: int = 0) -> str:
     return f"{folder}-hub-{ordinal}"
 
 
 def hubp_health_url(folder: str, ordinal: int = 0) -> str:
     return f"https://{folder}.external.kr/hubp/{hub_ordinal_name(folder, ordinal)}/health"
+
+
+def hubp_metrics_url(folder: str, ordinal: int = 0) -> str:
+    return f"https://{folder}.external.kr/hubp/{hub_ordinal_name(folder, ordinal)}/metrics"
 
 
 def create_url(folder: str) -> str:
