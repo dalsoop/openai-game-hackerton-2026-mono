@@ -120,6 +120,8 @@ func draw_pocket_bubbles() -> void:
 		if float(hero.get("pocket_time", 0.0)) <= 0.0:
 			continue
 		var bubble_pos: Vector2 = hero["pos"]
+		if not r.is_world_visible(bubble_pos, 180.0):
+			continue
 		var pulse := 150.0 + sin(float(world.tick) * 0.14 + float(hero.get("slot", 0))) * 4.0
 		r.draw_circle(bubble_pos, pulse, Color(0.92, 0.95, 1.0, 0.10))
 		r.draw_arc(bubble_pos, pulse, 0.0, TAU, 48, Color(0.90, 0.94, 1.0, 0.55), 3.0)
@@ -151,6 +153,8 @@ func draw_finish_prompts() -> void:
 		if not bool(hero.get("downed", false)) or not bool(hero.get("alive", false)):
 			continue
 		var pos: Vector2 = hero["pos"]
+		if not r.is_world_visible(pos, 120.0):
+			continue
 		if me_pos.distance_to(pos) > 180.0:
 			continue
 		var bob := sin(float(world.tick) * 0.18) * 3.0

@@ -142,6 +142,8 @@ func draw_knockouts() -> void:
 		var knockout_slot := int(knockout["slot"])
 		var knockout_fade := clampf(float(knockout["time"]) / 0.42, 0.0, 1.0)
 		var knockout_pos: Vector2 = knockout["pos"]
+		if not r.is_world_visible(knockout_pos, 320.0):
+			continue
 		var spin := float(knockout.get("max_time", 1.0)) - float(knockout["time"])
 		var knockout_trail: Array = knockout.get("trail", [])
 		if r.knockout_trail_atlas != null and not knockout_trail.is_empty():
@@ -207,6 +209,8 @@ func draw_wool_shields() -> void:
 		if bool(hero.get("eliminated", false)) or not bool(hero.get("alive", false)):
 			continue
 		var pos: Vector2 = hero["pos"]
+		if not r.is_world_visible(pos, 180.0):
+			continue
 		var hp_a := clampf(float(hero.get("wool_hp", 0)) / maxf(1.0, float(hero.get("wool_max", 5))), 0.45, 1.0)
 		var sz := 164.0
 		if r.draw_ultimate_frame(7, pos, Vector2.ONE * sz, posmod(int(world.tick / 6), 4), 0, 0.0, maxf(0.82, hp_a)):
@@ -223,6 +227,8 @@ func draw_dog_bones() -> void:
 		r.dog_bone_tex = r._load_tex("res://assets/fx/dog-bone.png")
 	for bone in world.dog_bones:
 		var pos: Vector2 = bone.get("pos", Vector2.ZERO)
+		if not r.is_world_visible(pos, 100.0):
+			continue
 		if r.dog_bone_tex != null:
 			r.draw_texture_rect(r.dog_bone_tex, Rect2(pos + Vector2(-48.0, -22.0), Vector2(96.0, 44.0)), false)
 		else:
@@ -236,6 +242,8 @@ func draw_pig_muds() -> void:
 	for mud in world.pig_muds:
 		var pos: Vector2 = mud.get("pos", Vector2.ZERO)
 		var rad := float(mud.get("radius", 200.0))
+		if not r.is_world_visible(pos, rad + 48.0):
+			continue
 		var ttl := float(mud.get("ttl", 0.0))
 		var fade := clampf(ttl / 1.4, 0.0, 1.0)
 		var sz := rad * 2.15
@@ -254,6 +262,8 @@ func draw_rooster_eggs() -> void:
 		if not bool(egg.get("alive", true)):
 			continue
 		var pos: Vector2 = egg.get("pos", Vector2.ZERO)
+		if not r.is_world_visible(pos, 80.0):
+			continue
 		var arm := float(egg.get("arm", 0.0))
 		var ttl := float(egg.get("ttl", 0.0))
 		var frame := 0 if arm > 0.35 else (1 if arm > 0.0 else 2 + posmod(int(ttl * 8.0), 2))
@@ -270,6 +280,8 @@ func draw_horse_kicks() -> void:
 			dir = Vector2.LEFT
 		dir = dir.normalized()
 		var reach := float(kick.get("reach", 400.0))
+		if not r.is_world_visible(pos, reach + 80.0):
+			continue
 		var t := clampf(float(kick.get("age", 0.0)) / maxf(0.01, float(kick.get("life", 0.42))), 0.0, 1.0)
 		var fade := 1.0 - t
 		var ang := dir.angle()
@@ -284,6 +296,8 @@ func draw_rabbit_holes() -> void:
 		r.rabbit_hole_tex = r._load_tex("res://assets/fx/rabbit-hole.png")
 	for hole in world.rabbit_holes:
 		var pos: Vector2 = hole.get("pos", Vector2.ZERO)
+		if not r.is_world_visible(pos, 100.0):
+			continue
 		var ttl := float(hole.get("ttl", 0.0))
 		var fade := clampf(ttl / 1.2, 0.0, 1.0)
 		var sz := 118.0
@@ -305,6 +319,8 @@ func draw_tiger_roars() -> void:
 	for roar_data in world.tiger_roars:
 		var pos: Vector2 = roar_data.get("pos", Vector2.ZERO)
 		var rad := float(roar_data.get("radius", 300.0))
+		if not r.is_world_visible(pos, rad + 80.0):
+			continue
 		var life := maxf(0.01, float(roar_data.get("life", 1.15)))
 		var age := float(roar_data.get("age", 0.0))
 		var t := clampf(age / life, 0.0, 1.0)
@@ -324,6 +340,8 @@ func draw_dragon_smokes() -> void:
 	for smoke in world.dragon_smokes:
 		var pos: Vector2 = smoke.get("pos", Vector2.ZERO)
 		var rad := float(smoke.get("radius", 300.0))
+		if not r.is_world_visible(pos, rad + 48.0):
+			continue
 		var life := clampf(float(smoke.get("ttl", 0.0)) / 15.0, 0.0, 1.0)
 		var sz := rad * 2.0
 		if not r.draw_ultimate_frame(4, pos, Vector2.ONE * sz, posmod(int(world.tick / 9), 4), 0, 0.0, 0.78 * life + 0.18) and r.dragon_smoke_tex != null:
@@ -334,6 +352,8 @@ func draw_snake_skins() -> void:
 		if not bool(skin.get("alive", true)):
 			continue
 		var pos: Vector2 = skin.get("pos", Vector2.ZERO)
+		if not r.is_world_visible(pos, 180.0):
+			continue
 		if world._pos_in_dragon_smoke(pos) and int(skin.get("owner", -1)) != int(world.local_slot):
 			continue
 		var aim: Vector2 = skin.get("aim", Vector2.RIGHT)
@@ -364,6 +384,8 @@ func draw_rat_tides() -> void:
 		dir = dir.normalized()
 		var leng := float(tide.get("length", 360.0))
 		var half_w := float(tide.get("half_w", 118.0))
+		if not r.is_world_visible(pos, leng + half_w):
+			continue
 		var face_left := dir.x < 0.0
 		var travel_angle := dir.angle()
 		if face_left:
@@ -381,6 +403,9 @@ func draw_heroes() -> void:
 		if world.hero_hidden_in_smoke(slot):
 			continue
 		var pos: Vector2 = hero["pos"]
+		var speed_margin := minf(Vector2(hero.get("vel", Vector2.ZERO)).length() * 0.35, 260.0)
+		if not r.is_world_visible(pos, 220.0 + speed_margin):
+			continue
 		var aim := Vector2(hero["aim"])
 		var is_down := bool(hero.get("downed", false))
 		var launch_trail_opacity := clampf(float(hero.get("launch_trail_fade", 0.0)) / 0.34, 0.0, 1.0)
