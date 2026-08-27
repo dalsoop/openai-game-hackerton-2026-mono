@@ -17,6 +17,7 @@ const PANEL_BG := Color(0.012, 0.018, 0.028, 0.86)
 const ZONE_PURPLE := Color("#c65cff")
 
 var gun_texture: Texture2D = null
+var gun_atlas: Texture2D = null
 var medkit_texture: Texture2D = null
 var ammo_round_texture: Texture2D = null
 var ammo_casing_texture: Texture2D = null
@@ -44,6 +45,8 @@ func _ready() -> void:
             roulette_icons[icon_id] = load(icon_path)
     if ResourceLoader.exists("res://assets/items/gun.png"):
         gun_texture = load("res://assets/items/gun.png")
+    if ResourceLoader.exists("res://assets/lhj/Tex_Gun_4x3.png"):
+        gun_atlas = load("res://assets/lhj/Tex_Gun_4x3.png")
     if ResourceLoader.exists("res://assets/items/medkit.png"):
         medkit_texture = load("res://assets/items/medkit.png")
     if ResourceLoader.exists("res://assets/fx/ui/Tex_UI_AmmoRound_4x1.png"):
@@ -109,49 +112,45 @@ func _draw_pixel_panel(rect: Rect2, accent: Color, fill: Color) -> void:
     draw_line(rect.position + Vector2(cut + 8.0, 7.0), rect.position + Vector2(rect.size.x - cut - 8.0, 7.0), Color(accent, 0.28), 2.0)
     draw_rect(Rect2(rect.position + Vector2(8.0, 18.0), Vector2(4.0, rect.size.y - 36.0)), Color(accent, 0.76))
 
-func _draw_winner_god_rays(center: Vector2, accent: Color) -> void:
+func _draw_winner_god_rays(podium: Rect2, accent: Color) -> void:
     var pulse := 0.88 + sin(float(world.tick) * 0.055) * 0.12
     var gold := Color("#ffd166")
-    var top_y := 140.0
-    var bottom_y := center.y + 142.0
+    var center_x := podium.get_center().x
+    var top_y := 304.0
+    var bottom_y := podium.position.y
     var outer_beam := PackedVector2Array([
-        Vector2(center.x - 42.0, top_y), Vector2(center.x + 42.0, top_y),
-        Vector2(center.x + 142.0, bottom_y), Vector2(center.x - 142.0, bottom_y)
+        Vector2(center_x - 38.0, top_y), Vector2(center_x + 38.0, top_y),
+        Vector2(podium.end.x, bottom_y), Vector2(podium.position.x, bottom_y)
     ])
     var middle_beam := PackedVector2Array([
-        Vector2(center.x - 25.0, top_y), Vector2(center.x + 25.0, top_y),
-        Vector2(center.x + 104.0, bottom_y), Vector2(center.x - 104.0, bottom_y)
+        Vector2(center_x - 23.0, top_y), Vector2(center_x + 23.0, top_y),
+        Vector2(podium.end.x - 22.0, bottom_y), Vector2(podium.position.x + 22.0, bottom_y)
     ])
     var core_beam := PackedVector2Array([
-        Vector2(center.x - 11.0, top_y), Vector2(center.x + 11.0, top_y),
-        Vector2(center.x + 62.0, bottom_y), Vector2(center.x - 62.0, bottom_y)
+        Vector2(center_x - 9.0, top_y), Vector2(center_x + 9.0, top_y),
+        Vector2(podium.end.x - 58.0, bottom_y), Vector2(podium.position.x + 58.0, bottom_y)
     ])
-    draw_colored_polygon(outer_beam, Color(accent, 0.045 * pulse))
-    draw_colored_polygon(middle_beam, Color(gold, 0.075 * pulse))
-    draw_colored_polygon(core_beam, Color("#fff3bd", 0.085 * pulse))
-    for step_index in range(6):
-        var step_y := top_y + 28.0 + step_index * 53.0
-        var spread := 50.0 + step_index * 17.0
-        draw_line(Vector2(center.x - spread, step_y), Vector2(center.x - spread + 16.0, step_y), Color(gold, 0.22 * pulse), 3.0)
-        draw_line(Vector2(center.x + spread - 16.0, step_y), Vector2(center.x + spread, step_y), Color(gold, 0.22 * pulse), 3.0)
-    draw_rect(Rect2(center.x - 45.0, top_y, 90.0, 5.0), Color("#fff3bd", 0.62 * pulse))
-    draw_rect(Rect2(center.x - 29.0, top_y + 7.0, 58.0, 3.0), Color(gold, 0.34 * pulse))
-    draw_set_transform(center + Vector2(0.0, 112.0), 0.0, Vector2(1.0, 0.34))
-    draw_circle(Vector2.ZERO, 132.0, Color(gold, 0.11 * pulse))
-    draw_arc(Vector2.ZERO, 132.0, 0.0, TAU, 32, Color(gold, 0.42 * pulse), 5.0)
-    draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-    for dust_index in range(10):
-        var dust_x := center.x - 92.0 + float((dust_index * 37) % 184)
-        var dust_y := top_y + 38.0 + float((dust_index * 61) % 310)
-        var flicker := 0.45 + sin(float(world.tick) * 0.09 + float(dust_index)) * 0.25
-        var dust_size := 2.0 if dust_index % 3 != 0 else 4.0
-        draw_rect(Rect2(Vector2(roundf(dust_x / 2.0) * 2.0, roundf(dust_y / 2.0) * 2.0), Vector2(dust_size, dust_size)), Color(gold, flicker * pulse))
+    draw_colored_polygon(outer_beam, Color(accent, 0.055 * pulse))
+    draw_colored_polygon(middle_beam, Color(gold, 0.085 * pulse))
+    draw_colored_polygon(core_beam, Color("#fff3bd", 0.10 * pulse))
+    draw_line(outer_beam[0], outer_beam[3], Color(gold, 0.24 * pulse), 2.0)
+    draw_line(outer_beam[1], outer_beam[2], Color(gold, 0.24 * pulse), 2.0)
+    draw_rect(Rect2(center_x - 40.0, top_y, 80.0, 5.0), Color("#fff3bd", 0.62 * pulse))
+    draw_line(Vector2(podium.position.x, bottom_y), Vector2(podium.end.x, bottom_y), Color("#fff3bd", 0.50 * pulse), 3.0)
 
 func _animal_src_rect(animal: int) -> Rect2:
     if animal_texture == null:
         return Rect2()
     var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
     var cell := Vector2(float(animal_texture.get_width()) / 4.0, float(animal_texture.get_height()) / 3.0)
+    return Rect2(Vector2(frame % 4, int(frame / 4)) * cell, cell)
+
+func _gun_src_rect(equipment_id: String) -> Rect2:
+    if gun_atlas == null:
+        return Rect2()
+    var visual: Dictionary = GunSig.visual_for_equipment(equipment_id)
+    var frame := int(visual.get("frame", 0))
+    var cell := Vector2(float(gun_atlas.get_width()) / 4.0, float(gun_atlas.get_height()) / 3.0)
     return Rect2(Vector2(frame % 4, int(frame / 4)) * cell, cell)
 
 func _draw() -> void:
@@ -690,11 +689,9 @@ func _draw_match_result() -> void:
     var panel := Rect2(300.0, 124.0, 1000.0, 650.0)
     _draw_pixel_panel(panel, accent, Color(0.010, 0.017, 0.027, 0.97))
     draw_rect(Rect2(panel.position + Vector2(14.0, 14.0), Vector2(310.0, panel.size.y - 28.0)), Color(accent, 0.10))
-    _draw_winner_god_rays(Vector2(465.0, 330.0), accent)
     draw_rect(Rect2(panel.position + Vector2(325.0, 14.0), Vector2(3.0, panel.size.y - 28.0)), Color(accent, 0.48))
     _text(Vector2(650.0, 174.0), "MATCH WINNER", 18, Color("#ffd166"), 600.0, HORIZONTAL_ALIGNMENT_CENTER, true)
     _text(Vector2(650.0, 232.0), "P%d  %s" % [world.winner_slot + 1, equipment["character_name"]], 43, Color.WHITE, 600.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(650.0, 270.0), "%s  ·  %s" % [equipment["name"], equipment["special_name"]], 17, Color(accent), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
     if animal_texture != null:
         var animal := int(winner.get("animal", world.winner_slot))
         var pulse := 1.0 + sin(float(world.tick) * 0.08) * 0.025
@@ -703,33 +700,68 @@ func _draw_match_result() -> void:
         draw_set_transform(Vector2(465.0, 330.0), 0.0, Vector2.ONE * pulse)
         draw_texture_rect_region(animal_texture, Rect2(-92.0, -92.0, 184.0, 184.0), _animal_src_rect(animal))
         draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-    _text(Vector2(350.0, 482.0), "P%d" % (world.winner_slot + 1), 17, Color(accent), 230.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(350.0, 516.0), str(equipment["role"]), 19, Color.WHITE, 230.0, HORIZONTAL_ALIGNMENT_CENTER)
-    for stat in range(3):
-        var chip := Rect2(650.0 + stat * 198.0, 302.0, 178.0, 64.0)
-        draw_rect(chip, Color(0.035, 0.050, 0.072, 0.94))
-        draw_rect(chip, Color(accent, 0.34), false, 2.0)
-    _text(Vector2(662.0, 340.0), "HP  %d%%" % roundi(world.decision_hp_ratio * 100.0), 20, Color("#6ef3a5"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(860.0, 340.0), "ZONE  %d" % roundi(float(world.safe_zone_radius)), 20, Color("#c65cff"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
-    _text(Vector2(1058.0, 340.0), "SCORE  %d" % roundi(float(winner["score"])), 20, Color("#ffd166"), 154.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(350.0, 454.0), "P%d  %s" % [world.winner_slot + 1, equipment["character_name"]], 17, Color(accent), 230.0, HORIZONTAL_ALIGNMENT_CENTER)
+    if gun_atlas != null:
+        var gun_size := Vector2(130.0, 58.0)
+        var gun_rect := Rect2(Vector2(397.0, 492.0) - gun_size * 0.5, gun_size)
+        draw_texture_rect_region(gun_atlas, gun_rect, _gun_src_rect(str(equipment.get("id", ""))))
+    elif gun_texture != null:
+        draw_texture_rect(gun_texture, Rect2(353.0, 469.0, 104.0, 46.0), false)
+    _text(Vector2(448.0, 500.0), str(equipment["name"]), 17, Color.WHITE, 132.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _draw_winner_stat(Rect2(340.0, 532.0, 250.0, 42.0), "DOWN", int(winner.get("kills", 0)), Color("#ff8dac"), accent)
+    _draw_winner_stat(Rect2(340.0, 581.0, 250.0, 42.0), "DEATH", int(winner.get("deaths", 0)), Color("#8be3ff"), accent)
+    _draw_winner_stat(Rect2(340.0, 630.0, 250.0, 42.0), "SCORE", roundi(float(winner["score"])), Color("#ffd166"), accent)
     var standings: Array[Dictionary] = world.final_standings()
-    _text(Vector2(650.0, 410.0), "FINAL STANDINGS", 14, Color("#aebaca"))
-    for rank in range(mini(3, standings.size())):
-        var row: Dictionary = standings[rank]
-        var slot := int(row["slot"])
-        var row_equipment: Dictionary = world.heroes[slot]["equipment"]
-        var card := Rect2(650.0, 430.0 + rank * 66.0, 600.0, 52.0)
-        draw_rect(card, Color(player_colors[slot], 0.24 if rank == 0 else 0.11))
-        draw_rect(Rect2(card.position, Vector2(6.0, card.size.y)), player_colors[slot])
-        _text(card.position + Vector2(20.0, 32.0), "%d" % (rank + 1), 21, Color("#ffd166") if rank == 0 else Color.WHITE, 34.0, HORIZONTAL_ALIGNMENT_CENTER)
-        _text(card.position + Vector2(66.0, 31.0), "P%d  %s / %s" % [slot + 1, row_equipment["character_name"], row_equipment["name"]], 15, Color.WHITE, 310.0)
-        _text(card.position + Vector2(390.0, 31.0), "HP %d%%" % roundi(float(row["hp_ratio"]) * 100.0), 14, Color("#6ef3a5"), 88.0)
-        _text(card.position + Vector2(490.0, 31.0), "%d" % roundi(float(row["score"])), 15, Color("#ffd166"), 92.0, HORIZONTAL_ALIGNMENT_RIGHT)
+    _draw_result_podium(standings)
     if bool(world.get("is_net")):
         _text(Vector2(650.0, 724.0), "대기실로 버튼" if touch_hints else "ESC  대기실로", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
     else:
         if not touch_hints:
             _text(Vector2(650.0, 724.0), "R  재경기    ·    ESC  나가기", 16, Color("#dbe5f0"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+
+func _draw_winner_stat(rect: Rect2, label: String, value: int, value_color: Color, accent: Color) -> void:
+    draw_rect(rect, Color(0.035, 0.050, 0.072, 0.94))
+    draw_rect(Rect2(rect.position, Vector2(5.0, rect.size.y)), Color(accent, 0.72))
+    draw_rect(rect, Color(accent, 0.28), false, 1.0)
+    _text(rect.position + Vector2(18.0, 27.0), label, 13, Color("#aebaca"))
+    _text(rect.position + Vector2(122.0, 29.0), str(value), 20, value_color, 106.0, HORIZONTAL_ALIGNMENT_RIGHT, true)
+
+func _draw_result_podium(standings: Array[Dictionary]) -> void:
+    _text(Vector2(650.0, 286.0), "FINAL PODIUM", 14, Color("#aebaca"), 600.0, HORIZONTAL_ALIGNMENT_CENTER)
+    var podium_rects := [Rect2(844.0, 472.0, 190.0, 222.0), Rect2(646.0, 514.0, 190.0, 180.0), Rect2(1042.0, 524.0, 190.0, 170.0)]
+    var medal_colors := [Color("#ffd166"), Color("#c8d5e4"), Color("#d98b5f")]
+    _draw_winner_god_rays(podium_rects[0], medal_colors[0])
+    var draw_order := [1, 0, 2]
+    for rank in draw_order:
+        if rank >= standings.size():
+            continue
+        _draw_podium_place(rank, standings[rank], podium_rects[rank], medal_colors[rank])
+
+func _draw_podium_place(rank: int, row: Dictionary, rect: Rect2, medal: Color) -> void:
+    var slot := int(row["slot"])
+    var equipment: Dictionary = world.heroes[slot]["equipment"]
+    _draw_podium_actor(slot, rect, medal)
+    draw_rect(rect, Color(0.035, 0.050, 0.072, 0.97))
+    draw_rect(Rect2(rect.position, Vector2(rect.size.x, 8.0)), medal)
+    draw_rect(Rect2(rect.position + Vector2(7.0, 8.0), Vector2(rect.size.x - 14.0, rect.size.y - 15.0)), Color(player_colors[slot], 0.10))
+    draw_rect(rect, Color(medal, 0.72), false, 2.0)
+    var title_y := rect.position.y + 43.0
+    _text(Vector2(rect.position.x, title_y), "%d" % (rank + 1), 32 if rank == 0 else 25, medal, rect.size.x, HORIZONTAL_ALIGNMENT_CENTER, true)
+    _text(Vector2(rect.position.x + 10.0, title_y + 31.0), "P%d  %s" % [slot + 1, equipment["character_name"]], 14, Color.WHITE, rect.size.x - 20.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(rect.position.x + 10.0, title_y + 55.0), str(equipment["name"]), 12, Color(player_colors[slot]), rect.size.x - 20.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(rect.position.x + 8.0, rect.end.y - 48.0), "DOWN %d  ·  DEATH %d" % [int(row.get("kills", 0)), int(row.get("deaths", 0))], 10, Color("#dbe5f0"), rect.size.x - 16.0, HORIZONTAL_ALIGNMENT_CENTER)
+    _text(Vector2(rect.position.x + 8.0, rect.end.y - 20.0), "SCORE  %d" % roundi(float(row["score"])), 14, medal, rect.size.x - 16.0, HORIZONTAL_ALIGNMENT_CENTER, true)
+
+func _draw_podium_actor(slot: int, podium: Rect2, medal: Color) -> void:
+    if animal_texture == null:
+        return
+    var animal := int(world.heroes[slot].get("animal", slot))
+    var size := Vector2.ONE * 108.0
+    var center := Vector2(podium.get_center().x, podium.position.y - size.y * 0.5 - 4.0)
+    draw_circle(center + Vector2(0.0, 5.0), 49.0, Color(0.0, 0.0, 0.0, 0.44))
+    draw_circle(center, 52.0, Color(medal, 0.10))
+    draw_arc(center, 54.0, -PI, 0.0, 24, Color(medal, 0.72), 3.0)
+    draw_texture_rect_region(animal_texture, Rect2(center - size * 0.5, size), _animal_src_rect(animal))
 
 func _draw_ultimate_cinematic() -> void:
     if world.ultimate_focus_time <= 0.0 or world.ultimate_focus_slot < 0 or world.ultimate_focus_slot >= world.heroes.size():
