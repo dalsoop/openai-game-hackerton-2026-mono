@@ -7,6 +7,7 @@
 - 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch`
   (`folders` 예: `dagul-prod`).
 - 슬롯 URL: `https://<folder>.external.kr/`
+- Grafana: `https://grafana.50.internal.kr/` 대시보드 UID `dagul-game` (허브 `/metrics` · ServiceMonitor 15s)
 
 ```bash
 python3 deploy/scripts/test_ship_contracts.py

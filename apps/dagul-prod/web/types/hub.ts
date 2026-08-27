@@ -68,6 +68,7 @@ export interface UseHubResult {
   /** 게임 방 소켓 왕복 ms. 방 밖이거나 아직 표본이 없으면 0. */
   rttMs: number;
   error: string | null;
+  clearError: () => void;
   matchInfo: MatchInfo | null;
 
   // 동작
