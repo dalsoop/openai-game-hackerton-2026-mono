@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodingIsCurrent, shouldServeEncoding } from "@/lib/godot/serve-encoding";
+import { encodingIsCurrent, godotCacheHeaders, shouldServeEncoding } from "@/lib/godot/serve-encoding";
 
 describe("encodingIsCurrent", () => {
   it("원본이 없으면 압축본을 쓴다", () => {
@@ -23,5 +23,20 @@ describe("shouldServeEncoding", () => {
     expect(shouldServeEncoding(200, 100)).toBe(false);
     expect(shouldServeEncoding(100, 100)).toBe(true);
     expect(shouldServeEncoding(100, 150)).toBe(true);
+  });
+});
+
+describe("godotCacheHeaders", () => {
+  it("무버전은 엣지와 브라우저에 남기지 않는다", () => {
+    expect(godotCacheHeaders(false)).toEqual({
+      "cache-control": "no-store",
+      "cdn-cache-control": "no-store",
+    });
+  });
+
+  it("해시 버전만 불변 캐시다", () => {
+    expect(godotCacheHeaders(true)).toEqual({
+      "cache-control": "public, max-age=31536000, immutable",
+    });
   });
 });

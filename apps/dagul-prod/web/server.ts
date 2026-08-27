@@ -13,7 +13,7 @@ import { HUB_CONFIG, ROOM_NAME } from "./lib/hub/config.js";
 import { hubPublicAddress } from "./lib/hub/public-address.js";
 import { roomsHttpBody, withDeadline } from "./lib/hub/rooms-http.js";
 import { godotWorkletAssetPath } from "./lib/godot/asset-store.js";
-import { shouldServeEncoding } from "./lib/godot/serve-encoding.js";
+import { godotCacheHeaders, shouldServeEncoding } from "./lib/godot/serve-encoding.js";
 import { healthBody } from "./lib/hub/health.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
@@ -83,7 +83,7 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
   if (!mime) {return false;}
 
   const versioned = /\bv=[0-9a-f]+/.test((req.url ?? "").split("?")[1] ?? "");
-  const cacheControl = versioned ? "public, max-age=31536000, immutable" : "no-cache";
+  const cacheHeaders = godotCacheHeaders(versioned);
 
   const base = path.join(GODOT_DIR, rel);
   const accept = String(req.headers["accept-encoding"] ?? "");
@@ -95,7 +95,7 @@ function serveGodotAsset(req: IncomingMessage, res: ServerResponse, pathname: st
 
   for (const [file, encoding] of candidates) {
     if (encoding && !isEncodingCandidateFresh(file, rawMtime)) {continue;}
-    if (serveOne(file, encoding, req, res, mime, cacheControl)) {return true;}
+    if (serveOne(file, encoding, req, res, mime, cacheHeaders)) {return true;}
   }
   return false;
 }
@@ -120,7 +120,7 @@ function serveOne(
   req: IncomingMessage,
   res: ServerResponse,
   mime: string,
-  cacheControl: string,
+  cacheHeaders: Record<string, string>,
 ): boolean {
   let st;
   try {
@@ -132,7 +132,7 @@ function serveOne(
   // 무버전 요청도 ETag 검증으로 304 를 돌려준다 — 대용량 파일의 재전송을 갱신 검사로 끝낸다.
   const etag = `"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
   if (req.headers["if-none-match"] === etag) {
-    res.writeHead(304, { etag, "cache-control": cacheControl });
+    res.writeHead(304, { etag, ...cacheHeaders });
     res.end();
     return true;
   }
@@ -140,7 +140,7 @@ function serveOne(
     "content-type": mime,
     "content-length": st.size,
     etag,
-    "cache-control": cacheControl,
+    ...cacheHeaders,
     ...(encoding ? { "content-encoding": encoding, vary: "Accept-Encoding" } : {}),
   });
   if (req.method === "HEAD") {

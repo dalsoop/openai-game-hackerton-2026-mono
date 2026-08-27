@@ -14,3 +14,14 @@ export function shouldServeEncoding(
   if (encodedMtimeMs == null || rawMtimeMs == null) {return false;}
   return encodingIsCurrent(rawMtimeMs, encodedMtimeMs);
 }
+
+/** 무버전 Godot 파일은 엣지·브라우저에 남기지 않는다. ?v=해시만 불변 캐시다. */
+export function godotCacheHeaders(versioned: boolean): Record<string, string> {
+  if (versioned) {
+    return { "cache-control": "public, max-age=31536000, immutable" };
+  }
+  return {
+    "cache-control": "no-store",
+    "cdn-cache-control": "no-store",
+  };
+}

@@ -170,6 +170,13 @@ describe("계약: 낡은 Godot 압축본은 발행되지 않는다", () => {
     expect(docker).toContain("not --link");
   });
 
+  it("무버전 Godot 응답은 엣지에 남기지 않는다", () => {
+    const src = sourceOf(join(ROOT, "server.ts"));
+    expect(src).toContain("godotCacheHeaders");
+    expect(sourceOf(join(ROOT, "lib/godot/serve-encoding.ts"))).toContain("cdn-cache-control");
+    expect(sourceOf(join(ROOT, "lib/godot/serve-encoding.ts"))).toContain("no-store");
+  });
+
   it("glue 를 고치면 매니페스트 해시도 다시 찍는다", () => {
     const src = sourceOf(join(ROOT, "scripts/prepare-godot-export.mjs"));
     expect(src).toContain("result.stripped");
