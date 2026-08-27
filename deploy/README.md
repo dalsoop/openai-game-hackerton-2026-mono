@@ -3,7 +3,7 @@
 정본은 `apply-apps.py`이다. main에 `apps/server-*`가 푸시되면 `pve-hackertone`이 바뀐 폴더만 ship 하고 helm 한다. wasm/pck는 git에 넣지 않는다.
 
 - 보드: `https://server-board.external.kr/`
-- 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch`.
+- 올리기: 푸시가 정본. 폴더를 지정해 다시 올리려면 Actions `Apps` `workflow_dispatch` (`folders` 예: `dagul-prod`).
 - 퍼지: `helm`이 끝난 뒤 시도한다. 실패해도 helm 은 통과한다.
 
 Helm은 이미지를 만들지 않는다. 바꾼 슬롯만 ship 한 뒤 helm 한다.
