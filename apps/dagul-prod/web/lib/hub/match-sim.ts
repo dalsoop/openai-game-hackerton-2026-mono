@@ -383,11 +383,6 @@ export class MatchSim {
     if (this.stepCountdown(dt)) {return;}
     this.matchTime = Math.min(MATCH_TIME_LIMIT, this.matchTime + dt);
     this.stepFightAndClock();
-    if (this.matchTime >= MATCH_TIME_LIMIT) {
-      this.matchTime = MATCH_TIME_LIMIT;
-      this.resolveTimeLimit();
-      return;
-    }
     this.updateTimers(dt);
     updateItemPulses(this.itemWorld(dt), dt);
     updateSafeZone(this.zone, dt);
@@ -427,6 +422,11 @@ export class MatchSim {
     this.advanceZones(dt);
     this.stepThreat(dt);
     resetDeadStreaks(this.heroes.values());
+    if (this.matchTime >= MATCH_TIME_LIMIT) {
+      this.matchTime = MATCH_TIME_LIMIT;
+      this.resolveTimeLimit();
+      return;
+    }
     this.resolveWinner();
   }
 

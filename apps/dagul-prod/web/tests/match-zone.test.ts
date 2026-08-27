@@ -102,6 +102,37 @@ describe("SafeZone", () => {
     expect(sim.winner).toBe(0);
   });
 
+  it("타임리밋 도달 틱에도 탄을 적용한 뒤 alive 기준으로 승자를 정한다", () => {
+    const sim = new MatchSim([{ slot: 0 }, { slot: 1 }]);
+    sim.countdown = 0;
+    const a = sim.heroes.get(0);
+    const b = sim.heroes.get(1);
+    expect(a && b).toBeTruthy();
+    if (!a || !b) {return;}
+    a.x = ARENA_CENTER.x;
+    a.y = ARENA_CENTER.y;
+    b.x = ARENA_CENTER.x + 80;
+    b.y = ARENA_CENTER.y;
+    a.maxHp = 100;
+    b.maxHp = 100;
+    a.hp = 10;
+    b.hp = 90;
+    sim.matchTime = MATCH_TIME_LIMIT - DT;
+    sim.bullets.set(9001, {
+      id: 9001, x: b.x, y: b.y, vx: 0, vy: 0, owner: 0, ttl: 1, kind: "bolt",
+      damage: 1000, radius: 80, splash: 0, pierce: 0, knockback: 0,
+      source: "normal", heavy: false, leech: false, ccTime: 0, hitSlots: [],
+      homing: 0, arc: false, landingX: 0, landingY: 0, maxTtl: 1, comboFinisher: false,
+      label: "", controlKind: "slow",
+    });
+    sim.step(DT);
+    expect(sim.matchTime).toBe(MATCH_TIME_LIMIT);
+    expect(b.hp).toBe(0);
+    expect(b.downed).toBe(true);
+    expect(sim.result).toBe("won");
+    expect(sim.winner).toBe(0);
+  });
+
   it("시간 판정 우선순위 — HP비율 > 실제 score > 낮은 슬롯 (kills*100 아님)", () => {
     const hero = (slot: number, hp: number, score: number, kills = 0): {
       slot: number; hp: number; maxHp: number; alive: boolean; score: number; kills: number;

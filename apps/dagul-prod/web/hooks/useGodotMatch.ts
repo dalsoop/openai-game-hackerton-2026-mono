@@ -6,7 +6,7 @@ import { GodotRuntime, type RuntimeSnapshot } from "@/lib/godot/runtime";
 import { lockPlayViewport } from "@/lib/godot/canvas-focus";
 import { asGameId } from "@/lib/games/catalog";
 import { DOM_EVT, MSG } from "@/lib/contract";
-import { encodeBridgePacket, freezeMatchEndDetail } from "@/lib/hub/page-bridge";
+import { clearInboundSnap, encodeBridgePacket, freezeMatchEndDetail } from "@/lib/hub/page-bridge";
 import type { MatchInfo } from "@/types";
 
 interface UseGodotMatchOptions {
@@ -54,6 +54,7 @@ export function useGodotMatch({ game, matchInfo, visible, onMatchEnd }: UseGodot
       }));
       runtime.quit();
       onMatchEnd?.(freezeMatchEndDetail((e as CustomEvent).detail ?? {}));
+      clearInboundSnap();
     };
     window.addEventListener(DOM_EVT.MATCH_END, handler);
     return (): void => window.removeEventListener(DOM_EVT.MATCH_END, handler);

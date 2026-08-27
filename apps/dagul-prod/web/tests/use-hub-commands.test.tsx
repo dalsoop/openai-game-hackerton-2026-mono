@@ -3,11 +3,13 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HANDOFF, ROOM_LEAVE, WEB_STORE } from "@/lib/contract";
 import { useHubCommands } from "@/hooks/useHubCommands";
+import { lastInboundSnapOf, rememberInboundSnap, resetInboundSnapForTests } from "@/lib/hub/page-bridge";
 import type { Room } from "@colyseus/sdk";
 
 afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  resetInboundSnapForTests();
 });
 
 describe("useHubCommands returnToLobby", () => {
@@ -56,5 +58,25 @@ describe("useHubCommands returnToLobby", () => {
     expect(result.current.tryResume()).toBe(true);
     expect(sessionStorage.getItem(HANDOFF.RESUME)).toBe("tok");
     expect(setJoinRequest).toHaveBeenCalledWith({ kind: "resume" });
+  });
+});
+
+describe("useHubCommands leaveRoom", () => {
+  it("방 이탈 시 lastInboundSnap 을 비운다", () => {
+    rememberInboundSnap({ tick: 7, winner: 1 });
+    expect(lastInboundSnapOf()).toEqual({ tick: 7, winner: 1 });
+    const { result } = renderHook(() => useHubCommands(
+      { current: "호스트" },
+      undefined,
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+    ));
+    act(() => {result.current.leaveRoom();});
+    expect(lastInboundSnapOf()).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { clearMyRoom } from "@/lib/room-membership";
 import { forgetHubPin } from "@/lib/hub/public-address";
 import { reactOwnsResume } from "@/lib/game-flow-state";
 import { clearEngineHandoff } from "@/lib/godot/handoff";
+import { clearInboundSnap } from "@/lib/hub/page-bridge";
 import type { JoinRequest, MatchInfo } from "@/types";
 
 export function useHubCommands(
@@ -48,6 +49,7 @@ export function useHubCommands(
     clearEngineHandoff(true);
     forgetHubPin();
     clearMyRoom((k) => localStorage.removeItem(k));
+    clearInboundSnap();
     setMatchInfo(null);
     if (room) {void room.leave(ROOM_LEAVE.CONSENTED);}
     setJoinRequest(null);

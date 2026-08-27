@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { DOM_EVT, MSG } from "@/lib/contract";
 import {
   attachPageBridge,
+  clearInboundSnap,
   encodeBridgePacket,
   encodeHubState,
   freezeMatchEndDetail,
   isEngineInbound,
   isEngineOutbound,
+  lastInboundSnapOf,
   parseBridgePacket,
   postToEngine,
   rememberInboundSnap,
@@ -96,6 +98,14 @@ describe("freezeMatchEndDetail", () => {
       snap: { tick: 9, result: "won", winner: 2 },
     });
     resetInboundSnapForTests();
+  });
+
+  it("clearInboundSnap 은 마지막 SNAP 을 버린다", () => {
+    rememberInboundSnap({ tick: 9, result: "won", winner: 2 });
+    expect(lastInboundSnapOf()).toEqual({ tick: 9, result: "won", winner: 2 });
+    clearInboundSnap();
+    expect(lastInboundSnapOf()).toBeNull();
+    expect(freezeMatchEndDetail({})).toEqual({});
   });
 });
 

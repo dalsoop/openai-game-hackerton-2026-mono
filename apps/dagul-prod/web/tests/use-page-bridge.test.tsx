@@ -66,12 +66,34 @@ describe("usePageBridge", () => {
 
   it("브릿지 부착·해제 때 SNAP_ON 을 보내 재접속 세션 opt-out 을 푼다", async () => {
     const send = vi.fn();
-    const room = { roomId: "r1", sessionId: "s1", send, leave: vi.fn() } as unknown as Room;
+    const room = {
+      roomId: "r1", sessionId: "s1", send, leave: vi.fn(),
+      connection: { isOpen: true },
+    } as unknown as Room;
     const view = renderHook(() => usePageBridge(room, matchInfo, snap));
     expect(send).toHaveBeenCalledWith(MSG.SNAP_ON, {});
     view.unmount();
     await act(async () => {await Promise.resolve();});
     expect(send.mock.calls.filter((c) => c[0] === MSG.SNAP_ON)).toHaveLength(2);
+  });
+
+  it("반전: 닫힌 소켓에는 해제 SNAP_ON 을 보내지 않는다", async () => {
+    const conn = { isOpen: true };
+    const send = vi.fn((_type?: string, _payload?: unknown) => {
+      if (!conn.isOpen) {throw new Error("closed");}
+    });
+    const room = {
+      roomId: "r1", sessionId: "s1", send, leave: vi.fn(), connection: conn,
+    } as unknown as Room;
+    const view = renderHook(
+      ({ info }) => usePageBridge(room, info, snap),
+      { initialProps: { info: matchInfo as MatchInfo | null } },
+    );
+    expect(send).toHaveBeenCalledWith(MSG.SNAP_ON, {});
+    conn.isOpen = false;
+    view.rerender({ info: null });
+    await act(async () => {await Promise.resolve();});
+    expect(send.mock.calls.filter((c) => c[0] === MSG.SNAP_ON)).toHaveLength(1);
   });
 
   it("matchInfo 객체 신원만 바뀌면 SNAP_ON 을 다시 보내지 않는다", async () => {

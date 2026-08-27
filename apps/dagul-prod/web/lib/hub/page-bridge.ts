@@ -40,8 +40,13 @@ export function lastInboundSnapOf(): unknown {
   return lastInboundSnap;
 }
 
-export function resetInboundSnapForTests(): void {
+/** 매치 종료·방 이탈 시 모듈 스냅을 버린다. 다음 매치에 낡은 SNAP 이 들어가지 않게. */
+export function clearInboundSnap(): void {
   lastInboundSnap = null;
+}
+
+export function resetInboundSnapForTests(): void {
+  clearInboundSnap();
 }
 
 export function freezeMatchEndDetail(detail: unknown, snap: unknown = lastInboundSnap): Record<string, unknown> {

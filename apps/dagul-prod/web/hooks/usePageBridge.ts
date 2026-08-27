@@ -8,6 +8,10 @@ import type { RosterSnapshot } from "@/lib/domain/roster";
 import { attachPageBridge, encodeHubState, postToEngine, rememberInboundSnap } from "@/lib/hub/page-bridge";
 import type { MatchInfo } from "@/types";
 
+function hubSocketOpen(room: { connection?: { isOpen?: boolean } }): boolean {
+  return room.connection?.isOpen === true;
+}
+
 export function usePageBridge(
   room: Room | undefined,
   matchInfo: MatchInfo | null,
@@ -35,6 +39,8 @@ export function usePageBridge(
       // StrictMode 재부착은 같은 틱에 attached 가 다시 true. 그때는 opt-out 을 풀지 않는다.
       queueMicrotask(() => {
         if (attachedRef.current) {return;}
+        // leaveRoom 이 setMatchInfo(null) 뒤 room.leave() 하면 소켓이 이미 닫혀 있다.
+        if (!hubSocketOpen(leftover)) {return;}
         leftover.send(MSG.SNAP_ON, {});
       });
     };

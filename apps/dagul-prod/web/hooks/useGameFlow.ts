@@ -8,6 +8,7 @@ import { useDeployRevision } from "@/hooks/useDeployRevision";
 import { asGameId } from "@/lib/games/catalog";
 import { useWaitingRoomPack } from "@/hooks/useWaitingRoomPack";
 import { phaseFromHubStatus, phaseAfterMatchEnd, displayNameOf, phaseOnMount, deployReloadSafe } from "@/lib/game-flow-state";
+import { clearInboundSnap } from "@/lib/hub/page-bridge";
 import { holdLobbyBgmOff } from "@/hooks/useLobbyAudio";
 import type { GamePhase, MatchInfo } from "@/types";
 
@@ -111,11 +112,13 @@ export function useGameFlow(defaultPlayer: string, buildId = ""): UseGameFlowRes
   }, [hub]);
 
   const leaveToLobby = useCallback(() => {
+    clearInboundSnap();
     hub.leaveRoom();
     setPhase("lobby");
   }, [hub]);
 
   const matchEnd = useCallback(() => {
+    clearInboundSnap();
     setPhase(phaseAfterMatchEnd(hub.status));
     if (phaseAfterMatchEnd(hub.status) === "lobby") {hub.returnToLobby(displayName);}
   }, [hub, displayName]);

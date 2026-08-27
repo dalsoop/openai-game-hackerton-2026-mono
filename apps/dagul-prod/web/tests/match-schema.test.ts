@@ -185,6 +185,45 @@ describe("writeMatchState", () => {
     expect(bullet?.y).toBe(b.y);
   });
 
+  it("직선탄도 JSON 스냅과 스키마가 ttl·maxTtl·lx·ly·splash 를 같이 싣는다", () => {
+    const sim = new MatchSim(
+      [{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }],
+      7,
+      "full",
+    );
+    sim.countdown = 0;
+    sim.bullets.set(42, {
+      id: 42, x: 1800, y: 2100, vx: 400, vy: -50, owner: 0, ttl: 0.7, kind: "bolt",
+      damage: 12, radius: 9, splash: 33, pierce: 0, knockback: 0,
+      source: "normal", heavy: false, leech: false, ccTime: 0, hitSlots: [],
+      homing: 0, arc: false, landingX: 111, landingY: 222, maxTtl: 1.2,
+      comboFinisher: false, label: "", controlKind: "slow",
+    });
+    const names = new Map([[0, "호스트"], [1, "게스트"]]);
+    const match = new MatchStateSchema();
+    writeMatchState(match, sim, names, "full");
+    const snap = packAuthoritySnap(sim, names, "full") as {
+      bullets: Array<{
+        id: number; ttl?: number; maxTtl?: number; lx?: number; ly?: number; splash?: number;
+      }>;
+    };
+    const packed = snap.bullets.find((row) => row.id === 42);
+    const schemaRow = match.bullets.get("42");
+    expect(packed).toBeDefined();
+    expect(schemaRow).toBeDefined();
+    if (!packed || !schemaRow) {return;}
+    expect(packed.ttl).toBe(0.7);
+    expect(packed.maxTtl).toBe(1.2);
+    expect(packed.lx).toBe(111);
+    expect(packed.ly).toBe(222);
+    expect(packed.splash).toBe(33);
+    expect(schemaRow.ttl).toBe(packed.ttl);
+    expect(schemaRow.maxTtl).toBe(packed.maxTtl);
+    expect(schemaRow.lx).toBe(packed.lx);
+    expect(schemaRow.ly).toBe(packed.ly);
+    expect(schemaRow.splash).toBe(packed.splash);
+  });
+
   it("row.item 과 JSON 스냅 item 이 메드킷 개수를 같이 싣는다", () => {
     const sim = new MatchSim(
       [{ slot: 0, name: "호스트" }, { slot: 1, name: "게스트" }],
