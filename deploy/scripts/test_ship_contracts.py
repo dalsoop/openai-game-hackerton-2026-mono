@@ -347,16 +347,24 @@ class HelmContract(unittest.TestCase):
         self.assertIn('startswith(("server-", "dagul-"))', src)
         self.assertIn("GITHUB_ACTIONS", src)
         self.assertIn("/etc/hackertone/cloudflare.env", src)
-        self.assertIn("def cloudflare_creds", src)
+        self.assertIn("CF_API_TOKEN", src)
+        self.assertIn("resolve_zone_id", src)
+        apps_yml = (APPS.parent / ".github" / "workflows" / "apps.yml").read_text()
+        self.assertNotIn("secrets.CLOUDFLARE_API_TOKEN", apps_yml)
+        self.assertIn("CF_API_TOKEN", apps_yml)
         self.assertIn("require_purge", src)
         from tempfile import TemporaryDirectory
         from pathlib import Path as P
 
         with TemporaryDirectory() as tmp:
             envf = P(tmp) / "cloudflare.env"
-            envf.write_text('CLOUDFLARE_API_TOKEN="t1"\nCLOUDFLARE_ZONE_ID=z9\n')
-            token, zone = purge.creds_from_file(envf)
-            self.assertEqual((token, zone), ("t1", "z9"))
+            envf.write_text('CF_API_TOKEN="t1"\nCF_ZONE_ID=z9\n')
+            got = purge.creds_from_file(envf)
+            self.assertEqual(got.get("CF_API_TOKEN"), "t1")
+            self.assertEqual(got.get("CF_ZONE_ID"), "z9")
+            headers = purge.auth_headers(got)
+            self.assertIsNotNone(headers)
+            self.assertTrue(str(headers.get("Authorization", "")).startswith("Bearer "))
 
     def test_plant_keeps_unshipped_hub_tag(self) -> None:
         import os

@@ -68,8 +68,8 @@ jobs:
       - name: Ship then helm on pve-hackertone
         env:
           FOLDERS: ${{ needs.plan.outputs.folders }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          # 빈 GitHub 시크릿으로 러너의 CF_API_TOKEN 을 덮어쓰지 않는다.
+          # 자격은 러너 환경(CF_API_TOKEN) 또는 /etc/hackertone/cloudflare.env.
         run: |
           set -eu
           if [ -n "${FOLDERS:-}" ]; then

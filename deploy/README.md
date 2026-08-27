@@ -11,9 +11,10 @@ Helm은 이미지를 만들지 않는다. 바꾼 슬롯만 ship 한 뒤 helm 한
 ## 한 번만 붙이면 되는 것
 
 1. `docker`와 `pve-lan`(또는 PVE 본기) SSH. Godot 4.7.1이 없으면 ship이 받아서 웹을 익스포트한다.
-2. 퍼지 자격(둘 중 하나). Actions 시크릿 `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ZONE_ID`,
-   또는 러너 파일 `/etc/hackertone/cloudflare.env`(같은 키=값). ship 호스트 목록과
-   같은 슬롯 URL을 helm 직후 퍼지한다. GitHub Actions에서 자격이 없으면 helm이 실패한다.
+2. 퍼지 자격. 셀프호스트 러너 환경 `CF_API_TOKEN`(또는 `CLOUDFLARE_API_TOKEN`)
+   또는 `/etc/hackertone/cloudflare.env`. 존 ID 가 없으면 `external.kr` 로 조회한다.
+   토큰에 Zone.Cache Purge 가 있어야 한다. 빈 GitHub 시크릿으로 러너 값을 덮지 않는다.
+   GitHub Actions에서 자격이 없거나 퍼지가 401이면 helm이 실패한다.
 
 ## 웹 캐시
 
