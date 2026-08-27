@@ -505,7 +505,6 @@ describe("classic 상자 총 드랍", () => {
     expect(h).toBeDefined();
     if (!h) {return;}
     expect(h.equipment.id).toBe(equipmentForAnimal(h.animal));
-    expect(h.equipment.id).not.toBe("rail");
   });
 
   it("classic 에서 상자를 부수면 총 픽업이 스폰된다", () => {

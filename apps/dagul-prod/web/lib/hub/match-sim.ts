@@ -145,6 +145,12 @@ export type MatchInput = {
   seq?: unknown;
 };
 
+/** 한 틱만 true 로 오는 에지 입력. 시뮬이 소비할 때까지 패킷 덮어쓰기에 지지 않아야 한다. */
+export const ONE_SHOT_INPUT_KEYS = [
+  "firePressed", "equipmentPressed", "equipmentReleased",
+  "dash", "mobility", "use", "reload", "ultimate", "hop", "finish",
+] as const satisfies readonly (keyof MatchInput)[];
+
 export type SimHero = LifeHero & Pick<LootHero, "medkits" | "useHeld" | "heldItem" | "pullTime" | "pocketTime"> & ScoreFields & EmoteFields
   & CcHeroState & LaunchState & CrateHero & WantedHero & RouletteHero & GunHero & UltHero & ChargeHero & {
     normalHits: number;
@@ -382,6 +388,15 @@ export class MatchSim {
 
   pushInput(slot: number, data: MatchInput): void {
     if (!this.heroes.has(slot)) {return;}
+    // 클라는 60Hz 로 보내고 서버 틱 사이에 패킷이 겹칠 수 있다. 마지막 패킷만 남기면
+    // 에지 플래그(dash 등 한 틱만 true)가 소비 전에 false 에 덮여 유실된다 — 소비될 때까지 OR 로 붙든다.
+    const prev = this.inputs.get(slot);
+    if (prev) {
+      for (const key of ONE_SHOT_INPUT_KEYS) {
+        if (truthy(prev[key])) {data[key] = true;}
+      }
+      if (Number(prev.emote ?? -1) >= 0 && Number(data.emote ?? -1) < 0) {data.emote = prev.emote;}
+    }
     this.inputs.set(slot, data);
   }
 
@@ -552,9 +567,8 @@ export class MatchSim {
       const cmd = this.inputs.get(slot);
       if (!cmd) {continue;}
       this.applyHero(hero, cmd, dt);
-      cmd.firePressed = false;
-      cmd.equipmentPressed = false;
-      cmd.equipmentReleased = false;
+      for (const key of ONE_SHOT_INPUT_KEYS) {cmd[key] = false;}
+      cmd.emote = -1;
     }
   }
 
