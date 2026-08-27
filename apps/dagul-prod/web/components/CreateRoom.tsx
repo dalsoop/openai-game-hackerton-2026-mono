@@ -48,6 +48,18 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
           onSubmit(String(data.get("game") ?? DEFAULT_GAME_ID), String(data.get("title") ?? ""));
         }}
       >
+        <label className="create-field">
+          <span className="sec-title">{t("roomTitle")}</span>
+          <input
+            className="name-input"
+            type="text"
+            name="title"
+            maxLength={HUB_CONFIG.maxTitleLength}
+            placeholder={t("roomTitlePlaceholder")}
+            autoComplete="off"
+          />
+        </label>
+
         <fieldset className="create-fieldset">
           <legend className="sec-title">{t("gameSelect")}</legend>
           <div className="game-list">
@@ -80,18 +92,6 @@ export default function CreateRoom({ listings, onSubmit, onBack, connClass, conn
             ))}
           </div>
         </fieldset>
-
-        <label className="create-field">
-          <span className="sec-title">{t("roomTitle")}</span>
-          <input
-            className="name-input"
-            type="text"
-            name="title"
-            maxLength={HUB_CONFIG.maxTitleLength}
-            placeholder={t("roomTitlePlaceholder")}
-            autoComplete="off"
-          />
-        </label>
 
         <button className="cta block" type="submit" disabled={blocked}>
           {blocked ? congestion("full") : t("submit")}

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 방 만들기 페이지 폼 계약 — 로비와 섞지 않는 전용 화면.
- *   1. 게임(유즈맵)과 방 이름을 제출한다
+ *   1. 방 이름 다음에 게임(유즈맵)을 고르고 제출한다
  *   2. 기본 게임은 카탈로그 정본
  *   3. 뒤로가기는 onBack
  *   4. 선택한 줄에 버전·용량·썸네일·설명이 있다
@@ -59,6 +59,13 @@ describe("방 만들기 폼", () => {
     expect(screen.getByPlaceholderText(ko.create.roomTitlePlaceholder)).toBeTruthy();
     expect(screen.getByDisplayValue(DEFAULT_GAME_ID)).toBeTruthy();
     expect(screen.getByRole("button", { name: ko.create.submit })).toBeTruthy();
+  });
+
+  it("방 이름 입력이 게임 선택보다 위에 있다", () => {
+    setup();
+    const title = screen.getByPlaceholderText(ko.create.roomTitlePlaceholder);
+    const game = screen.getByDisplayValue(DEFAULT_GAME_ID);
+    expect(title.compareDocumentPosition(game) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("기본 게임에 버전·용량·설명·썸네일이 있다", () => {
