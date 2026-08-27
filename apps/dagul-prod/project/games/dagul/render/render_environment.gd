@@ -266,16 +266,19 @@ func _draw_gun_pickup(pickup: Dictionary, pickup_pos: Vector2, pulse: float, gun
 func _draw_item_pickup(pickup: Dictionary, pickup_pos: Vector2, pulse: float) -> void:
 	var show_kind := _item_display_kind(pickup)
 	var tint: Color = _item_tint(show_kind)
+	var has_icon := show_kind == "medkit" and r.medkit_texture != null
 	var magnet_slot := int(pickup.get("magnet_slot", -1))
 	if magnet_slot >= 0 and magnet_slot < world.heroes.size():
 		var magnet_dir := pickup_pos.direction_to(Vector2(world.heroes[magnet_slot]["pos"]))
 		_draw_magnet_trails(pickup_pos, magnet_dir, tint)
 		r.draw_arc(pickup_pos, 25.0, magnet_dir.angle() - 1.1, magnet_dir.angle() + 1.1, 18, Color(tint, 0.95), 5.0)
-	else:
+	elif not has_icon:
 		r.draw_circle(pickup_pos, 24.0 * pulse, Color(tint, 0.16))
 		r.draw_arc(pickup_pos, 27.0, 0.0, TAU, 28, tint, 3.5)
 	if show_kind == "medkit" and r.medkit_texture != null:
-		r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(19.0, 19.0) * pulse, Vector2(38.0, 38.0) * pulse), false)
+		# 그레이박스 시절 초록 워시를 걷어내고 약상자 원화가 주인공이 되게 크게 그린다.
+		r.draw_circle(pickup_pos, 22.0 * pulse, Color(1.0, 1.0, 1.0, 0.10))
+		r.draw_texture_rect(r.medkit_texture, Rect2(pickup_pos - Vector2(24.0, 24.0) * pulse, Vector2(48.0, 48.0) * pulse), false)
 	elif show_kind == "medkit":
 		r.draw_rect(Rect2(pickup_pos + Vector2(-5.0, -16.0), Vector2(10.0, 32.0)), Color("#d9ffe8"))
 		r.draw_rect(Rect2(pickup_pos + Vector2(-16.0, -5.0), Vector2(32.0, 10.0)), Color("#d9ffe8"))
