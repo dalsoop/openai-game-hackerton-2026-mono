@@ -31,6 +31,8 @@ function renderRoom(isHost = true): void {
         password="0420"
         matchWait={false}
         canStart
+        loaderState="ready"
+        loaderPct={100}
         connClass="conn-ok"
         connText=""
         rttMs={12}
@@ -66,6 +68,8 @@ function renderCountdown(startInSec: number, extra?: { isHost?: boolean; onLeave
         password="0420"
         matchWait={false}
         canStart
+        loaderState="ready"
+        loaderPct={100}
         connClass="conn-ok"
         connText=""
         rttMs={12}
@@ -100,6 +104,8 @@ describe("대기실 시작 버튼", () => {
           password=""
           matchWait={false}
           canStart={false}
+          loaderState="downloading"
+          loaderPct={42}
           connClass="conn-ok"
           connText=""
           rttMs={12}
@@ -108,7 +114,7 @@ describe("대기실 시작 버튼", () => {
         />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByText(ko.room.downloading)).toBeTruthy();
+    expect(screen.getByText(ko.game.loading.downloading.replace("{pct}", "42"))).toBeTruthy();
     expect(screen.queryByRole("button", { name: ko.room.startButton })).toBeNull();
   });
 });
@@ -209,6 +215,8 @@ describe("대기실 도구 모달", () => {
           password=""
           matchWait={false}
           canStart
+          loaderState="ready"
+          loaderPct={100}
           connClass="conn-ok"
           connText=""
           rttMs={12}
@@ -248,6 +256,8 @@ describe("대기실 도구 모달", () => {
           password="0420"
           matchWait={false}
           canStart
+          loaderState="ready"
+          loaderPct={100}
           connClass="conn-ok"
           connText=""
           rttMs={12}

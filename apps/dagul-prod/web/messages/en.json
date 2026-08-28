@@ -174,7 +174,6 @@
     "waitingForHost": "Waiting for host to start",
     "open": "Open room",
     "close": "Close room",
-    "downloading": "Downloading game",
     "packReady": "Ready",
     "packNotStarted": "Not started",
     "packProgress": "{pct}%",
