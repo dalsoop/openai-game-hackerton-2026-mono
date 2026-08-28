@@ -346,7 +346,7 @@ static func t(key: String) -> String:
     return str(table.get(key, key))
 
 static func zodiac(index: int) -> String:
-    return t("zodiac_%d" % posmod(index, 12))
+    return t("zodiac_%d" % posmod(index, CharacterCatalog.bind_count("animal")))
 
 static func named(prefix: String, id: String) -> String:
     var key := "%s_%s" % [prefix, id]
@@ -365,7 +365,7 @@ static func special(equip_id: String) -> String:
     return named("special", equip_id)
 
 static func animal_ult(animal: int) -> String:
-    return t("ult_%d" % posmod(animal, 12))
+    return t("ult_%d" % posmod(animal, CharacterCatalog.bind_count("animal")))
 
 static func item(kind: String) -> String:
     return named("item", kind)

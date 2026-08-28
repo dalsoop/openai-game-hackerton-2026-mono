@@ -157,7 +157,7 @@ static func feel_for_equipment(equipment_id: String) -> Dictionary:
     return GUN_FEEL["burst"]
 
 static func equipment_for_animal(animal: int) -> String:
-    return str(ANIMAL_SIGNATURE_EQUIPMENT[posmod(animal, 12)])
+    return str(ANIMAL_SIGNATURE_EQUIPMENT[posmod(animal, CharacterCatalog.bind_count("animal"))])
 
 
 static func visual_for_equipment(equipment_id: String) -> Dictionary:

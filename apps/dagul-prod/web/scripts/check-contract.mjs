@@ -153,6 +153,27 @@ if (!catalogGd.includes("res://core/contract/characters.json")) {
   fail("character_catalog.gd DATA_PATH 가 거울 JSON 을 가리키지 않습니다");
 }
 
+// 조디악 이름 이중 저장소(messages/*.json ↔ hud_strings.gd) 내용 대조.
+// 둘 다 손으로 쓴 상수라 정본-거울 구조가 아니라 값 자체를 맞대본다.
+const hudStringsGd = readFileSync(path.join(here, "..", "..", "project", "core", "contract", "hud_strings.gd"), "utf8");
+function hudZodiacNames(locale) {
+  const block = hudStringsGd.match(new RegExp(`"${locale}":\\s*\\{([\\s\\S]*?)\\n\\s*\\},\\n`));
+  if (!block) fail(`hud_strings.gd 에서 "${locale}" STRINGS 블록을 찾지 못했습니다`);
+  const out = {};
+  for (const [, index, name] of (block ? block[1] : "").matchAll(/"zodiac_(\d+)":\s*"([^"]+)"/g)) out[index] = name;
+  return out;
+}
+for (const [locale, file] of [["ko", "ko.json"], ["en", "en.json"]]) {
+  const messages = JSON.parse(readFileSync(path.join(here, "..", "messages", file), "utf8"));
+  const fromMessages = messages.characters ?? {};
+  const fromHud = hudZodiacNames(locale);
+  for (let i = 0; i < 12; i += 1) {
+    const a = fromMessages[`a${i}`];
+    const b = fromHud[String(i)];
+    if (a !== b) fail(`조디악 이름 불일치(${locale}, index ${i}): messages="${a}" vs hud_strings.gd="${b}"`);
+  }
+}
+
 if (errors > 0) {
   console.error(`\ncheck-contract: ${errors}건 불일치 — 정본(lib/contract, catalog)을 먼저 고치고 거울을 맞추세요`);
   process.exit(1);
