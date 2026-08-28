@@ -37,7 +37,7 @@ python3 deploy/scripts/apply-apps.py helm
 2. 매니페스트와 stale 스탬프를 찍고 `public/godot`에 복사한다. 심링크는 이미지에 넣지 않는다.
 3. `docker build` 후 Harbor `docker push`를 3회 시도한다.
    `harbor.50.internal.xz`는 러너 공인 DNS에서 이름이 없다.
-   클러스터 노드가 1개이면 `k3s ctr import`로 계속하고, 0개이거나 2개 이상이면 ship을 끝내지 않는다.
+   클러스터 노드가 1개 이상이면 `k3s ctr import`로 계속하고(노드가 둘 이상이어도 경고만 남기고 진행한다), 0개일 때만 ship을 끝내지 않는다.
 4. 웹 정적 파일을 노드에 올린 뒤 `.export-hash`를 쓴다. 해시 기록이 실패하면 경고가 아니라 실패다.
 
 Helm은 이미지를 만들지 않는다. 심은 태그가 클러스터에 있는지 확인하고, 허브 스모크를 돌린 뒤

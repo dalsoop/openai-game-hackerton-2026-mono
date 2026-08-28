@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""이미지 빌드와 분리된 슬롯 web tsc+eslint. apply 가 이 잡을 기다린다."""
+"""이미지 빌드와 분리된 슬롯 web tsc+eslint+vitest. apply 가 이 잡을 기다린다.
+
+vitest 는 노드만으로 도는 단위테스트라 여기서 돌린다. GDScript 쪽(tests/run_tests.gd)은
+러너에 Godot 바이너리가 없어 이 잡에서는 아직 안 돈다 — 로컬 pre-commit 훅(.githooks/pre-commit)
+과 npm run verify 가 그 부분을 대신 커버한다.
+"""
 from __future__ import annotations
 
 import subprocess
@@ -22,6 +27,8 @@ def typecheck_cmds(web: Path) -> list[list[str]]:
     if (web / "tsconfig.server.json").is_file():
         cmds.append(["npx", "tsc", "--project", "tsconfig.server.json", "--noEmit"])
     cmds.append(["npm", "run", "lint"])
+    if (web / "vitest.config.ts").is_file():
+        cmds.append(["npx", "vitest", "run"])
     return cmds
 
 
