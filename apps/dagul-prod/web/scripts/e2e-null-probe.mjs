@@ -1,7 +1,9 @@
+// 인게임 null 계열 크래시(WASM abort, dylib 참조 등) 수동 진단 프로브.
+// 사용법: node scripts/e2e-null-probe.mjs (E2E_URL 로 대상 슬롯 지정, 기본은 dagul-prod 라이브)
 import { chromium } from "playwright-core";
 
 const CHROME = `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
-const URL = process.env.E2E_URL || "https://server-prod.external.kr/ko";
+const URL = process.env.E2E_URL || "https://dagul-prod.external.kr/ko";
 
 const browser = await chromium.launch({
   executablePath: CHROME,

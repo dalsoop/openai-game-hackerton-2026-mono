@@ -36,6 +36,9 @@ fi
 echo "▶ 배포 계약: test_ship_contracts"
 python3 deploy/scripts/test_ship_contracts.py
 
+echo "▶ 차트 스케일 계약: test_hub_scale"
+python3 deploy/scripts/test_hub_scale.py
+
 # 웹 게이트 — 스테이지된 트리만 본다. 워킹트리 미스테이지가 tsc를 통과시키면 안 된다.
 # stash --keep-index 만 ( -u 금지: untracked 를 삼키지 않는다). 경로는 web 로 한정.
 if git diff --cached --name-only | grep -qE "^apps/dagul-prod/web/.*\.(ts|tsx|mjs|json)$"; then

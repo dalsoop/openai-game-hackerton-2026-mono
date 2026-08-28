@@ -37,6 +37,7 @@ const SUITES := [
 	"res://tests/test_play_chrome.gd",
 	"res://tests/test_perf_overlay.gd",
 	"res://tests/test_i18n_coverage.gd",
+	"res://tests/test_hud_constants.gd",
 ]
 
 var pass_count := 0
