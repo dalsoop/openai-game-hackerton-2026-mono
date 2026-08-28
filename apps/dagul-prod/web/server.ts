@@ -1,5 +1,6 @@
 import "./alias-register.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import type { RoomAvailable } from "@colyseus/sdk";
 import { createReadStream, statSync } from "fs";
 import path from "path";
 import next from "next";
@@ -17,6 +18,7 @@ import { godotCacheHeaders, shouldServeEncoding } from "./lib/godot/serve-encodi
 import { healthBody } from "./lib/hub/health.js";
 import { ccuHttpBody } from "./lib/hub/ccu-http.js";
 import { ccuMetricsText } from "./lib/hub/ccu-metrics.js";
+import { playMetricsText } from "./lib/hub/play-metrics.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -170,6 +172,19 @@ function localCcu(): ReturnType<typeof ccuHttpBody> {
   return ccuHttpBody(Number(matchMaker.stats.local.ccu));
 }
 
+// /metrics 는 동기 응답이라 방 스냅샷을 TTL 캐시로 유지한다. 갱신 실패 시 마지막 값을 쓴다.
+const PLAY_SNAPSHOT_TTL_MS = 5_000;
+let playRoomsCache: Array<RoomAvailable & { locked?: boolean }> = [];
+
+function refreshPlaySnapshot(): void {
+  void withDeadline(matchMaker.query({ name: ROOM_NAME }), HUB_CONFIG.roomsFetchMs)
+    .then((listed) => {playRoomsCache = listed;})
+    .catch(() => {/* 캐시 유지 */});
+}
+
+setInterval(refreshPlaySnapshot, PLAY_SNAPSHOT_TTL_MS);
+void refreshPlaySnapshot();
+
 function serveCcuJson(res: ServerResponse, write: (body: ReturnType<typeof ccuHttpBody>) => void): void {
   const fallback = localCcu();
   void withDeadline(matchMaker.stats.getGlobalCCU(), HUB_CONFIG.roomsFetchMs)
@@ -190,7 +205,7 @@ function serveMeta(pathname: string, res: ServerResponse): boolean {
     return true;
   }
   if (pathname === "/metrics") {
-    metricsOk(res, ccuMetricsText(localCcu()));
+    metricsOk(res, ccuMetricsText(localCcu()) + playMetricsText(playRoomsCache));
     return true;
   }
   if (pathname === "/ccu" || pathname === "/api/ccu") {
