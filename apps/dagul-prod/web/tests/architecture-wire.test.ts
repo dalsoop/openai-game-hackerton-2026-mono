@@ -174,7 +174,8 @@ describe("계약: 낡은 Godot 압축본은 발행되지 않는다", () => {
   });
 
   it("무버전 Godot 응답은 엣지에 남기지 않는다", () => {
-    const src = sourceOf(join(ROOT, "server.ts"));
+    // godotCacheHeaders 호출부는 server.ts 에서 lib/godot/asset-server.ts 로 옮겨졌다.
+    const src = sourceOf(join(ROOT, "lib/godot/asset-server.ts"));
     expect(src).toContain("godotCacheHeaders");
     expect(sourceOf(join(ROOT, "lib/godot/serve-encoding.ts"))).toContain("cdn-cache-control");
     expect(sourceOf(join(ROOT, "lib/godot/serve-encoding.ts"))).toContain("no-store");

@@ -409,14 +409,18 @@ describe("계약: 허브 소켓 주인은 React", () => {
   });
 
   it("페이지 루트 WASM 은 로케일 상대도 붙이고, 팩 경로(/godot)로는 두지 않는다", () => {
+    // Godot 자산 서빙 로직은 server.ts 에서 lib/godot/asset-server.ts 로 옮겨졌다
+    // (server.ts 가 배선 코드와 도메인 로직을 겸하던 것을 분리) — 두 파일을 합쳐서 검사한다.
     const server = sourceOf(join(ROOT, "server.ts"));
-    expect(server).not.toContain("isExtLibPath");
+    const assetServer = sourceOf(join(ROOT, "lib/godot/asset-server.ts"));
+    const combined = server + assetServer;
+    expect(combined).not.toContain("isExtLibPath");
     expect(server).toContain("servePageRelativeGodotAssets");
-    expect(server).toContain("shouldServeEncoding");
-    expect(server).toContain("godotWorkletAssetPath(pathname)");
-    expect(server).not.toMatch(/servePack && godotWorkletAssetPath/);
-    expect(server).not.toContain("libcolyseus");
-    expect(server).not.toContain("servePageRootWasm");
+    expect(assetServer).toContain("shouldServeEncoding");
+    expect(assetServer).toContain("godotWorkletAssetPath(pathname)");
+    expect(combined).not.toMatch(/servePack && godotWorkletAssetPath/);
+    expect(combined).not.toContain("libcolyseus");
+    expect(combined).not.toContain("servePageRootWasm");
   });
 
   it("브릿지 부착은 onMessage 를 쌓지 않는다", () => {
