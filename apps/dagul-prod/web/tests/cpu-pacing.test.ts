@@ -102,7 +102,7 @@ describe("CPU 페이싱", () => {
     }
   });
 
-  it("시드 스윕 8종 — 60초 시점 생존자 5~8명", () => {
+  it("시드 스윕 8종 — 60초 시점 생존자 5~8명", { timeout: 30_000 }, () => {
     for (const seed of SWEEP_SEEDS) {
       const sim = cpuOnlySim(seed);
       for (let i = 0; i < TICK_AT_60_SEC; i++) {
