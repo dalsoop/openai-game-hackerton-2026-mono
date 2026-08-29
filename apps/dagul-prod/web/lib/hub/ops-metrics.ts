@@ -3,6 +3,8 @@
  * ccu-metrics(접속)·play-metrics(방) 와 같은 관례로 /metrics 에 합류한다.
  */
 
+import { recordPlayerRedis, refreshDauCache, getCachedDau, getCachedD1, getCachedD7 } from "./dau-redis.js";
+
 function labelSlot(slot: string): string {
   return slot.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
@@ -107,6 +109,7 @@ export function recordPlayerSession(playerId: string): void {
     pruneOldDays(key);
   }
   set.add(playerId);
+  void recordPlayerRedis(playerId);
 }
 
 function pruneOldDays(keepKey: string): void {
@@ -118,8 +121,13 @@ function pruneOldDays(keepKey: string): void {
 // ── Prometheus text ──
 
 export function opsMetricsText(slot = process.env.SLOT_FOLDER ?? ""): string {
+  void refreshDauCache();
   const s = labelSlot(slot || "unknown");
-  const dau = dailySessions.get(todayKey())?.size ?? 0;
+  const redisDau = getCachedDau();
+  const inMemDau = dailySessions.get(todayKey())?.size ?? 0;
+  const dau = redisDau > 0 ? redisDau : inMemDau;
+  const d1 = getCachedD1();
+  const d7 = getCachedD7();
 
   return [
     "# HELP dagul_ws_connections_total WebSocket connections since start.",
@@ -205,6 +213,18 @@ export function opsMetricsText(slot = process.env.SLOT_FOLDER ?? ""): string {
     "# HELP dagul_asset_load_seconds_count Number of asset load reports.",
     "# TYPE dagul_asset_load_seconds_count counter",
     `dagul_asset_load_seconds_count{slot="${s}"} ${assetLoadCount}`,
+
+    ...(d1 !== null ? [
+      "# HELP dagul_retention_d1 Day-1 retention ratio (today DAU / yesterday DAU).",
+      "# TYPE dagul_retention_d1 gauge",
+      `dagul_retention_d1{slot="${s}"} ${d1.toFixed(4)}`,
+    ] : []),
+
+    ...(d7 !== null ? [
+      "# HELP dagul_retention_d7 Day-7 retention ratio (today DAU / 7-days-ago DAU).",
+      "# TYPE dagul_retention_d7 gauge",
+      `dagul_retention_d7{slot="${s}"} ${d7.toFixed(4)}`,
+    ] : []),
 
     "",
   ].join("\n");
