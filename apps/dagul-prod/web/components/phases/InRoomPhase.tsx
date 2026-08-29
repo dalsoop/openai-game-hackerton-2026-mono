@@ -5,6 +5,7 @@ import type { JSX } from "react";
 import Room from "@/components/Room";
 import { overlayOwnPackPct } from "@/lib/domain/waiting-room-pack";
 import type { Seat } from "@/lib/domain/roster";
+import type { LoaderState } from "@/hooks/useGodotLoader";
 
 interface InRoomPhaseProps {
   players: Seat[];
@@ -16,6 +17,8 @@ interface InRoomPhaseProps {
   idleLeftSec: number;
   ownPackPct: number;
   canStart: boolean;
+  loaderState: LoaderState;
+  loaderPct: number;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onSetGame: (game: string) => void;
@@ -44,6 +47,8 @@ export function InRoomPhase({
   idleLeftSec,
   ownPackPct,
   canStart,
+  loaderState,
+  loaderPct,
   onStartGame,
   onLeaveRoom,
   onSetGame,
@@ -84,6 +89,8 @@ export function InRoomPhase({
       password={password}
       matchWait={matchWait}
       canStart={canStart}
+      loaderState={loaderState}
+      loaderPct={loaderPct}
       connClass={connClass}
       connText={connText}
       rttMs={rttMs}

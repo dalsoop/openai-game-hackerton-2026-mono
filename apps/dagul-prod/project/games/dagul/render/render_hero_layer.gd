@@ -20,7 +20,7 @@ func muzzle_src_rect(row: int, col: int) -> Rect2:
 	return Rect2(Vector2(float(posmod(col, 4)), float(posmod(row, 3))) * cell, cell)
 
 func animal_src_rect(animal: int) -> Rect2:
-	var frame := int(r.ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
+	var frame := int(r.ANIMAL_ATLAS_FRAME[posmod(animal, CharacterCatalog.bind_count("animal"))])
 	var cell := Vector2(float(r.animal_atlas.get_width()) / float(r.ANIMAL_COLS), float(r.animal_atlas.get_height()) / float(r.ANIMAL_ROWS))
 	var col: int = frame % int(r.ANIMAL_COLS)
 	var row := int(frame / r.ANIMAL_COLS)
@@ -29,7 +29,7 @@ func animal_src_rect(animal: int) -> Rect2:
 func animal_down_src_rect(animal: int) -> Rect2:
 	if r.animal_down_atlas == null:
 		return Rect2()
-	var frame := int(r.ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
+	var frame := int(r.ANIMAL_ATLAS_FRAME[posmod(animal, CharacterCatalog.bind_count("animal"))])
 	var cell := Vector2(float(r.animal_down_atlas.get_width()) / float(r.ANIMAL_COLS), float(r.animal_down_atlas.get_height()) / float(r.ANIMAL_ROWS))
 	var col: int = frame % int(r.ANIMAL_COLS)
 	var row := int(frame / r.ANIMAL_COLS)
@@ -38,10 +38,10 @@ func animal_down_src_rect(animal: int) -> Rect2:
 func zodiac_texture(animal: int) -> Texture2D:
 	if r.zodiac_textures.is_empty():
 		return null
-	return r.zodiac_textures[posmod(animal, 12)]
+	return r.zodiac_textures[posmod(animal, CharacterCatalog.bind_count("animal"))]
 
 func zodiac_name(animal: int) -> String:
-	return r.ZODIAC_NAMES[posmod(animal, 12)]
+	return HudStrings.zodiac(animal)
 
 func draw_blob_shadow(ground_pos: Vector2, hop_lift: float, opacity: float) -> void:
 	var height_t: float = clampf(hop_lift / 19.0, 0.0, 1.0)

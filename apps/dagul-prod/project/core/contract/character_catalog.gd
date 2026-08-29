@@ -16,6 +16,21 @@ static var _bind_key_ready := false
 static var _id_for_bind_cache := {}
 static var _normalize_cache := {}
 static var _bind_int_cache := {}
+static var _bind_count_cache := {}
+
+
+## posmod() 나눗셈에 안전하게 쓸 수 있는, key 로 바인딩된 항목 개수. JSON 이 비어 있어도 0으로 나누지 않는다.
+static func bind_count(key: String) -> int:
+	if _bind_count_cache.has(key):
+		return int(_bind_count_cache[key])
+	var n := 0
+	for item in all():
+		var binds: Dictionary = item.get("binds", {})
+		if binds.has(key):
+			n += 1
+	var result := maxi(1, n)
+	_bind_count_cache[key] = result
+	return result
 
 static func normalize(raw: String) -> String:
 	var want := raw.strip_edges()

@@ -27,6 +27,8 @@ jobs:
           fetch-depth: 0
       - name: Ship contracts
         run: python3 deploy/scripts/test_ship_contracts.py
+      - name: Chart scale contracts
+        run: python3 deploy/scripts/test_hub_scale.py
       - id: list
         env:
           EVENT_NAME: ${{ github.event_name }}

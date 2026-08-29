@@ -447,7 +447,7 @@ func _draw_countdown_steps(count_value: int, accent: Color) -> void:
 func animal_src_rect(animal: int) -> Rect2:
 	if h.animal_texture == null:
 		return Rect2()
-	var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, 12)])
+	var frame := int(ANIMAL_ATLAS_FRAME[posmod(animal, CharacterCatalog.bind_count("animal"))])
 	var cell := Vector2(float(h.animal_texture.get_width()) / 4.0, float(h.animal_texture.get_height()) / 3.0)
 	return Rect2(Vector2(frame % 4, int(frame / 4)) * cell, cell)
 

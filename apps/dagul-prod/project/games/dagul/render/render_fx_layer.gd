@@ -40,7 +40,7 @@ func ultimate_src_rect(texture: Texture2D, frame: int, row: int = 0) -> Rect2:
 	return Rect2(Vector2(float(clampi(frame, 0, 3)), float(clampi(row, 0, 1))) * cell, cell)
 
 func draw_ultimate_frame(animal: int, pos: Vector2, size: Vector2, frame: int, row: int = 0, rotation: float = 0.0, alpha: float = 1.0) -> bool:
-	var texture: Texture2D = r.ultimate_fx_atlases.get(posmod(animal, 12), null)
+	var texture: Texture2D = r.ultimate_fx_atlases.get(posmod(animal, CharacterCatalog.bind_count("animal")), null)
 	if texture == null:
 		return false
 	r.draw_set_transform(pos, rotation, Vector2.ONE)

@@ -19,6 +19,7 @@ import {
   PlayingPhase,
 } from "@/components/phases";
 import { asGameId } from "@/lib/games/catalog";
+import { clampPackPct } from "@/lib/domain/roster";
 import { CONNECTION_CLASS, type HubStatus } from "@/types";
 import { useCcuStatus } from "@/hooks/useCcuStatus";
 
@@ -193,6 +194,8 @@ export default function Home(): JSX.Element {
           isHost={hub.isHost}
           ownPackPct={ownPackPct}
           canStart={loader.state === "ready"}
+          loaderState={loader.state}
+          loaderPct={clampPackPct(loader.progress * 100)}
           onStartGame={start}
           onLeaveRoom={leaveToLobby}
           onKick={hub.kickSeat}

@@ -4,12 +4,14 @@
 |---|---|---|---|---|
 | **단위** | vitest | `tests/*.test.ts` (`npm test`) | 없음 (fetch·localStorage는 주입/스텁) | 로컬 `npm run verify` + CI `web-lint` + ship `lint-web.py` |
 | **계약** | node | `scripts/check-contract.mjs` | 없음 (Godot 산출물 있으면 해시 검사) | `npm run verify` + CI `web-lint` |
-| **통합(스모크)** | node + @colyseus/sdk | `npm run smoke` · `smoke:handoff` · `smoke:resume` | **서버 기동** (`npm start`) | 로컬 + helm 후 라이브 프로브 |
+| **통합(스모크)** | node + @colyseus/sdk | `npm run smoke` · `smoke:handoff` · `smoke:resume` · `smoke:preload` | **서버 기동** (`npm start`) | 로컬 + helm 후 라이브 프로브 |
 | **E2E** | playwright-core 헤드리스 | `npm run e2e` | 서버 + 로컬 Chrome 경로 | 로컬 (CI는 비용상 제외) |
 
 GD(Godot) 쪽: `npm run test:gd` → 루트 `scripts/gd_test.py` (헤드리스 러너 `project/tests/`), CI `gd-lint`.
 
 대기실 시작 카운트다운만: `npm run test:lobby-start`.
+
+`npm run e2e`에 안 묶인 수동 진단용 E2E 스크립트도 있다: `node scripts/e2e-null-probe.mjs`(null 계열 크래시 진단, 기본 대상은 dagul-prod 라이브, `E2E_URL`로 슬롯 변경), `node scripts/e2e-share-session.mjs`(공유 링크 입장 검증, 로컬 `:3100` 서버 필요).
 
 ## 단위 테스트 작성 규칙
 

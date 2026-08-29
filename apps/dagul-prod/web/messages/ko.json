@@ -174,7 +174,6 @@
     "waitingForHost": "호스트가 시작할 때까지 기다리세요",
     "open": "방 열기",
     "close": "방 닫기",
-    "downloading": "게임 받는 중",
     "packReady": "받기 완료",
     "packNotStarted": "아직 안 받음",
     "packProgress": "{pct}%",

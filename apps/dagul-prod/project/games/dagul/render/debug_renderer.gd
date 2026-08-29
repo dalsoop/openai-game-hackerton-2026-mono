@@ -138,7 +138,7 @@ func _ready() -> void:
     add_child(_bg)
 
 func _load_world_textures() -> void:
-    for index in range(12):
+    for index in range(CharacterCatalog.bind_count("animal")):
         zodiac_textures.append(_load_tex("res://games/dagul/assets/sprites/zodiac_%02d.png" % (index + 1)))
     for grass_index in range(1, 9):
         var grass_texture := _load_tex("res://games/dagul/assets/world/Tex_BG_Tile_Grass_%d.png" % grass_index)

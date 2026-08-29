@@ -115,14 +115,18 @@ describe("미들웨어는 로케일 접두사 파일을 가로채지 않는다",
 
 describe("허브·정적 서버가 같은 매퍼를 쓴다", () => {
   it("servePackAssets 와 startStatic 둘 다 servePageRelativeGodotAssets 를 부른다", () => {
+    // Godot 자산 서빙 로직은 server.ts 에서 lib/godot/asset-server.ts 로 옮겨졌다
+    // (server.ts 가 배선 코드와 도메인 로직을 겸하던 것을 분리) — 옮겨간 쪽에서 검사한다.
     const src = sourceOf("server.ts");
-    const helper = sliceFn(src, "function servePageRelativeGodotAssets", "function servePackAssets");
+    const assetServerSrc = sourceOf("lib/godot/asset-server.ts");
+    const helper = sliceFn(assetServerSrc, "export function servePageRelativeGodotAssets", "export function servePackAssets");
     expect(helper).toContain("godotWorkletAssetPath");
     expect(helper).not.toContain("servePageRootWasm");
+    expect(assetServerSrc).not.toContain("libcolyseus");
     expect(src).not.toContain("libcolyseus");
-    const pack = sliceFn(src, "function servePackAssets", "type RequestHandle");
+    const pack = assetServerSrc.slice(assetServerSrc.indexOf("export function servePackAssets"));
     expect(pack).toContain("servePageRelativeGodotAssets");
-    expect(pack).not.toContain("godotWorkletAssetPath");
+    expect(pack.indexOf("godotWorkletAssetPath")).toBe(-1);
     const stat = sliceFn(src, "function startStatic", "function startHub");
     expect(stat).toContain("servePageRelativeGodotAssets");
     expect(stat).not.toContain("godotWorkletAssetPath");

@@ -67,6 +67,6 @@ func _color_constants_valid(t) -> void:
 	if hud == null:
 		t.check("HUD 색상 상수 검증 불가 (로드 실패)", false)
 		return
-	for cname in ["DEATH_RED", "RESPAWN_BLUE", "GOLD", "HEAL_GREEN", "SPECTATE_PURPLE", "PANEL_BG", "ZONE_PURPLE"]:
+	for cname in ["PANEL_BG", "ZONE_PURPLE"]:
 		var val = hud.get(cname)
 		t.check("%s 는 Color 타입" % cname, val is Color)

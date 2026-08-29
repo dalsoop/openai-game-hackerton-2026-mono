@@ -10,6 +10,8 @@ import { MaterialIcon } from "@/components/MaterialIcon";
 import { useTranslations } from "next-intl";
 import { playOkButton } from "@/lib/ui-sfx";
 import { lobbyLeaveLocked } from "@/lib/domain/waiting-room-start";
+import { PrefetchStatus } from "@/components/PrefetchStatus";
+import type { LoaderState } from "@/hooks/useGodotLoader";
 
 interface Props {
   players: Seat[];
@@ -31,6 +33,8 @@ interface Props {
   password: string;
   matchWait: boolean;
   canStart: boolean;
+  loaderState: LoaderState;
+  loaderPct: number;
   connClass: string;
   connText: string;
   rttMs: number;
@@ -41,6 +45,7 @@ interface Props {
 export default function Room({
   players, you, isHost, gameId, mode, idleLeftSec,
   onStart, onLeave, onSetGame, onSetCharacter, onKick, onSetPassword, onSetLock, canStart,
+  loaderState, loaderPct,
   roomId, password, matchWait, rttMs, startInSec,
 }: Props): JSX.Element {
   const t = useTranslations("room");
@@ -119,7 +124,7 @@ export default function Room({
               {t("startButton")}
             </button>
           ) : (
-            <div className="host-wait">{t("downloading")}</div>
+            <PrefetchStatus state={loaderState} pct={loaderPct} />
           )
         ) : counting ? (
           <div className="host-wait">{t("startCountdown", { sec: startInSec })}</div>

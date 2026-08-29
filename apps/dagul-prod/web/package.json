@@ -12,6 +12,7 @@
     "schema:check": "node scripts/generate-lobby-schema.mjs --check",
     "check:contract": "node scripts/check-contract.mjs",
     "smoke": "node scripts/smoke-hub.mjs",
+    "smoke:preload": "node scripts/smoke-preload.mjs",
     "godot:build": "bash ../../../deploy/scripts/build-godot.sh",
     "godot:publish": "node scripts/publish-godot-assets.mjs",
     "godot:link": "node scripts/publish-godot-assets.mjs --link",
