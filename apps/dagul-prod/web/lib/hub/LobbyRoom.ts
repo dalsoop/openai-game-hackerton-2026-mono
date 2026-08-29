@@ -29,7 +29,7 @@ import { assertCanAdmitCcu } from "./ccu-admit.js";
 import {
   recordWsConnect, recordWsDisconnect, recordGameStarted,
   recordSessionDuration, recordTickDuration, recordTickOverrun,
-  recordMatchWait, recordPlayerSession,
+  recordMatchWait, recordPlayerSession, setWsQueueDepth,
 } from "./ops-metrics.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
@@ -87,6 +87,11 @@ export class LobbyRoom extends Room implements LobbyHandle {
       const elapsed = performance.now() - t0;
       recordTickDuration(elapsed);
       if (elapsed > 16.7) { recordTickOverrun(); }
+      let buf = 0;
+      for (const c of this.clients) {
+        buf += (c as unknown as { ref?: { bufferedAmount?: number } }).ref?.bufferedAmount ?? 0;
+      }
+      setWsQueueDepth(buf);
     }, 60);
   }
 
