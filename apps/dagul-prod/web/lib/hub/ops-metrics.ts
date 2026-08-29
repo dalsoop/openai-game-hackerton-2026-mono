@@ -89,6 +89,15 @@ export function recordRoundDuration(ms: number): void {
 
 export function setWsQueueDepth(depth: number): void { wsQueueDepth = depth; }
 
+let assetLoadSum = 0;
+let assetLoadCount = 0;
+
+export function recordAssetLoadTime(ms: number): void {
+  if (ms <= 0 || ms > 300_000) { return; }
+  assetLoadSum += ms / 1000;
+  assetLoadCount++;
+}
+
 export function recordPlayerSession(playerId: string): void {
   const key = todayKey();
   let set = dailySessions.get(key);
@@ -189,6 +198,14 @@ export function opsMetricsText(slot = process.env.SLOT_FOLDER ?? ""): string {
     "# TYPE dagul_dau gauge",
     `dagul_dau{slot="${s}"} ${dau}`,
 
+    "# HELP dagul_asset_load_seconds_sum Total client-reported asset load time (seconds).",
+    "# TYPE dagul_asset_load_seconds_sum counter",
+    `dagul_asset_load_seconds_sum{slot="${s}"} ${assetLoadSum.toFixed(3)}`,
+
+    "# HELP dagul_asset_load_seconds_count Number of asset load reports.",
+    "# TYPE dagul_asset_load_seconds_count counter",
+    `dagul_asset_load_seconds_count{slot="${s}"} ${assetLoadCount}`,
+
     "",
   ].join("\n");
 }
@@ -215,5 +232,7 @@ export function resetOpsMetrics(): void {
   roundDurSum = 0;
   roundDurCount = 0;
   wsQueueDepth = 0;
+  assetLoadSum = 0;
+  assetLoadCount = 0;
   dailySessions.clear();
 }
