@@ -659,6 +659,7 @@ def helm_upgrade() -> None:
         assert_live_matches_plant()
         assert_smoke_hubs()
         purge_cloudflare()
+        annotate_grafana_deploy()
         print("helm ok")
     except SystemExit:
         dump_cluster()
@@ -675,6 +676,40 @@ def purge_cloudflare() -> None:
         # dagul-prod 는 DNS-only 라 HTTP 가 CF 엣지를 거치지 않는다.
         # 퍼지 자격·401이 배포를 막지 않는다. 신선함은 origin no-store 가 담당한다.
         print("cloudflare 퍼지 실패 — origin no-store 로 계속", file=sys.stderr)
+
+
+def annotate_grafana_deploy() -> None:
+    token = os.environ.get("GRAFANA_API_TOKEN") or os.environ.get("GRAFANA_TOKEN")
+    if not token:
+        print("Grafana 토큰 없음 — annotation 생략")
+        return
+    sha = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True, text=True, check=False,
+    ).stdout.strip() or "unknown"
+    folders = shipped_folders() or ["dagul-prod"]
+    for folder in folders:
+        payload = {
+            "dashboardUID": "dagul-game",
+            "text": f"배포: {sha} ({folder})",
+            "tags": ["deploy", folder],
+        }
+        raw = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            "https://grafana.50.internal.kr/api/annotations",
+            data=raw,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        try:
+            ctx = ssl.create_default_context()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as res:
+                print(f"grafana annotation ok ({folder}, {res.status})")
+        except Exception as exc:
+            print(f"grafana annotation 실패 — {exc}", file=sys.stderr)
 
 
 def main() -> int:
