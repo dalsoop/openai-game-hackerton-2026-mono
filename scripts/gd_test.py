@@ -31,6 +31,13 @@ def load_godot_bin():
 def main() -> int:
     godot = load_godot_bin()
     print(f"godot: {godot}")
+    # class_name(WebContract 등) 전역 클래스는 .godot 임포트 캐시가 있어야 --script 파스가 산다
+    # (build-godot.sh [1/4]와 동일한 워밍업). .godot 캐시 미스 상태(예: CI 캐시 키가 바뀐 첫 실행)에서
+    # 이 단계 없이 곧장 --script 를 돌리면 전역 클래스 해석이 광범위하게 실패한다.
+    subprocess.run(
+        [str(godot), "--headless", "--path", str(PROJECT), "--import", "--quit"],
+        capture_output=True, text=True, timeout=180,
+    )
     cmd = [str(godot), "--headless", "--path", str(PROJECT), "--script", "res://tests/run_tests.gd"]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
