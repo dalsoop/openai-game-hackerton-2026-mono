@@ -25,6 +25,8 @@ let sessionDurCount = 0;
 let tickDurSum = 0;
 let tickDurCount = 0;
 let tickDurMax = 0;
+let tickDurMaxResetAt = Date.now();
+const TICK_MAX_WINDOW_MS = 5 * 60 * 1000;
 let matchWaitSum = 0;
 let matchWaitCount = 0;
 let roundDurSum = 0;
@@ -64,7 +66,13 @@ export function recordSessionDuration(ms: number): void {
 export function recordTickDuration(ms: number): void {
   tickDurSum += ms;
   tickDurCount++;
-  if (ms > tickDurMax) { tickDurMax = ms; }
+  const now = Date.now();
+  if (now - tickDurMaxResetAt > TICK_MAX_WINDOW_MS) {
+    tickDurMax = ms;
+    tickDurMaxResetAt = now;
+  } else if (ms > tickDurMax) {
+    tickDurMax = ms;
+  }
 }
 
 export function recordMatchWait(ms: number): void {
@@ -201,6 +209,7 @@ export function resetOpsMetrics(): void {
   tickDurSum = 0;
   tickDurCount = 0;
   tickDurMax = 0;
+  tickDurMaxResetAt = Date.now();
   matchWaitSum = 0;
   matchWaitCount = 0;
   roundDurSum = 0;
