@@ -18,7 +18,7 @@ import {
 function emptyBag(): LobbyBag {
   return {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null,
-    authority: null, hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0, startTimer: null,
+    authority: null, hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0, startTimer: null, matchStartedAtMs: 0,
   };
 }
 

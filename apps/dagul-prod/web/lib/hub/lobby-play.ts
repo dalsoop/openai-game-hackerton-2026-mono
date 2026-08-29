@@ -4,6 +4,7 @@ import { CLOSE_CODE, MSG } from "../contract/wire.js";
 import { loadWaitTimedOut, shouldHoldCountdown } from "../domain/match-load-ready.js";
 import { matchJustEnded } from "./lobby-relay.js";
 import { resetToLobby, type LobbyBag, type LobbyHandle } from "./lobby-waiting.js";
+import { recordRoundDuration } from "./ops-metrics.js";
 import {
   acceptPlayInput,
   packAuthoritySnap,
@@ -83,6 +84,10 @@ export function commitTickSnap(
   bag.lastSnap = snap;
   sendTickSnap(room, snap);
   if (matchJustEnded(snap, bag.prevSnap)) {
+    if (bag.matchStartedAtMs > 0) {
+      recordRoundDuration(Date.now() - bag.matchStartedAtMs);
+      bag.matchStartedAtMs = 0;
+    }
     scheduleLobbyReset(room, bag);
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { Room, type Client } from "colyseus";
 import { HUB_CONFIG, KO } from "./config.js";
 import { CLOSE_CODE, MSG } from "../contract/wire.js";
@@ -25,6 +26,11 @@ import {
 } from "./lobby-play.js";
 import { acceptPlayInput } from "./match-authority.js";
 import { assertCanAdmitCcu } from "./ccu-admit.js";
+import {
+  recordWsConnect, recordWsDisconnect, recordGameStarted,
+  recordSessionDuration, recordTickDuration, recordTickOverrun,
+  recordMatchWait, recordPlayerSession,
+} from "./ops-metrics.js";
 
 export { PlayerSchema, LobbyState, HeroSchema, BulletSchema } from "./lobby-state.js";
 
@@ -32,10 +38,11 @@ export class LobbyRoom extends Room implements LobbyHandle {
   state = new LobbyState();
   private bag: LobbyBag = {
     lastSnap: null, prevSnap: null, gameTimer: null, idleTimer: null, authority: null,
-    hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0, startTimer: null,
+    hostLossTimer: null, shutdownTimer: null, loadWaitMs: 0, startTimer: null, matchStartedAtMs: 0,
   };
   /** sessionId → 좌석 이어받기 증명. 비공개 키라 state(schema)에 넣지 않는다. */
   private claims = new Map<string, SeatClaim>();
+  private sessionJoinedAt = new Map<string, number>();
   /** Godot 엔진 보조 세션 — 좌석을 먹지 않는다. */
   private engineSessions = new Set<string>();
   private engineClaims = new Map<string, SeatClaim>();
@@ -74,8 +81,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
       idle: ({ latest }) => idleHoldFrame(latest),
     });
     this.setFixedTimestep((ctx) => {
+      const t0 = performance.now();
       this.pullDefinedInputs();
       tickAuthority(this, this.bag, ctx.dtMs);
+      const elapsed = performance.now() - t0;
+      recordTickDuration(elapsed);
+      if (elapsed > 16.7) { recordTickOverrun(); }
     }, 60);
   }
 
@@ -97,9 +108,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
 
   messages = {
     [MSG.START]: (client: Client): void => {
-      // 대기실에서 5초를 센 뒤 commit. 해소(bootAuthority)는 0초 직전에 한다 —
-      // 아니면 Godot 이 허브 해소 전의 원본 "unknown" 값을 그대로 받아 실행한다.
       handleStart(this, this.bag, client, () => {
+        this.bag.matchStartedAtMs = Date.now();
+        recordGameStarted();
+        for (const p of this.state.players) {
+          recordMatchWait(Date.now() - (this.sessionJoinedAt.get(p.sessionId) ?? Date.now()));
+        }
         bootAuthority(this, this.bag);
         sendStartBodies(this, this.bag);
       });
@@ -162,6 +176,9 @@ export class LobbyRoom extends Room implements LobbyHandle {
     p.name = parsePlayerName(options.name, HUB_CONFIG.maxNameLength, HUB_CONFIG.defaultName);
     this.state.players.push(p);
     if (claim) {this.claims.set(client.sessionId, claim);}
+    this.sessionJoinedAt.set(client.sessionId, Date.now());
+    recordWsConnect();
+    recordPlayerSession(p.name);
     this.syncHost();
     if (this.state.phase === "playing") {
       // 유예 만료로 비운 좌석(parked)만 다시 붙인다. 빈 CPU 칸에 늦게 앉은 사람은 대기실에서 기다린다.
@@ -236,6 +253,12 @@ export class LobbyRoom extends Room implements LobbyHandle {
   onLeave(client: Client, _code?: number): void {
     this.snapOptOut.delete(client.sessionId);
     if (this.dropEngine(client.sessionId)) {return;}
+    const joinedAt = this.sessionJoinedAt.get(client.sessionId);
+    if (joinedAt) {
+      recordSessionDuration(Date.now() - joinedAt);
+      this.sessionJoinedAt.delete(client.sessionId);
+    }
+    recordWsDisconnect();
     this.removeSeat(client.sessionId);
   }
 

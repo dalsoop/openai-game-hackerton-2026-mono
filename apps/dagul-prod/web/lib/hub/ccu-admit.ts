@@ -5,6 +5,7 @@
 import { matchMaker } from "colyseus";
 import { KO } from "./config.js";
 import { admissionCcu, congestionOf } from "./ccu-plan.js";
+import { recordMatchFail } from "./ops-metrics.js";
 
 export type CcuReader = () => Promise<number> | number;
 
@@ -22,6 +23,7 @@ export async function assertCanAdmitCcu(
 ): Promise<void> {
   const snap = congestionOf(await readCcu(), cap);
   if (!snap.admit) {
+    recordMatchFail();
     throw new Error(KO.SERVER_FULL);
   }
 }

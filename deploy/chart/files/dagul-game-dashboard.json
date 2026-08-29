@@ -1,6 +1,6 @@
 {
   "uid": "dagul-game",
-  "title": "다굴즈 서버 정원",
+  "title": "다굴즈 서버 운영",
   "tags": [
     "dagul",
     "ccu",
@@ -351,6 +351,217 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "서비스 — 플레이어 경험",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 101,
+      "type": "stat",
+      "title": "오늘 DAU",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 31 },
+      "targets": [
+        { "refId": "A", "expr": "dagul_dau{slot=\"$slot\"}" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "게임 시작",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 31 },
+      "targets": [
+        { "refId": "A", "expr": "increase(dagul_games_started_total{slot=\"$slot\"}[1h])" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "게임 완료",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 31 },
+      "targets": [
+        { "refId": "A", "expr": "increase(dagul_games_finished_total{slot=\"$slot\"}[1h])" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "게임 완료율",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 31 },
+      "targets": [
+        { "refId": "A", "expr": "increase(dagul_games_finished_total{slot=\"$slot\"}[1h]) / clamp_min(increase(dagul_games_started_total{slot=\"$slot\"}[1h]), 1)" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 0, "min": 0, "max": 1 }, "overrides": [] }
+    },
+    {
+      "id": 105,
+      "type": "timeseries",
+      "title": "평균 세션 길이",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_session_duration_seconds_sum{slot=\"$slot\"}[5m]) / clamp_min(rate(dagul_session_duration_seconds_count{slot=\"$slot\"}[5m]), 0.001)", "legendFormat": "평균 세션 (초)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 106,
+      "type": "timeseries",
+      "title": "평균 매치 대기 시간",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_match_wait_seconds_sum{slot=\"$slot\"}[5m]) / clamp_min(rate(dagul_match_wait_seconds_count{slot=\"$slot\"}[5m]), 0.001)", "legendFormat": "평균 대기 (초)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 107,
+      "type": "timeseries",
+      "title": "WS 접속·이탈·에러",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_ws_connections_total{slot=\"$slot\"}[5m]) * 60", "legendFormat": "접속/분" },
+        { "refId": "B", "expr": "rate(dagul_ws_disconnects_total{slot=\"$slot\"}[5m]) * 60", "legendFormat": "이탈/분" },
+        { "refId": "C", "expr": "rate(dagul_ws_errors_total{slot=\"$slot\"}[5m]) * 60", "legendFormat": "에러/분" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 108,
+      "type": "timeseries",
+      "title": "킥·매치 실패",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
+      "targets": [
+        { "refId": "A", "expr": "increase(dagul_player_kicks_total{slot=\"$slot\"}[1h])", "legendFormat": "킥" },
+        { "refId": "B", "expr": "increase(dagul_match_failures_total{slot=\"$slot\"}[1h])", "legendFormat": "입장 실패" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "운영 — 서버 성능",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 201,
+      "type": "timeseries",
+      "title": "틱 처리 시간 (평균·최대)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_tick_duration_ms_sum{slot=\"$slot\"}[1m]) / clamp_min(rate(dagul_tick_duration_ms_count{slot=\"$slot\"}[1m]), 0.001)", "legendFormat": "평균 (ms)" },
+        { "refId": "B", "expr": "dagul_tick_duration_ms_max{slot=\"$slot\"}", "legendFormat": "최대 (ms)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 10 },
+            { "color": "red", "value": 16.7 }
+          ]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 202,
+      "type": "timeseries",
+      "title": "틱 초과 횟수",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_tick_overruns_total{slot=\"$slot\"}[5m]) * 60", "legendFormat": "초과/분" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 203,
+      "type": "timeseries",
+      "title": "WS 송신 큐 깊이",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 60 },
+      "targets": [
+        { "refId": "A", "expr": "dagul_ws_send_queue_length{slot=\"$slot\"}", "legendFormat": "큐 깊이" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 50 },
+            { "color": "red", "value": 200 }
+          ]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 204,
+      "type": "timeseries",
+      "title": "Pod 재시작",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 60 },
+      "targets": [
+        { "refId": "A", "expr": "increase(kube_pod_container_status_restarts_total{namespace=~\"hackertone.*\", container=\"hub\"}[1h])", "legendFormat": "{{pod}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 50 } }, "overrides": [] }
+    },
+    {
+      "id": 205,
+      "type": "timeseries",
+      "title": "TLS 인증서 만료까지 남은 시간",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 68 },
+      "targets": [
+        { "refId": "A", "expr": "(certmanager_certificate_expiration_timestamp_seconds{namespace=~\"hackertone.*\"} - time()) / 86400", "legendFormat": "{{name}} (일)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 7 },
+            { "color": "green", "value": 14 }
+          ]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 206,
+      "type": "timeseries",
+      "title": "평균 라운드 시간",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 68 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_round_duration_seconds_sum{slot=\"$slot\"}[5m]) / clamp_min(rate(dagul_round_duration_seconds_count{slot=\"$slot\"}[5m]), 0.001)", "legendFormat": "평균 라운드 (초)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
     }
   ]
 }

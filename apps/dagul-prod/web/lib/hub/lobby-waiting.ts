@@ -10,6 +10,7 @@ import { seatsPayloadOf } from "./lobby-seats.js";
 import { startBodies } from "./lobby-relay.js";
 import { idleUntilSecOf, nowUnixSec } from "./lobby-idle.js";
 import { clearMatchSchema, type MatchAuthority } from "./match-authority.js";
+import { recordGameFinished, recordPlayerKick } from "./ops-metrics.js";
 import { seatedSession } from "./match-engine.js";
 import { clearMatchState } from "./match-schema-write.js";
 import {
@@ -30,6 +31,7 @@ export type LobbyBag = {
   shutdownTimer: TimerHandle | null;
   loadWaitMs: number;
   startTimer: TimerHandle | null;
+  matchStartedAtMs: number;
 };
 
 export type LobbyHandle = {
@@ -138,6 +140,7 @@ export function handleKick(room: LobbyHandle, client: Client, data: Record<strin
   const victim = room.clients.find((c) => c.sessionId === target.sessionId);
   victim?.send(MSG.KICKED, { msg: KO.KICKED_MSG, reason: "kick" });
   victim?.leave(CLOSE_CODE.KICKED);
+  recordPlayerKick();
 }
 
 export function handleSetCharacter(room: LobbyHandle, client: Client, data: Record<string, unknown>): void {
@@ -191,6 +194,7 @@ export function cancelStartCountdown(room: LobbyHandle, bag: LobbyBag): void {
 }
 
 export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
+  if (room.state.phase === "playing") { recordGameFinished(); }
   if (bag.gameTimer) {bag.gameTimer.clear(); bag.gameTimer = null;}
   cancelHostLossReset(bag);
   clearShutdownDrain(bag);
@@ -199,6 +203,7 @@ export function resetToLobby(room: LobbyHandle, bag: LobbyBag): void {
   bag.prevSnap = null;
   bag.authority = null;
   bag.loadWaitMs = 0;
+  bag.matchStartedAtMs = 0;
   clearMatchSchema(room.state);
   clearMatchState(room.state.match);
   room.state.phase = "lobby";
