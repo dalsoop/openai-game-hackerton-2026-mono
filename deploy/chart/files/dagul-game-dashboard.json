@@ -456,10 +456,21 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
     },
     {
+      "id": 109,
+      "type": "timeseries",
+      "title": "평균 에셋 로딩 시간",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 51 },
+      "targets": [
+        { "refId": "A", "expr": "rate(dagul_asset_load_seconds_sum{slot=\"$slot\"}[5m]) / clamp_min(rate(dagul_asset_load_seconds_count{slot=\"$slot\"}[5m]), 0.001)", "legendFormat": "평균 로딩 (초)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] }
+    },
+    {
       "id": 200,
       "type": "row",
       "title": "운영 — 서버 성능",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 59 },
       "collapsed": false,
       "panels": []
     },

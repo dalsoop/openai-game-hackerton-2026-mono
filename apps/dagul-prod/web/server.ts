@@ -16,7 +16,7 @@ import { healthBody } from "./lib/hub/health.js";
 import { ccuHttpBody } from "./lib/hub/ccu-http.js";
 import { ccuMetricsText } from "./lib/hub/ccu-metrics.js";
 import { playMetricsText } from "./lib/hub/play-metrics.js";
-import { opsMetricsText } from "./lib/hub/ops-metrics.js";
+import { opsMetricsText, recordAssetLoadTime } from "./lib/hub/ops-metrics.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -49,6 +49,16 @@ function metricsOk(res: ServerResponse, body: string): void {
     "cache-control": "no-store",
   });
   res.end(body);
+}
+
+function collectPostBody(req: IncomingMessage, cb: (body: Record<string, unknown> | null) => void): void {
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk: Buffer) => { chunks.push(chunk); });
+  req.on("end", () => {
+    try { cb(JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>); }
+    catch { cb(null); }
+  });
+  req.on("error", () => { cb(null); });
 }
 
 function localCcu(): ReturnType<typeof ccuHttpBody> {
@@ -126,6 +136,14 @@ function hubFallback(
   setIsolationHeaders(res);
   const pathname = (req.url ?? "/").split("?")[0];
   if (serveMeta(pathname, res)) {return;}
+  if (pathname === "/api/load-time" && req.method === "POST") {
+    collectPostBody(req, (body) => {
+      const ms = Number(body?.ms);
+      if (Number.isFinite(ms)) { recordAssetLoadTime(ms); }
+      res.writeHead(204).end();
+    });
+    return;
+  }
   if (serveRoomsList(pathname, res)) {return;}
   if (servePackAssets(req, res, pathname)) {return;}
   void handle(req, res);
