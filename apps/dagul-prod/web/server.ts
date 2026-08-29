@@ -16,6 +16,7 @@ import { healthBody } from "./lib/hub/health.js";
 import { ccuHttpBody } from "./lib/hub/ccu-http.js";
 import { ccuMetricsText } from "./lib/hub/ccu-metrics.js";
 import { playMetricsText } from "./lib/hub/play-metrics.js";
+import { opsMetricsText } from "./lib/hub/ops-metrics.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -87,7 +88,7 @@ function serveMeta(pathname: string, res: ServerResponse): boolean {
     return true;
   }
   if (pathname === "/metrics") {
-    metricsOk(res, ccuMetricsText(localCcu()) + playMetricsText(playRoomsCache));
+    metricsOk(res, ccuMetricsText(localCcu()) + playMetricsText(playRoomsCache) + opsMetricsText());
     return true;
   }
   if (pathname === "/ccu" || pathname === "/api/ccu") {
