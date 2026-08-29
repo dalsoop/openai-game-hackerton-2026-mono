@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "hackertone-games.fullname" . }}-dagul-alerts
+  labels:
+    {{- include "hackertone-games.labels" . | nindent 4 }}
+    prometheus: kps
+    role: alert-rules
+spec:
+  groups:
+    - name: dagul-game
+      rules:
+        - alert: DagulTickOverrunHigh
+          expr: rate(dagul_tick_overruns_total[5m]) * 60 > 10
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "다굴즈 틱 초과 분당 {{ "{{ $value | humanize }}" }}회"
+            description: "틱 처리가 16.7ms 예산을 분당 10회 이상 초과하고 있습니다. 서버 과부하 가능성이 있습니다."
+
+        - alert: DagulWsErrorRate
+          expr: rate(dagul_ws_errors_total[5m]) * 60 > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "다굴즈 WS 에러 분당 {{ "{{ $value | humanize }}" }}회"
+            description: "WebSocket 에러가 분당 5회 이상 발생하고 있습니다."
+
+        - alert: DagulHighTickLatency
+          expr: |
+            rate(dagul_tick_duration_ms_sum[1m])
+            / clamp_min(rate(dagul_tick_duration_ms_count[1m]), 0.001) > 10
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "다굴즈 평균 틱 {{ "{{ $value | humanize }}" }}ms"
+            description: "평균 틱 처리 시간이 10ms를 초과하고 있습니다. 정상 범위는 1ms 미만입니다."
+
+        - alert: DagulServerFull
+          expr: dagul_ccu_admit == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "다굴즈 서버 정원 초과 — 입장 불가"
+            description: "서버가 정원에 도달해 새 플레이어를 받지 못하고 있습니다."
