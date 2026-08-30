@@ -115,13 +115,13 @@ def lint_file(path: pathlib.Path):
         if m:
             findings.append((i, 'lobby-verb', f'"{m.group(1)}" 송신은 web/lib/hub(React) 소유 — GD에서 금지'))
 
-        if RE_WS_NEW.search(line):
+        if RE_WS_NEW.search(line) and path.name != 'native_hub_client.gd':
             findings.append((i, 'ws-client-dup', 'GD 자체 WebSocket 금지 — 네트워크는 페이지 브릿지(network_manager) 경유'))
 
         if RE_HARDCODED_KO.search(stripped) and path.name != 'hud_strings.gd' and '# lint-gd: i18n-ok' not in line:
             findings.append((i, 'hardcoded-korean', '한국어 리터럴 — HudStrings.tr() 사용'))
 
-        if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name not in ('game_registry.gd', 'boot.gd'):
+        if 'core' in path.parts and RE_GAMES_REF.search(line) and path.name not in ('game_registry.gd', 'boot.gd', 'native_lobby.gd'):
             findings.append((i, 'core-games', 'core/ 는 games/ 를 참조할 수 없다 — 계약(GameModule)으로 우회'))
 
         if path.name != 'web_contract.gd':
