@@ -16,7 +16,8 @@ import { healthBody } from "./lib/hub/health.js";
 import { ccuHttpBody } from "./lib/hub/ccu-http.js";
 import { ccuMetricsText } from "./lib/hub/ccu-metrics.js";
 import { playMetricsText } from "./lib/hub/play-metrics.js";
-import { opsMetricsText, recordAssetLoadTime } from "./lib/hub/ops-metrics.js";
+import { opsMetricsText, recordAssetLoadTime, statsSnapshot } from "./lib/hub/ops-metrics.js";
+import { statsPageHtml } from "./lib/hub/stats-page.js";
 import { revisionBody } from "./lib/hub/revision.js";
 import { liveRevisionId } from "./lib/hub/revision-fs.js";
 import { redisConn } from "./lib/hub/redis-conn.js";
@@ -107,6 +108,20 @@ function serveMeta(pathname: string, res: ServerResponse): boolean {
   }
   if (pathname === "/api/version") {
     jsonOk(res, revisionBody(liveRevisionId()));
+    return true;
+  }
+  if (pathname === "/api/stats") {
+    const snap = localCcu();
+    const rooms = playRoomsCache.map((r) => r as { clients: number; metadata?: { phase?: string } });
+    const totalRooms = rooms.length;
+    const playingRooms = rooms.filter((r) => (r.metadata as Record<string, unknown> | undefined)?.phase === "playing").length;
+    const totalPlayers = rooms.reduce((a, r) => a + r.clients, 0);
+    jsonOk(res, JSON.stringify(statsSnapshot(snap.ccu, snap.cap, snap.admit, totalRooms, playingRooms, totalPlayers)));
+    return true;
+  }
+  if (pathname === "/stats") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+    res.end(statsPageHtml());
     return true;
   }
   return false;

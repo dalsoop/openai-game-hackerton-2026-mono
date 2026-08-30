@@ -118,6 +118,28 @@ function pruneOldDays(keepKey: string): void {
   }
 }
 
+// ── stats snapshot (for /api/stats JSON) ──
+
+export function statsSnapshot(ccu: number, cap: number, admit: boolean, rooms: number, roomsPlaying: number, players: number): Record<string, unknown> {
+  void refreshDauCache();
+  const redisDau = getCachedDau();
+  const inMemDau = dailySessions.get(todayKey())?.size ?? 0;
+  return {
+    ccu, ccu_cap: cap, admit, rooms, rooms_playing: roomsPlaying, players,
+    dau: redisDau > 0 ? redisDau : inMemDau,
+    games_started: gamesStartedTotal, games_finished: gamesFinishedTotal,
+    kicks: playerKickTotal, match_failures: matchFailTotal,
+    ws_connections: wsConnTotal, ws_disconnects: wsDisconnTotal, ws_errors: wsErrTotal,
+    ws_queue: wsQueueDepth,
+    tick_sum: tickDurSum, tick_count: tickDurCount, tick_max: tickDurMax, tick_overruns: tickOverrunTotal,
+    session_sum: sessionDurSum, session_count: sessionDurCount,
+    match_wait_sum: matchWaitSum, match_wait_count: matchWaitCount,
+    round_sum: roundDurSum, round_count: roundDurCount,
+    asset_sum: assetLoadSum, asset_count: assetLoadCount,
+    d1: getCachedD1(), d7: getCachedD7(),
+  };
+}
+
 // ── Prometheus text ──
 
 export function opsMetricsText(slot = process.env.SLOT_FOLDER ?? ""): string {
