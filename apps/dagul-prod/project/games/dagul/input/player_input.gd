@@ -6,6 +6,10 @@ const LayoutKeysScript := preload("res://core/input/layout_keys.gd")
 const TouchPolicy := preload("res://core/contract/touch_policy.gd")
 const TouchPadScript := preload("res://games/dagul/input/touch_pad.gd")
 
+## 패드 애드온은 심링크라 체크아웃에 따라 없을 수 있다. preload 하면 게임이 통째로 죽으므로
+## 상수만 여기 둔다. tools/godot-touch-controls/touch_controls.gd 의 AIM_RANGE 와 같은 값.
+const AIM_RANGE := 400.0
+
 var pad: TouchPadScript
 var previous_keys: Dictionary = {}
 var previous_right_mouse: bool = false
@@ -40,11 +44,11 @@ func read_move() -> Vector2:
 	return pad.move()
 
 
+## 패드가 켜지면 마우스 좌표는 의미가 없다. 스틱을 놓아도 마지막 방향을 계속 본다.
 func read_aim(space: CanvasItem, local_player_pos: Vector2) -> Vector2:
-	var aim_world := space.get_global_mouse_position()
-	if pad.aiming():
-		aim_world = local_player_pos + pad.aim_dir() * 400.0
-	return aim_world
+	if pad.is_on():
+		return local_player_pos + pad.aim_last() * AIM_RANGE
+	return space.get_global_mouse_position()
 
 
 func read_primary() -> bool:
@@ -52,9 +56,9 @@ func read_primary() -> bool:
 		pad.is_on(), Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT), pad.fire())
 
 
+## 스킬 버튼은 패드에서 뺐다. 마우스 우클릭만 남는다.
 func read_equipment() -> bool:
-	return TouchPolicy.action_held(
-		pad.is_on(), Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT), pad.skill())
+	return not pad.is_on() and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 
 
 func poll(space: CanvasItem, local_player_pos: Vector2) -> Dictionary:
@@ -84,11 +88,14 @@ func idle_command(aim: Vector2) -> Dictionary:
 func build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: bool) -> Dictionary:
 	var ultimate_edge: bool = edge(KEY_Q) or bool(pad.consume_ult())
 	var mobility_edge: bool = edge(KEY_SHIFT) or bool(pad.consume_dash())
-	var medkit_edge: bool = edge(KEY_E) or bool(pad.consume_medkit())
+	var medkit_edge: bool = edge(KEY_E)
+	# 탭은 한 틱짜리 발사다. 엣지라 여기서 딱 한 번만 읽는다.
+	var tap: bool = bool(pad.consume_aim_tap())
+	var primary_now: bool = primary or tap
 	var cmd := {
 		"move": move, "aim": aim,
-		"primary": primary,
-		"primary_pressed": primary and not previous_left_mouse,
+		"primary": primary_now,
+		"primary_pressed": tap or (primary_now and not previous_left_mouse),
 		"equipment": equipment_held,
 		"equipment_pressed": equipment_held and not previous_right_mouse,
 		"equipment_released": not equipment_held and previous_right_mouse,
@@ -98,7 +105,7 @@ func build_command(move: Vector2, aim: Vector2, primary: bool, equipment_held: b
 		"emote": _read_emote(),
 	}
 	previous_right_mouse = equipment_held
-	previous_left_mouse = primary
+	previous_left_mouse = primary_now
 	return cmd
 
 

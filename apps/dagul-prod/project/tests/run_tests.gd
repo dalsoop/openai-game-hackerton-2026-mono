@@ -17,6 +17,7 @@ const SUITES := [
 	"res://tests/test_hub_state_sync.gd",
 	"res://tests/test_touch_policy.gd",
 	"res://tests/test_touch_pad.gd",
+	"res://tests/test_virtual_stick.gd",
 	"res://tests/test_game_state_autoload.gd",
 	"res://tests/test_input_release.gd",
 	"res://tests/test_layout_keys.gd",

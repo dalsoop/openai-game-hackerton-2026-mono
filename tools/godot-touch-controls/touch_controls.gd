@@ -13,11 +13,8 @@ var _control_mode := "auto"
 var _root: Control = null
 var _move_stick = null
 var _aim_stick = null
-var _fire = null
-var _skill = null
 var _dash = null
 var _ult = null
-var _medkit = null
 
 var move: Vector2:
     get:
@@ -28,21 +25,27 @@ var aim_dir: Vector2:
 var aiming: bool:
     get:
         return _aim_stick != null and _aim_stick.active and _aim_stick.output.length() > AIM_DEADZONE
+## 손을 뗀 뒤에도 남는 마지막 조준 방향. 탭 발사와 바라보는 방향이 이걸 쓴다.
+var aim_last: Vector2:
+    get:
+        return _aim_stick.last_dir if _aim_stick != null else Vector2.RIGHT
+## 조준 스틱을 밀고 있으면 그게 곧 발사다. 공격 버튼은 없앴다.
 var fire: bool:
     get:
-        return _fire != null and _fire.held
-var skill: bool:
-    get:
-        return _skill != null and _skill.held
+        return _aim_stick != null and _aim_stick.output.length() > AIM_DEADZONE
 var dash_held: bool:
     get:
         return _dash != null and _dash.held
-var medkit_held: bool:
-    get:
-        return _medkit != null and _medkit.held
 var ult_held: bool:
     get:
         return _ult != null and _ult.held
+## 스킬·약 버튼은 뺐다. 이 패드를 함께 쓰는 다른 앱이 읽으므로 이름은 남긴다.
+var skill: bool:
+    get:
+        return false
+var medkit_held: bool:
+    get:
+        return false
 
 const TouchPolicy := preload("res://core/contract/touch_policy.gd")
 
@@ -84,11 +87,15 @@ func is_enabled() -> bool:
 func consume_dash() -> bool:
     return _dash != null and _dash.consume_press()
 
-func consume_medkit() -> bool:
-    return _medkit != null and _medkit.consume_press()
-
 func consume_ult() -> bool:
     return _ult != null and _ult.consume_press()
+
+## 조준 스틱을 밀지 않고 툭 치면 마지막 방향으로 한 발.
+func consume_aim_tap() -> bool:
+    return _aim_stick != null and _aim_stick.consume_tap()
+
+func consume_medkit() -> bool:
+    return false
 
 static func resolve_font() -> Font:
     for entry in ProjectSettings.get_global_class_list():
@@ -112,7 +119,7 @@ func _apply_visibility() -> void:
         _release_all()
 
 func _release_all() -> void:
-    for node in [_move_stick, _aim_stick, _fire, _skill, _dash, _ult, _medkit]:
+    for node in [_move_stick, _aim_stick, _dash, _ult]:
         if node != null:
             node.reset()
 
@@ -125,11 +132,10 @@ func _build() -> void:
     var font := resolve_font()
     _move_stick = _make_stick(Vector2(215.0, 695.0))
     _aim_stick = _make_stick(Vector2(1385.0, 695.0))
-    _fire = _make_button("공격", Vector2(1150.0, 680.0), 66.0, Color("#ffd166"), font)
-    _skill = _make_button("스킬", Vector2(1220.0, 530.0), 48.0, Color("#fa7921"), font)
-    _dash = _make_button("대시", Vector2(1050.0, 525.0), 50.0, Color("#66e09a"), font)
-    _ult = _make_button("궁", Vector2(918.0, 700.0), 48.0, Color("#ff5d91"), font)
-    _medkit = _make_button("약", Vector2(918.0, 560.0), 44.0, Color("#6ef3a5"), font)
+    _aim_stick.show_aim_indicator = true
+    # 대시·궁은 조준 스틱(좌측 경계 x≈1246) 바깥에 둬서 엄지가 짧게 닿되 히트박스는 안 겹치게.
+    _dash = _make_button("대시", Vector2(1130.0, 762.0), 54.0, Color("#66e09a"), font)
+    _ult = _make_button("궁", Vector2(1096.0, 606.0), 58.0, Color("#ff5d91"), font)
 
 func _make_stick(center: Vector2) -> Control:
     var stick: Control = VirtualStickScript.new()
