@@ -207,6 +207,8 @@ func _return_to_hub() -> void:
 	_apply_playing_visuals(false)
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.dispatchEvent(new CustomEvent('%s', {detail: {}}))" % WebContract.EVT_MATCH_END)
+	else:
+		get_tree().call_deferred("change_scene_to_file", "res://core/native/native_lobby.tscn")
 
 ## 매치 표시 전환 — 상태 판정은 GameState(SSOT)가, 화면 반영은 여기가 담당한다.
 func _apply_playing_visuals(playing: bool) -> void:
