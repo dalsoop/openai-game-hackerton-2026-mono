@@ -35,6 +35,7 @@ var _hub_url := ""
 var _session_id := ""
 var _reconnection_token := ""
 var _room_id := ""
+var _process_id := ""
 var _pending := ""
 
 
@@ -186,9 +187,9 @@ func _on_matchmake_done(
 		error_received.emit("매치메이킹 응답 파싱 실패")  # lint-gd: i18n-ok
 		return
 	var data: Dictionary = parsed as Dictionary
-	var room: Variant = data.get("room", {})
-	_room_id = str(room.get("roomId", "")) if room is Dictionary else ""
+	_room_id = str(data.get("roomId", ""))
 	_session_id = str(data.get("sessionId", ""))
+	_process_id = str(data.get("processId", ""))
 	if _room_id == "" or _session_id == "":
 		_reset()
 		error_received.emit("응답에 roomId/sessionId 없음")  # lint-gd: i18n-ok
@@ -200,7 +201,7 @@ func _on_matchmake_done(
 
 func _open_room_ws() -> void:
 	_phase = Phase.WS_JOINING
-	var ws_url := "%s/%s?sessionId=%s" % [_to_ws(_hub_url), _room_id, _session_id]
+	var ws_url := "%s/%s/%s?sessionId=%s" % [_to_ws(_hub_url), _process_id, _room_id, _session_id]
 	var err := _ws.connect_to_url(ws_url)
 	if err != OK:
 		_reset()
@@ -307,6 +308,7 @@ func _reset() -> void:
 	_phase = Phase.IDLE
 	_session_id = ""
 	_room_id = ""
+	_process_id = ""
 	_reconnection_token = ""
 
 
@@ -316,6 +318,9 @@ func _to_ws(url: String) -> String:
 	if url.begins_with("http://"):
 		return "ws://" + url.substr(7)
 	return url
+
+
+
 
 
 func _err_text(text: String) -> String:

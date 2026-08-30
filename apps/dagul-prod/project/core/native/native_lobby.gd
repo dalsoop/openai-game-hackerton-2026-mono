@@ -62,7 +62,7 @@ func _env_server_url() -> String:
 	var env := OS.get_environment("DAGUL_SERVER_URL")
 	if env != "":
 		return env
-	return "http://localhost:2567"
+	return "http://localhost:3100"
 
 
 func _on_connect_pressed() -> void:
