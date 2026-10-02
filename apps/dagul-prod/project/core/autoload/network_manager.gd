@@ -1,7 +1,6 @@
 extends Node
-## 인게임 I/O — 허브 소켓은 React 만 연다.
-## START 시 페이지가 MATCH/FROM_HUB 를 sessionStorage 에 남기고 좌석을 유지한다.
-## 이 노드는 Colyseus.Client 를 만들지 않고, DOM 이벤트(EVT_TO_ENGINE / FROM_ENGINE)로만 말한다.
+## 인게임 I/O — 웹이면 React DOM 이벤트, 네이티브(Steam)면 NativeHubClient 직결.
+## 시그널 인터페이스(11개)는 경로에 무관하게 동일하다 — 게임 코드는 경로를 모른다.
 
 signal status_changed(status: String)  # lint-gd: public-api
 signal joined_room(room: Dictionary, players: Array, you: int)  # lint-gd: public-api
@@ -42,6 +41,8 @@ var resume_token := ""  # lint-gd: public-api
 var match_ready := false  # lint-gd: public-api
 var load_held := false  # lint-gd: public-api
 
+var _is_native := false  # lint-gd: public-api
+var _native_client: Node = null
 var _last_phase := ""
 var _to_engine_cb = null
 var _page_window = null
@@ -52,6 +53,10 @@ var _last_input_fp := ""
 const READY_RETRY_SEC := 0.5  # lint-gd: public-api
 
 func _ready() -> void:
+    _is_native = not OS.has_feature("web")
+    if _is_native:
+        _bind_native_client()
+        return
     var locale := _read_ls(WebContract.KEY_LOCALE)
     if locale != "":
         HudStrings.set_locale(locale)
@@ -214,6 +219,9 @@ func _engine_socket_active() -> bool:
     return sock != null and bool(sock.call("is_active"))
 
 func send_input(msg: Dictionary) -> void:  # lint-gd: public-api
+    if _is_native:
+        _send(WebContract.MSG_INPUT, msg)
+        return
     if _engine_socket_active():
         _engine_socket().call("send_input", msg)
         return
@@ -264,7 +272,9 @@ func leave_room() -> void:  # lint-gd: public-api
     left_room.emit()
 
 func _send(type: String, msg: Dictionary) -> void:
-    if not OS.has_feature("web"):
+    if _is_native:
+        if _native_client != null:
+            _native_client.send(type, msg)
         return
     var packet := JSON.stringify({"type": type, "payload": msg})
     var win = _cached_page_window()
@@ -307,3 +317,70 @@ func _read_ls(key: String) -> String:
     if text == "<null>" or text == "null" or text == "undefined":
         return ""
     return text
+
+# --- 네이티브(Steam) 전용 경로 --- #
+
+func _bind_native_client() -> void:
+    var _NativeScript := preload("res://core/net/native_hub_client.gd")
+    _native_client = _NativeScript.new()
+    add_child(_native_client)
+    _native_client.message_received.connect(_on_native_message)
+    _native_client.state_received.connect(_on_native_state)
+    _native_client.connected.connect(_on_native_connected)
+    _native_client.disconnected.connect(_on_native_disconnected)
+    _native_client.error_received.connect(_on_native_error)
+    _native_client.room_joined.connect(_on_native_room_joined)
+    _native_client.room_left.connect(_on_native_room_left)
+    _set_status(STATUS_IDLE)
+
+func _on_native_connected() -> void:
+    _set_status(STATUS_LOBBY)
+
+func _on_native_disconnected() -> void:
+    if match_running:
+        match_running = false
+        left_room.emit()
+    _set_status(STATUS_IDLE)
+
+func _on_native_error(msg: String) -> void:
+    hub_error.emit(msg)
+
+func _on_native_state(state: Dictionary) -> void:
+    _sync_state(state)
+
+func _on_native_message(type: String, payload: Dictionary) -> void:
+    _on_bridge_packet({"type": type, "payload": payload})
+
+func _on_native_room_joined(data: Dictionary) -> void:
+    in_room = true
+    resume_token = str(data.get("reconnectionToken", ""))
+
+func _on_native_room_left() -> void:
+    in_room = false
+    match_running = false
+    left_room.emit()
+
+func connect_to_server(url: String) -> void:  # lint-gd: public-api
+    if not _is_native or _native_client == null:
+        return
+    _native_client.set_hub_url(url)
+
+func native_join_or_create(options: Dictionary = {}) -> void:  # lint-gd: public-api
+    if not _is_native or _native_client == null:
+        return
+    _native_client.join_or_create(options)
+
+func native_join_by_id(room_id: String, options: Dictionary = {}) -> void:  # lint-gd: public-api
+    if not _is_native or _native_client == null:
+        return
+    _native_client.join_by_id(room_id, options)
+
+func native_create_room(options: Dictionary = {}) -> void:  # lint-gd: public-api
+    if not _is_native or _native_client == null:
+        return
+    _native_client.create_room(options)
+
+func native_list_rooms() -> void:  # lint-gd: public-api
+    if not _is_native or _native_client == null:
+        return
+    _native_client.list_rooms()
